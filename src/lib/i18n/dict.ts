@@ -449,7 +449,7 @@ export const dict: Dict = {
   "finance.income.sponsor": { tr: "Sponsor", en: "Sponsor" },
   "finance.income.tv": { tr: "TV", en: "TV Rights" },
   "finance.income.merch": { tr: "Lisans", en: "Merchandise" },
-  "finance.expense.wages": { tr: "Maaslar", en: "Wages" },
+  "finance.expense.wages": { tr: "Maaşlar", en: "Wages" },
   "finance.expense.staff": { tr: "Personel", en: "Staff" },
   "finance.expense.facilities": { tr: "Tesisler", en: "Facilities" },
   "finance.health": { tr: "Mali Sağlık", en: "Financial Health" },
