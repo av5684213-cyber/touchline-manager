@@ -33,6 +33,10 @@ export const dict: Dict = {
   "nav.standings": { tr: "Puan Durumu", en: "Standings" },
   "nav.facilities": { tr: "Yerleşke", en: "Facilities" },
   "nav.fixture": { tr: "Fikstür", en: "Fixture" },
+  "nav.scouting": { tr: "Scout", en: "Scouting" },
+  "nav.youth": { tr: "Altyapı", en: "Youth" },
+  "nav.awards": { tr: "Ödüller", en: "Awards" },
+  "nav.reports": { tr: "Raporlar", en: "Reports" },
   "nav.other": { tr: "Diğer", en: "More" },
 
   // ---- common ----
@@ -494,4 +498,47 @@ export const dict: Dict = {
   "fixture.season_progress": { tr: "Sezon İlerlemesi", en: "Season Progress" },
   "fixture.next_match": { tr: "Sonraki Maç", en: "Next Match" },
   "fixture.no_upcoming": { tr: "Tüm maçlar oynandı", en: "All matches played" },
+
+  // ---- scouting ----
+  "scouting.title": { tr: "Scout Merkezi", en: "Scouting Center" },
+  "scouting.slots": { tr: "Scout Slotları", en: "Scout Slots" },
+  "scouting.search": { tr: "Arama Yap", en: "Search" },
+  "scouting.tier": { tr: "Arama Seviyesi", en: "Search Tier" },
+  "scouting.tier.1": { tr: "Temel", en: "Basic" },
+  "scouting.tier.2": { tr: "Gelişmiş", en: "Advanced" },
+  "scouting.tier.3": { tr: "Elit", en: "Elite" },
+  "scouting.results": { tr: "Sonuçlar", en: "Results" },
+  "scouting.no_results": { tr: "Sonuç yok, arama yap", en: "No results, start a search" },
+  "scouting.add_watchlist": { tr: "İzlemeye Ekle", en: "Add to Watchlist" },
+  "scouting.hidden_gem": { tr: "Gizli Yetenek!", en: "Hidden Gem!" },
+  "scouting.no_scouts": { tr: "Scout yok. Yerleşke'den scout işe al.", en: "No scouts. Hire from Facilities." },
+
+  // ---- youth academy ----
+  "youth.title": { tr: "Altyapı Akademisi", en: "Youth Academy" },
+  "youth.players": { tr: "Altyapı Oyuncuları", en: "Youth Players" },
+  "youth.promote": { tr: "A Takıma Terfi Et", en: "Promote to First Team" },
+  "youth.empty": { tr: "Altyapıda oyuncu yok", en: "No youth players" },
+  "youth.potential": { tr: "Potansiyel", en: "Potential" },
+  "youth.academy_level": { tr: "Akademi Seviyesi", en: "Academy Level" },
+
+  // ---- awards ----
+  "awards.title": { tr: "Ödüller & Kupalar", en: "Awards & Trophies" },
+  "awards.season": { tr: "Sezon Ödülleri", en: "Season Awards" },
+  "awards.champion": { tr: "Şampiyon", en: "Champion" },
+  "awards.top_scorer": { tr: "Gol Kralı", en: "Top Scorer" },
+  "awards.top_assist": { tr: "Asist Kralı", en: "Top Assist" },
+  "awards.mvp": { tr: "En Değerli Oyuncu", en: "MVP" },
+  "awards.empty": { tr: "Henüz ödül yok", en: "No awards yet" },
+  "awards.legends": { tr: "Efsaneler Salonu", en: "Legends Hall" },
+  "awards.legends_empty": { tr: "Henüz efsane yok", en: "No legends yet" },
+
+  // ---- weekly reports ----
+  "reports.title": { tr: "Haftalık Rapor", en: "Weekly Report" },
+  "reports.summary": { tr: "Özet", en: "Summary" },
+  "reports.best_player": { tr: "Haftanın Oyuncusu", en: "Player of the Week" },
+  "reports.league_pos": { tr: "Lig Sırası", en: "League Position" },
+  "reports.income": { tr: "Gelir", en: "Income" },
+  "reports.expense": { tr: "Gider", en: "Expense" },
+  "reports.net": { tr: "Net", en: "Net" },
+  "reports.matches": { tr: "Maçlar", en: "Matches" },
 };

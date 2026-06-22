@@ -16,8 +16,12 @@ import { TransferScreen } from "@/components/touchline/screens/transfer";
 import { TrainingScreen } from "@/components/touchline/screens/training";
 import { StandingsScreen } from "@/components/touchline/screens/standings";
 import { FixtureScreen } from "@/components/touchline/screens/fixture";
+import { ScoutingScreen } from "@/components/touchline/screens/scouting";
+import { YouthAcademyScreen } from "@/components/touchline/screens/youth-academy";
 import { FacilitiesScreen } from "@/components/touchline/screens/facilities";
 import { FinanceScreen } from "@/components/touchline/screens/finance";
+import { AwardsScreen } from "@/components/touchline/screens/awards";
+import { WeeklyReportScreen } from "@/components/touchline/screens/weekly-report";
 import { OtherDrawer } from "@/components/touchline/other-drawer";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useSwipe, useBodyScrollLock } from "@/hooks/touchline";
@@ -72,8 +76,12 @@ export default function Home() {
           {tab === "training" && <TrainingScreen />}
           {tab === "standings" && <StandingsScreen />}
           {tab === "fixture" && <FixtureScreen />}
+          {tab === "scouting" && <ScoutingScreen />}
+          {tab === "youth" && <YouthAcademyScreen />}
           {tab === "facilities" && <FacilitiesScreen />}
           {tab === "finance" && <FinanceScreen />}
+          {tab === "awards" && <AwardsScreen />}
+          {tab === "reports" && <WeeklyReportScreen />}
         </main>
         <BottomNav
           active={tab}

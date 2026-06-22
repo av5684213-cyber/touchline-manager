@@ -8,6 +8,10 @@ import {
   Dumbbell,
   Grid2x2,
   Calendar,
+  Search,
+  GraduationCap,
+  Award,
+  BarChart3,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { haptic } from "@/hooks/touchline";
@@ -22,8 +26,12 @@ export type TabKey =
   // Diğer drawer'ındaki sekmeler
   | "standings"
   | "fixture"
+  | "scouting"
+  | "youth"
   | "facilities"
-  | "finance";
+  | "finance"
+  | "awards"
+  | "reports";
 
 export const MAIN_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: string }[] = [
   { key: "dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard" },
@@ -36,8 +44,12 @@ export const MAIN_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: s
 export const OTHER_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: string }[] = [
   { key: "standings", icon: Trophy, labelKey: "nav.standings" },
   { key: "fixture", icon: Calendar, labelKey: "nav.fixture" },
+  { key: "scouting", icon: Search, labelKey: "nav.scouting" },
+  { key: "youth", icon: GraduationCap, labelKey: "nav.youth" },
   { key: "facilities", icon: Grid2x2, labelKey: "nav.facilities" },
   { key: "finance", icon: LayoutDashboard, labelKey: "nav.finance" },
+  { key: "awards", icon: Award, labelKey: "nav.awards" },
+  { key: "reports", icon: BarChart3, labelKey: "nav.reports" },
 ];
 
 export function BottomNav({

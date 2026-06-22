@@ -385,7 +385,7 @@ function generateStats(pos: Position, ovr: number): PlayerStats {
   }
 }
 
-function generatePlayer(pos: Position, ovrRange: { min: number; max: number }): Player {
+export function generatePlayer(pos: Position, ovrRange: { min: number; max: number }): Player {
   const ovr = rand(ovrRange.min, ovrRange.max);
   const isForeign = Math.random() < 0.25;
   const first = isForeign ? pick(FIRST_NAMES_FOREIGN) : pick(FIRST_NAMES_TR);
