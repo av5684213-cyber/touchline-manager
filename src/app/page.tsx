@@ -6,6 +6,7 @@ import { TopBar } from "@/components/touchline/top-bar";
 import { BottomNav, type TabKey } from "@/components/touchline/bottom-nav";
 import { DashboardScreen } from "@/components/touchline/screens/dashboard";
 import { TacticsScreen } from "@/components/touchline/screens/tactics";
+import { MatchScreen } from "@/components/touchline/screens/match";
 import { ComingSoonScreen } from "@/components/touchline/screens/coming-soon";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useSwipe } from "@/hooks/touchline";
@@ -25,11 +26,11 @@ export default function Home() {
   return (
     <AuthGate>
       <div className="tm-app-shell flex flex-col">
-        <TopBar />
+        {tab !== "match" && <TopBar />}
         <main className="flex-1 overflow-y-auto tm-thin-scrollbar">
           {tab === "dashboard" && <DashboardScreen />}
           {tab === "tactics" && <TacticsScreen />}
-          {tab === "match" && <ComingSoonScreen title={t("nav.match")} />}
+          {tab === "match" && <MatchScreen />}
           {tab === "transfer" && <ComingSoonScreen title={t("nav.transfer")} />}
           {tab === "finance" && <ComingSoonScreen title={t("nav.finance")} />}
         </main>
