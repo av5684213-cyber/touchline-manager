@@ -219,7 +219,7 @@ export function TransferScreen() {
                 </button>
                 <div className="flex flex-col items-end gap-1">
                   <RatingBadge value={p.formRating} />
-                  <div className="text-[9px] text-muted-foreground">{formatEuro(listing.wageDemand, )}/hafta</div>
+                  <div className="text-[9px] text-muted-foreground">{formatEuro(listing.wageDemand)}/hafta</div>
                 </div>
                 <button
                   onClick={() => {

@@ -5,7 +5,8 @@ import { ArrowUp, GraduationCap, Sparkles } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { generatePlayer, POSITION_GROUP, type Player } from "@/lib/mock/data";
-import { PlayerAvatar, PositionPill } from "../ui-bits";
+import { PlayerAvatar, PositionPill, RatingBadge } from "../ui-bits";
+import { PlayerProfileModal } from "../player-profile-modal";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 
@@ -27,6 +28,7 @@ export function YouthAcademyScreen() {
     });
   });
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
 
   if (!team) return null;
 
@@ -73,12 +75,21 @@ export function YouthAcademyScreen() {
         <div className="space-y-1.5">
           {youthPlayers.map((p) => (
             <div key={p.id} className="tm-card p-2.5 flex items-center gap-2.5">
-              <PlayerAvatar
-                initials={`${p.firstName[0]}${p.lastName[0]}`}
-                color={team.primaryColor}
-                size={32}
-              />
-              <div className="flex-1 min-w-0">
+              <button
+                onClick={() => { haptic("light"); setProfilePlayer(p); }}
+                className="tm-tap shrink-0"
+                aria-label="Profil"
+              >
+                <PlayerAvatar
+                  initials={`${p.firstName[0]}${p.lastName[0]}`}
+                  color={team.primaryColor}
+                  size={32}
+                />
+              </button>
+              <button
+                onClick={() => { haptic("light"); setProfilePlayer(p); }}
+                className="flex-1 min-w-0 text-left"
+              >
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs font-semibold truncate">{p.firstName} {p.lastName}</span>
                   <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
@@ -90,7 +101,8 @@ export function YouthAcademyScreen() {
                     <Sparkles size={8} /> {t("youth.potential")}: {p.potential}
                   </span>
                 </div>
-              </div>
+              </button>
+              <RatingBadge value={p.formRating} />
               <button
                 onClick={() => handlePromote(p)}
                 className="tm-tap px-2 py-1.5 rounded text-[10px] font-bold bg-emerald-600 text-white flex items-center gap-1"
@@ -101,6 +113,15 @@ export function YouthAcademyScreen() {
           ))}
         </div>
       </div>
+
+      {/* Player profile modal */}
+      {profilePlayer && (
+        <PlayerProfileModal
+          player={profilePlayer}
+          teamColor={team.primaryColor}
+          onClose={() => setProfilePlayer(null)}
+        />
+      )}
     </div>
   );
 }

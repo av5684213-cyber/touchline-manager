@@ -1010,6 +1010,13 @@ export const useAppStore = create<AppState>()(
         if (!state.tactics.activeInstructions) {
           state.tactics.activeInstructions = {};
         }
+        // Eski transfer verilerinde yeni alanlar yoksa üret
+        if (!state.transfer.freeAgentListings) {
+          state.transfer.freeAgentListings = generateFreeAgentListings(15);
+        }
+        if (!state.transfer.loanListings) {
+          state.transfer.loanListings = generateLoanListings(state.clubs, 10);
+        }
         // myTeam varsa taktikleri güncelle (lineup eski kalmış olabilir)
         if (state.myTeamId) {
           const team = state.clubs.find((c) => c.id === state.myTeamId);

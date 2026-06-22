@@ -230,7 +230,7 @@ export function MatchScreen() {
             homeTeam={homeTeam}
             awayTeam={awayTeam}
             onReplay={() => engine.replay.start()}
-            onNewMatch={() => engine.reset()}
+            onNewMatch={() => { engine.reset(); setShowPreMatch(false); }}
           />
         )}
 

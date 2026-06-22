@@ -14,12 +14,10 @@ export const SEASON_INFO = {
 };
 
 /**
- * Transfer penceresi açık mı?
- * Açık: 1-5. hafta (sezon başı) + 17-22. hafta (devre arası)
+ * Transfer penceresi her zaman açık (şimdilik)
  */
 export function isTransferWindowOpen(): boolean {
-  const md = SEASON_INFO.matchday;
-  return (md >= 1 && md <= 5) || (md >= 17 && md <= 22);
+  return true;
 }
 
 export type FixtureRow = {
