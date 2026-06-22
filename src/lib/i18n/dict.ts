@@ -1,0 +1,177 @@
+import { Dict } from "./types";
+
+/**
+ * Touchline Manager — TR + EN sözlük.
+ * Anahtarlar noktalı namespace ile gruplanır: nav.*, dash.*, tactics.*, ...
+ */
+export const dict: Dict = {
+  // ---- app ----
+  "app.name": { tr: "Touchline Manager", en: "Touchline Manager" },
+  "app.tagline": { tr: "Saha kenarından yönet", en: "Manage from the touchline" },
+
+  // ---- auth ----
+  "auth.demo.title": { tr: "Demo Girişi", en: "Demo Login" },
+  "auth.demo.subtitle": {
+    tr: "Tek tıkla giriş yap, sahte bir 1. Lig takımını devral",
+    en: "One tap to log in and take over a fictional 1. Lig club",
+  },
+  "auth.demo.cta": { tr: "Demo olarak giriş yap", en: "Log in as demo" },
+  "auth.demo.note": {
+    tr: "Veriler bu cihazda saklanır. Supabase daha sonra bağlanacak.",
+    en: "Data is stored locally. Supabase will be wired up later.",
+  },
+  "auth.continue": { tr: "Devam et", en: "Continue" },
+  "auth.welcome": { tr: "Hoş geldin, {name}", en: "Welcome, {name}" },
+
+  // ---- nav ----
+  "nav.dashboard": { tr: "Panel", en: "Dashboard" },
+  "nav.tactics": { tr: "Taktik", en: "Tactics" },
+  "nav.match": { tr: "Maç", en: "Match" },
+  "nav.transfer": { tr: "Transfer", en: "Transfer" },
+  "nav.finance": { tr: "Finans", en: "Finance" },
+
+  // ---- common ----
+  "common.loading": { tr: "Yükleniyor…", en: "Loading…" },
+  "common.back": { tr: "Geri", en: "Back" },
+  "common.save": { tr: "Kaydet", en: "Save" },
+  "common.cancel": { tr: "İptal", en: "Cancel" },
+  "common.close": { tr: "Kapat", en: "Close" },
+  "common.confirm": { tr: "Onayla", en: "Confirm" },
+  "common.all": { tr: "Tümü", en: "All" },
+  "common.yes": { tr: "Evet", en: "Yes" },
+  "common.no": { tr: "Hayır", en: "No" },
+  "common.year": { tr: "yaş", en: "yrs" },
+  "common.matches": { tr: "maç", en: "matches" },
+  "common.per_match": { tr: "/maç", en: "/match" },
+  "common.up": { tr: "yükselişte", en: "up" },
+  "common.down": { tr: "düşüşte", en: "down" },
+  "common.last_3": { tr: "son 3", en: "last 3" },
+
+  // ---- positions ----
+  "pos.gk": { tr: "Kaleci", en: "GK" },
+  "pos.def": { tr: "Defans", en: "DEF" },
+  "pos.mid": { tr: "Orta Saha", en: "MID" },
+  "pos.fwd": { tr: "Forvet", en: "FWD" },
+  "pos.CB": { tr: "Stoper", en: "CB" },
+  "pos.LB": { tr: "Sol Bek", en: "LB" },
+  "pos.RB": { tr: "Sağ Bek", en: "RB" },
+  "pos.CDM": { tr: "Defansif Orta Saha", en: "CDM" },
+  "pos.CM": { tr: "Orta Saha", en: "CM" },
+  "pos.CAM": { tr: "Ofansif Orta Saha", en: "CAM" },
+  "pos.LW": { tr: "Sol Kanat", en: "LW" },
+  "pos.RW": { tr: "Sağ Kanat", en: "RW" },
+  "pos.ST": { tr: "Santrafor", en: "ST" },
+  "pos.CF": { tr: "Forvet", en: "CF" },
+
+  // ---- dashboard ----
+  "dash.budget": { tr: "Bütçe", en: "Budget" },
+  "dash.season": { tr: "Sezon", en: "Season" },
+  "dash.league": { tr: "Lig", en: "League" },
+  "dash.1lig": { tr: "1. Lig", en: "1. Lig" },
+  "dash.points": { tr: "Puan", en: "Points" },
+  "dash.position": { tr: "Sıra", en: "Position" },
+  "dash.winloss": { tr: "G-M", en: "W-L" },
+  "dash.draws": { tr: "beraberlik", en: "draws" },
+  "dash.goals_scored": { tr: "Atılan Gol", en: "Goals Scored" },
+  "dash.morale": { tr: "Takım Morali", en: "Team Morale" },
+  "dash.morale.good": { tr: "İyi", en: "Good" },
+  "dash.morale.great": { tr: "Çok İyi", en: "Great" },
+  "dash.morale.ok": { tr: "Orta", en: "OK" },
+  "dash.morale.bad": { tr: "Kötü", en: "Poor" },
+  "dash.recent": { tr: "Son Maçlar", en: "Recent Matches" },
+  "dash.next_match": { tr: "Sonraki Maç", en: "Next Match" },
+  "dash.vs": { tr: "vs", en: "vs" },
+  "dash.home": { tr: "İç Saha", en: "Home" },
+  "dash.away": { tr: "Deplasman", en: "Away" },
+  "dash.kickoff_in": { tr: "Başlamasına", en: "Kick-off in" },
+  "dash.days": { tr: "gün", en: "d" },
+  "dash.hours": { tr: "sa", en: "h" },
+  "dash.mins": { tr: "dk", en: "m" },
+  "dash.quick_actions": { tr: "Hızlı Aksiyonlar", en: "Quick Actions" },
+  "dash.play_match": { tr: "Maçı Oyna", en: "Play Match" },
+  "dash.standings": { tr: "Puan Durumu", en: "Standings" },
+  "dash.fixtures": { tr: "Fikstür", en: "Fixtures" },
+  "dash.training": { tr: "Antrenman", en: "Training" },
+  "dash.tactics": { tr: "Taktik", en: "Tactics" },
+  "dash.notifications": { tr: "Bildirimler", en: "Notifications" },
+  "dash.notifications.empty": {
+    tr: "Yeni bildirim yok",
+    en: "No new notifications",
+  },
+  "dash.squad_size": { tr: "Kadro", en: "Squad" },
+  "dash.squad_quality": { tr: "Kadro Kalitesi", en: "Squad Quality" },
+  "dash.season_day": { tr: "Sezon Günü", en: "Season Day" },
+  "dash.players": { tr: "oyuncu", en: "players" },
+  "dash.team_summary": { tr: "Takım Özeti", en: "Team Summary" },
+
+  // ---- tactics ----
+  "tactics.title": { tr: "Taktik & Kadro", en: "Tactics & Squad" },
+  "tactics.formation": { tr: "Formasyon", en: "Formation" },
+  "tactics.lineup": { tr: "İlk 11", en: "Starting XI" },
+  "tactics.subs": { tr: "Yedekler", en: "Substitutes" },
+  "tactics.score": { tr: "Taktik Skoru", en: "Tactic Score" },
+  "tactics.score_hint": {
+    tr: "Formasyon, oyuncu rolleri ve taktik ayarlarına göre hesaplanır",
+    en: "Computed from formation, player roles and tactic settings",
+  },
+  "tactics.roles": { tr: "Roller", en: "Roles" },
+  "tactics.instructions": { tr: "Talimatlar", en: "Instructions" },
+  "tactics.compare": { tr: "Oyuncu Karşılaştır", en: "Compare Players" },
+  "tactics.sell": { tr: "Sat", en: "Sell" },
+  "tactics.compare.select": {
+    tr: "Karşılaştırmak için 2 oyuncu seç",
+    en: "Pick 2 players to compare",
+  },
+  "tactics.sliders.attacking_pressure": {
+    tr: "Baskı Şiddeti",
+    en: "Attacking Pressure",
+  },
+  "tactics.sliders.defensive_line": {
+    tr: "Defans Hattı",
+    en: "Defensive Line",
+  },
+  "tactics.sliders.tempo": { tr: "Tempo", en: "Tempo" },
+  "tactics.sliders.wing_play": { tr: "Kanat Oyunu", en: "Wing Play" },
+  "tactics.player.roles": { tr: "Oyuncu Rolleri", en: "Player Roles" },
+  "tactics.role.balanced": { tr: "Dengeli", en: "Balanced" },
+  "tactics.role.attacking": { tr: "Ofansif", en: "Attacking" },
+  "tactics.role.defensive": { tr: "Defansif", en: "Defensive" },
+  "tactics.role.support": { tr: "Destek", en: "Support" },
+  "tactics.no_player": { tr: "—", en: "—" },
+  "tactics.swap_player": { tr: "Oyuncu değiştir", en: "Swap player" },
+  "tactics.empty_slot": { tr: "Boş", en: "Empty" },
+
+  // ---- notifications ----
+  "notif.injury": { tr: "Sakatlık", en: "Injury" },
+  "notif.result": { tr: "Sonuç", en: "Result" },
+  "notif.transfer": { tr: "Transfer", en: "Transfer" },
+  "notif.training": { tr: "Antrenman", en: "Training" },
+
+  // ---- formations ----
+  "form.4-4-2": { tr: "4-4-2", en: "4-4-2" },
+  "form.4-3-3": { tr: "4-3-3", en: "4-3-3" },
+  "form.4-2-3-1": { tr: "4-2-3-1", en: "4-2-3-1" },
+  "form.3-5-2": { tr: "3-5-2", en: "3-5-2" },
+  "form.4-5-1": { tr: "4-5-1", en: "4-5-1" },
+  "form.4-4-1-1": { tr: "4-4-1-1", en: "4-4-1-1" },
+  "form.3-4-3": { tr: "3-4-3", en: "3-4-3" },
+  "form.5-3-2": { tr: "5-3-2", en: "5-3-2" },
+  "form.4-1-4-1": { tr: "4-1-4-1", en: "4-1-4-1" },
+  "form.4-2-4": { tr: "4-2-4", en: "4-2-4" },
+  "form.3-4-2-1": { tr: "3-4-2-1", en: "3-4-2-1" },
+  "form.4-3-2-1": { tr: "4-3-2-1", en: "4-3-2-1" },
+  "form.5-4-1": { tr: "5-4-1", en: "5-4-1" },
+  "form.4-1-3-2": { tr: "4-1-3-2", en: "4-1-3-2" },
+
+  // ---- player stats ----
+  "stat.pace": { tr: "Hız", en: "Pace" },
+  "stat.shooting": { tr: "Şut", en: "Shooting" },
+  "stat.passing": { tr: "Pas", en: "Passing" },
+  "stat.defending": { tr: "Defans", en: "Defending" },
+  "stat.physical": { tr: "Fizik", en: "Physical" },
+  "stat.dribbling": { tr: "Dripling", en: "Dribbling" },
+  "stat.goals_short": { tr: "G", en: "G" },
+  "stat.assists_short": { tr: "A", en: "A" },
+  "stat.saves_short": { tr: "K", en: "S" },
+  "stat.condition": { tr: "Kondisyon", en: "Condition" },
+};

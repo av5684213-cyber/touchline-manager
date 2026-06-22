@@ -1,0 +1,338 @@
+import { FORMATIONS, Team, type Formation, type Player } from "./data";
+
+/**
+ * Sezon + fikstür + tablo + bildirim üretimi.
+ * Hepsi sahte veri; Supabase bağlanana kadar ön yüz bunu kullanır.
+ */
+
+export const SEASON_INFO = {
+  year: "2025–26",
+  league: "1lig" as const,
+  matchday: 14,
+  totalMatchdays: 34,
+  startedAt: new Date("2025-08-15T00:00:00+03:00"),
+};
+
+export type FixtureRow = {
+  id: string;
+  matchday: number;
+  homeId: string;
+  awayId: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  date: string; // ISO
+  played: boolean;
+};
+
+export type StandingRow = {
+  teamId: string;
+  teamName: string;
+  shortName: string;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  points: number;
+};
+
+export type Notification = {
+  id: string;
+  kind: "injury" | "result" | "transfer" | "training";
+  title: { tr: string; en: string };
+  body: { tr: string; en: string };
+  at: string; // ISO
+  read: boolean;
+};
+
+/** Double round-robin (34 matchday) — 18 takım için Barry Whittle algoritması. */
+export function generateFixtures(teams: Team[]): FixtureRow[] {
+  const ids = teams.map((t) => t.id);
+  if (ids.length % 2 !== 0) ids.push("BYE");
+  const n = ids.length;
+  const rounds = n - 1;
+  const half = n / 2;
+
+  const fixtures: FixtureRow[] = [];
+  const arr = [...ids];
+
+  for (let r = 0; r < rounds; r++) {
+    for (let i = 0; i < half; i++) {
+      const home = arr[i];
+      const away = arr[n - 1 - i];
+      if (home === "BYE" || away === "BYE") continue;
+      // İlk yarı: r çift → home away, r tek → away home
+      const flip = r % 2 === 1;
+      fixtures.push({
+        id: `f_${r + 1}_${i}`,
+        matchday: r + 1,
+        homeId: flip ? away : home,
+        awayId: flip ? home : away,
+        homeScore: null,
+        awayScore: null,
+        date: new Date(
+          SEASON_INFO.startedAt.getTime() + r * 7 * 24 * 60 * 60 * 1000
+        ).toISOString(),
+        played: false,
+      });
+    }
+    // Rotate (first fixed)
+    const last = arr.pop()!;
+    arr.splice(1, 0, last);
+  }
+
+  // İkinci yarı — ev/deplasman ters
+  const firstHalf = [...fixtures];
+  for (const f of firstHalf) {
+    fixtures.push({
+      id: f.id + "_r",
+      matchday: f.matchday + rounds,
+      homeId: f.awayId,
+      awayId: f.homeId,
+      homeScore: null,
+      awayScore: null,
+      date: new Date(
+        new Date(f.date).getTime() + rounds * 7 * 24 * 60 * 60 * 1000
+      ).toISOString(),
+      played: false,
+    });
+  }
+
+  return fixtures;
+}
+
+/** Geçmiş maçları oyna + sahte skor üret. currentMatchday'e kadar. */
+export function playFixturesUpTo(
+  fixtures: FixtureRow[],
+  currentMatchday: number
+): FixtureRow[] {
+  return fixtures.map((f) => {
+    if (f.matchday >= currentMatchday || f.played) return f;
+    const hs = Math.floor(Math.random() * 5);
+    const as = Math.floor(Math.random() * 4);
+    return { ...f, homeScore: hs, awayScore: as, played: true };
+  });
+}
+
+export function computeStandings(
+  teams: Team[],
+  fixtures: FixtureRow[]
+): StandingRow[] {
+  const map = new Map<string, StandingRow>();
+  for (const t of teams) {
+    map.set(t.id, {
+      teamId: t.id,
+      teamName: t.name,
+      shortName: t.shortName,
+      played: 0,
+      won: 0,
+      drawn: 0,
+      lost: 0,
+      goalsFor: 0,
+      goalsAgainst: 0,
+      points: 0,
+    });
+  }
+
+  for (const f of fixtures) {
+    if (!f.played || f.homeScore === null || f.awayScore === null) continue;
+    const h = map.get(f.homeId);
+    const a = map.get(f.awayId);
+    if (!h || !a) continue;
+    h.played++;
+    a.played++;
+    h.goalsFor += f.homeScore;
+    h.goalsAgainst += f.awayScore;
+    a.goalsFor += f.awayScore;
+    a.goalsAgainst += f.homeScore;
+    if (f.homeScore > f.awayScore) {
+      h.won++;
+      h.points += 3;
+      a.lost++;
+    } else if (f.homeScore < f.awayScore) {
+      a.won++;
+      a.points += 3;
+      h.lost++;
+    } else {
+      h.drawn++;
+      a.drawn++;
+      h.points++;
+      a.points++;
+    }
+  }
+
+  return Array.from(map.values()).sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    const gdA = a.goalsFor - a.goalsAgainst;
+    const gdB = b.goalsFor - b.goalsAgainst;
+    if (gdB !== gdA) return gdB - gdA;
+    return b.goalsFor - a.goalsFor;
+  });
+}
+
+export function myRecentMatches(
+  fixtures: FixtureRow[],
+  myTeamId: string,
+  limit = 4
+): FixtureRow[] {
+  return fixtures
+    .filter(
+      (f) => f.played && (f.homeId === myTeamId || f.awayId === myTeamId)
+    )
+    .sort((a, b) => b.matchday - a.matchday)
+    .slice(0, limit);
+}
+
+export function myNextMatch(
+  fixtures: FixtureRow[],
+  myTeamId: string
+): FixtureRow | null {
+  return (
+    fixtures
+      .filter(
+        (f) => !f.played && (f.homeId === myTeamId || f.awayId === myTeamId)
+      )
+      .sort((a, b) => a.matchday - b.matchday)[0] ?? null
+  );
+}
+
+export function myStanding(rows: StandingRow[], myTeamId: string) {
+  const idx = rows.findIndex((r) => r.teamId === myTeamId);
+  if (idx < 0) return null;
+  return { ...rows[idx], position: idx + 1 };
+}
+
+/** Sonraki maç için geri sayım hedefi: bugün + 2 gün 18:00 (TR). */
+export function nextMatchTarget(): Date {
+  const d = new Date();
+  d.setDate(d.getDate() + 2);
+  d.setHours(18, 0, 0, 0);
+  return d;
+}
+
+/** Bildirim havuzu — statik örnekler. */
+export function seedNotifications(): Notification[] {
+  return [
+    {
+      id: "n1",
+      kind: "result",
+      title: { tr: "Maç Sonucu", en: "Match Result" },
+      body: {
+        tr: "Yeditepespor 2-1 Çamlıkspor — 3 puan aldı!",
+        en: "Yeditepespor 2-1 Çamlıkspor — picked up 3 points!",
+      },
+      at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+      read: false,
+    },
+    {
+      id: "n2",
+      kind: "injury",
+      title: { tr: "Sakatlık", en: "Injury" },
+      body: {
+        tr: "Defans Mert Aslan antrenmanda sol uylukta kasık ağrısı yaşadı (7 gün).",
+        en: "Defender Mert Aslan picked up a left groin strain in training (7 days).",
+      },
+      at: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
+      read: false,
+    },
+    {
+      id: "n3",
+      kind: "transfer",
+      title: { tr: "Transfer Teklifi", en: "Transfer Offer" },
+      body: {
+        tr: "Halispor, orta saha Kerem Polat için €450K teklif verdi.",
+        en: "Halispor bid €450K for midfielder Kerem Polat.",
+      },
+      at: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString(),
+      read: true,
+    },
+    {
+      id: "n4",
+      kind: "training",
+      title: { tr: "Antrenman Raporu", en: "Training Report" },
+      body: {
+        tr: "Ofansif antrenman tamamlandı — Kanat oyuncuları +1 pas kazandı.",
+        en: "Attacking session complete — wingers gained +1 passing.",
+      },
+      at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      read: true,
+    },
+  ];
+}
+
+/** Takımın ilk 11'i (formasyonu OTOMATİK doldur, en yüksek OVR'li oyuncuları seç). */
+export function autoFillLineup(
+  team: Team,
+  formation: Formation
+): (Player | null)[] {
+  const used = new Set<string>();
+  const lineup: (Player | null)[] = [];
+
+  for (const slot of formation.slots) {
+    // Slot pozisyonu + ikincil pozisyonlarla eşleşen en iyi oyuncuyu seç
+    const candidate = team.players
+      .filter(
+        (p) =>
+          !used.has(p.id) &&
+          (p.position === slot.pos ||
+            p.secondaryPositions?.includes(slot.pos))
+      )
+      .sort((a, b) => b.ovr - a.ovr)[0];
+
+    // Yoksa aynı gruptan en iyiyi al
+    const fallback =
+      candidate ??
+      team.players
+        .filter((p) => !used.has(p.id))
+        .sort((a, b) => b.ovr - a.ovr)[0] ??
+      null;
+
+    if (fallback) used.add(fallback.id);
+    lineup.push(fallback);
+  }
+
+  return lineup;
+}
+
+/** Taktik skoru — formasyon + roller + sliderların basit fonksiyonu. */
+export function computeTacticScore(
+  team: Team,
+  formation: Formation,
+  lineup: (Player | null)[],
+  sliders: { attackingPressure: number; defensiveLine: number; tempo: number; wingPlay: number }
+): number {
+  // 1) İlk 11 ortalama OVR
+  const filled = lineup.filter((p): p is Player => p !== null);
+  if (filled.length === 0) return 0;
+  const avgOvr = filled.reduce((s, p) => s + p.ovr, 0) / filled.length;
+
+  // 2) Slot-pozisyon uyumu
+  let matchScore = 0;
+  for (let i = 0; i < lineup.length; i++) {
+    const p = lineup[i];
+    const slot = formation.slots[i];
+    if (!p) continue;
+    if (p.position === slot.pos) matchScore += 100 / lineup.length;
+    else if (p.secondaryPositions?.includes(slot.pos))
+      matchScore += 70 / lineup.length;
+    else matchScore += 40 / lineup.length;
+  }
+
+  // 3) Slider dengesi — uç değerler ceza
+  const sliderBalance =
+    100 -
+    Math.abs(50 - sliders.attackingPressure) * 0.1 -
+    Math.abs(50 - sliders.defensiveLine) * 0.1 -
+    Math.abs(50 - sliders.tempo) * 0.1 -
+    Math.abs(50 - sliders.wingPlay) * 0.1;
+
+  // 4) Moral ortalaması
+  const avgMorale = filled.reduce((s, p) => s + p.morale, 0) / filled.length;
+
+  const score =
+    avgOvr * 0.55 + matchScore * 0.25 + sliderBalance * 0.1 + avgMorale * 0.1;
+  return Math.round(Math.max(0, Math.min(100, score)));
+}
+
+export { FORMATIONS };
