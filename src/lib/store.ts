@@ -22,6 +22,15 @@ import {
   type IncomingOffer,
   type TransferListing,
 } from "@/lib/mock/transfer";
+import {
+  assignMentor as assignMentorFn,
+  getDefaultTrainingState,
+  removeMentor as removeMentorFn,
+  runTrainingSession,
+  applyResultsToSquad,
+  todayKey,
+  type TrainingState,
+} from "@/lib/training/engine";
 
 type Tactics = {
   formationKey: string;
@@ -43,6 +52,37 @@ type TransferState = {
   myListedPlayers: { playerId: string; askingPrice: number }[];
 };
 
+// Facilities state — tesis seviyeleri + personel + aktif inşaat
+type FacilitiesState = {
+  // 10 facility × max level 10 (stadium_matrix)
+  levels: {
+    stadium: number; // capacity
+    pitch: number; // training pitch
+    academy: number; // youth academy
+    gym: number;
+    medical: number;
+    analysis: number;
+  };
+  staff: StaffMember[];
+  activeUpgrade: {
+    facilityId: keyof FacilitiesState["levels"] | "staff" | null;
+    startedAt: number;
+    finishAt: number;
+    cost: number;
+  } | null;
+  // Ticket price (0-150)
+  ticketPrice: number;
+};
+
+export type StaffMember = {
+  id: string;
+  type: "scout" | "coach" | "physio" | "analyst" | "youth_coordinator" | "sporting_director";
+  name: string;
+  stars: number; // 1-5
+  hireFee: number;
+  weeklyWage: number;
+};
+
 type AppState = {
   // auth
   isAuthed: boolean;
@@ -59,6 +99,12 @@ type AppState = {
   // transfer
   transfer: TransferState;
 
+  // training
+  training: TrainingState;
+
+  // facilities
+  facilities: FacilitiesState;
+
   // actions
   loginDemo: (name?: string) => void;
   logout: () => void;
@@ -74,6 +120,19 @@ type AppState = {
   rejectOffer: (offerId: string) => void;
   listPlayerForSale: (playerId: string, askingPrice: number) => void;
   unlistPlayer: (playerId: string) => void;
+  // training actions
+  assignProgram: (playerId: string, programId: string) => void;
+  unassignPlayer: (playerId: string) => void;
+  runSession: (multiplier: number) => { success: boolean; reason?: string; results?: ReturnType<typeof runTrainingSession> };
+  assignMentor: (mentorId: string, menteeId: string) => void;
+  removeMentor: (menteeId: string) => void;
+  // facilities actions
+  upgradeFacility: (facilityId: keyof FacilitiesState["levels"]) => { success: boolean; reason?: string };
+  cancelUpgrade: () => void;
+  completeUpgradeIfDue: () => void;
+  hireStaff: (type: StaffMember["type"], stars: number) => { success: boolean; reason?: string };
+  fireStaff: (staffId: string) => void;
+  setTicketPrice: (price: number) => void;
 };
 
 function buildInitialClubs(): Team[] {
@@ -128,6 +187,13 @@ export const useAppStore = create<AppState>()(
         watchlist: [],
         incomingOffers: [],
         myListedPlayers: [],
+      },
+      training: getDefaultTrainingState(),
+      facilities: {
+        levels: { stadium: 0, pitch: 0, academy: 0, gym: 0, medical: 0, analysis: 0 },
+        staff: [],
+        activeUpgrade: null,
+        ticketPrice: 60,
       },
 
       loginDemo: (name) => {
@@ -340,6 +406,224 @@ export const useAppStore = create<AppState>()(
           },
         });
       },
+
+      // ===== Training actions =====
+      assignProgram: (playerId, programId) => {
+        const training = get().training;
+        const existing = training.assignments.find((a) => a.playerId === playerId);
+        let newAssignments;
+        if (existing) {
+          newAssignments = training.assignments.map((a) =>
+            a.playerId === playerId ? { ...a, programId } : a
+          );
+        } else {
+          newAssignments = [...training.assignments, { playerId, programId }];
+        }
+        set({ training: { ...training, assignments: newAssignments } });
+      },
+
+      unassignPlayer: (playerId) => {
+        const training = get().training;
+        set({
+          training: {
+            ...training,
+            assignments: training.assignments.filter((a) => a.playerId !== playerId),
+          },
+        });
+      },
+
+      runSession: (multiplier) => {
+        const { clubs, myTeamId, training, facilities } = get();
+        const team = clubs.find((c) => c.id === myTeamId);
+        if (!team) return { success: false, reason: "no-team" };
+
+        // Günlük limit kontrolü
+        const today = todayKey();
+        let todayCount = training.dailyCount;
+        if (training.lastTrainingDate !== today) {
+          todayCount = 0;
+        }
+        if (todayCount >= 2) {
+          return { success: false, reason: "daily-limit" };
+        }
+
+        const facilityLevel = facilities.levels.pitch;
+        const results = runTrainingSession(team.players, training, facilityLevel, multiplier);
+
+        // Sonuçları kadroya uygula
+        const updatedPlayers = applyResultsToSquad(team.players, results);
+        const updatedTeam = { ...team, players: updatedPlayers };
+        const updatedClubs = clubs.map((c) => (c.id === team.id ? updatedTeam : c));
+
+        // Slot güncelle
+        const nextSlot: "morning" | "afternoon" = todayCount === 0 ? "afternoon" : "morning";
+
+        set({
+          clubs: updatedClubs,
+          training: {
+            ...training,
+            dailyCount: todayCount + 1,
+            lastTrainingDate: today,
+            sessionSlot: nextSlot,
+            lastSessionResults: results,
+          },
+        });
+
+        return { success: true, results };
+      },
+
+      assignMentor: (mentorId, menteeId) => {
+        const training = get().training;
+        set({ training: assignMentorFn(training, mentorId, menteeId) });
+      },
+
+      removeMentor: (menteeId) => {
+        const training = get().training;
+        set({ training: removeMentorFn(training, menteeId) });
+      },
+
+      // ===== Facilities actions =====
+      upgradeFacility: (facilityId) => {
+        const { clubs, myTeamId, facilities } = get();
+        const team = clubs.find((c) => c.id === myTeamId);
+        if (!team) return { success: false, reason: "no-team" };
+
+        if (facilities.activeUpgrade) {
+          return { success: false, reason: "upgrade-in-progress" };
+        }
+
+        const currentLevel = facilities.levels[facilityId];
+        if (currentLevel >= 10) {
+          return { success: false, reason: "max-level" };
+        }
+
+        // Maliyet: 250K × 2.2^level
+        const cost = Math.floor(250000 * Math.pow(2.2, currentLevel));
+        if (team.budget < cost) {
+          return { success: false, reason: "budget" };
+        }
+
+        // Süre: 2 gün (level ≤2), sonra 2 × 1.5^(level-2)
+        const days = currentLevel <= 1 ? 2 : Math.floor(2 * Math.pow(1.5, currentLevel - 2));
+        const now = Date.now();
+        const finishAt = now + days * 24 * 60 * 60 * 1000;
+
+        team.budget -= cost;
+
+        set({
+          clubs: [...clubs],
+          facilities: {
+            ...facilities,
+            activeUpgrade: {
+              facilityId,
+              startedAt: now,
+              finishAt,
+              cost,
+            },
+          },
+        });
+
+        return { success: true };
+      },
+
+      cancelUpgrade: () => {
+        const { clubs, myTeamId, facilities } = get();
+        const team = clubs.find((c) => c.id === myTeamId);
+        if (!team || !facilities.activeUpgrade) return;
+
+        // %50 iade
+        const refund = Math.floor(facilities.activeUpgrade.cost * 0.5);
+        team.budget += refund;
+
+        set({
+          clubs: [...clubs],
+          facilities: { ...facilities, activeUpgrade: null },
+        });
+      },
+
+      completeUpgradeIfDue: () => {
+        const { facilities } = get();
+        if (!facilities.activeUpgrade) return;
+        if (Date.now() < facilities.activeUpgrade.finishAt) return;
+
+        const fid = facilities.activeUpgrade.facilityId;
+        if (fid === "staff" || fid === null) {
+          set({ facilities: { ...facilities, activeUpgrade: null } });
+          return;
+        }
+
+        set({
+          facilities: {
+            ...facilities,
+            levels: {
+              ...facilities.levels,
+              [fid]: facilities.levels[fid] + 1,
+            },
+            activeUpgrade: null,
+          },
+        });
+      },
+
+      hireStaff: (type, stars) => {
+        const { clubs, myTeamId, facilities } = get();
+        const team = clubs.find((c) => c.id === myTeamId);
+        if (!team) return { success: false, reason: "no-team" };
+
+        // Personel limiti
+        const sameType = facilities.staff.filter((s) => s.type === type).length;
+        const limits: Record<string, number> = {
+          scout: 3, coach: 3, physio: 3, analyst: 2, youth_coordinator: 2, sporting_director: 1,
+        };
+        if (sameType >= limits[type]) {
+          return { success: false, reason: "limit" };
+        }
+
+        // Ücret tablosu (basit)
+        const baseFee: Record<string, number> = {
+          scout: 400_000, coach: 650_000, physio: 200_000, analyst: 150_000,
+          youth_coordinator: 450_000, sporting_director: 350_000,
+        };
+        const hireFee = Math.round(baseFee[type] * (1 + (stars - 1) * 0.2));
+        if (team.budget < hireFee) {
+          return { success: false, reason: "budget" };
+        }
+
+        team.budget -= hireFee;
+        const names = ["Ahmet", "Mehmet", "Burak", "Serkan", "Emre", "Volkan", "Levent", "Cemal"];
+        const surnames = ["Yıldız", "Demir", "Şahin", "Çelik", "Koç", "Aksoy", "Polat", "Erdoğan"];
+        const name = `${names[Math.floor(Math.random() * names.length)]} ${surnames[Math.floor(Math.random() * surnames.length)]}`;
+
+        const newStaff: StaffMember = {
+          id: `staff_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          type,
+          name,
+          stars,
+          hireFee,
+          weeklyWage: Math.floor(hireFee / 52),
+        };
+
+        set({
+          clubs: [...clubs],
+          facilities: { ...facilities, staff: [...facilities.staff, newStaff] },
+        });
+
+        return { success: true };
+      },
+
+      fireStaff: (staffId) => {
+        const { facilities } = get();
+        set({
+          facilities: {
+            ...facilities,
+            staff: facilities.staff.filter((s) => s.id !== staffId),
+          },
+        });
+      },
+
+      setTicketPrice: (price) => {
+        const { facilities } = get();
+        set({ facilities: { ...facilities, ticketPrice: Math.max(0, Math.min(150, price)) } });
+      },
     }),
     {
       name: "tm.app.v1",
@@ -350,6 +634,8 @@ export const useAppStore = create<AppState>()(
         myTeamId: s.myTeamId,
         tactics: s.tactics,
         transfer: s.transfer,
+        training: s.training,
+        facilities: s.facilities,
       }),
       // Hydration sonrası clubs/fixtures'ı yeniden üret
       onRehydrateStorage: () => (state) => {
