@@ -189,7 +189,7 @@
   content: "";
   position: absolute;
   top: 50%; left: 50%;
-  width: 80px; height: 80px;
+  width: 60%; height: 30%;
   transform: translate(-50%, -50%);
   border: 1.5px solid var(--pitch-line);
   border-radius: 50%;

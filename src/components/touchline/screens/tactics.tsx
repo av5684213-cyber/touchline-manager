@@ -58,6 +58,8 @@ export function TacticsScreen() {
     defensive: false,
     set_piece: false,
   });
+  // Slot oyuncu seçim modal'ı
+  const [slotPicker, setSlotPicker] = useState<number | null>(null);
 
   // Eski localStorage verilerinde tactics.active olmayabilir — fallback
   const active = tactics.active ?? DEFAULT_TACTIC;
@@ -179,7 +181,7 @@ export function TacticsScreen() {
             </button>
           )}
         </div>
-        <div className="tm-pitch relative mx-2 my-2 rounded-xl" style={{ aspectRatio: "3 / 4" }}>
+        <div className="tm-pitch relative mx-2 my-2 rounded-xl" style={{ aspectRatio: "2 / 3" }}>
           {pitchCoords.map((coord, i) => {
             const p = tactics.lineup[i];
             const slotPos = slots[i];
@@ -189,21 +191,21 @@ export function TacticsScreen() {
             return (
               <button
                 key={i}
-                onClick={() => {
-                  if (p) setRoleSlot(roleSlot === i ? null : i);
-                  else setSwapSlot(swapSlot === i ? null : i);
-                }}
+                onClick={() => { haptic("light"); setSlotPicker(i); }}
                 className={cn(
                   "absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-0.5",
-                  isSwap && "scale-110"
+                  slotPicker === i && "scale-110"
                 )}
                 style={{ left: `${coord.x}%`, top: `${coord.y}%` }}
               >
                 <span
                   className={cn(
                     "inline-flex items-center justify-center rounded-full text-[10px] font-bold text-white border-2",
-                    isSwap ? "border-yellow-400 ring-2 ring-yellow-400/50" : "border-white/70",
-                    roleSlot === i && "border-amber-400 ring-2 ring-amber-400/50"
+                    slotPicker === i
+                      ? "border-amber-400 ring-2 ring-amber-400/50"
+                      : p
+                      ? "border-white/70"
+                      : "border-yellow-400/70 border-dashed"
                   )}
                   style={{
                     width: 32, height: 32,
@@ -213,7 +215,7 @@ export function TacticsScreen() {
                   {p ? p.rating : slotPos}
                 </span>
                 <span className="text-[8px] text-white font-semibold drop-shadow max-w-[60px] truncate text-center">
-                  {p ? `${p.firstName[0]}. ${p.lastName}` : ""}
+                  {p ? `${p.firstName[0]}. ${p.lastName}` : "Boş"}
                 </span>
                 {role && (
                   <span className="text-[7px] text-amber-300 font-semibold">
@@ -262,6 +264,36 @@ export function TacticsScreen() {
         )}
       </div>
 
+      {/* Slot oyuncu seçim modal'ı */}
+      {slotPicker !== null && (
+        <SlotPlayerPicker
+          slotIndex={slotPicker}
+          slotPos={slots[slotPicker]}
+          team={team}
+          lineup={tactics.lineup}
+          onPick={(playerId) => {
+            haptic("success");
+            swapLineupSlot(slotPicker, playerId);
+            setSlotPicker(null);
+          }}
+          onClear={() => {
+            haptic("light");
+            // Slot'u boşalt
+            const newLineup = [...tactics.lineup];
+            newLineup[slotPicker] = null;
+            useAppStore.setState({
+              tactics: { ...tactics, lineup: newLineup },
+            });
+            setSlotPicker(null);
+          }}
+          onRoleClick={() => {
+            setRoleSlot(slotPicker);
+            setSlotPicker(null);
+          }}
+          onClose={() => setSlotPicker(null)}
+        />
+      )}
+
       {/* Tactical Lab — tüm slider + toggle'lar (açılır/kapanır) */}
       <div className="tm-card overflow-hidden">
         <button
@@ -275,9 +307,9 @@ export function TacticsScreen() {
           <div className="flex items-center gap-2">
             {/* Aktif ayar sayısı özeti */}
             <span className="text-[9px] text-muted-foreground">
-              {active.pressing ? 1 : 0 + active.parkTheBus ? 1 : 0 + active.offsideTrap ? 1 : 0 +
-               active.crossGame ? 1 : 0 + active.screenKeeper ? 1 : 0 + active.wasteTime ? 1 : 0 +
-               active.loneStrikerCounter ? 1 : 0} aktif
+              {(active.pressing ? 1 : 0) + (active.parkTheBus ? 1 : 0) + (active.offsideTrap ? 1 : 0) +
+               (active.crossGame ? 1 : 0) + (active.screenKeeper ? 1 : 0) + (active.wasteTime ? 1 : 0) +
+               (active.loneStrikerCounter ? 1 : 0)} aktif
             </span>
             <ChevronDown
               size={14}
@@ -555,6 +587,152 @@ export function TacticsScreen() {
   function setCompareMode_on() {
     setCompareIds([]);
   }
+}
+
+// ===== Slot oyuncu seçim modal'ı =====
+function SlotPlayerPicker({
+  slotIndex,
+  slotPos,
+  team,
+  lineup,
+  onPick,
+  onClear,
+  onRoleClick,
+  onClose,
+}: {
+  slotIndex: number;
+  slotPos: string;
+  team: { id: string; name: string; shortName: string; primaryColor: string; players: PlayerT[] };
+  lineup: (PlayerT | null)[];
+  onPick: (playerId: string) => void;
+  onClear: () => void;
+  onRoleClick: () => void;
+  onClose: () => void;
+}) {
+  const { t, locale } = useI18n();
+  const [showAll, setShowAll] = useState(false);
+
+  // Slot pozisyonuna göre grup belirle
+  const slotGroup = POSITION_GROUP[slotPos as keyof typeof POSITION_GROUP] ?? "MID";
+
+  // Mevcut oyuncu
+  const current = lineup[slotIndex];
+  const usedIds = new Set(lineup.filter((p): p is PlayerT => p !== null).map((p) => p.id));
+
+  // Ait olduğu gruptaki oyuncular (önerilenler) + diğerleri
+  const sameGroup = team.players
+    .filter((p) => !usedIds.has(p.id) || p.id === current?.id)
+    .filter((p) => POSITION_GROUP[p.specificPosition] === slotGroup)
+    .sort((a, b) => b.rating - a.rating);
+
+  const otherGroup = team.players
+    .filter((p) => !usedIds.has(p.id) || p.id === current?.id)
+    .filter((p) => POSITION_GROUP[p.specificPosition] !== slotGroup)
+    .sort((a, b) => b.rating - a.rating);
+
+  const candidates = showAll ? [...sameGroup, ...otherGroup] : sameGroup;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center">
+      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <div className="relative w-full max-w-[390px] bg-background rounded-t-2xl border-t border-border tm-safe-bottom max-h-[80vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <div>
+            <h3 className="text-sm font-bold">Slot {slotIndex + 1} — {slotPos}</h3>
+            <p className="text-[10px] text-muted-foreground">
+              {current ? `Şu an: ${current.firstName} ${current.lastName}` : "Boş slot"}
+            </p>
+          </div>
+          <button onClick={onClose} className="tm-tap p-1">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex gap-1.5 p-2 border-b border-border">
+          <button
+            onClick={onRoleClick}
+            className="tm-tap flex-1 py-1.5 rounded text-[10px] font-bold border border-border bg-card"
+          >
+            🎭 Rol Seç
+          </button>
+          {current && (
+            <button
+              onClick={onClear}
+              className="tm-tap flex-1 py-1.5 rounded text-[10px] font-bold border border-red-500/30 bg-red-500/10 text-red-400"
+            >
+              ✕ Boşalt
+            </button>
+          )}
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className={cn(
+              "tm-tap flex-1 py-1.5 rounded text-[10px] font-bold border",
+              showAll ? "bg-primary text-primary-foreground border-primary" : "border-border bg-card"
+            )}
+          >
+            {showAll ? "Sadece Önerilen" : "Tümünü Göster"}
+          </button>
+        </div>
+
+        {/* Player list */}
+        <div className="flex-1 overflow-y-auto tm-thin-scrollbar p-2 space-y-1">
+          {candidates.length === 0 && (
+            <div className="text-center text-xs text-muted-foreground py-6">
+              Uygun oyuncu yok
+            </div>
+          )}
+          {candidates.map((p) => {
+            const isCurrent = current?.id === p.id;
+            const isUsed = usedIds.has(p.id) && !isCurrent;
+            return (
+              <button
+                key={p.id}
+                onClick={() => !isUsed && onPick(p.id)}
+                disabled={isUsed}
+                className={cn(
+                  "tm-tap w-full flex items-center gap-2.5 p-2.5 rounded-md border text-left",
+                  isCurrent ? "bg-primary/10 border-primary" : "bg-card border-border",
+                  isUsed && "opacity-40"
+                )}
+              >
+                <PlayerAvatar
+                  initials={`${p.firstName[0]}${p.lastName[0]}`}
+                  color={team.primaryColor}
+                  size={32}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold truncate">
+                      {p.firstName} {p.lastName}
+                    </span>
+                    <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
+                    {isCurrent && (
+                      <span className="text-[8px] px-1 py-0.5 rounded bg-primary text-primary-foreground font-bold">
+                        SEÇİLİ
+                      </span>
+                    )}
+                    {isUsed && (
+                      <span className="text-[8px] px-1 py-0.5 rounded bg-muted text-muted-foreground">
+                        Başka slotta
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[9px] text-muted-foreground">
+                    {p.age}{t("common.year")} · {p.archetype ?? "—"} · Kondisyon {p.cond}%
+                  </div>
+                </div>
+                <div className="text-right">
+                  <RatingBadge value={p.formRating} />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function SliderMini({
