@@ -24,10 +24,13 @@ export type FixtureRow = {
   played: boolean;
 };
 
+export type FormResult = "W" | "D" | "L";
+
 export type StandingRow = {
   teamId: string;
   teamName: string;
   shortName: string;
+  primaryColor: string;
   played: number;
   won: number;
   drawn: number;
@@ -35,6 +38,7 @@ export type StandingRow = {
   goalsFor: number;
   goalsAgainst: number;
   points: number;
+  form: FormResult[]; // en yeni son sırada, en fazla 5
 };
 
 export type Notification = {
@@ -125,6 +129,7 @@ export function computeStandings(
       teamId: t.id,
       teamName: t.name,
       shortName: t.shortName,
+      primaryColor: t.primaryColor,
       played: 0,
       won: 0,
       drawn: 0,
@@ -132,34 +137,50 @@ export function computeStandings(
       goalsFor: 0,
       goalsAgainst: 0,
       points: 0,
+      form: [],
     });
   }
 
-  for (const f of fixtures) {
-    if (!f.played || f.homeScore === null || f.awayScore === null) continue;
+  // Maçları matchday sırasına göre işle, form takibi için
+  const sortedFixtures = [...fixtures]
+    .filter((f) => f.played && f.homeScore !== null && f.awayScore !== null)
+    .sort((a, b) => a.matchday - b.matchday);
+
+  for (const f of sortedFixtures) {
     const h = map.get(f.homeId);
     const a = map.get(f.awayId);
     if (!h || !a) continue;
     h.played++;
     a.played++;
-    h.goalsFor += f.homeScore;
-    h.goalsAgainst += f.awayScore;
-    a.goalsFor += f.awayScore;
-    a.goalsAgainst += f.homeScore;
-    if (f.homeScore > f.awayScore) {
+    h.goalsFor += f.homeScore!;
+    h.goalsAgainst += f.awayScore!;
+    a.goalsFor += f.awayScore!;
+    a.goalsAgainst += f.homeScore!;
+    if (f.homeScore! > f.awayScore!) {
       h.won++;
       h.points += 3;
       a.lost++;
-    } else if (f.homeScore < f.awayScore) {
+      h.form.push("W");
+      a.form.push("L");
+    } else if (f.homeScore! < f.awayScore!) {
       a.won++;
       a.points += 3;
       h.lost++;
+      h.form.push("L");
+      a.form.push("W");
     } else {
       h.drawn++;
       a.drawn++;
       h.points++;
       a.points++;
+      h.form.push("D");
+      a.form.push("D");
     }
+  }
+
+  // Her takım için son 5 maçı al
+  for (const row of map.values()) {
+    row.form = row.form.slice(-5);
   }
 
   return Array.from(map.values()).sort((a, b) => {
@@ -167,7 +188,8 @@ export function computeStandings(
     const gdA = a.goalsFor - a.goalsAgainst;
     const gdB = b.goalsFor - b.goalsAgainst;
     if (gdB !== gdA) return gdB - gdA;
-    return b.goalsFor - a.goalsFor;
+    if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+    return a.teamId.localeCompare(b.teamId);
   });
 }
 

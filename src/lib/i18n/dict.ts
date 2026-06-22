@@ -6,7 +6,7 @@ import { Dict } from "./types";
  */
 export const dict: Dict = {
   // ---- app ----
-  "app.name": { tr: "Siyah Beyaz FC", en: "Siyah Beyaz FC" },
+  "app.name": { tr: "Touchline Manager", en: "Touchline Manager" },
   "app.tagline": { tr: "Saha kenarından yönet", en: "Manage from the touchline" },
 
   // ---- auth ----
@@ -29,6 +29,10 @@ export const dict: Dict = {
   "nav.match": { tr: "Maç", en: "Match" },
   "nav.transfer": { tr: "Transfer", en: "Transfer" },
   "nav.finance": { tr: "Finans", en: "Finance" },
+  "nav.training": { tr: "Antrenman", en: "Training" },
+  "nav.standings": { tr: "Puan Durumu", en: "Standings" },
+  "nav.facilities": { tr: "Yerleşke", en: "Facilities" },
+  "nav.other": { tr: "Diğer", en: "More" },
 
   // ---- common ----
   "common.loading": { tr: "Yükleniyor…", en: "Loading…" },
@@ -241,4 +245,28 @@ export const dict: Dict = {
   "match.post.col.goals": { tr: "G", en: "G" },
   "match.post.col.assists": { tr: "A", en: "A" },
   "match.post.col.cards": { tr: "Kart", en: "Cards" },
+
+  // ---- standings ----
+  "standings.title": { tr: "Puan Durumu", en: "League Table" },
+  "standings.matchday": { tr: "Hafta", en: "Matchday" },
+  "standings.col.pos": { tr: "#", en: "#" },
+  "standings.col.team": { tr: "Takım", en: "Team" },
+  "standings.col.played": { tr: "O", en: "P" },
+  "standings.col.won": { tr: "G", en: "W" },
+  "standings.col.drawn": { tr: "B", en: "D" },
+  "standings.col.lost": { tr: "M", en: "L" },
+  "standings.col.gf": { tr: "AG", en: "GF" },
+  "standings.col.ga": { tr: "YG", en: "GA" },
+  "standings.col.gd": { tr: "AV", en: "GD" },
+  "standings.col.points": { tr: "P", en: "Pts" },
+  "standings.col.form": { tr: "Form", en: "Form" },
+  "standings.zone.promotion": { tr: "Doğrudan Çıkma", en: "Promotion" },
+  "standings.zone.playoff": { tr: "Play-off", en: "Play-off" },
+  "standings.zone.relegation": { tr: "Düşme", en: "Relegation" },
+  "standings.zone.middle": { tr: "Orta Sıra", en: "Mid-table" },
+  "standings.form.w": { tr: "G", en: "W" },
+  "standings.form.d": { tr: "B", en: "D" },
+  "standings.form.l": { tr: "M", en: "L" },
+  "standings.you": { tr: "Sen", en: "You" },
+  "standings.legend": { tr: "Açıklama", en: "Legend" },
 };

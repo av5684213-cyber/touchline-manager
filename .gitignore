@@ -52,3 +52,7 @@ prompt
 server.log
 # Skills directory
 /skills/
+# Reference repo (read-only, do not commit)
+_ref/
+# Tool result scratch files
+tool-results/

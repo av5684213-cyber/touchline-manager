@@ -1,35 +1,62 @@
 "use client";
 
-import { LayoutDashboard, ClipboardList, Trophy, ArrowLeftRight, Wallet } from "lucide-react";
+import {
+  LayoutDashboard,
+  ClipboardList,
+  Trophy,
+  ArrowLeftRight,
+  Dumbbell,
+  Grid2x2,
+} from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { haptic } from "@/hooks/touchline";
 import { cn } from "@/lib/utils";
 
-export type TabKey = "dashboard" | "tactics" | "match" | "transfer" | "finance";
+export type TabKey =
+  | "dashboard"
+  | "tactics"
+  | "match"
+  | "transfer"
+  | "training"
+  // Diğer drawer'ındaki sekmeler
+  | "standings"
+  | "facilities"
+  | "finance";
 
-const TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: string }[] = [
+export const MAIN_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: string }[] = [
   { key: "dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard" },
   { key: "tactics", icon: ClipboardList, labelKey: "nav.tactics" },
   { key: "match", icon: Trophy, labelKey: "nav.match" },
   { key: "transfer", icon: ArrowLeftRight, labelKey: "nav.transfer" },
-  { key: "finance", icon: Wallet, labelKey: "nav.finance" },
+  { key: "training", icon: Dumbbell, labelKey: "nav.training" },
+];
+
+export const OTHER_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: string }[] = [
+  { key: "standings", icon: Trophy, labelKey: "nav.standings" },
+  { key: "facilities", icon: Grid2x2, labelKey: "nav.facilities" },
+  { key: "finance", icon: LayoutDashboard, labelKey: "nav.finance" },
 ];
 
 export function BottomNav({
   active,
   onChange,
+  onOpenOther,
 }: {
   active: TabKey;
   onChange: (k: TabKey) => void;
+  onOpenOther: () => void;
 }) {
   const { t } = useI18n();
+  // 'Diğer' drawer'ındaki sekmelerden biri aktifse, 'Diğer' butonu vurgulu
+  const otherActive = OTHER_TABS.some((tab) => tab.key === active);
+
   return (
     <nav
-      className="tm-bottom-nav grid grid-cols-5 gap-0"
+      className="tm-bottom-nav grid grid-cols-6 gap-0"
       role="tablist"
       aria-label="tabs"
     >
-      {TABS.map((tab) => {
+      {MAIN_TABS.map((tab) => {
         const Icon = tab.icon;
         const isActive = tab.key === active;
         return (
@@ -60,6 +87,30 @@ export function BottomNav({
           </button>
         );
       })}
+      <button
+        role="tab"
+        aria-label={t("nav.other")}
+        aria-selected={otherActive}
+        onClick={() => {
+          haptic("light");
+          onOpenOther();
+        }}
+        className={cn(
+          "tm-tap flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors",
+          otherActive
+            ? "text-primary"
+            : "text-muted-foreground hover:text-foreground"
+        )}
+      >
+        <Grid2x2 size={20} strokeWidth={otherActive ? 2.4 : 2} />
+        <span className="truncate max-w-full px-1">{t("nav.other")}</span>
+        <span
+          className={cn(
+            "h-0.5 w-6 rounded-full transition-all",
+            otherActive ? "bg-primary opacity-100" : "opacity-0"
+          )}
+        />
+      </button>
     </nav>
   );
 }
