@@ -15,8 +15,10 @@ import {
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import type { SeasonSummary } from "@/lib/store";
+import type { Player as PlayerT } from "@/lib/mock/data";
 import { SeasonEndModal } from "../season-end-modal";
 import { TeamDetailModal } from "../team-detail-modal";
+import { PlayerProfileModal } from "../player-profile-modal";
 import { haptic } from "@/hooks/touchline";
 import {
   computeStandings,
@@ -70,11 +72,12 @@ export function DashboardScreen() {
   const { clubs, fixtures } = useAppStore();
   const team = useMyTeam();
 
-  const [notifs] = useState<Notification[]>(() => seedNotifications());
+  const [notifs] = useState<Notification[]>(() => seedNotifications(clubs, team?.id ?? ""));
   const [target] = useState(() => nextMatchTarget());
   const [, force] = useState(0);
   const [seasonSummary, setSeasonSummary] = useState<SeasonSummary | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [profilePlayer, setProfilePlayer] = useState<PlayerT | null>(null);
 
   // Geri sayım her dakika güncelle
   useEffect(() => {
@@ -307,18 +310,30 @@ export function DashboardScreen() {
               {t("dash.notifications.empty")}
             </div>
           )}
-          {notifs.map((n) => (
-            <div key={n.id} className="flex items-start gap-3 p-3">
-              <NotifIcon kind={n.kind} />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold">{n.title[locale]}</div>
-                <div className="text-xs text-muted-foreground">{n.body[locale]}</div>
-              </div>
-              <div className="text-[10px] text-muted-foreground whitespace-nowrap">
-                {relativeTime(n.at, locale)}
-              </div>
-            </div>
-          ))}
+          {notifs.map((n) => {
+            const notifTeam = n.teamId ? clubs.find((c) => c.id === n.teamId) : null;
+            const notifPlayer = n.playerId ? team?.players.find((p) => p.id === n.playerId) : null;
+            return (
+              <button
+                key={n.id}
+                onClick={() => {
+                  haptic("light");
+                  if (notifPlayer) setProfilePlayer(notifPlayer);
+                  else if (notifTeam) setSelectedTeamId(notifTeam.id);
+                }}
+                className="tm-tap w-full flex items-start gap-3 p-3 text-left hover:bg-accent/50 transition-colors"
+              >
+                <NotifIcon kind={n.kind} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold">{n.title[locale]}</div>
+                  <div className="text-xs text-muted-foreground">{n.body[locale]}</div>
+                </div>
+                <div className="text-[10px] text-muted-foreground whitespace-nowrap">
+                  {relativeTime(n.at, locale)}
+                </div>
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -371,6 +386,15 @@ export function DashboardScreen() {
           />
         );
       })()}
+
+      {/* Player profile modal */}
+      {profilePlayer && team && (
+        <PlayerProfileModal
+          player={profilePlayer}
+          teamColor={team.primaryColor}
+          onClose={() => setProfilePlayer(null)}
+        />
+      )}
     </div>
   );
 }

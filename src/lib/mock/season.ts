@@ -55,6 +55,8 @@ export type Notification = {
   body: { tr: string; en: string };
   at: string; // ISO
   read: boolean;
+  teamId?: string; // bildirimde geçen takım
+  playerId?: string; // bildirimde geçen oyuncu
 };
 
 /** Double round-robin (34 matchday) — 18 takım için Barry Whittle algoritması. */
@@ -241,40 +243,53 @@ export function nextMatchTarget(): Date {
 }
 
 /** Bildirim havuzu — statik örnekler. */
-export function seedNotifications(): Notification[] {
+export function seedNotifications(clubs: Team[], myTeamId: string): Notification[] {
+  // Kullanıcının takımından bir oyuncu bul (sakatlık için)
+  const myTeam = clubs.find((c) => c.id === myTeamId);
+  const myPlayer = myTeam?.players.find((p) => p.position === "DEF") ?? myTeam?.players[0];
+  // Rakip takımlar (kullanıcının takımı hariç)
+  const opp1 = clubs.find((c) => c.id !== myTeamId);
+  const opp2 = clubs.find((c) => c.id !== myTeamId && c.id !== opp1?.id);
+  // Kullanıcının orta saha oyuncusu (transfer teklifi için)
+  const myMid = myTeam?.players.find((p) => p.position === "MID");
+
   return [
     {
       id: "n1",
       kind: "result",
       title: { tr: "Maç Sonucu", en: "Match Result" },
       body: {
-        tr: "Yeditepespor 2-1 Çamlıkspor — 3 puan aldı!",
-        en: "Yeditepespor 2-1 Çamlıkspor — picked up 3 points!",
+        tr: `${opp1?.name ?? "Rakip"} 2-1 ${opp2?.name ?? "Rakip"} — 3 puan aldı!`,
+        en: `${opp1?.name ?? "Opp"} 2-1 ${opp2?.name ?? "Opp"} — picked up 3 points!`,
       },
       at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
       read: false,
+      teamId: opp1?.id,
     },
     {
       id: "n2",
       kind: "injury",
       title: { tr: "Sakatlık", en: "Injury" },
       body: {
-        tr: "Defans Mert Aslan antrenmanda sol uylukta kasık ağrısı yaşadı (7 gün).",
-        en: "Defender Mert Aslan picked up a left groin strain in training (7 days).",
+        tr: `Defans ${myPlayer?.firstName ?? ""} ${myPlayer?.lastName ?? ""} antrenmanda sol uylukta kasık ağrısı yaşadı (7 gün).`,
+        en: `Defender ${myPlayer?.firstName ?? ""} ${myPlayer?.lastName ?? ""} picked up a left groin strain in training (7 days).`,
       },
       at: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
       read: false,
+      playerId: myPlayer?.id,
     },
     {
       id: "n3",
       kind: "transfer",
       title: { tr: "Transfer Teklifi", en: "Transfer Offer" },
       body: {
-        tr: "Halispor, orta saha Kerem Polat için €450K teklif verdi.",
-        en: "Halispor bid €450K for midfielder Kerem Polat.",
+        tr: `${opp2?.name ?? "Rakip"}, orta saha ${myMid?.firstName ?? ""} ${myMid?.lastName ?? ""} için €450K teklif verdi.`,
+        en: `${opp2?.name ?? "Opp"} bid €450K for midfielder ${myMid?.firstName ?? ""} ${myMid?.lastName ?? ""}.`,
       },
       at: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString(),
       read: true,
+      teamId: opp2?.id,
+      playerId: myMid?.id,
     },
     {
       id: "n4",
