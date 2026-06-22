@@ -45,7 +45,7 @@ export function TacticsScreen() {
   const filteredPlayers =
     filter === "ALL"
       ? team.players
-      : team.players.filter((p) => POSITION_GROUP[p.position] === filter);
+      : team.players.filter((p) => POSITION_GROUP[p.specificPosition] === filter);
 
   const onPlayerTap = (player: Player) => {
     // Eğer swap modundaysa slotu doldur
@@ -228,7 +228,7 @@ export function TacticsScreen() {
         <div className="tm-card divide-y divide-border">
           {filteredPlayers
             .slice()
-            .sort((a, b) => b.ovr - a.ovr)
+            .sort((a, b) => b.rating - a.rating)
             .map((p) => {
               const expanded = expandedId === p.id;
               const isSelected = compareIds.includes(p.id);
@@ -248,7 +248,7 @@ export function TacticsScreen() {
                         <span className="text-sm font-semibold truncate">
                           {p.firstName} {p.lastName}
                         </span>
-                        <PositionPill label={p.position} group={POSITION_GROUP[p.position]} />
+                        <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
                       </div>
                       <div className="text-[11px] text-muted-foreground">
                         {p.age} {t("common.year")} · {p.nationality === "TR" ? "🇹🇷" : "🌍"}
@@ -257,7 +257,7 @@ export function TacticsScreen() {
                     <div className="text-right">
                       <RatingBadge value={p.rating} />
                       <div className="text-[10px] text-muted-foreground mt-0.5">
-                        {p.position === "GK"
+                        {p.specificPosition === "GK"
                           ? `${p.saves} ${t("pos.gk").toLowerCase()}`
                           : `${p.goals}G · ${p.assists}A`}
                       </div>
@@ -375,7 +375,7 @@ function PitchView({
                 background: team?.primaryColor ?? "#1a3a2a",
               }}
             >
-              {p ? p.ovr : slot.pos}
+              {p ? p.rating : slot.pos}
             </span>
             <span className="text-[9px] text-white font-semibold drop-shadow max-w-[60px] truncate text-center">
               {p ? `${p.firstName[0]}. ${p.lastName}` : t_slot()}
@@ -513,7 +513,7 @@ function CompareCard({
 }) {
   const { t } = useI18n();
   const rows: { label: string; get: (p: Player) => number | string }[] = [
-    { label: "OVR", get: (p) => p.ovr },
+    { label: "OVR", get: (p) => p.rating },
     { label: t("dash.morale"), get: (p) => p.morale },
     { label: t("stat.pace"), get: (p) => p.stats.pace },
     { label: t("stat.shooting"), get: (p) => p.stats.shooting },
@@ -582,7 +582,7 @@ function PlayerHeader({
       />
       <div className={cn("min-w-0", alignRight && "text-right")}>
         <div className="text-xs font-semibold truncate">{p.firstName} {p.lastName}</div>
-        <div className="text-[10px] text-muted-foreground">{p.position} · {p.age}</div>
+        <div className="text-[10px] text-muted-foreground">{p.specificPosition} · {p.age}</div>
       </div>
     </div>
   );

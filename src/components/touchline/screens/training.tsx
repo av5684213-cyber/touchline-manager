@@ -45,7 +45,7 @@ export function TrainingScreen() {
   const filteredPlayers = useMemo(() => {
     if (!team) return [];
     if (filter === "ALL") return team.players;
-    return team.players.filter((p) => POSITION_GROUP[p.position] === filter);
+    return team.players.filter((p) => POSITION_GROUP[p.specificPosition] === filter);
   }, [team, filter]);
 
   if (!team) return null;
@@ -255,7 +255,7 @@ export function TrainingScreen() {
                     <span className="text-sm font-semibold truncate">
                       {p.firstName} {p.lastName}
                     </span>
-                    <PositionPill label={p.position} group={POSITION_GROUP[p.position]} />
+                    <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
                     <span className="text-[10px] text-muted-foreground">{p.age}{t("common.year")}</span>
                     {mentorship && <Sparkles size={11} className="text-amber-500" />}
                   </div>
@@ -364,8 +364,8 @@ function ProgramPicker({
   // Hangi programlar bu oyuncu için uygun?
   const eligible = TRAINING_PROGRAMS.filter((p) => {
     if (p.allowedPositions === "ALL") return true;
-    if (p.allowedPositions === "FIELD") return player.position !== "GK";
-    return p.allowedPositions.includes(player.position);
+    if (p.allowedPositions === "FIELD") return player.specificPosition !== "GK";
+    return p.allowedPositions.includes(player.specificPosition);
   });
 
   return (

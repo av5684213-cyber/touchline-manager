@@ -214,9 +214,10 @@ export function runTrainingSession(
     const program = TRAINING_PROGRAMS.find((p) => p.id === assignment.programId);
     if (!program) continue;
 
+    const pos = player.specificPosition;
     if (program.allowedPositions !== "ALL" && program.allowedPositions !== "FIELD") {
-      if (!program.allowedPositions.includes(player.position)) continue;
-    } else if (program.allowedPositions === "FIELD" && player.position === "GK") {
+      if (!program.allowedPositions.includes(pos)) continue;
+    } else if (program.allowedPositions === "FIELD" && pos === "GK") {
       continue;
     }
 
@@ -259,6 +260,7 @@ export function applyResultsToSquad(squad: Player[], results: TrainingSessionRes
   return squad.map((p) => {
     const r = map.get(p.id);
     if (!r) return p;
+    const newCond = Math.max(0, Math.min(100, p.cond + r.condChange));
     return {
       ...p,
       stats: {
@@ -269,9 +271,11 @@ export function applyResultsToSquad(squad: Player[], results: TrainingSessionRes
         physical: Math.min(99, p.stats.physical + (r.statGains.physical ?? 0)),
         dribbling: Math.min(99, p.stats.dribbling + (r.statGains.dribbling ?? 0)),
       },
-      condition: Math.max(0, Math.min(100, p.condition + r.condChange)),
+      cond: newCond,
+      condition: newCond,
       morale: Math.max(0, Math.min(100, p.morale + r.moraleChange)),
-      rating: Math.min(10, Math.round((p.rating + r.ratingChange) * 10) / 10),
+      // rating 0-100, küçük artış
+      rating: Math.min(99, Math.round(p.rating + r.ratingChange * 10)),
     };
   });
 }

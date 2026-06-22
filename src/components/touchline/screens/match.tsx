@@ -24,11 +24,20 @@ import {
   type Player as PlayerT,
 } from "@/lib/mock/data";
 import type {
-  MatchEvent,
-  MatchState,
-  MatchTactics,
-  Side,
+  EnhancedMatchEvent as MatchEvent,
 } from "@/lib/match/engine";
+import type { LiveMatchState } from "@/hooks/use-match-engine";
+
+type MatchState = LiveMatchState;
+type MatchTactics = {
+  formation: string;
+  pressing: number;
+  defensiveLine: number;
+  tempo: number;
+  width: number;
+};
+type Side = "home" | "away" | "neutral";
+type HomeAway = "home" | "away";
 import { ClubBadge, PositionPill, RatingBadge } from "../ui-bits";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
@@ -358,8 +367,8 @@ function EventFeed({
             {emptyText}
           </div>
         )}
-        {events.map((ev) => (
-          <EventRow key={ev.id} ev={ev} locale={locale} />
+        {events.map((ev, i) => (
+          <EventRow key={`${ev.minute}-${i}-${ev.type}`} ev={ev} locale={locale} />
         ))}
       </div>
     </div>
@@ -367,15 +376,16 @@ function EventFeed({
 }
 
 function EventRow({ ev, locale }: { ev: MatchEvent; locale: "tr" | "en" }) {
-  const sideColor = ev.side === "home" ? "border-l-emerald-500" :
-    ev.side === "away" ? "border-l-sky-500" : "border-l-amber-500";
+  const side = (ev.team as string) ?? "neutral";
+  const sideColor = side === "home" ? "border-l-emerald-500" :
+    side === "away" ? "border-l-sky-500" : "border-l-amber-500";
   return (
     <div className={cn("flex items-start gap-2.5 px-3 py-2 border-l-2 border-b border-border/50 last:border-b-0", sideColor)}>
       <span className="text-[11px] font-bold tabular-nums text-muted-foreground w-8 shrink-0 mt-0.5">
         {ev.minute > 90 ? `90+${ev.minute - 90}'` : `${ev.minute}'`}
       </span>
       <EventIcon type={ev.type} />
-      <span className="text-xs flex-1">{ev.text[locale]}</span>
+      <span className="text-xs flex-1">{ev.description}</span>
     </div>
   );
 }
@@ -383,12 +393,24 @@ function EventRow({ ev, locale }: { ev: MatchEvent; locale: "tr" | "en" }) {
 function EventIcon({ type }: { type: MatchEvent["type"] }) {
   const map: Record<string, { emoji: string; cls: string }> = {
     goal: { emoji: "⚽", cls: "" },
-    yellow: { emoji: "🟨", cls: "" },
-    red: { emoji: "🟥", cls: "" },
+    yellow_card: { emoji: "🟨", cls: "" },
+    red_card: { emoji: "🟥", cls: "" },
     injury: { emoji: "🤕", cls: "" },
-    sub: { emoji: "🔄", cls: "" },
-    weather: { emoji: "💨", cls: "" },
-    tactic: { emoji: "⚙️", cls: "" },
+    substitution: { emoji: "🔄", cls: "" },
+    foul: { emoji: "⚙️", cls: "" },
+    corner: { emoji: "🚩", cls: "" },
+    shot_saved: { emoji: "🧤", cls: "" },
+    shot_wide: { emoji: "❌", cls: "" },
+    shot_post: { emoji: "🎯", cls: "" },
+    penalty: { emoji: "⚡", cls: "" },
+    offside: { emoji: "🚩", cls: "" },
+    free_kick: { emoji: "🎯", cls: "" },
+    save: { emoji: "🧤", cls: "" },
+    tackle: { emoji: "🛡️", cls: "" },
+    interception: { emoji: "✋", cls: "" },
+    chance: { emoji: "🔥", cls: "" },
+    var_review: { emoji: "📺", cls: "" },
+    goal_overturned: { emoji: "❌", cls: "" },
   };
   const { emoji } = map[type] ?? { emoji: "•", cls: "" };
   return <span className="text-sm shrink-0">{emoji}</span>;
@@ -481,7 +503,7 @@ function TacticsDrawer({
       tempo: sliders.tempo,
       width: sliders.width,
     };
-    engine.applyTactics(mySide, newTactics);
+    engine.applyTactics(mySide as HomeAway, newTactics);
     setFeedback(`✓ ${t("match.tactics.apply")} · ${engine.state.minute}'`);
     setTimeout(() => setFeedback(null), 2000);
   };
@@ -491,7 +513,7 @@ function TacticsDrawer({
     const out = myTeam.players.find((p) => p.id === subOutId);
     const inn = myTeam.players.find((p) => p.id === subInId);
     if (!out || !inn) return;
-    const ok = engine.makeSub(mySide, out, inn);
+    const ok = engine.makeSub(mySide as HomeAway, out, inn);
     if (ok) {
       haptic("success");
       setSubOutId(null);
@@ -684,7 +706,7 @@ function SubPicker({
           {player.firstName} {player.lastName}
         </div>
         <div className="text-[9px] text-muted-foreground">
-          {player.position} · {player.ovr}
+          {player.specificPosition} · {player.rating}
         </div>
       </div>
     </button>
@@ -716,7 +738,7 @@ function PostMatch({
   const allRated = [...homeTeam.players, ...awayTeam.players]
     .map((p) => ({
       player: p,
-      rating: state.ratings[p.id] ?? 6.5,
+      rating: state.playerRatings[p.id] ?? 6.5,
       stats: state.playerMatchStats[p.id] ?? { goals: 0, assists: 0, yellow: 0, red: 0 },
       side: homeTeam.players.some((hp) => hp.id === p.id) ? "home" : "away" as Side,
     }))
@@ -767,7 +789,7 @@ function PostMatch({
             </div>
             <div className="text-right">
               <div className="text-2xl font-bold tabular-nums text-amber-700">
-                {(state.ratings[motm.id] ?? 6.5).toFixed(1)}
+                {(state.playerRatings[motm.id] ?? 6.5).toFixed(1)}
               </div>
               <div className="text-[9px] text-muted-foreground uppercase">{t("match.post.col.rating")}</div>
             </div>
@@ -798,7 +820,7 @@ function PostMatch({
                 return (
                   <tr key={row.player.id} className="border-b border-border/50 last:border-b-0">
                     <td className="px-2 py-1.5">
-                      <PositionPill label={row.player.position} group={POSITION_GROUP[row.player.position]} />
+                      <PositionPill label={row.player.specificPosition} group={POSITION_GROUP[row.player.specificPosition]} />
                     </td>
                     <td className="px-2 py-1.5 truncate max-w-[120px]">
                       {row.player.firstName} {row.player.lastName}

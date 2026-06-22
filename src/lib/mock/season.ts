@@ -300,14 +300,14 @@ export function autoFillLineup(
           (p.position === slot.pos ||
             p.secondaryPositions?.includes(slot.pos))
       )
-      .sort((a, b) => b.ovr - a.ovr)[0];
+      .sort((a, b) => b.rating - a.rating)[0];
 
     // Yoksa aynı gruptan en iyiyi al
     const fallback =
       candidate ??
       team.players
         .filter((p) => !used.has(p.id))
-        .sort((a, b) => b.ovr - a.ovr)[0] ??
+        .sort((a, b) => b.rating - a.rating)[0] ??
       null;
 
     if (fallback) used.add(fallback.id);
@@ -327,7 +327,7 @@ export function computeTacticScore(
   // 1) İlk 11 ortalama OVR
   const filled = lineup.filter((p): p is Player => p !== null);
   if (filled.length === 0) return 0;
-  const avgOvr = filled.reduce((s, p) => s + p.ovr, 0) / filled.length;
+  const avgOvr = filled.reduce((s, p) => s + p.rating, 0) / filled.length;
 
   // 2) Slot-pozisyon uyumu
   let matchScore = 0;

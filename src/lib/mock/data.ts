@@ -2,6 +2,10 @@
  * Sahte (kurgusal) Türk futbol verisi.
  * Hiçbir gerçek kulüp/oyuncu adı kullanılmaz.
  * Sadece Türkçe isim yapısı taklit edilir.
+ *
+ * Player tipi, eski oyunun (siyah-beyaz-fc) maç motoruyla birebir uyumlu —
+ * 40+ attribute (teknik/zihinsel/fiziksel + fitness + traits).
+ * Mock data üreticisi tüm alanları doldurur.
  */
 
 export type Position =
@@ -9,13 +13,17 @@ export type Position =
   | "CB"
   | "LB"
   | "RB"
+  | "LWB"
+  | "RWB"
   | "CDM"
   | "CM"
   | "CAM"
+  | "LM"
+  | "RM"
   | "LW"
   | "RW"
-  | "ST"
-  | "CF";
+  | "CF"
+  | "ST";
 
 export type PositionGroup = "GK" | "DEF" | "MID" | "FWD";
 
@@ -24,48 +32,142 @@ export const POSITION_GROUP: Record<Position, PositionGroup> = {
   CB: "DEF",
   LB: "DEF",
   RB: "DEF",
+  LWB: "DEF",
+  RWB: "DEF",
   CDM: "MID",
   CM: "MID",
   CAM: "MID",
+  LM: "MID",
+  RM: "MID",
   LW: "FWD",
   RW: "FWD",
   ST: "FWD",
   CF: "FWD",
 };
 
-export type Foot = "left" | "right" | "both";
+export type Foot = "Left" | "Right" | "Both";
 
+// ===== 6 temel stat (UI'da hızlı gösterim için, motor da bunları okur) =====
 export type PlayerStats = {
-  pace: number; // Hız
-  shooting: number; // Şut
-  passing: number; // Pas
-  defending: number; // Defans
-  physical: number; // Fizik
-  dribbling: number; // Dripling
+  pace: number; // = speed
+  shooting: number;
+  passing: number;
+  defending: number;
+  physical: number; // = power
+  dribbling: number;
 };
 
+/**
+ * Player — eski oyunla birebir uyumlu 40+ attribute.
+ * Motorun okuduğu tüm alanlar (zorunlu + opsiyonel) burada.
+ */
 export type Player = {
+  // ── Temel kimlik ────────────────────────────────────────
   id: string;
   firstName: string;
   lastName: string;
-  position: Position;
+  name: string; // "Ad Soyad" — motor bunu kullanır
+  position: PositionGroup; // motor beklediği alan (geniş grup)
+  specificPosition: Position; // spesifik mevki
   secondaryPositions?: Position[];
   age: number;
+  potential: number;
+  hidden_potential: number;
+  rating: number; // 0-100 (OVR, motor beklediği format)
+  formRating: number; // 0-10 (UI için ondalık form puanı)
   nationality: "TR" | "foreign";
+  nation: string; // ülke adı
   foot: Foot;
-  ovr: number; // 0-100
-  rating: number; // 0-10 (form rating, ondalık)
-  stats: PlayerStats;
+  preferred_foot?: Foot;
+  height?: number;
+  weight?: number;
+  market_value: number; // € (motor bu ismi kullanır)
+  marketValue: number; // € (UI bu ismi kullanır — alias)
+  salary: number; // haftalık ücret (motor)
+  weeklyWage: number; // haftalık ücret (UI — alias)
+
+  // ── 6 temel stat (motor + UI) ──────────────────────────
+  defending: number;
+  passing: number;
+  shooting: number;
+  speed: number;
+  power: number;
+  vision?: number;
+  control?: number;
+  stamina?: number;
+  heading?: number;
+  goalkeeping?: number;
+  stats: PlayerStats; // UI için özet (pace/shooting/passing/defending/physical/dribbling)
+
+  // ── Teknik (9) ─────────────────────────────────────────
+  finishing?: number;
+  dribbling?: number;
+  firstTouch?: number;
+  crossing?: number;
+  marking?: number;
+  tackling?: number;
+  technique?: number;
+  longShots?: number;
+  offTheBall?: number;
+
+  // ── Zihinsel (12) ──────────────────────────────────────
+  aggression?: number;
+  bravery?: number;
+  workRate?: number;
+  decisions?: number;
+  determination?: number;
+  concentration?: number;
+  leadership?: number;
+  anticipation?: number;
+  flair?: number;
+  positioning?: number;
+  composure?: number;
+  teamwork?: number;
+
+  // ── Fiziksel (7) ───────────────────────────────────────
+  agility?: number;
+  balance?: number;
+  strength?: number;
+  acceleration?: number;
+  jumping?: number;
+  leftFoot?: number;
+  rightFoot?: number;
+
+  // ── Fitness/form/moral ─────────────────────────────────
+  cond: number; // 0-100 (kondisyon — motor)
+  condition: number; // 0-100 (UI — alias)
+  form: number; // 0-100 (motor)
   morale: number; // 0-100
-  condition: number; // 0-100
+  confidence: number; // 0-100
+  chemistry?: number;
+
+  // ── Traits/style ───────────────────────────────────────
+  traits: string[];
+  negTraits?: string[];
+  personalityTraits?: string[];
+  playStyle?: string;
+  archetype?: string;
+  special_role?: string | null;
+
+  // ── Maç istatistikleri ─────────────────────────────────
   goals: number;
   assists: number;
   saves: number;
   appearances: number;
-  archetype?: string;
-  potential?: number; // hidden until scouted
-  marketValue: number; // €
-  weeklyWage: number; // €
+  match_ratings?: number[];
+  last_match_rating?: number;
+
+  // ── Transfer/durum ─────────────────────────────────────
+  is_for_sale?: boolean;
+  sale_price?: number;
+  isResting?: boolean;
+  suspended_until?: string;
+  is_injured?: boolean;
+  injury?: {
+    type: "light" | "chronic" | "risky";
+    remaining_days: number;
+    severity: number;
+  };
 };
 
 export type Team = {
@@ -251,6 +353,35 @@ function generateStats(pos: Position, ovr: number): PlayerStats {
         physical: boost(base, 5, 15),
         dribbling: boost(base, 0, 10),
       };
+    case "LWB":
+    case "RWB":
+      return {
+        pace: boost(base, 8, 18),
+        shooting: spread(base, 20, 30),
+        passing: spread(base, 5, 15),
+        defending: boost(base, 5, 15),
+        physical: spread(base, 5, 15),
+        dribbling: spread(base, 0, 10),
+      };
+    case "LM":
+    case "RM":
+      return {
+        pace: boost(base, 5, 15),
+        shooting: spread(base, 10, 20),
+        passing: boost(base, 5, 15),
+        defending: spread(base, 15, 25),
+        physical: spread(base, 5, 15),
+        dribbling: boost(base, 5, 15),
+      };
+    default:
+      return {
+        pace: base,
+        shooting: base,
+        passing: base,
+        defending: base,
+        physical: base,
+        dribbling: base,
+      };
   }
 }
 
@@ -264,26 +395,133 @@ function generatePlayer(pos: Position, ovrRange: { min: number; max: number }): 
   const goals = pos === "GK" ? 0 : rand(0, pos.startsWith("ST") || pos === "CF" ? 12 : 6);
   const assists = pos === "GK" ? 0 : rand(0, 8);
   const saves = pos === "GK" ? rand(10, 60) : 0;
+  const nation = isForeign ? "Yabancı" : "Türkiye";
+  const foot: Foot = Math.random() < 0.7 ? "Right" : Math.random() < 0.5 ? "Left" : "Both";
+  const marketValue = ovr * rand(80_000, 180_000);
+  const weeklyWage = ovr * rand(800, 2200);
+
+  // Pozisyon grubu
+  const group = POSITION_GROUP[pos];
+
+  // 40+ attribute üret — pozisyona göre ağırlıklı
+  const base = ovr;
+  const spread = (n: number, lo = 8, hi = 18) =>
+    Math.max(30, Math.min(99, n + rand(-hi, -lo)));
+  const boost = (n: number, lo = 4, hi = 14) =>
+    Math.max(30, Math.min(99, n + rand(lo, hi)));
+
+  // Traits havuzu
+  const POSITIVE_TRAITS = [
+    "Profesyonel", "Çalışkan", "Lider", "Antrenman Yıldızı", "Mentor",
+    "Soğukkanlı", "Yaratıcı", "Bitirici", "Pas Ustası", "Kale Fidirisi",
+  ];
+  const NEGATIVE_TRAITS = ["Tembel", "Disiplinsiz", "Sakatlanmaya Müsait", "Baskı Altında Eriyen"];
+  const PERSONALITY_TRAITS = ["Yıkıcı", "Playmaker", "Kale Fidirisi", "Hız Kanat"];
+
+  // Pozisyona göre teknik attribute vurguları
+  const technical = {
+    finishing: pos === "ST" || pos === "CF" ? boost(base, 8, 18) : spread(base, 15, 25),
+    dribbling: stats.dribbling,
+    firstTouch: pos === "CAM" || pos === "CF" ? boost(base, 5, 15) : spread(base, 5, 15),
+    crossing: pos === "LB" || pos === "RB" || pos === "LW" || pos === "RW" ? boost(base, 5, 15) : spread(base, 10, 20),
+    marking: pos === "CB" || pos === "LB" || pos === "RB" ? boost(base, 5, 15) : spread(base, 15, 25),
+    tackling: pos === "CB" || pos === "CDM" ? boost(base, 5, 15) : spread(base, 10, 20),
+    technique: pos === "CAM" || pos === "LW" || pos === "RW" ? boost(base, 5, 15) : spread(base, 5, 15),
+    longShots: pos === "CAM" || pos === "CM" ? boost(base, 3, 12) : spread(base, 10, 20),
+    offTheBall: pos === "ST" || pos === "CF" ? boost(base, 5, 15) : spread(base, 5, 15),
+  };
+
+  const mental = {
+    aggression: pos === "CB" || pos === "CDM" ? boost(base, 5, 15) : spread(base, 8, 18),
+    bravery: rand(40, 80),
+    workRate: rand(45, 85),
+    decisions: pos === "CAM" || pos === "CM" ? boost(base, 5, 12) : spread(base, 5, 15),
+    determination: rand(50, 85),
+    concentration: pos === "GK" || pos === "CB" ? boost(base, 5, 12) : spread(base, 5, 15),
+    leadership: rand(30, 75),
+    anticipation: pos === "ST" || pos === "GK" ? boost(base, 5, 12) : spread(base, 5, 15),
+    flair: pos === "CAM" || pos === "LW" || pos === "RW" ? boost(base, 8, 18) : spread(base, 10, 20),
+    positioning: pos === "CB" || pos === "GK" ? boost(base, 5, 12) : spread(base, 5, 15),
+    composure: pos === "ST" || pos === "CAM" ? boost(base, 5, 12) : spread(base, 5, 15),
+    teamwork: rand(50, 85),
+  };
+
+  const physical = {
+    agility: pos === "LW" || pos === "RW" || pos === "CAM" ? boost(base, 5, 12) : spread(base, 5, 15),
+    balance: rand(50, 85),
+    strength: pos === "CB" || pos === "ST" ? boost(base, 5, 12) : spread(base, 5, 15),
+    acceleration: stats.pace,
+    jumping: pos === "CB" || pos === "GK" ? boost(base, 5, 12) : spread(base, 5, 15),
+    leftFoot: foot === "Left" ? rand(75, 95) : foot === "Both" ? rand(60, 80) : rand(30, 50),
+    rightFoot: foot === "Right" ? rand(75, 95) : foot === "Both" ? rand(60, 80) : rand(30, 50),
+  };
+
+  const traits = pickN(POSITIVE_TRAITS, rand(1, 3));
+  const negTraits = Math.random() < 0.3 ? pickN(NEGATIVE_TRAITS, 1) : [];
 
   return {
     id: nextId("p"),
     firstName: first,
     lastName: last,
-    position: pos,
+    name: `${first} ${last}`,
+    position: group,
+    specificPosition: pos,
     age,
+    potential: ovr + rand(0, 15),
+    hidden_potential: ovr + rand(0, 20),
+    rating: ovr,
+    formRating: Math.round((ovr / 10 + (Math.random() * 2 - 1)) * 10) / 10,
     nationality: isForeign ? "foreign" : "TR",
-    foot: Math.random() < 0.7 ? "right" : Math.random() < 0.5 ? "left" : "both",
-    ovr,
-    rating: Math.round((ovr / 10 + (Math.random() * 2 - 1)) * 10) / 10,
+    nation,
+    foot,
+    preferred_foot: foot,
+    height: rand(170, 195),
+    weight: rand(65, 90),
+    market_value: marketValue,
+    marketValue,
+    salary: weeklyWage,
+    weeklyWage,
+
+    defending: stats.defending,
+    passing: stats.passing,
+    shooting: stats.shooting,
+    speed: stats.pace,
+    power: stats.physical,
+    vision: pos === "CAM" || pos === "CM" ? boost(base, 5, 12) : spread(base, 5, 15),
+    control: stats.dribbling,
+    stamina: rand(50, 90),
+    heading: pos === "CB" || pos === "ST" ? boost(base, 5, 12) : spread(base, 5, 15),
+    goalkeeping: pos === "GK" ? boost(base, 8, 18) : spread(base, 40, 50),
     stats,
-    morale: rand(55, 90),
+
+    ...technical,
+    ...mental,
+    ...physical,
+
+    cond: rand(70, 100),
     condition: rand(70, 100),
+    form: rand(60, 90),
+    morale: rand(55, 90),
+    confidence: rand(50, 85),
+    chemistry: rand(60, 85),
+
+    traits,
+    negTraits,
+    personalityTraits: pickN(PERSONALITY_TRAITS, rand(0, 2)),
+    playStyle: pick(["Gegenpressing", "Tiki-Taka", "Catenaccio", "Counter-Attack", "Wing Play"]),
+    archetype: pick(["Press Master", "Goal Machine", "Playmaker", "Wall", "Engine Room"]),
+    special_role: null,
+
     goals,
     assists,
     saves,
     appearances: rand(8, 28),
-    marketValue: ovr * rand(80_000, 180_000),
-    weeklyWage: ovr * rand(800, 2200),
+    match_ratings: Array.from({ length: rand(0, 10) }, () => rand(50, 90) / 10),
+    last_match_rating: rand(50, 90) / 10,
+
+    is_for_sale: false,
+    isResting: false,
+    is_injured: false,
   };
 }
 

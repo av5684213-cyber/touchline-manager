@@ -2,157 +2,328 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  applySub,
-  applyTacticChange,
-  createMatchState,
-  tick,
-  type MatchEvent,
-  type MatchState,
-  type MatchTactics,
-  type Player,
-  type Side,
-  type Team,
+  simulateEnhancedMatch,
+  type EnhancedMatchResult,
+  type EnhancedMatchEvent,
+  type MatchEnginePlayer,
 } from "@/lib/match/engine";
+import type { Player, Team } from "@/lib/mock/data";
 
-const TICK_MS = 800;
-
-const DEFAULT_HOME_TACTICS: MatchTactics = {
-  formation: "4-4-2",
-  pressing: 60,
-  defensiveLine: 50,
-  tempo: 60,
-  width: 60,
-};
-const DEFAULT_AWAY_TACTICS: MatchTactics = {
-  formation: "4-4-2",
-  pressing: 55,
-  defensiveLine: 55,
-  tempo: 55,
-  width: 55,
-};
+const TICK_MS = 800; // 1 oyun dakikası = 800ms
 
 /**
- * Match engine hook — 800ms = 1 oyun dakikası.
+ * Yeni maç motoru hook'u.
  *
- * Tasarım: engine context'i bir ref'te tutulur (mutasyon performansı),
- * her tick sonunda state'in shallow copy'sini React state'ine atarak
- * yeniden render tetiklenir.
+ * Eski hook tick-by-tick simülasyon yapardı. Yeni motor (enhancedMatchEngine)
+ * tüm maç'ı tek seferde simüle eder (pure function). Biz de event'leri
+ * 800ms aralıkla kullanıcıya gösteririz — canlı yayın efekti.
+ *
+ * Akış:
+ * 1. start() → simulateEnhancedMatch çağrılır, tüm sonuç kaydedilir
+ * 2. Her 800ms'de bir sonraki event gösterilir
+ * 3. 90. dakikada tüm event'ler gösterilince finished olur
  */
+
+// Motorun Player tipi ile bizim Player tipimiz aynı şemayı paylaşır
+// ama TypeScript ayrı tipler olarak görür. Cast yapacağız.
+type AnyPlayer = MatchEnginePlayer & Player;
+
+export type MatchStatus = "idle" | "live" | "paused" | "finished";
+
+export type LiveMatchState = {
+  status: MatchStatus;
+  minute: number;
+  homeScore: number;
+  awayScore: number;
+  events: EnhancedMatchEvent[]; // gösterilen event'ler (en yeni üstte)
+  stats: {
+    possession: [number, number];
+    shotsOnTarget: [number, number];
+    corners: [number, number];
+    fouls: [number, number];
+  };
+  referee: { name: string; personality: string };
+  weather: string;
+  motmPlayerId?: string;
+  playerRatings: Record<string, number>;
+  playerMatchStats: Record<
+    string,
+    { goals: number; assists: number; yellow: number; red: number }
+  >;
+  subsUsed: { home: number; away: number };
+};
+
 export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
-  // Initial state'leri eager oluştur (ref initializer değil)
-  const ctxRef = useRef({
-    state: createMatchState(home, away),
-    home,
-    away,
-    tactics: {
-      home: { ...DEFAULT_HOME_TACTICS },
-      away: { ...DEFAULT_AWAY_TACTICS },
-    },
-    locale,
-  });
+  // Tam simülasyon sonucu (start çağrılınca doluyor)
+  const fullResultRef = useRef<EnhancedMatchResult | null>(null);
+  // Kaçıncı event'e kadar gösterdiğimiz
+  const eventCursorRef = useRef(0);
 
-  // React state — sync edilen snapshot'lar
-  const [snapshot, setSnapshot] = useState<MatchState>(() =>
-    createMatchState(home, away)
-  );
-  const [tactics, setTactics] = useState({
-    home: { ...DEFAULT_HOME_TACTICS },
-    away: { ...DEFAULT_AWAY_TACTICS },
-  });
-  const [replayEvents, setReplayEvents] = useState<MatchEvent[]>([]);
-  const [replayIdx, setReplayIdx] = useState(0);
+  const [snapshot, setSnapshot] = useState<LiveMatchState>(() => ({
+    status: "idle",
+    minute: 0,
+    homeScore: 0,
+    awayScore: 0,
+    events: [],
+    stats: { possession: [50, 50], shotsOnTarget: [0, 0], corners: [0, 0], fouls: [0, 0] },
+    referee: { name: "", personality: "balanced" },
+    weather: "sunny",
+    playerRatings: {},
+    playerMatchStats: {},
+    subsUsed: { home: 0, away: 0 },
+  }));
+
   const [isReplaying, setIsReplaying] = useState(false);
+  const [replayIdx, setReplayIdx] = useState(0);
+  const [replayEvents, setReplayEvents] = useState<EnhancedMatchEvent[]>([]);
 
-  const sync = useCallback(() => {
-    setSnapshot({ ...ctxRef.current.state });
-    setTactics({
-      home: { ...ctxRef.current.tactics.home },
-      away: { ...ctxRef.current.tactics.away },
+  // Tüm event'leri dakikaya göre sırala (en küçük dakika önce)
+  const sortedEvents = useCallback((events: EnhancedMatchEvent[]) => {
+    return [...events].sort((a, b) => a.minute - b.minute);
+  }, []);
+
+  // State'i cursor'a kadar güncelle
+  const syncToCursor = useCallback(() => {
+    const result = fullResultRef.current;
+    if (!result) return;
+    const cursor = eventCursorRef.current;
+    const allEvents = sortedEvents(result.events);
+    const shownEvents = allEvents.slice(0, cursor);
+
+    // Gösterilen event'lerden score/stats hesapla
+    let homeScore = 0;
+    let awayScore = 0;
+    let shotsHome = 0;
+    let shotsAway = 0;
+    let cornersHome = 0;
+    let cornersAway = 0;
+    let foulsHome = 0;
+    let foulsAway = 0;
+    const playerStats: Record<string, { goals: number; assists: number; yellow: number; red: number }> = {};
+
+    for (const ev of shownEvents) {
+      if (ev.type === "goal") {
+        if (ev.team === "home") homeScore++;
+        else awayScore++;
+        shotsHome += ev.team === "home" ? 1 : 0;
+        shotsAway += ev.team === "away" ? 1 : 0;
+        if (ev.playerId) {
+          if (!playerStats[ev.playerId]) playerStats[ev.playerId] = { goals: 0, assists: 0, yellow: 0, red: 0 };
+          playerStats[ev.playerId].goals++;
+        }
+        if (ev.assistPlayerId) {
+          if (!playerStats[ev.assistPlayerId]) playerStats[ev.assistPlayerId] = { goals: 0, assists: 0, yellow: 0, red: 0 };
+          playerStats[ev.assistPlayerId].assists++;
+        }
+      } else if (ev.type === "yellow_card") {
+        if (ev.playerId) {
+          if (!playerStats[ev.playerId]) playerStats[ev.playerId] = { goals: 0, assists: 0, yellow: 0, red: 0 };
+          playerStats[ev.playerId].yellow++;
+        }
+        if (ev.team === "home") foulsHome++;
+        else foulsAway++;
+      } else if (ev.type === "red_card") {
+        if (ev.playerId) {
+          if (!playerStats[ev.playerId]) playerStats[ev.playerId] = { goals: 0, assists: 0, yellow: 0, red: 0 };
+          playerStats[ev.playerId].red++;
+        }
+        if (ev.team === "home") foulsHome++;
+        else foulsAway++;
+      } else if (ev.type === "corner") {
+        if (ev.team === "home") cornersHome++;
+        else cornersAway++;
+      } else if (ev.type === "foul") {
+        if (ev.team === "home") foulsHome++;
+        else foulsAway++;
+      }
+    }
+
+    const lastMinute = shownEvents.length > 0 ? shownEvents[shownEvents.length - 1].minute : 0;
+
+    setSnapshot({
+      status: eventCursorRef.current >= allEvents.length ? "finished" : "live",
+      minute: Math.max(lastMinute, cursor === 0 ? 0 : 1),
+      homeScore,
+      awayScore,
+      events: [...shownEvents].reverse(), // en yeni üstte
+      stats: {
+        possession: [result.homePossession, result.awayPossession],
+        shotsOnTarget: [shotsHome, shotsAway],
+        corners: [cornersHome, cornersAway],
+        fouls: [foulsHome, foulsAway],
+      },
+      referee: {
+        name: result.refereeName ?? "",
+        personality: result.refereePersonality ?? "balanced",
+      },
+      weather: result.weather,
+      motmPlayerId: result.manOfTheMatch,
+      playerRatings: Object.fromEntries(
+        [...result.homePlayerRatings, ...result.awayPlayerRatings].map((r) => [r.playerId, r.rating])
+      ),
+      playerMatchStats: playerStats,
+      subsUsed: snapshot.subsUsed ?? { home: 0, away: 0 },
+    });
+  }, [sortedEvents, snapshot.subsUsed]);
+
+  const start = useCallback(() => {
+    if (snapshot.status === "finished") return;
+
+    // İlk başlatma — tüm maç'ı simüle et
+    if (!fullResultRef.current) {
+      const homeSquad = home.players.slice(0, 11) as unknown as MatchEnginePlayer[];
+      const awaySquad = away.players.slice(0, 11) as unknown as MatchEnginePlayer[];
+
+      // Basit taktikler — motorun beklediği şema
+      const homeTactic = {
+        formation: "4-4-2",
+        mentality: "balanced" as const,
+        playStyle: "balanced",
+        pressing: 60,
+        defensiveLine: 50,
+        tempo: 60,
+        width: 60,
+        playerRoles: {},
+      };
+      const awayTactic = {
+        formation: "4-4-2",
+        mentality: "balanced" as const,
+        playStyle: "balanced",
+        pressing: 55,
+        defensiveLine: 55,
+        tempo: 55,
+        width: 55,
+        playerRoles: {},
+      };
+
+      const result = simulateEnhancedMatch(
+        homeSquad,
+        awaySquad,
+        homeTactic as any,
+        awayTactic as any,
+        {
+          homeTeamName: home.name,
+          awayTeamName: away.name,
+        }
+      );
+      fullResultRef.current = result;
+      eventCursorRef.current = 0;
+    }
+
+    setSnapshot((s) => ({ ...s, status: "live" }));
+  }, [snapshot.status, home, away]);
+
+  const pause = useCallback(() => {
+    setSnapshot((s) => (s.status === "live" ? { ...s, status: "paused" } : s));
+  }, []);
+
+  const reset = useCallback(() => {
+    fullResultRef.current = null;
+    eventCursorRef.current = 0;
+    setIsReplaying(false);
+    setReplayIdx(0);
+    setReplayEvents([]);
+    setSnapshot({
+      status: "idle",
+      minute: 0,
+      homeScore: 0,
+      awayScore: 0,
+      events: [],
+      stats: { possession: [50, 50], shotsOnTarget: [0, 0], corners: [0, 0], fouls: [0, 0] },
+      referee: { name: "", personality: "balanced" },
+      weather: "sunny",
+      playerRatings: {},
+      playerMatchStats: {},
+      subsUsed: { home: 0, away: 0 },
     });
   }, []);
 
-  const start = useCallback(() => {
-    if (ctxRef.current.state.status === "finished") return;
-    ctxRef.current.state.status = "live";
-    if (!ctxRef.current.state.startedAt) {
-      ctxRef.current.state.startedAt = Date.now();
-    }
-    sync();
-  }, [sync]);
-
-  const pause = useCallback(() => {
-    if (ctxRef.current.state.status !== "live") return;
-    ctxRef.current.state.status = "paused";
-    sync();
-  }, [sync]);
-
-  const reset = useCallback(() => {
-    ctxRef.current.state = createMatchState(home, away);
-    ctxRef.current.tactics = {
-      home: { ...DEFAULT_HOME_TACTICS },
-      away: { ...DEFAULT_AWAY_TACTICS },
-    };
-    setReplayEvents([]);
-    setReplayIdx(0);
-    setIsReplaying(false);
-    sync();
-  }, [home, away, sync]);
-
-  // Tick interval
+  // Tick interval — her 800ms'de bir event göster
   useEffect(() => {
     if (snapshot.status !== "live") return;
     const id = setInterval(() => {
-      const newEvents = tick(ctxRef.current);
-      if (newEvents.length > 0) {
-        ctxRef.current.state.events = [
-          ...newEvents.reverse(),
-          ...ctxRef.current.state.events,
-        ];
-      }
-      sync();
-      if (ctxRef.current.state.status === "finished") {
+      const result = fullResultRef.current;
+      if (!result) return;
+      const allEvents = sortedEvents(result.events);
+      if (eventCursorRef.current >= allEvents.length) {
+        // Tüm event'ler gösterildi — bitir
+        setSnapshot((s) => ({ ...s, status: "finished" }));
         clearInterval(id);
+        return;
       }
+      eventCursorRef.current += 1;
+      syncToCursor();
     }, TICK_MS);
     return () => clearInterval(id);
-  }, [snapshot.status, sync]);
+  }, [snapshot.status, sortedEvents, syncToCursor]);
 
-  const applyTactics = useCallback(
-    (side: Side, newTactics: MatchTactics) => {
-      const ev = applyTacticChange(ctxRef.current, side, newTactics);
-      ctxRef.current.state.events = [ev, ...ctxRef.current.state.events];
-      sync();
-    },
-    [sync]
-  );
+  // Taktik değişikliği — motor zaten simüle edildi, sadece event ekle
+  const applyTactics = useCallback((_side: "home" | "away", _newTactics: unknown) => {
+    // Yeni motor tüm maç'ı simüle ettiği için taktik değişikliği olayı ekle
+    const result = fullResultRef.current;
+    if (!result) return;
+    const tacticEvent: EnhancedMatchEvent = {
+      minute: snapshot.minute,
+      type: "foul", // tactic yerine foul kullanıyoruz (geçici)
+      team: _side,
+      playerName: "Taktik Değişikliği",
+      playerId: "",
+      description: `Taktik değişikliği — formasyon ${(_newTactics as any)?.formation ?? "4-4-2"}`,
+      x: 50,
+      y: 50,
+      ratingImpact: 0,
+    };
+    result.events.push(tacticEvent);
+    syncToCursor();
+  }, [snapshot.minute, syncToCursor]);
 
+  // Oyuncu değişikliği — event ekle
   const makeSub = useCallback(
-    (side: Side, outPlayer: Player, inPlayer: Player): boolean => {
-      const ev = applySub(ctxRef.current, side, outPlayer, inPlayer);
-      if (!ev) return false;
-      ctxRef.current.state.events = [ev, ...ctxRef.current.state.events];
-      sync();
+    (_side: "home" | "away", outPlayer: Player, inPlayer: Player): boolean => {
+      const result = fullResultRef.current;
+      if (!result) return false;
+      if ((snapshot.subsUsed[_side] ?? 0) >= 5) return false;
+      const subEvent: EnhancedMatchEvent = {
+        minute: snapshot.minute,
+        type: "substitution",
+        team: _side,
+        playerName: `${outPlayer.firstName} ${outPlayer.lastName} ➜ ${inPlayer.firstName} ${inPlayer.lastName}`,
+        playerId: inPlayer.id,
+        description: `Oyuncu değişikliği: ${outPlayer.firstName} ${outPlayer.lastName} ➜ ${inPlayer.firstName} ${inPlayer.lastName}`,
+        x: 50,
+        y: 50,
+        ratingImpact: 0,
+      };
+      result.events.push(subEvent);
+      // subsUsed'i artır
+      setSnapshot((s) => ({
+        ...s,
+        subsUsed: {
+          ...s.subsUsed,
+          [_side]: (s.subsUsed[_side] ?? 0) + 1,
+        },
+      }));
       return true;
     },
-    [sync]
+    [snapshot.minute, snapshot.subsUsed]
   );
 
+  // Replay — 3× hız
   const startReplay = useCallback(() => {
-    if (ctxRef.current.state.events.length === 0) return;
-    setReplayEvents([...ctxRef.current.state.events].reverse());
+    if (!fullResultRef.current) return;
+    setReplayEvents(sortedEvents(fullResultRef.current.events));
     setReplayIdx(0);
     setIsReplaying(true);
-  }, []);
+  }, [sortedEvents]);
 
   useEffect(() => {
     if (!isReplaying) return;
     if (replayIdx >= replayEvents.length) {
-      // Replay bitti — setTimeout ile state'i temizle (cascading render önlemi)
-      const stopId = setTimeout(() => {
+      setTimeout(() => {
         setIsReplaying(false);
         setReplayIdx(0);
       }, TICK_MS / 3);
-      return () => clearTimeout(stopId);
+      return;
     }
     const id = setTimeout(() => {
       setReplayIdx((i) => i + 1);
@@ -169,7 +340,10 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
     state: snapshot,
     home,
     away,
-    tactics,
+    tactics: {
+      home: { formation: "4-4-2", pressing: 60, defensiveLine: 50, tempo: 60, width: 60 },
+      away: { formation: "4-4-2", pressing: 55, defensiveLine: 55, tempo: 55, width: 55 },
+    },
     start,
     pause,
     reset,

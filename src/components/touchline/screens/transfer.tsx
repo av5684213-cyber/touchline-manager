@@ -45,7 +45,7 @@ export function TransferScreen() {
   const filteredListings = useMemo(() => {
     if (filter === "ALL") return transfer.freeAgents;
     return transfer.freeAgents.filter(
-      (l) => getPositionGroup(l.player.position) === filter
+      (l) => getPositionGroup(l.player.specificPosition) === filter
     );
   }, [transfer.freeAgents, filter]);
 
@@ -231,7 +231,7 @@ export function TransferScreen() {
                       <span className="text-sm font-semibold truncate">
                         {player.firstName} {player.lastName}
                       </span>
-                      <PositionPill label={player.position} group={POSITION_GROUP[player.position]} />
+                      <PositionPill label={player.specificPosition} group={POSITION_GROUP[player.specificPosition]} />
                     </div>
                     <div className="text-[11px] text-muted-foreground">
                       {t("transfer.mylisted.listed_for")}:{" "}
@@ -302,7 +302,7 @@ function PlayerCard({
           <span className="text-sm font-semibold truncate">
             {player.firstName} {player.lastName}
           </span>
-          <PositionPill label={player.position} group={POSITION_GROUP[player.position]} />
+          <PositionPill label={player.specificPosition} group={POSITION_GROUP[player.specificPosition]} />
           <span className="text-xs">{flag}</span>
         </div>
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
@@ -516,7 +516,7 @@ function OfferModal({
             <div className="flex-1">
               <div className="text-sm font-bold">{player.firstName} {player.lastName}</div>
               <div className="text-[11px] text-muted-foreground">
-                {player.position} · {player.age} {t("common.year")} · OVR {player.ovr}
+                {player.specificPosition} · {player.age} {t("common.year")} · OVR {player.rating}
               </div>
             </div>
             <RatingBadge value={player.rating} />

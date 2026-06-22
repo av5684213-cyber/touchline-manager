@@ -131,6 +131,15 @@ function generateStats(pos: Position, ovr: number): PlayerStats {
         physical: boost(base, 5, 15),
         dribbling: boost(base, 0, 10),
       };
+    default:
+      return {
+        pace: base,
+        shooting: base,
+        passing: base,
+        defending: base,
+        physical: base,
+        dribbling: base,
+      };
   }
 }
 
@@ -152,9 +161,13 @@ const ARCHETYPES: Record<Position, string[]> = {
   CB: ["Duvar", "Yapıcı Stop", "Hava Hakimi", "Baskı Ustası"],
   LB: ["Kanat Beki", "Yorumcu Bek", "Defansif Bek"],
   RB: ["Kanat Beki", "Yorumcu Bek", "Defansif Bek"],
+  LWB: ["Kanat Beki", "Ofansif Bek"],
+  RWB: ["Kanat Beki", "Ofansif Bek"],
   CDM: ["Yıkıcı", "Yapıcı CDM", "Ekran Oyuncusu"],
   CM: ["Truva Atı", "Motor", "Pas Ustası", "Box-to-Box"],
   CAM: ["Playmaker", "Numara 10", "Yaratıcı"],
+  LM: ["Kanat", "İçeri Dönen"],
+  RM: ["Kanat", "İçeri Dönen"],
   LW: ["Kanat", "İçeri Dönen", "Hızlı Kanat"],
   RW: ["Kanat", "İçeri Dönen", "Hızlı Kanat"],
   ST: ["Gol Makinesi", "Bitirici", "Hedef Adam", "Baskı Ustası"],
@@ -215,22 +228,39 @@ export function generateFreeAgents(count = 30): TransferListing[] {
         id: nextId("fa"),
         firstName: first,
         lastName: last,
-        position: pos,
+        name: `${first} ${last}`,
+        position: POSITION_GROUP[pos],
+        specificPosition: pos,
         age,
+        potential: ovr + rand(0, 15),
+        hidden_potential: ovr + rand(0, 20),
+        rating: ovr,
+        formRating: Math.round((ovr / 10) * 10) / 10,
         nationality: isForeign ? "foreign" : "TR",
-        foot: Math.random() < 0.7 ? "right" : Math.random() < 0.5 ? "left" : "both",
-        ovr,
-        rating: Math.round((ovr / 10) * 10) / 10,
+        nation: nationality.name,
+        foot: Math.random() < 0.7 ? "Right" : Math.random() < 0.5 ? "Left" : "Both",
+        preferred_foot: Math.random() < 0.7 ? "Right" : Math.random() < 0.5 ? "Left" : "Both",
+        market_value: marketValue,
+        marketValue,
+        salary: ovr * rand(1000, 2500),
+        weeklyWage: ovr * rand(1000, 2500),
+        defending: stats.defending,
+        passing: stats.passing,
+        shooting: stats.shooting,
+        speed: stats.pace,
+        power: stats.physical,
         stats,
-        morale: rand(50, 80),
+        cond: rand(70, 100),
         condition: rand(70, 100),
+        form: rand(60, 90),
+        morale: rand(50, 80),
+        confidence: rand(50, 85),
+        traits: [],
         goals: rand(0, 12),
         assists: rand(0, 8),
         saves: pos === "GK" ? rand(10, 50) : 0,
         appearances: rand(0, 25),
         archetype: pick(ARCHETYPES[pos]),
-        marketValue,
-        weeklyWage: ovr * rand(1000, 2500),
       };
 
       listings.push({
@@ -243,7 +273,7 @@ export function generateFreeAgents(count = 30): TransferListing[] {
   }
 
   // Fiyat artan sırala
-  return listings.sort((a, b) => b.player.ovr - a.player.ovr);
+  return listings.sort((a, b) => b.player.rating - a.player.rating);
 }
 
 // ===== Gelen teklifler (kullanıcının oyuncularına botlardan) =====
