@@ -20,8 +20,12 @@ import {
 } from "@/lib/mock/season";
 import {
   generateFreeAgents,
+  generateFreeAgentListings,
   generateIncomingOffers,
+  generateLoanListings,
+  type FreeAgentListing,
   type IncomingOffer,
+  type LoanListing,
   type TransferListing,
 } from "@/lib/mock/transfer";
 import {
@@ -57,6 +61,8 @@ type Tactics = {
 // Transfer state — oyuncu ID'leri string olarak saklanır
 type TransferState = {
   freeAgents: TransferListing[];
+  freeAgentListings: import("@/lib/mock/transfer").FreeAgentListing[];
+  loanListings: import("@/lib/mock/transfer").LoanListing[];
   watchlist: string[]; // player IDs
   incomingOffers: IncomingOffer[];
   myListedPlayers: { playerId: string; askingPrice: number }[];
@@ -224,6 +230,8 @@ export const useAppStore = create<AppState>()(
       },
       transfer: {
         freeAgents: [],
+        freeAgentListings: [],
+        loanListings: [],
         watchlist: [],
         incomingOffers: [],
         myListedPlayers: [],
@@ -261,6 +269,8 @@ export const useAppStore = create<AppState>()(
         if (transfer.freeAgents.length === 0) {
           transfer = {
             freeAgents: generateFreeAgents(30),
+            freeAgentListings: generateFreeAgentListings(15),
+            loanListings: generateLoanListings(clubs, 10),
             watchlist: [],
             incomingOffers: generateIncomingOffers(team.players),
             myListedPlayers: [],

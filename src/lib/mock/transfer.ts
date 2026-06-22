@@ -28,6 +28,22 @@ export type TransferListing = {
   offers: number; // kaç bot teklif etti
 };
 
+export type FreeAgentListing = {
+  player: Player;
+  // Takımsız — serbest, bedelsiz transfer
+  wageDemand: number; // talep edilen haftalık maaş
+};
+
+export type LoanListing = {
+  player: Player;
+  lenderTeamName: string;
+  lenderTeamShort: string;
+  lenderTeamColor: string;
+  dailyFee: number; // günlük kira ücreti
+  durationWeeks: number; // kiralık süre
+  buyOption?: number; // opsiyonel satın alma bedeli
+};
+
 export type IncomingOffer = {
   id: string;
   myPlayerId: string;
@@ -340,6 +356,97 @@ export function calculateSellerNet(salePrice: number) {
 
 export function getPositionGroup(pos: Position) {
   return POSITION_GROUP[pos];
+}
+
+// ===== Takımsız (serbest) oyuncu üretimi — her mevkiiden =====
+export function generateFreeAgentListings(count = 15): FreeAgentListing[] {
+  const positions: Position[] = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LW", "RW", "ST", "CF"];
+  const listings: FreeAgentListing[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const pos = positions[i % positions.length];
+    const ovr = rand(55, 78);
+    const isForeign = Math.random() < 0.4;
+    const first = isForeign ? pick(FIRST_NAMES_FOREIGN) : pick(FIRST_NAMES_TR);
+    const last = pick(LAST_NAMES_TR);
+    const stats = generateStats(pos, ovr);
+    const age = rand(18, 33);
+
+    const player: Player = {
+      id: nextId("fa"),
+      firstName: first,
+      lastName: last,
+      name: `${first} ${last}`,
+      position: POSITION_GROUP[pos],
+      specificPosition: pos,
+      age,
+      potential: ovr + rand(0, 15),
+      hidden_potential: ovr + rand(0, 20),
+      rating: ovr,
+      formRating: Math.round((ovr / 10) * 10) / 10,
+      nationality: isForeign ? "foreign" : "TR",
+      nation: isForeign ? "Yabancı" : "Türkiye",
+      foot: Math.random() < 0.7 ? "Right" : Math.random() < 0.5 ? "Left" : "Both",
+      market_value: ovr * 80_000,
+      marketValue: ovr * 80_000,
+      salary: ovr * 1500,
+      weeklyWage: ovr * 1500,
+      defending: stats.defending,
+      passing: stats.passing,
+      shooting: stats.shooting,
+      speed: stats.pace,
+      power: stats.physical,
+      stats,
+      cond: rand(70, 100),
+      condition: rand(70, 100),
+      form: rand(60, 90),
+      morale: rand(40, 70),
+      confidence: rand(50, 80),
+      traits: [],
+      goals: 0,
+      assists: 0,
+      saves: pos === "GK" ? rand(0, 20) : 0,
+      appearances: 0,
+      archetype: pick(ARCHETYPES[pos]),
+      is_free_agent: true,
+    };
+
+    listings.push({
+      player,
+      wageDemand: Math.round(player.weeklyWage * 1.2),
+    });
+  }
+
+  return listings;
+}
+
+// ===== Kiralık oyuncu üretimi — diğer takımlardan =====
+export function generateLoanListings(clubs: { id: string; name: string; shortName: string; primaryColor: string; players: Player[] }[], count = 10): LoanListing[] {
+  const listings: LoanListing[] = [];
+  const lenderPool = clubs.filter((c) => c.players.length > 20);
+
+  for (let i = 0; i < count && lenderPool.length > 0; i++) {
+    const lender = pick(lenderPool);
+    // En zayıf 5 oyuncudan birini kiralığa ver
+    const player = [...lender.players]
+      .sort((a, b) => a.rating - b.rating)
+      .slice(0, 8)
+      [Math.floor(Math.random() * 5)];
+
+    if (!player) continue;
+
+    listings.push({
+      player,
+      lenderTeamName: lender.name,
+      lenderTeamShort: lender.shortName,
+      lenderTeamColor: lender.primaryColor,
+      dailyFee: Math.round(player.marketValue * 0.0003),
+      durationWeeks: pick([4, 8, 12, 17, 26, 34]),
+      buyOption: Math.random() < 0.4 ? Math.round(player.marketValue * 1.1) : undefined,
+    });
+  }
+
+  return listings;
 }
 
 export { NATIONALITIES };

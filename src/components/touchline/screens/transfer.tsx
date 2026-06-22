@@ -34,7 +34,7 @@ import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 
-type SubTab = "market" | "watchlist" | "incoming" | "mylisted";
+type SubTab = "market" | "freeagents" | "loan" | "watchlist" | "incoming" | "mylisted";
 
 export function TransferScreen() {
   const { t } = useI18n();
@@ -96,6 +96,8 @@ export function TransferScreen() {
         {(
           [
             { key: "market", label: t("transfer.tab.market"), count: transfer.freeAgents.length },
+            { key: "freeagents", label: "Takımsız", count: transfer.freeAgentListings?.length ?? 0 },
+            { key: "loan", label: "Kiralık", count: transfer.loanListings?.length ?? 0 },
             { key: "watchlist", label: t("transfer.tab.watchlist"), count: transfer.watchlist.length },
             { key: "incoming", label: t("transfer.tab.incoming"), count: transfer.incomingOffers.length },
             { key: "mylisted", label: t("transfer.tab.mylisted"), count: transfer.myListedPlayers.length },
@@ -176,6 +178,143 @@ export function TransferScreen() {
             {t("transfer.tax_note")}
           </div>
         </>
+      )}
+
+      {/* Takımsız (serbest) oyuncular tab */}
+      {sub === "freeagents" && (
+        <div className="tm-card divide-y divide-border">
+          {(transfer.freeAgentListings ?? []).length === 0 && (
+            <div className="p-8 text-center text-xs text-muted-foreground">
+              Takımsız oyuncu yok
+            </div>
+          )}
+          {(transfer.freeAgentListings ?? []).map((listing) => {
+            const p = listing.player;
+            const isWatched = transfer.watchlist.includes(p.id);
+            return (
+              <div key={p.id} className="p-3 flex items-center gap-3">
+                <button
+                  onClick={() => setProfilePlayer(p)}
+                  className="tm-tap shrink-0"
+                  aria-label="Profil"
+                >
+                  <PlayerAvatar initials={`${p.firstName[0]}${p.lastName[0]}`} size={36} />
+                </button>
+                <button
+                  onClick={() => setProfilePlayer(p)}
+                  className="flex-1 min-w-0 text-left"
+                >
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-sm font-semibold truncate">{p.firstName} {p.lastName}</span>
+                    <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
+                    <span className="text-xs">{p.nationality === "TR" ? "🇹🇷" : "🌍"}</span>
+                    <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">TAKIMSIZ</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                    <span>{p.age}{t("common.year")}</span>
+                    {p.archetype && <><span>·</span><span className="truncate max-w-[100px]">{p.archetype}</span></>}
+                    <span>·</span>
+                    <span className="text-emerald-400 font-bold">Bedelsiz</span>
+                  </div>
+                </button>
+                <div className="flex flex-col items-end gap-1">
+                  <RatingBadge value={p.formRating} />
+                  <div className="text-[9px] text-muted-foreground">{formatEuro(listing.wageDemand, )}/hafta</div>
+                </div>
+                <button
+                  onClick={() => {
+                    haptic("success");
+                    // Bedelsiz transfer — sadece maaş öde
+                    if (team) {
+                      team.players.push(p);
+                      useAppStore.setState({ clubs: [...useAppStore.getState().clubs] });
+                      setProfilePlayer(null);
+                    }
+                  }}
+                  className="tm-tap px-2 py-1.5 rounded text-[10px] font-bold bg-emerald-600 text-white whitespace-nowrap"
+                >
+                  Transfer Et
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Kiralık oyuncular tab */}
+      {sub === "loan" && (
+        <div className="tm-card divide-y divide-border">
+          {(transfer.loanListings ?? []).length === 0 && (
+            <div className="p-8 text-center text-xs text-muted-foreground">
+              Kiralık oyuncu yok
+            </div>
+          )}
+          {(transfer.loanListings ?? []).map((listing, idx) => {
+            const p = listing.player;
+            return (
+              <div key={`${p.id}-${idx}`} className="p-3 flex items-center gap-3">
+                <button
+                  onClick={() => setProfilePlayer(p)}
+                  className="tm-tap shrink-0"
+                  aria-label="Profil"
+                >
+                  <PlayerAvatar initials={`${p.firstName[0]}${p.lastName[0]}`} size={36} />
+                </button>
+                <button
+                  onClick={() => setProfilePlayer(p)}
+                  className="flex-1 min-w-0 text-left"
+                >
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-sm font-semibold truncate">{p.firstName} {p.lastName}</span>
+                    <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
+                    <span className="text-[8px] px-1 py-0.5 rounded font-bold" style={{ background: listing.lenderTeamColor, color: "#fff" }}>
+                      {listing.lenderTeamShort}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                    <span>{p.age}{t("common.year")}</span>
+                    <span>·</span>
+                    <span>{listing.lenderTeamName}</span>
+                    <span>·</span>
+                    <span className="text-sky-400 font-bold">{formatEuro(listing.dailyFee)}/gün</span>
+                    <span>·</span>
+                    <span>{listing.durationWeeks} hafta</span>
+                    {listing.buyOption && (
+                      <>
+                        <span>·</span>
+                        <span className="text-amber-400">Opsiyon: {formatEuro(listing.buyOption)}</span>
+                      </>
+                    )}
+                  </div>
+                </button>
+                <div className="flex flex-col items-end gap-1">
+                  <RatingBadge value={p.formRating} />
+                  <span className="text-[9px] text-muted-foreground">{p.rating} OVR</span>
+                </div>
+                <button
+                  onClick={() => {
+                    haptic("success");
+                    // Kiralık al — kadroya ekle
+                    if (team) {
+                      team.players.push({ ...p, is_free_agent: false });
+                      useAppStore.setState({ clubs: [...useAppStore.getState().clubs] });
+                      // Listedeen kaldır
+                      useAppStore.setState({
+                        transfer: {
+                          ...useAppStore.getState().transfer,
+                          loanListings: (useAppStore.getState().transfer.loanListings ?? []).filter((_, i) => i !== idx),
+                        },
+                      });
+                    }
+                  }}
+                  className="tm-tap px-2 py-1.5 rounded text-[10px] font-bold bg-sky-600 text-white whitespace-nowrap"
+                >
+                  Kirala
+                </button>
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {/* Watchlist tab */}

@@ -160,6 +160,7 @@ export type Player = {
   // ── Transfer/durum ─────────────────────────────────────
   is_for_sale?: boolean;
   sale_price?: number;
+  is_free_agent?: boolean;
   isResting?: boolean;
   suspended_until?: string;
   is_injured?: boolean;

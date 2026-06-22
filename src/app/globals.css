@@ -170,7 +170,13 @@
 /* Pitch */
 .tm-pitch {
   background:
-    linear-gradient(0deg, var(--pitch-dark) 0%, var(--pitch) 50%, var(--pitch-dark) 100%);
+    repeating-linear-gradient(
+      0deg,
+      var(--pitch) 0px,
+      var(--pitch) 8%,
+      var(--pitch-dark) 8%,
+      var(--pitch-dark) 16%
+    );
   position: relative;
   overflow: hidden;
 }
@@ -179,21 +185,27 @@
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(90deg, transparent 49.5%, var(--pitch-line) 49.5%, var(--pitch-line) 50.5%, transparent 50.5%),
-    linear-gradient(transparent 49.5%, var(--pitch-line) 49.5%, var(--pitch-line) 50.5%, transparent 50.5%);
-  background-size: 100% 100%, 100% 12.5%;
-  opacity: 0.18;
+    /* Orta çizgi (yatay) */
+    linear-gradient(0deg, transparent 49.5%, var(--pitch-line) 49.5%, var(--pitch-line) 50.5%, transparent 50.5%),
+    /* Sol ceza alanı */
+    linear-gradient(90deg, var(--pitch-line) 15%, transparent 15%),
+    /* Sağ ceza alanı */
+    linear-gradient(270deg, var(--pitch-line) 15%, transparent 15%);
+  background-size: 100% 100%, 100% 25%, 100% 25%;
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-position: center, top, bottom;
+  opacity: 0.15;
   pointer-events: none;
 }
 .tm-pitch::after {
   content: "";
   position: absolute;
   top: 50%; left: 50%;
-  width: 60%; height: 30%;
+  width: 40%; height: 25%;
   transform: translate(-50%, -50%);
   border: 1.5px solid var(--pitch-line);
   border-radius: 50%;
-  opacity: 0.6;
+  opacity: 0.5;
   pointer-events: none;
 }
 
