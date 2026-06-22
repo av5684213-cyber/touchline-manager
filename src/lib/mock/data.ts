@@ -251,6 +251,30 @@ function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+// Pozisyona göre Türkçe arketipler
+const ARKETIPLER: Record<string, string[]> = {
+  GK: ["Refleks Canavarı", "Güvenli Eller", "Süpürücü Kaleci", "Penaltı Uzmanı", "Büyük Maç Kalecisi"],
+  CB: ["Duvar", "Lider Stoper", "Top Çıkan Stoper", "Hava Hakimi", "Baskı Ustası", "Kale Gibi"],
+  LB: ["Kanat Beki", "Hücumcu Bek", "Defansif Bek", "Ters Bek"],
+  RB: ["Kanat Beki", "Hücumcu Bek", "Defansif Bek", "Ters Bek"],
+  LWB: ["Kanat Beki", "Ofansif Bek"],
+  RWB: ["Kanat Beki", "Ofansif Bek"],
+  CDM: ["Yıkıcı", "Regista", "Ekran Oyuncusu", "Duvar Orta Saha"],
+  CM: ["Motor", "Truva Atı", "Pas Ustası", "Box-to-Box", "Tempo Kontrolcüsü"],
+  CAM: ["Playmaker", "Numara 10", "Yaratıcı", "Oyun Kurucu"],
+  LM: ["Kanat", "İçeri Dönen"],
+  RM: ["Kanat", "İçeri Dönen"],
+  LW: ["Hızlı Kanat", "İçeri Dönen", "Dripling Ustası"],
+  RW: ["Hızlı Kanat", "İçeri Dönen", "Dripling Ustası"],
+  ST: ["Gol Makinesi", "Bitirici", "Hedef Adam", "Fırsatçı", "Hızlı Forvet"],
+  CF: ["İkinci Forvet", "Yaratıcı Forvet", "Hedef Adam"],
+};
+
+function pickArketip(pos: string): string {
+  const list = ARKETIPLER[pos] ?? ARKETIPLER.CM;
+  return list[Math.floor(Math.random() * list.length)];
+}
+
 function pickN<T>(arr: T[], n: number): T[] {
   const copy = [...arr];
   const out: T[] = [];
@@ -517,7 +541,7 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
     negTraits,
     personalityTraits: pickN(PERSONALITY_TRAITS, rand(0, 2)),
     playStyle: pick(["Gegenpressing", "Tiki-Taka", "Catenaccio", "Counter-Attack", "Wing Play"]),
-    archetype: pick(["Press Master", "Goal Machine", "Playmaker", "Wall", "Engine Room"]),
+    archetype: pickArketip(pos),
     special_role: null,
 
     goals,
