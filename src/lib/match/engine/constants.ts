@@ -505,10 +505,10 @@ export const FATIGUE_MINUTE_MODS = { late: 0.85, mid: 0.92, fresh: 1.0 } as cons
 
 // ─── Olay Olasılıkları — Hücum Evresi ─────────────────────────────────
 export const ATTACK_PROBS = {
-  FWD: { shotMultiplier: 0.18, shotMin: 0.02, shotMax: 0.25, chanceMultiplier: 0.12, chanceMin: 0.02, chanceMax: 0.18, foul: 0.03 },
-  MID: { shotMultiplier: 0.08, shotMin: 0.01, shotMax: 0.12, chanceMultiplier: 0.10, chanceMin: 0.01, chanceMax: 0.15, interceptionMultiplier: 0.08, interceptionMin: 0.01, interceptionMax: 0.12, foul: 0.04 },
-  DEF: { tackleMultiplier: 0.07, tackleMin: 0.01, tackleMax: 0.10, interceptionMultiplier: 0.06, interceptionMin: 0.01, interceptionMax: 0.09, foul: 0.05 },
-  GK:  { saveMultiplier: 0.04, saveMin: 0.01, saveMax: 0.06 },
+  FWD: { shotMultiplier: 0.28, shotMin: 0.04, shotMax: 0.35, chanceMultiplier: 0.18, chanceMin: 0.03, chanceMax: 0.25, foul: 0.03 },
+  MID: { shotMultiplier: 0.14, shotMin: 0.02, shotMax: 0.18, chanceMultiplier: 0.15, chanceMin: 0.02, chanceMax: 0.20, interceptionMultiplier: 0.10, interceptionMin: 0.01, interceptionMax: 0.14, foul: 0.04 },
+  DEF: { tackleMultiplier: 0.10, tackleMin: 0.01, tackleMax: 0.14, interceptionMultiplier: 0.08, interceptionMin: 0.01, interceptionMax: 0.12, foul: 0.05 },
+  GK:  { saveMultiplier: 0.06, saveMin: 0.01, saveMax: 0.08 },
 } as const;
 
 // ─── Olay Olasılıkları — Savunma Evresi ────────────────────────────────
@@ -539,17 +539,17 @@ export const PROB_CAPS = {
 
 // ─── Gol Olasılığı Sabitleri ───────────────────────────────────────────
 export const GOAL_CHANCE = {
-  base: 0.03,           // 3% base goal per attacking minute
-  gkWeight: 0.5,        // GK rating weight in goal chance formula
-  qualityGapBonus: 0.15, // Quality gap bonus for stronger team (0.3→0.15: güçlü takım snowball etkisi azaltıldı)
-  qualityGapPenalty: 0.2, // Quality gap penalty for weaker team
-  mentalityBonus: 0.12,   // Per-point mentality bonus (mentality >= 4)
-  mentalityPenalty: 0.08, // Per-point mentality penalty (mentality <= 2)
-  counterTriggerProb: 0.3, // Counter bonus trigger probability
-  pressingGoalBoost: 0.3,  // Pressing → goal boost factor
-  lateGameDesperation: 1.25, // Late game desperation multiplier (min > 80)
-  clampMin: 0.005,        // Goal chance clamp minimum
-  clampMax: 0.08,          // Goal chance clamp maximum (0.12→0.08: aşırı gol önleme)
+  base: 0.08,           // 8% base goal per attacking minute (5→8: daha çok gol)
+  gkWeight: 0.35,       // GK rating weight (0.45→0.35: kaleci daha geçirgen)
+  qualityGapBonus: 0.25, // Quality gap bonus (0.22→0.25)
+  qualityGapPenalty: 0.28, // Quality gap penalty (0.25→0.28)
+  mentalityBonus: 0.18,   // Per-point mentality bonus (0.15→0.18)
+  mentalityPenalty: 0.12, // Per-point mentality penalty (0.10→0.12)
+  counterTriggerProb: 0.40, // Counter bonus trigger (0.35→0.40)
+  pressingGoalBoost: 0.40,  // Pressing → goal boost (0.35→0.40)
+  lateGameDesperation: 1.35, // Late game desperation (1.30→1.35)
+  clampMin: 0.012,        // Goal chance clamp minimum (0.008→0.012)
+  clampMax: 0.18,          // Goal chance clamp maximum (0.12→0.18)
 } as const;
 
 // ─── Pozisyon Bazlı Nitelik Ağırlıkları ────────────────────────────────
@@ -660,10 +660,10 @@ export const SET_PIECE_RATES = {
 
 // ─── Olay Görünürlük Eşikleri ─────────────────────────────────────────
 export const EVENT_VISIBILITY = {
-  tackle: 0.3,          // Tackle event visibility probability
-  interception: 0.25,   // Interception event visibility probability
-  gkSaveScaling: 0.5,   // GK save scaling factor (probs.save * this)
-  gkSave: 0.35,         // GK save event visibility probability
+  tackle: 0.55,          // Tackle event visibility probability (0.3→0.55: daha çok tackle görünsün)
+  interception: 0.45,   // Interception event visibility probability (0.25→0.45)
+  gkSaveScaling: 0.6,   // GK save scaling factor (0.5→0.6)
+  gkSave: 0.50,         // GK save event visibility probability (0.35→0.50)
 } as const;
 
 // ─── Sakatlık Riski — Dakika + Kondisyon Bazlı Dinamik ────────────────
