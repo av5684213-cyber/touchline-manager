@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AuthGate } from "@/components/touchline/auth-gate";
 import { TopBar } from "@/components/touchline/top-bar";
+import { StickyQuickBar } from "@/components/touchline/sticky-quick-bar";
 import {
   BottomNav,
   OTHER_TABS,
@@ -54,10 +55,14 @@ export default function Home() {
     setOtherOpen(false);
   };
 
+  // Maç ekranında TopBar ve StickyQuickBar gizlenir (full-screen maç deneyimi)
+  const isMatch = tab === "match";
+
   return (
     <AuthGate>
       <div className="tm-app-shell flex flex-col">
-        {tab !== "match" && <TopBar />}
+        {isMatch && <TopBar compact />}
+        {!isMatch && <StickyQuickBar activeTab={tab} onChange={setTab} />}
         <main className="flex-1 overflow-y-auto tm-thin-scrollbar">
           {tab === "dashboard" && <DashboardScreen />}
           {tab === "tactics" && <TacticsScreen />}

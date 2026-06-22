@@ -6,10 +6,46 @@ import { useAppStore } from "@/lib/store";
 import { ClubBadge } from "./ui-bits";
 import { formatEuro } from "@/lib/format";
 
-export function TopBar() {
+export function TopBar({ compact = false }: { compact?: boolean }) {
   const { t, locale } = useI18n();
   const { clubs, myTeamId, managerName } = useAppStore();
   const team = clubs.find((c) => c.id === myTeamId);
+
+  if (compact) {
+    return (
+      <header
+        className="tm-safe-top text-white"
+        style={{ background: "var(--primary)" }}
+      >
+        <div className="px-3 py-2 flex items-center gap-2">
+          {team && (
+            <>
+              <ClubBadge
+                short={team.shortName}
+                primaryColor={team.primaryColor}
+                size={28}
+              />
+              <span className="text-sm font-bold leading-tight truncate flex-1">
+                {team.name}
+              </span>
+              <span className="text-[11px] opacity-80">
+                2025–26 · {t("dash.1lig")}
+              </span>
+              <span className="text-xs font-bold tabular-nums opacity-90">
+                {formatEuro(team.budget, locale)}
+              </span>
+            </>
+          )}
+          {!team && (
+            <span className="text-sm opacity-70">
+              {t("auth.demo.title")} — {managerName}
+            </span>
+          )}
+          <LocaleSwitcher />
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header
@@ -36,8 +72,7 @@ export function TopBar() {
                   {team.name}
                 </div>
                 <div className="text-[11px] opacity-80 truncate">
-                  {t("dash.season")} {t("app.tagline") !== "app.tagline" ? "" : ""}
-                  2025–26 · {t("dash.1lig")}
+                  {t("dash.season")} 2025–26 · {t("dash.1lig")}
                 </div>
               </div>
               <div className="text-right">

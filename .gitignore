@@ -56,3 +56,4 @@ server.log
 _ref/
 # Tool result scratch files
 tool-results/
+download/

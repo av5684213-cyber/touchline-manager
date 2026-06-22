@@ -4,13 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   ChevronRight,
-  CircleDot,
   Clock,
   Flame,
   Heart,
   ListChecks,
-  Shield,
-  Target,
   TrendingUp,
   Trophy,
   Users,
@@ -163,7 +160,7 @@ export function DashboardScreen() {
           label={t("dash.winloss")}
           value={`${myStat.won}-${myStat.lost}`}
           sub={`${myStat.drawn} ${t("dash.draws")}`}
-          icon={Target}
+          icon={ListChecks}
           trend="flat"
         />
         <StatCard
@@ -272,18 +269,6 @@ export function DashboardScreen() {
         </section>
       )}
 
-      {/* Quick actions */}
-      <section>
-        <SectionTitle icon={CircleDot} title={t("dash.quick_actions")} />
-        <div className="grid grid-cols-5 gap-2">
-          <QuickAction icon={Trophy} label={t("dash.play_match")} highlight />
-          <QuickAction icon={ListChecks} label={t("dash.standings")} />
-          <QuickAction icon={Shield} label={t("dash.fixtures")} />
-          <QuickAction icon={Users} label={t("dash.training")} />
-          <QuickAction icon={Target} label={t("dash.tactics")} />
-        </div>
-      </section>
-
       {/* Notifications */}
       <section>
         <SectionTitle icon={Bell} title={t("dash.notifications")} />
@@ -332,30 +317,6 @@ function SectionTitle({
         </button>
       )}
     </div>
-  );
-}
-
-function QuickAction({
-  icon: Icon,
-  label,
-  highlight,
-}: {
-  icon: typeof Trophy;
-  label: string;
-  highlight?: boolean;
-}) {
-  return (
-    <button
-      className={cn(
-        "tm-tap flex flex-col items-center justify-center gap-1 rounded-xl py-2 px-1 text-[10px] font-semibold transition-colors border",
-        highlight
-          ? "bg-primary text-primary-foreground border-primary"
-          : "bg-card text-foreground border-border hover:bg-accent"
-      )}
-    >
-      <Icon size={18} />
-      <span className="text-center leading-tight">{label}</span>
-    </button>
   );
 }
 
