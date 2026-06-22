@@ -16,6 +16,12 @@ import {
   SEASON_INFO,
   type FixtureRow,
 } from "@/lib/mock/season";
+import {
+  generateFreeAgents,
+  generateIncomingOffers,
+  type IncomingOffer,
+  type TransferListing,
+} from "@/lib/mock/transfer";
 
 type Tactics = {
   formationKey: string;
@@ -27,6 +33,14 @@ type Tactics = {
     wingPlay: number;
   };
   roles: Record<string, "balanced" | "attacking" | "defensive" | "support">;
+};
+
+// Transfer state — oyuncu ID'leri string olarak saklanır
+type TransferState = {
+  freeAgents: TransferListing[];
+  watchlist: string[]; // player IDs
+  incomingOffers: IncomingOffer[];
+  myListedPlayers: { playerId: string; askingPrice: number }[];
 };
 
 type AppState = {
@@ -42,6 +56,9 @@ type AppState = {
   // tactics
   tactics: Tactics;
 
+  // transfer
+  transfer: TransferState;
+
   // actions
   loginDemo: (name?: string) => void;
   logout: () => void;
@@ -49,6 +66,14 @@ type AppState = {
   setSlider: (key: keyof Tactics["sliders"], value: number) => void;
   swapLineupSlot: (slotIndex: number, playerId: string) => void;
   setRole: (slotIndex: number, role: Tactics["roles"][string]) => void;
+  // transfer actions
+  toggleWatchlist: (playerId: string) => void;
+  buyPlayer: (playerId: string, fee: number, wage: number, contractYears: number) =>
+    { success: boolean; reason?: string };
+  acceptOffer: (offerId: string) => { success: boolean; salePrice?: number };
+  rejectOffer: (offerId: string) => void;
+  listPlayerForSale: (playerId: string, askingPrice: number) => void;
+  unlistPlayer: (playerId: string) => void;
 };
 
 function buildInitialClubs(): Team[] {
@@ -98,6 +123,12 @@ export const useAppStore = create<AppState>()(
         },
         roles: {},
       },
+      transfer: {
+        freeAgents: [],
+        watchlist: [],
+        incomingOffers: [],
+        myListedPlayers: [],
+      },
 
       loginDemo: (name) => {
         // Already-initialized clubs varsa yeniden üretme
@@ -119,6 +150,17 @@ export const useAppStore = create<AppState>()(
         const team = clubs.find((c) => c.id === myTeamId)!;
         const tactics = defaultTacticsFor(team);
 
+        // Transfer verisi — boşsa üret
+        let transfer = get().transfer;
+        if (transfer.freeAgents.length === 0) {
+          transfer = {
+            freeAgents: generateFreeAgents(30),
+            watchlist: [],
+            incomingOffers: generateIncomingOffers(team.players),
+            myListedPlayers: [],
+          };
+        }
+
         set({
           isAuthed: true,
           managerName: name || "Menajer",
@@ -126,6 +168,7 @@ export const useAppStore = create<AppState>()(
           clubs,
           fixtures,
           tactics,
+          transfer,
         });
       },
 
@@ -178,6 +221,125 @@ export const useAppStore = create<AppState>()(
           },
         });
       },
+
+      // ===== Transfer actions =====
+      toggleWatchlist: (playerId) => {
+        const { transfer } = get();
+        const inList = transfer.watchlist.includes(playerId);
+        set({
+          transfer: {
+            ...transfer,
+            watchlist: inList
+              ? transfer.watchlist.filter((id) => id !== playerId)
+              : [...transfer.watchlist, playerId],
+          },
+        });
+      },
+
+      buyPlayer: (playerId, fee, _wage, _contractYears) => {
+        const { clubs, myTeamId, transfer } = get();
+        const team = clubs.find((c) => c.id === myTeamId);
+        if (!team) return { success: false, reason: "no-team" };
+
+        // Toplam maliyet (transfer + %5 agent + %3 imza)
+        const total = fee + Math.round(fee * 0.05) + Math.round(fee * 0.03);
+        if (team.budget < total) {
+          return { success: false, reason: "budget" };
+        }
+
+        // Listing bul
+        const listing = transfer.freeAgents.find((l) => l.player.id === playerId);
+        if (!listing) return { success: false, reason: "not-found" };
+
+        // Teklif kontrolü — istilen fiyatın %85'i altında reddedilir
+        if (fee < listing.askingPrice * 0.85) {
+          return { success: false, reason: "too-low" };
+        }
+
+        // Atomik işlem: bütçe düş, oyuncu kadroya ekle, free agent'tan çıkar
+        team.budget -= total;
+        team.players = [...team.players, listing.player];
+
+        set({
+          clubs: [...clubs], // array referansı değişsin
+          transfer: {
+            ...transfer,
+            freeAgents: transfer.freeAgents.filter((l) => l.player.id !== playerId),
+            watchlist: transfer.watchlist.filter((id) => id !== playerId),
+          },
+        });
+
+        return { success: true };
+      },
+
+      acceptOffer: (offerId) => {
+        const { clubs, myTeamId, transfer } = get();
+        const team = clubs.find((c) => c.id === myTeamId);
+        if (!team) return { success: false };
+
+        const offer = transfer.incomingOffers.find((o) => o.id === offerId);
+        if (!offer) return { success: false };
+
+        // Oyuncu takımda mı?
+        const player = team.players.find((p) => p.id === offer.myPlayerId);
+        if (!player) return { success: false, reason: "not-in-team" };
+
+        // Satıştan %2.5 vergi düş, kalan bütçeye ekle
+        const tax = Math.round(offer.offerAmount * 0.025);
+        const net = offer.offerAmount - tax;
+        team.budget += net;
+        team.players = team.players.filter((p) => p.id !== offer.myPlayerId);
+
+        set({
+          clubs: [...clubs],
+          transfer: {
+            ...transfer,
+            incomingOffers: transfer.incomingOffers.filter((o) => o.id !== offerId),
+            myListedPlayers: transfer.myListedPlayers.filter(
+              (l) => l.playerId !== offer.myPlayerId
+            ),
+          },
+        });
+
+        return { success: true, salePrice: offer.offerAmount };
+      },
+
+      rejectOffer: (offerId) => {
+        const { transfer } = get();
+        set({
+          transfer: {
+            ...transfer,
+            incomingOffers: transfer.incomingOffers.filter((o) => o.id !== offerId),
+          },
+        });
+      },
+
+      listPlayerForSale: (playerId, askingPrice) => {
+        const { transfer } = get();
+        // Aynı oyuncu zaten listede mi?
+        if (transfer.myListedPlayers.some((l) => l.playerId === playerId)) return;
+        set({
+          transfer: {
+            ...transfer,
+            myListedPlayers: [
+              ...transfer.myListedPlayers,
+              { playerId, askingPrice },
+            ],
+          },
+        });
+      },
+
+      unlistPlayer: (playerId) => {
+        const { transfer } = get();
+        set({
+          transfer: {
+            ...transfer,
+            myListedPlayers: transfer.myListedPlayers.filter(
+              (l) => l.playerId !== playerId
+            ),
+          },
+        });
+      },
     }),
     {
       name: "tm.app.v1",
@@ -187,6 +349,7 @@ export const useAppStore = create<AppState>()(
         managerName: s.managerName,
         myTeamId: s.myTeamId,
         tactics: s.tactics,
+        transfer: s.transfer,
       }),
       // Hydration sonrası clubs/fixtures'ı yeniden üret
       onRehydrateStorage: () => (state) => {

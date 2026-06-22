@@ -104,7 +104,7 @@ const FICTIONAL_CLUB_NAMES: { name: string; short: string; c1: string; c2: strin
 ];
 
 // ===== Sahte Türk isim havuzu =====
-const FIRST_NAMES_TR = [
+export const FIRST_NAMES_TR = [
   "Ahmet", "Mehmet", "Mustafa", "Ali", "Hüseyin", "Hasan", "İbrahim", "Osman",
   "Yusuf", "Murat", "Emre", "Burak", "Cemal", "Kerem", "Deniz", "Serkan",
   "Barış", "Volkan", "Tolga", "Onur", "Alper", "Berkay", "Cenk", "Doğan",
@@ -115,7 +115,7 @@ const FIRST_NAMES_TR = [
   "Soner", "Taner", "Yalçın", "Eray", "Bedirhan", "Çağlar", "Çağatay",
 ];
 
-const LAST_NAMES_TR = [
+export const LAST_NAMES_TR = [
   "Yıldız", "Demir", "Şahin", "Çelik", "Yılmaz", "Aydın", "Öztürk", "Arslan",
   "Doğan", "Kılıç", "Aslan", "Çetin", "Kara", "Koç", "Kurt", "Özdemir",
   "Şimşek", "Polat", "Korkmaz", "Çakır", "Erdoğan", "Güneş", "Aksoy", "Bulut",
@@ -127,7 +127,7 @@ const LAST_NAMES_TR = [
 ];
 
 // Foreign first names (for variety, marked as foreign)
-const FIRST_NAMES_FOREIGN = [
+export const FIRST_NAMES_FOREIGN = [
   "Carlos", "Diego", "Marco", "Luca", "Andrei", "Stefan", "Nikola", "Pablo",
   "Mateo", "Ivan", "Lucas", "Bruno", "Felipe", "Rafael", "Hassan", "Youssef",
   "Amine", "Omar", "Karim", "Serge", "Dmitri", "Vlad", "Anton", "Niko",
