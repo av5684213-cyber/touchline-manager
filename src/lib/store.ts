@@ -31,10 +31,16 @@ import {
   todayKey,
   type TrainingState,
 } from "@/lib/training/engine";
+import { DEFAULT_TACTIC, type ActiveTactic } from "@/lib/tactics/types";
 
 type Tactics = {
-  formationKey: string;
+  // Yeni şema — eski oyunun ActiveTactic'i ile birebir
+  active: ActiveTactic;
   lineup: (Player | null)[];
+  // slot index → roleId eşlemesi
+  slotRoles: Record<number, string>;
+  // Eski şema (geri uyumluluk için kalsın, Tactics ekranı eski slider'ları kullanmıyor artık)
+  formationKey: string;
   sliders: {
     attackingPressure: number;
     defensiveLine: number;
@@ -112,6 +118,9 @@ type AppState = {
   setSlider: (key: keyof Tactics["sliders"], value: number) => void;
   swapLineupSlot: (slotIndex: number, playerId: string) => void;
   setRole: (slotIndex: number, role: Tactics["roles"][string]) => void;
+  // Yeni taktik action'ları
+  updateActiveTactic: (patch: Partial<ActiveTactic>) => void;
+  setSlotRole: (slotIndex: number, roleId: string) => void;
   // transfer actions
   toggleWatchlist: (playerId: string) => void;
   buyPlayer: (playerId: string, fee: number, wage: number, contractYears: number) =>
@@ -151,8 +160,10 @@ function pickRandom<T>(arr: T[]): T {
 function defaultTacticsFor(team: Team): Tactics {
   const formation = FORMATIONS[0]; // 4-4-2
   return {
-    formationKey: formation.key,
+    active: { ...DEFAULT_TACTIC },
     lineup: autoFillLineup(team, formation),
+    slotRoles: {},
+    formationKey: formation.key,
     sliders: {
       attackingPressure: 55,
       defensiveLine: 50,
@@ -172,8 +183,10 @@ export const useAppStore = create<AppState>()(
       clubs: [],
       fixtures: [],
       tactics: {
-        formationKey: "4-4-2",
+        active: { ...DEFAULT_TACTIC },
         lineup: Array(11).fill(null),
+        slotRoles: {},
+        formationKey: "4-4-2",
         sliders: {
           attackingPressure: 50,
           defensiveLine: 50,
@@ -284,6 +297,54 @@ export const useAppStore = create<AppState>()(
           tactics: {
             ...get().tactics,
             roles: { ...get().tactics.roles, [slotIndex]: role },
+          },
+        });
+      },
+
+      // ===== Yeni taktik action'ları (ActiveTactic) =====
+      updateActiveTactic: (patch) => {
+        const { tactics } = get();
+        const newActive = { ...tactics.active, ...patch };
+        // Karşılıklı dışlayan toggle'ları yönet
+        if (patch.pressing === true) {
+          newActive.parkTheBus = false;
+          newActive.wasteTime = false;
+        }
+        if (patch.parkTheBus === true) {
+          newActive.pressing = false;
+          newActive.offsideTrap = false;
+        }
+        if (patch.wasteTime === true) {
+          newActive.pressing = false;
+        }
+        if (patch.offsideTrap === true) {
+          newActive.parkTheBus = false;
+        }
+        // formation değiştiğinde lineup'ı yeniden doldur
+        let newLineup = tactics.lineup;
+        if (patch.formation && patch.formation !== tactics.active.formation) {
+          const formation = FORMATIONS.find((f) => f.key === patch.formation);
+          const team = get().clubs.find((c) => c.id === get().myTeamId);
+          if (formation && team) {
+            newLineup = autoFillLineup(team, formation);
+          }
+        }
+        set({
+          tactics: {
+            ...tactics,
+            active: newActive,
+            lineup: newLineup,
+            formationKey: newActive.formation,
+          },
+        });
+      },
+
+      setSlotRole: (slotIndex, roleId) => {
+        const { tactics } = get();
+        set({
+          tactics: {
+            ...tactics,
+            slotRoles: { ...tactics.slotRoles, [slotIndex]: roleId },
           },
         });
       },

@@ -145,6 +145,25 @@ export const dict: Dict = {
   "tactics.swap_player": { tr: "Oyuncu değiştir", en: "Swap player" },
   "tactics.empty_slot": { tr: "Boş", en: "Empty" },
 
+  // ---- yeni taktik ekranı (ActiveTactic) ----
+  "tactics.mentality": { tr: "Mentalite", en: "Mentality" },
+  "tactics.pressing": { tr: "Tam Saha Pres", en: "Full Press" },
+  "tactics.parkTheBus": { tr: "Otobüs Çek", en: "Park the Bus" },
+  "tactics.wasteTime": { tr: "Zamana Oyna", en: "Waste Time" },
+  "tactics.offsideTrap": { tr: "Ofsayt Tuzağı", en: "Offside Trap" },
+  "tactics.screenKeeper": { tr: "Kaleciyi Perdele", en: "Screen Keeper" },
+  "tactics.crossGame": { tr: "Orta Açma Oyunu", en: "Cross Game" },
+  "tactics.loneStrikerCounter": { tr: "Tek Forvet Kontra", en: "Lone Striker Counter" },
+  "tactics.aggression": { tr: "Sertlik", en: "Aggression" },
+  "tactics.width": { tr: "Genişlik", en: "Width" },
+  "tactics.passingIntensity": { tr: "Pas Şiddeti", en: "Passing Intensity" },
+  "tactics.lineHeight": { tr: "Hücum Hattı", en: "Defensive Line" },
+  "tactics.passingStyle": { tr: "Pas Tarzı", en: "Passing Style" },
+  "tactics.playStyle": { tr: "Oyun Tarzı", en: "Play Style" },
+  "tactics.tactical_lab": { tr: "Taktik Lab", en: "Tactic Lab" },
+  "tactics.slot_role": { tr: "Slot Rolü", en: "Slot Role" },
+  "tactics.no_role": { tr: "Rol yok", en: "No role" },
+
   // ---- notifications ----
   "notif.injury": { tr: "Sakatlık", en: "Injury" },
   "notif.result": { tr: "Sonuç", en: "Result" },

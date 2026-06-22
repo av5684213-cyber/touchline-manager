@@ -8,26 +8,59 @@ import {
   type MatchEnginePlayer,
 } from "@/lib/match/engine";
 import type { Player, Team } from "@/lib/mock/data";
+import { useAppStore } from "@/lib/store";
+import { FORMATION_SLOTS } from "@/lib/tactics/types";
 
 const TICK_MS = 800; // 1 oyun dakikası = 800ms
 
 /**
- * İlk 11'i formasyon bazlı seçer (1 GK + 4 DEF + 4 MID + 2 FWD).
- * Pozisyon gruplarına göre en yüksek OVR'li oyuncuları alır.
+ * İlk 11'i formasyon bazlı seçer.
+ * store.tactics.active.formation'a göre slot pozisyonlarını alır,
+ * her slot için en uygun oyuncuyu seçer.
  */
-function pickStartingXI(players: Player[]): Player[] {
-  const sorted = [...players].sort((a, b) => b.rating - a.rating);
-  const gk = sorted.filter((p) => p.specificPosition === "GK").slice(0, 1);
-  const def = sorted
-    .filter((p) => ["CB", "LB", "RB", "LWB", "RWB"].includes(p.specificPosition))
-    .slice(0, 4);
-  const mid = sorted
-    .filter((p) => ["CDM", "CM", "CAM", "LM", "RM"].includes(p.specificPosition))
-    .slice(0, 4);
-  const fwd = sorted
-    .filter((p) => ["LW", "RW", "ST", "CF"].includes(p.specificPosition))
-    .slice(0, 2);
-  return [...gk, ...def, ...mid, ...fwd];
+function pickStartingXIByFormation(
+  players: Player[],
+  formation: string
+): Player[] {
+  const slots = FORMATION_SLOTS[formation] ?? FORMATION_SLOTS["4-4-2"];
+  const used = new Set<string>();
+  const lineup: Player[] = [];
+
+  for (const slotPos of slots) {
+    // Önce tam pozisyon eşleşmesi ara
+    let candidate = players
+      .filter((p) => !used.has(p.id) && p.specificPosition === slotPos)
+      .sort((a, b) => b.rating - a.rating)[0];
+
+    // Yoksa aynı gruptan al
+    if (!candidate) {
+      const group = getGroup(slotPos);
+      candidate = players
+        .filter((p) => !used.has(p.id) && getGroup(p.specificPosition) === group)
+        .sort((a, b) => b.rating - a.rating)[0];
+    }
+
+    // Hala yoksa en yüksek OVR'li boş oyuncu
+    if (!candidate) {
+      candidate = players
+        .filter((p) => !used.has(p.id))
+        .sort((a, b) => b.rating - a.rating)[0];
+    }
+
+    if (candidate) {
+      used.add(candidate.id);
+      lineup.push(candidate);
+    }
+  }
+
+  return lineup;
+}
+
+function getGroup(pos: string): "GK" | "DEF" | "MID" | "FWD" {
+  if (pos === "GK") return "GK";
+  if (["CB", "LB", "RB", "LWB", "RWB"].includes(pos)) return "DEF";
+  if (["CDM", "CM", "CAM", "LM", "RM"].includes(pos)) return "MID";
+  return "FWD";
 }
 
 /**
@@ -190,17 +223,23 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
 
     // İlk başlatma — tüm maç'ı simüle et
     if (!fullResultRef.current) {
-      // İlk 11'i formasyon bazlı seç (1 GK + 4 DEF + 4 MID + 2 FWD)
-      const homeSquad = pickStartingXI(home.players) as unknown as MatchEnginePlayer[];
-      const awaySquad = pickStartingXI(away.players) as unknown as MatchEnginePlayer[];
+      // Store'dan kullanıcının taktiğini al
+      const storeState = useAppStore.getState();
+      const userTactic = storeState.tactics.active;
+      const formation = userTactic.formation || "4-4-2";
 
-      // Basit taktikler — motorun ActiveTactic şemasına uygun
-      const homeTactic = {
+      // İlk 11'i formasyon bazlı seç
+      const homeSquad = pickStartingXIByFormation(home.players, formation) as unknown as MatchEnginePlayer[];
+      const awaySquad = pickStartingXIByFormation(away.players, "4-4-2") as unknown as MatchEnginePlayer[];
+
+      // Kullanıcının taktiğini home için kullan, away için default
+      const homeTactic = { ...userTactic, tactic_type: userTactic.formation };
+      const awayTactic = {
         formation: "4-4-2",
         tactic_type: "4-4-2",
-        mentality: 3,
+        mentality: 3 as const,
         pressing: false,
-        passingStyle: "Karışık",
+        passingStyle: "Karışık" as const,
         intensity: "normal" as const,
         aggression: 50,
         width: 50,
@@ -214,7 +253,6 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
         offsideTrap: false,
         playStyle: "balanced",
       };
-      const awayTactic = { ...homeTactic };
 
       const result = simulateEnhancedMatch(
         homeSquad,
