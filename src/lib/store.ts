@@ -733,24 +733,73 @@ export const useAppStore = create<AppState>()(
 
       // ===== Season actions =====
       advanceMatchday: () => {
-        const { fixtures, clubs, myTeamId } = get();
+        const { fixtures, clubs, myTeamId, transfer } = get();
         const currentMd = SEASON_INFO.matchday;
 
         // Bot vs bot maçlarını simüle et (kullanıcının maçları hariç)
         const updatedFixtures = fixtures.map((f) => {
           if (f.matchday !== currentMd || f.played) return f;
-          // Kullanıcının maçını otomatik oynama
           if (f.homeId === myTeamId || f.awayId === myTeamId) return f;
-          // Bot maçı — rastgele skor
-          const hs = Math.floor(Math.random() * 5);
-          const as = Math.floor(Math.random() * 4);
+          // Bot maçı — kalite farkına göre skor
+          const homeTeam = clubs.find((c) => c.id === f.homeId);
+          const awayTeam = clubs.find((c) => c.id === f.awayId);
+          if (!homeTeam || !awayTeam) return f;
+          const homeStr = homeTeam.players.slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+          const awayStr = awayTeam.players.slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+          const diff = homeStr - awayStr;
+          const homeAdv = diff > 5 ? 0.3 : diff < -5 ? -0.3 : 0;
+          const hs = Math.max(0, Math.floor(Math.random() * 4 + homeAdv * 2));
+          const as = Math.max(0, Math.floor(Math.random() * 3 - homeAdv * 2));
           return { ...f, homeScore: hs, awayScore: as, played: true };
         });
+
+        // Bot AI — transfer aktivitesi
+        const botTeams = clubs.filter((c) => c.id !== myTeamId && c.is_bot);
+        const updatedTransfer = { ...transfer };
+        const updatedClubs = [...clubs];
+
+        for (const bot of botTeams) {
+          // %30 ihtimalle serbest oyuncu al
+          if (Math.random() < 0.3 && updatedTransfer.freeAgents.length > 0 && bot.budget > 500000) {
+            const idx = Math.floor(Math.random() * Math.min(5, updatedTransfer.freeAgents.length));
+            const listing = updatedTransfer.freeAgents[idx];
+            if (listing.askingPrice < bot.budget) {
+              const botIdx = updatedClubs.findIndex((c) => c.id === bot.id);
+              updatedClubs[botIdx] = {
+                ...bot,
+                budget: bot.budget - listing.askingPrice,
+                players: [...bot.players, listing.player],
+              };
+              updatedTransfer.freeAgents = updatedTransfer.freeAgents.filter((_, i) => i !== idx);
+            }
+          }
+
+          // %15 ihtimalle oyuncu sat (en düşük OVR'li)
+          if (Math.random() < 0.15 && bot.players.length > 18) {
+            const weakest = [...bot.players].sort((a, b) => a.rating - b.rating)[0];
+            if (weakest) {
+              const botIdx = updatedClubs.findIndex((c) => c.id === bot.id);
+              const salePrice = weakest.marketValue;
+              updatedClubs[botIdx] = {
+                ...updatedClubs[botIdx],
+                budget: updatedClubs[botIdx].budget + salePrice,
+                players: updatedClubs[botIdx].players.filter((p) => p.id !== weakest.id),
+              };
+              // Serbest oyuncu havuzuna ekle
+              updatedTransfer.freeAgents.unshift({
+                player: weakest,
+                askingPrice: salePrice,
+                daysListed: 1,
+                offers: 0,
+              });
+            }
+          }
+        }
 
         // Matchday'i ilerlet
         SEASON_INFO.matchday = Math.min(SEASON_INFO.totalMatchdays, currentMd + 1);
 
-        set({ fixtures: updatedFixtures });
+        set({ fixtures: updatedFixtures, clubs: updatedClubs, transfer: updatedTransfer });
       },
 
       endSeason: () => {
