@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
+import { isTransferWindowOpen } from "@/lib/mock/season";
 import {
   NATIONALITIES,
   calculateBuyerCost,
@@ -59,6 +60,8 @@ export function TransferScreen() {
 
   if (!team) return null;
 
+  const transferWindowOpen = isTransferWindowOpen();
+
   return (
     <div className="px-4 py-4 pb-6 space-y-3">
       {/* Budget header */}
@@ -77,6 +80,15 @@ export function TransferScreen() {
             {formatEuro(team.budget)}
           </div>
         </div>
+      </div>
+
+      {/* Transfer penceresi durumu */}
+      <div className={cn(
+        "tm-card p-2.5 flex items-center gap-2 text-[11px] font-bold",
+        transferWindowOpen ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"
+      )}>
+        <span>{transferWindowOpen ? "🟢" : "🔴"}</span>
+        <span>{transferWindowOpen ? t("transfer.window_open") : t("transfer.window_closed")}</span>
       </div>
 
       {/* Sub-tabs */}

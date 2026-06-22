@@ -41,6 +41,7 @@ type HomeAway = "home" | "away";
 import { ClubBadge, PositionPill, RatingBadge } from "../ui-bits";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
+import { PreMatchScreen } from "../pre-match-screen";
 
 export function MatchScreen() {
   const { t, locale } = useI18n();
@@ -89,12 +90,54 @@ export function MatchScreen() {
   );
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [showPreMatch, setShowPreMatch] = useState(false);
 
   if (!team || !opponent || !homeTeam || !awayTeam) {
     return (
       <div className="px-4 py-16 text-center text-sm text-muted-foreground">
         {t("common.loading")}
       </div>
+    );
+  }
+
+  // Maç öncesi ekran
+  if (showPreMatch) {
+    const homeRecent = fixtures
+      .filter((f) => f.played && (f.homeId === homeTeam.id || f.awayId === homeTeam.id))
+      .sort((a, b) => b.matchday - a.matchday)
+      .slice(0, 5)
+      .map((f) => {
+        const isHome = f.homeId === homeTeam.id;
+        const us = isHome ? f.homeScore : f.awayScore;
+        const them = isHome ? f.awayScore : f.homeScore;
+        return (us ?? 0) > (them ?? 0) ? "W" as const : (us ?? 0) < (them ?? 0) ? "L" as const : "D" as const;
+      });
+    const awayRecent = fixtures
+      .filter((f) => f.played && (f.homeId === awayTeam.id || f.awayId === awayTeam.id))
+      .sort((a, b) => b.matchday - a.matchday)
+      .slice(0, 5)
+      .map((f) => {
+        const isHome = f.homeId === awayTeam.id;
+        const us = isHome ? f.homeScore : f.awayScore;
+        const them = isHome ? f.awayScore : f.homeScore;
+        return (us ?? 0) > (them ?? 0) ? "W" as const : (us ?? 0) < (them ?? 0) ? "L" as const : "D" as const;
+      });
+
+    return (
+      <PreMatchScreen
+        homeTeam={homeTeam}
+        awayTeam={awayTeam}
+        weather={engine.state.weather || "sunny"}
+        refereeName={engine.state.referee.name || "—"}
+        refereePersonality={engine.state.referee.personality || "balanced"}
+        homeForm={homeRecent}
+        awayForm={awayRecent}
+        onStart={() => {
+          setShowPreMatch(false);
+          engine.start();
+        }}
+        onBack={() => setShowPreMatch(false)}
+      />
     );
   }
 
@@ -115,7 +158,7 @@ export function MatchScreen() {
           <div className="flex gap-2">
             {engine.state.status === "idle" && (
               <button
-                onClick={() => { haptic("medium"); engine.start(); }}
+                onClick={() => { haptic("medium"); setShowPreMatch(true); }}
                 className="tm-tap flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-bold active:scale-[0.98] transition-transform"
               >
                 <Play size={16} /> {t("match.kick_off")}
@@ -131,7 +174,7 @@ export function MatchScreen() {
             )}
             {engine.state.status === "paused" && (
               <button
-                onClick={() => { haptic("medium"); engine.start(); }}
+                onClick={() => { haptic("medium"); setShowPreMatch(true); }}
                 className="tm-tap flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-bold active:scale-[0.98] transition-transform"
               >
                 <Play size={16} /> {t("match.resume")}
@@ -784,7 +827,7 @@ function PostMatch({
             <div className="flex-1 min-w-0">
               <div className="text-sm font-bold truncate">{motm.firstName} {motm.lastName}</div>
               <div className="text-[11px] text-muted-foreground">
-                {motm.position} · {motmSide === "home" ? homeTeam.name : awayTeam.name}
+                {motm.specificPosition} · {motmSide === "home" ? homeTeam.name : awayTeam.name}
               </div>
             </div>
             <div className="text-right">
@@ -796,6 +839,66 @@ function PostMatch({
           </div>
         </div>
       )}
+
+      {/* Gol kartları */}
+      {state.events.filter((e) => e.type === "goal").length > 0 && (
+        <div className="tm-card p-3">
+          <div className="text-[10px] uppercase font-bold text-muted-foreground mb-2">⚽ Goller</div>
+          <div className="space-y-1">
+            {state.events
+              .filter((e) => e.type === "goal")
+              .sort((a, b) => a.minute - b.minute)
+              .map((ev, i) => {
+                const side = (ev.team as string) ?? "neutral";
+                const teamName = side === "home" ? homeTeam.shortName : side === "away" ? awayTeam.shortName : "";
+                return (
+                  <div key={i} className="flex items-center gap-2 text-[10px]">
+                    <span className="font-bold tabular-nums w-6">{ev.minute}'</span>
+                    <span className="text-[9px] px-1 py-0.5 rounded font-bold"
+                      style={{ background: side === "home" ? homeTeam.primaryColor : side === "away" ? awayTeam.primaryColor : "#666", color: "#fff" }}>
+                      {teamName}
+                    </span>
+                    <span className="flex-1 truncate">{ev.description}</span>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
+      {/* Kartlar */}
+      {state.events.filter((e) => e.type === "yellow_card" || e.type === "red_card").length > 0 && (
+        <div className="tm-card p-3">
+          <div className="text-[10px] uppercase font-bold text-muted-foreground mb-2">🟨🟥 Kartlar</div>
+          <div className="space-y-1">
+            {state.events
+              .filter((e) => e.type === "yellow_card" || e.type === "red_card")
+              .sort((a, b) => a.minute - b.minute)
+              .map((ev, i) => (
+                <div key={i} className="flex items-center gap-2 text-[10px]">
+                  <span className="font-bold tabular-nums w-6">{ev.minute}'</span>
+                  <span>{ev.type === "yellow_card" ? "🟨" : "🟥"}</span>
+                  <span className="flex-1 truncate">{ev.description}</span>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* Basın açıklaması */}
+      <div className="tm-card p-3 bg-muted/30">
+        <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1">📰 Basın</div>
+        <div className="text-[11px] leading-relaxed">
+          {(() => {
+            const diff = state.homeScore - state.awayScore;
+            if (diff > 2) return "Etkileyici bir performans! Takım sahadaki üstünlüğünü gole yansıttı ve rakibine nefes aldırmadı.";
+            if (diff === 1 || diff === -1) return "Taraftarlar için çekişmeli bir maçtı. İki takım da mücadele etti, fark tek golde kaldı.";
+            if (diff === 0) return "Beraberlik her iki takım için de adil bir sonuçtu. Maç boyunca kırılma anı yaşanmadı.";
+            if (diff < -2) return "Zor bir gün. Savunma organize olamadı ve rakip bunu acımasızca cezalandırdı. Düşünme zamanı.";
+            return "Maç sona erdi, şimdi bir sonraki maça odaklanma zamanı.";
+          })()}
+        </div>
+      </div>
 
       {/* Player ratings table */}
       <div className="tm-card">

@@ -369,6 +369,8 @@ export const dict: Dict = {
   },
   "transfer.archetype": { tr: "Arketip", en: "Archetype" },
   "transfer.nationality": { tr: "Uyruk", en: "Nationality" },
+  "transfer.window_open": { tr: "Transfer penceresi açık", en: "Transfer window open" },
+  "transfer.window_closed": { tr: "Transfer penceresi kapalı", en: "Transfer window closed" },
 
   // ---- training ----
   "training.title": { tr: "Antrenman Akademisi", en: "Training Academy" },

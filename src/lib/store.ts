@@ -797,6 +797,63 @@ export const useAppStore = create<AppState>()(
           }
         }
 
+        // Haftalık ekonomi + oyuncu güncellemesi
+        const myTeam = updatedClubs.find((c) => c.id === myTeamId);
+        if (myTeam) {
+          const facilitiesState = get().facilities;
+          // Gelir
+          const stadiumCap = 5000 + facilitiesState.levels.stadium * 10000;
+          const ticketRev = Math.round(stadiumCap * 0.6 * facilitiesState.ticketPrice);
+          const sponsor = 200_000 + facilitiesState.levels.stadium * 30_000;
+          const tv = 150_000;
+          const merch = Math.round(stadiumCap * 0.4 * 2);
+          const totalIncome = ticketRev + sponsor + tv + merch;
+          // Gider
+          const wages = myTeam.players.reduce((s, p) => s + p.weeklyWage, 0);
+          const staffWages = facilitiesState.staff.reduce((s, st) => s + st.weeklyWage, 0);
+          const facilityCost = Object.values(facilitiesState.levels).reduce((s, l) => s + l * 5000, 0);
+          const totalExpense = wages + staffWages + facilityCost;
+          const net = totalIncome - totalExpense;
+          myTeam.budget += net;
+
+          // Oyuncu güncellemesi — kondisyon toparlanma + sakatlık iyileşme + moral
+          myTeam.players = myTeam.players.map((p) => {
+            const newCond = Math.min(100, p.cond + 12); // +12 kondisyon
+            let newMorale = p.morale;
+            // Moral: takım sonucuna göre (son maç)
+            const lastFx = updatedFixtures
+              .filter((f) => f.played && (f.homeId === myTeamId || f.awayId === myTeamId))
+              .sort((a, b) => b.matchday - a.matchday)[0];
+            if (lastFx) {
+              const isHome = lastFx.homeId === myTeamId;
+              const us = isHome ? lastFx.homeScore : lastFx.awayScore;
+              const them = isHome ? lastFx.awayScore : lastFx.homeScore;
+              if ((us ?? 0) > (them ?? 0)) newMorale = Math.min(100, newMorale + 2);
+              else if ((us ?? 0) < (them ?? 0)) newMorale = Math.max(20, newMorale - 2);
+            }
+            // Sakatlık iyileşme
+            let newInjury = p.injury;
+            let isInjured = p.is_injured;
+            if (p.injury && p.injury.remaining_days > 0) {
+              const remaining = p.injury.remaining_days - 7;
+              if (remaining <= 0) {
+                newInjury = undefined;
+                isInjured = false;
+              } else {
+                newInjury = { ...p.injury, remaining_days: remaining };
+              }
+            }
+            return {
+              ...p,
+              cond: newCond,
+              condition: newCond,
+              morale: newMorale,
+              injury: newInjury,
+              is_injured: isInjured,
+            };
+          });
+        }
+
         // Matchday'i ilerlet
         SEASON_INFO.matchday = Math.min(SEASON_INFO.totalMatchdays, currentMd + 1);
 

@@ -285,6 +285,48 @@ function OverviewTab({
         <StatTile label="Asist" value={player.assists} />
         <StatTile label="Değer" value={formatEuro(player.marketValue, locale)} small />
       </div>
+
+      {/* Gelişim grafiği — son maç rating'leri */}
+      {player.match_ratings && player.match_ratings.length > 0 && (
+        <div className="pt-2 border-t border-border">
+          <div className="text-[9px] text-muted-foreground uppercase tracking-wide mb-1 font-bold">Son Maç Puanları</div>
+          <div className="flex items-end gap-1 h-12">
+            {player.match_ratings.slice(-10).map((r, i) => {
+              const pct = ((r - 3) / 7) * 100; // 3-10 arası → 0-100%
+              const color = r >= 7 ? "bg-emerald-500" : r >= 6 ? "bg-amber-400" : "bg-red-500";
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center justify-end h-full">
+                  <span className="text-[7px] text-muted-foreground mb-0.5">{r.toFixed(1)}</span>
+                  <div
+                    className={cn("w-full rounded-sm", color)}
+                    style={{ height: `${Math.max(10, pct)}%` }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-between text-[7px] text-muted-foreground mt-0.5">
+            <span>Eski</span>
+            <span>Şimdi</span>
+          </div>
+          {/* Gelişim özeti */}
+          {player.match_ratings.length >= 2 && (() => {
+            const recent = player.match_ratings.slice(-5);
+            const old = player.match_ratings.slice(0, 5);
+            const recentAvg = recent.reduce((s, r) => s + r, 0) / recent.length;
+            const oldAvg = old.reduce((s, r) => s + r, 0) / old.length;
+            const change = recentAvg - oldAvg;
+            return (
+              <div className="flex justify-between text-[9px] mt-1">
+                <span className="text-muted-foreground">Ortalama: {recentAvg.toFixed(1)}</span>
+                <span className={change >= 0 ? "text-emerald-400" : "text-red-400"}>
+                  {change >= 0 ? "↑" : "↓"} {Math.abs(change).toFixed(1)}
+                </span>
+              </div>
+            );
+          })()}
+        </div>
+      )}
     </div>
   );
 }
