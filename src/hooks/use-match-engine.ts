@@ -9,7 +9,7 @@ import {
 } from "@/lib/match/engine";
 import type { Player, Team } from "@/lib/mock/data";
 import { useAppStore } from "@/lib/store";
-import { FORMATION_SLOTS, DEFAULT_TACTIC } from "@/lib/tactics/types";
+import { FORMATION_SLOTS, DEFAULT_TACTIC, TACTICAL_INSTRUCTIONS } from "@/lib/tactics/types";
 
 const TICK_MS = 800; // 1 oyun dakikası = 800ms
 
@@ -74,6 +74,69 @@ function pickRandomReferee(): string {
 }
 function pickRandomRefereeName(): string {
   return REFEREE_NAMES[Math.floor(Math.random() * REFEREE_NAMES.length)];
+}
+
+/**
+ * activeInstructions'ı motorun beklediği homeTacticModifiers'a çevirir.
+ * Her talimatın effects'i toplanır, hücum/savunma/kontra çarpanları hesaplanır.
+ */
+function computeInstructionModifiers(
+  activeInstructions: Record<string, string>
+): { goalMod: number; conceedMod: number; counterMod: number } {
+  let goalMod = 0;
+  let conceedMod = 0;
+  let counterMod = 0;
+
+  for (const [instName, selectedOption] of Object.entries(activeInstructions)) {
+    const inst = TACTICAL_INSTRUCTIONS.find((i) => i.name === instName);
+    if (!inst) continue;
+
+    // Sadece "Evet" veya ilk opsiyon (örn "Yüksek", "Direkt", "Geniş") seçilmişse etkili
+    const isFirstOption = selectedOption === inst.options[0];
+    if (!isFirstOption) continue;
+
+    // Effects'i kategorilere göre modifier'lara çevir
+    for (const [effectKey, effectVal] of Object.entries(inst.effects)) {
+      // Hücum efektleri
+      if (["crossing_chance", "wide_attack", "central_attack", "dribbling_success",
+           "long_shot_chance", "shot_volume", "clear_cut_chance", "early_cross_chance",
+           "fast_break", "first_time_shot", "cutback_chance", "crossing_accuracy",
+           "crossing_speed", "heading_opportunity", "goal_from_corner", "near_post_goal",
+           "quick_goal_chance", "counter_attack", "patient_buildup"].includes(effectKey)) {
+        goalMod += effectVal * 0.003;
+      }
+      // Savunma efektleri
+      else if (["defensive_depth", "defensive_shape", "compact_defense", "formation_integrity",
+                "possession_regain", "ball_recovery", "tackle_intensity", "set_piece_defense",
+                "zonal_coverage", "man_marking_tightness", "offside_success"].includes(effectKey)) {
+        conceedMod -= effectVal * 0.003;
+      }
+      // Risk / savunma zaafı
+      else if (["defensive_risk", "through_ball_vuln", "interception_risk", "turnover_risk",
+                "foul_risk", "counter_vuln", "defensive_vuln", "crowd_frustration"].includes(effectKey)) {
+        conceedMod += effectVal * 0.003;
+      }
+      // Kontra
+      else if (["counter_attack", "fast_break", "counter_vuln"].includes(effectKey)) {
+        counterMod += effectVal * 0.003;
+      }
+      // Faul kazanma
+      else if (["foul_won"].includes(effectKey)) {
+        goalMod += effectVal * 0.002;
+      }
+      // Hava düellosu
+      else if (["ariel_duel"].includes(effectKey)) {
+        goalMod += effectVal * 0.002;
+      }
+    }
+  }
+
+  // Çarpanları sınırla
+  return {
+    goalMod: Math.max(-0.15, Math.min(0.15, goalMod)),
+    conceedMod: Math.max(-0.15, Math.min(0.15, conceedMod)),
+    counterMod: Math.max(-0.10, Math.min(0.10, counterMod)),
+  };
 }
 
 /**
@@ -285,6 +348,11 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
       // Pitch pass accuracy bonus (seviye 0 = 0, seviye 10 = +20%)
       const pitchPassBonus = pitchLevel > 0 ? pitchLevel * 0.02 : undefined;
 
+      // Tactical instructions'ı motora modifier olarak çevir
+      const homeTacticModifiers = computeInstructionModifiers(
+        storeState.tactics.activeInstructions ?? {}
+      );
+
       const result = simulateEnhancedMatch(
         homeSquad,
         awaySquad,
@@ -300,6 +368,8 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
           atmosphereScore,
           // Pitch pass bonus (stadiumMatrix.getPitchPassAccuracyBonus)
           pitchPassBonus,
+          // Tactical instructions (20 talimat → modifier)
+          homeTacticModifiers,
         } as any
       );
       fullResultRef.current = result;

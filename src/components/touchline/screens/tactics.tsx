@@ -26,9 +26,12 @@ import {
   PLAY_STYLES,
   ROLES,
   DEFAULT_TACTIC,
+  TACTICAL_INSTRUCTIONS,
+  INSTRUCTION_CATEGORIES,
   type ActiveTactic,
   type Mentality,
   type PassingStyle,
+  type InstructionCategory,
 } from "@/lib/tactics/types";
 import { PlayerAvatar, PositionPill, RatingBadge } from "../ui-bits";
 import { PlayerProfileModal } from "../player-profile-modal";
@@ -38,7 +41,7 @@ import { cn } from "@/lib/utils";
 export function TacticsScreen() {
   const { t, locale } = useI18n();
   const team = useMyTeam();
-  const { tactics, updateActiveTactic, setSlotRole, swapLineupSlot } = useAppStore();
+  const { tactics, updateActiveTactic, setSlotRole, swapLineupSlot, setInstruction, resetInstruction } = useAppStore();
   const [filter, setFilter] = useState<PositionGroup | "ALL">("ALL");
   const [swapSlot, setSwapSlot] = useState<number | null>(null);
   const [roleSlot, setRoleSlot] = useState<number | null>(null);
@@ -314,6 +317,60 @@ export function TacticsScreen() {
               ))}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Tactical Instructions — 20 talimat, 4 kategori */}
+      <div className="tm-card p-3">
+        <div className="flex items-center gap-2 mb-2">
+          <SlidersHorizontal size={14} className="text-muted-foreground" />
+          <span className="text-xs font-bold">{t("tactics.instructions")}</span>
+        </div>
+        <div className="space-y-2.5">
+          {INSTRUCTION_CATEGORIES.map((cat) => {
+            const catInstructions = TACTICAL_INSTRUCTIONS.filter((i) => i.category === cat.key);
+            return (
+              <div key={cat.key}>
+                <div className="text-[9px] text-muted-foreground uppercase tracking-wide mb-1 font-bold flex items-center gap-1">
+                  <span>{cat.icon}</span>
+                  <span>{cat.label[locale]}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {catInstructions.map((inst) => {
+                    const selected = tactics.activeInstructions?.[inst.name];
+                    return (
+                      <div key={inst.name} className="flex flex-col">
+                        <div className="text-[9px] text-foreground/80 mb-0.5 truncate">{inst.name}</div>
+                        <div className="flex gap-0.5">
+                          {inst.options.map((opt) => (
+                            <button
+                              key={opt}
+                              onClick={() => {
+                                haptic("light");
+                                if (selected === opt) {
+                                  resetInstruction(inst.name);
+                                } else {
+                                  setInstruction(inst.name, opt);
+                                }
+                              }}
+                              className={cn(
+                                "tm-tap flex-1 px-1 py-1 rounded text-[8px] font-bold border transition-colors",
+                                selected === opt
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-card border-border text-muted-foreground"
+                              )}
+                            >
+                              {opt}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 

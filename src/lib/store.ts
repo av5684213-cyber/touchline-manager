@@ -39,6 +39,8 @@ type Tactics = {
   lineup: (Player | null)[];
   // slot index → roleId eşlemesi
   slotRoles: Record<number, string>;
+  // talimat adı → seçilen opsiyon (örn "Tempo" → "Yüksek")
+  activeInstructions: Record<string, string>;
   // Eski şema (geri uyumluluk için kalsın, Tactics ekranı eski slider'ları kullanmıyor artık)
   formationKey: string;
   sliders: {
@@ -121,6 +123,8 @@ type AppState = {
   // Yeni taktik action'ları
   updateActiveTactic: (patch: Partial<ActiveTactic>) => void;
   setSlotRole: (slotIndex: number, roleId: string) => void;
+  setInstruction: (name: string, option: string) => void;
+  resetInstruction: (name: string) => void;
   // transfer actions
   toggleWatchlist: (playerId: string) => void;
   buyPlayer: (playerId: string, fee: number, wage: number, contractYears: number) =>
@@ -163,6 +167,7 @@ function defaultTacticsFor(team: Team): Tactics {
     active: { ...DEFAULT_TACTIC },
     lineup: autoFillLineup(team, formation),
     slotRoles: {},
+    activeInstructions: {},
     formationKey: formation.key,
     sliders: {
       attackingPressure: 55,
@@ -186,6 +191,7 @@ export const useAppStore = create<AppState>()(
         active: { ...DEFAULT_TACTIC },
         lineup: Array(11).fill(null),
         slotRoles: {},
+        activeInstructions: {},
         formationKey: "4-4-2",
         sliders: {
           attackingPressure: 50,
@@ -346,6 +352,25 @@ export const useAppStore = create<AppState>()(
             ...tactics,
             slotRoles: { ...tactics.slotRoles, [slotIndex]: roleId },
           },
+        });
+      },
+
+      setInstruction: (name, option) => {
+        const { tactics } = get();
+        set({
+          tactics: {
+            ...tactics,
+            activeInstructions: { ...tactics.activeInstructions, [name]: option },
+          },
+        });
+      },
+
+      resetInstruction: (name) => {
+        const { tactics } = get();
+        const next = { ...tactics.activeInstructions };
+        delete next[name];
+        set({
+          tactics: { ...tactics, activeInstructions: next },
         });
       },
 
@@ -713,6 +738,9 @@ export const useAppStore = create<AppState>()(
         }
         if (!state.tactics.slotRoles) {
           state.tactics.slotRoles = {};
+        }
+        if (!state.tactics.activeInstructions) {
+          state.tactics.activeInstructions = {};
         }
         // myTeam varsa taktikleri güncelle (lineup eski kalmış olabilir)
         if (state.myTeamId) {

@@ -206,3 +206,224 @@ export const ROLES: PlayerRole[] = [
 export function getCompatibleRoles(position: string): PlayerRole[] {
   return ROLES.filter((r) => r.positions.includes(position));
 }
+
+// =============================================================================
+// TACTICAL INSTRUCTIONS — 20 talimat (eski oyundan birebir)
+// =============================================================================
+
+export type InstructionCategory = "team" | "attacking" | "defensive" | "set_piece";
+
+export type TacticalInstruction = {
+  name: string; // TR
+  nameEn: string;
+  category: InstructionCategory;
+  options: string[]; // seçilebilir seçenekler (TR)
+  effects: Record<string, number>;
+  description: string;
+};
+
+export const TACTICAL_INSTRUCTIONS: TacticalInstruction[] = [
+  // ── TEAM (6) ──────────────────────────────────────────────────────────────
+  {
+    name: "Tempo",
+    nameEn: "Tempo",
+    category: "team",
+    options: ["Yüksek", "Normal", "Düşük"],
+    effects: { tempo_modifier: 15, stamina_drain: 10, pass_completion: -5 },
+    description: "Oyun hızını belirler. Yüksek tempo daha hızlı hücumlar ama daha fazla yorgunluk.",
+  },
+  {
+    name: "Pas Doğruluğu",
+    nameEn: "Passing Directness",
+    category: "team",
+    options: ["Direkt", "Karışık", "Kısa"],
+    effects: { passing_risk: 10, pass_completion: 8, counter_attack: -5 },
+    description: "Pas uzunluğunu belirler. Direkt paslar riskli ama hızlı hücum sağlar.",
+  },
+  {
+    name: "Genişlik",
+    nameEn: "Width",
+    category: "team",
+    options: ["Geniş", "Normal", "Dar"],
+    effects: { width_spread: 20, central_density: -10, crossing_chance: 8 },
+    description: "Takımın sahayı ne kadar geniş kullandığını belirler.",
+  },
+  {
+    name: "Baskı Yoğunluğu",
+    nameEn: "Pressing Intensity",
+    category: "team",
+    options: ["Yüksek", "Normal", "Düşük"],
+    effects: { pressing_success: 15, stamina_drain: 15, defensive_shape: -10 },
+    description: "Rakibe top kazandırdığınızda ne kadar yoğun baskı yapılacağını belirler.",
+  },
+  {
+    name: "Savunma Hattı",
+    nameEn: "Defensive Line",
+    category: "team",
+    options: ["Yüksek", "Normal", "Düşük"],
+    effects: { offside_trap: 10, through_ball_vuln: 12, pressing_efficiency: 8 },
+    description: "Savunma hattının ne kadar yukarıda kalacağını belirler.",
+  },
+  {
+    name: "Ofsayt Tuzağı",
+    nameEn: "Offside Trap",
+    category: "team",
+    options: ["Açık", "Normal", "Kapalı"],
+    effects: { offside_success: 15, defensive_risk: 12, concentration_demand: 10 },
+    description: "Savunma hattının birlikte hareket ederek ofsayt tuzağı kurmasını sağlar.",
+  },
+  // ── ATTACKING (8) ─────────────────────────────────────────────────────────
+  {
+    name: "Overlap Koşuları",
+    nameEn: "Overlap Runs",
+    category: "attacking",
+    options: ["Evet", "Hayır"],
+    effects: { crossing_chance: 12, wide_attack: 10, wing_back_stamina: 8 },
+    description: "Kanat oyuncularının arkasından beklerin koşmasına izin verir.",
+  },
+  {
+    name: "Underlap Koşuları",
+    nameEn: "Underlap Runs",
+    category: "attacking",
+    options: ["Evet", "Hayır"],
+    effects: { central_attack: 10, cutback_chance: 8, fullback_shooting: 6 },
+    description: "Kanat oyuncularının içinden beklerin koşmasına izin verir.",
+  },
+  {
+    name: "Yüzen Orta Açma",
+    nameEn: "Float Crosses",
+    category: "attacking",
+    options: ["Evet", "Hayır"],
+    effects: { crossing_accuracy: 8, heading_opportunity: 12, ariel_duel: 6 },
+    description: "Ortaları yüksek ve yüzer şekilde açarak havada güçlü forvetleri hedefler.",
+  },
+  {
+    name: "Sert Orta Açma",
+    nameEn: "Drilled Crosses",
+    category: "attacking",
+    options: ["Evet", "Hayır"],
+    effects: { crossing_speed: 12, first_time_shot: 8, interception_risk: 6 },
+    description: "Ortaları yere sert ve hızlı açarak ceza sahası içinde vuruş fırsatı yaratır.",
+  },
+  {
+    name: "Savunmaya Rağmen",
+    nameEn: "Run at Defense",
+    category: "attacking",
+    options: ["Evet", "Hayır"],
+    effects: { dribbling_success: 10, foul_won: 8, turnover_risk: 6 },
+    description: "Oyuncuların topla karşılaşmaya girerek savunmayı zorlamasını sağlar.",
+  },
+  {
+    name: "Görünen Şut",
+    nameEn: "Shoot on Sight",
+    category: "attacking",
+    options: ["Evet", "Hayır"],
+    effects: { long_shot_chance: 15, shot_volume: 12, shot_accuracy: -5 },
+    description: "Oyuncuların şut açısı bulduğunda tereddüt etmeden vurmasını sağlar.",
+  },
+  {
+    name: "Kutu İçine Sok",
+    nameEn: "Work Ball into Box",
+    category: "attacking",
+    options: ["Evet", "Hayır"],
+    effects: { pass_completion: 10, clear_cut_chance: 8, patient_buildup: 6 },
+    description: "Uzaktan şut yerine topu ceza sahasına taşıyan pas hücumu tercih eder.",
+  },
+  {
+    name: "Erken Orta",
+    nameEn: "Early Crosses",
+    category: "attacking",
+    options: ["Evet", "Hayır"],
+    effects: { early_cross_chance: 15, fast_break: 8, crossing_accuracy: -5 },
+    description: "Kanat oyuncularının kale çizgisine kadar gelmeden erken orta açmasını sağlar.",
+  },
+  // ── DEFENSIVE (5) ─────────────────────────────────────────────────────────
+  {
+    name: "Geriye Çekil",
+    nameEn: "Sit Back",
+    category: "defensive",
+    options: ["Evet", "Hayır"],
+    effects: { defensive_depth: 15, counter_vuln: -8, possession_regain: 8 },
+    description: "Takımın kendi yarı alanına çekilerek derin savunma yapmasını sağlar.",
+  },
+  {
+    name: "Mücadeleye Gir",
+    nameEn: "Get Stuck In",
+    category: "defensive",
+    options: ["Evet", "Hayır"],
+    effects: { tackle_intensity: 15, foul_risk: 12, ball_recovery: 10 },
+    description: "Oyuncuların sert mücadele ederek topu geri kazanmasını sağlar.",
+  },
+  {
+    name: "Zaman Kaybet",
+    nameEn: "Time Wasting",
+    category: "defensive",
+    options: ["Evet", "Hayır"],
+    effects: { time_control: 20, possession_retention: 10, crowd_frustration: 8 },
+    description: "Önde olduğunuzda topu tutarak zaman kaybetmeyi ve skoru korumayı sağlar.",
+  },
+  {
+    name: "Daha Derin İn",
+    nameEn: "Drop Deeper",
+    category: "defensive",
+    options: ["Evet", "Hayır"],
+    effects: { space_behind_defense: -15, compact_defense: 12, pressing_range: -10 },
+    description: "Savunma hattının daha geriye inerek aradaki boşlukları kapatmasını sağlar.",
+  },
+  {
+    name: "Pozisyonu Koru",
+    nameEn: "Hold Position",
+    category: "defensive",
+    options: ["Evet", "Hayır"],
+    effects: { defensive_shape: 15, creative_freedom: -10, formation_integrity: 12 },
+    description: "Oyuncuların kendi pozisyonlarını koruyarak dizilişin bozulmasını engeller.",
+  },
+  // ── SET PIECES (5) ────────────────────────────────────────────────────────
+  {
+    name: "Kısa Serbest Vuruş",
+    nameEn: "Short Free Kicks",
+    category: "set_piece",
+    options: ["Evet", "Hayır"],
+    effects: { short_freekick: 15, possession_retention: 8, goal_from_freekick: -8 },
+    description: "Serbest vuruşları kısa paslarla oynayarak topun elinde kalmasını sağlar.",
+  },
+  {
+    name: "Uzun Oyuncular Öne",
+    nameEn: "Tall Players Up",
+    category: "set_piece",
+    options: ["Evet", "Hayır"],
+    effects: { ariel_duel: 15, goal_from_corner: 10, defensive_vuln: 8 },
+    description: "Korner ve serbest vuruşlarda uzun oyuncuları öne çıkarır.",
+  },
+  {
+    name: "Ön Direk Koşusu",
+    nameEn: "Near Post Runs",
+    category: "set_piece",
+    options: ["Evet", "Hayır"],
+    effects: { near_post_goal: 12, quick_goal_chance: 8, defender_confusion: 5 },
+    description: "Kornerlerde ön direğe koşarak kalecinin görüşünü engeller.",
+  },
+  {
+    name: "Bölge Markajı",
+    nameEn: "Zonal Marking",
+    category: "set_piece",
+    options: ["Evet", "Hayır"],
+    effects: { zonal_coverage: 15, set_piece_defense: 10, man_marking: -8 },
+    description: "Duran toplarda bölge savunması yaparak alanı korur.",
+  },
+  {
+    name: "Adam Markajı",
+    nameEn: "Man Marking",
+    category: "set_piece",
+    options: ["Evet", "Hayır"],
+    effects: { man_marking_tightness: 15, set_piece_defense: 8, zonal_coverage: -10 },
+    description: "Duran toplarda her oyuncunun bir rakibi birebir takip etmesini sağlar.",
+  },
+];
+
+export const INSTRUCTION_CATEGORIES: { key: InstructionCategory; label: { tr: string; en: string }; icon: string }[] = [
+  { key: "team", label: { tr: "Takım", en: "Team" }, icon: "👥" },
+  { key: "attacking", label: { tr: "Hücum", en: "Attacking" }, icon: "⚔️" },
+  { key: "defensive", label: { tr: "Savunma", en: "Defensive" }, icon: "🛡️" },
+  { key: "set_piece", label: { tr: "Duran Top", en: "Set Piece" }, icon: "🚩" },
+];
