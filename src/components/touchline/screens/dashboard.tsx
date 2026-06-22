@@ -16,6 +16,7 @@ import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import type { SeasonSummary } from "@/lib/store";
 import { SeasonEndModal } from "../season-end-modal";
+import { TeamDetailModal } from "../team-detail-modal";
 import { haptic } from "@/hooks/touchline";
 import {
   computeStandings,
@@ -73,6 +74,7 @@ export function DashboardScreen() {
   const [target] = useState(() => nextMatchTarget());
   const [, force] = useState(0);
   const [seasonSummary, setSeasonSummary] = useState<SeasonSummary | null>(null);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
 
   // Geri sayım her dakika güncelle
   useEffect(() => {
@@ -223,11 +225,19 @@ export function DashboardScreen() {
                 <ClubBadge short={team.shortName} primaryColor={team.primaryColor} size={24} />
                 <span className="text-[10px] text-muted-foreground">{t("dash.vs")}</span>
                 {opp && (
-                  <ClubBadge short={opp.shortName} primaryColor={opp.primaryColor} size={24} />
+                  <button
+                    onClick={() => { haptic("light"); setSelectedTeamId(opp.id); }}
+                    className="tm-tap shrink-0"
+                  >
+                    <ClubBadge short={opp.shortName} primaryColor={opp.primaryColor} size={24} />
+                  </button>
                 )}
-                <div className="flex-1 truncate text-xs font-medium">
+                <button
+                  onClick={() => { if (opp) { haptic("light"); setSelectedTeamId(opp.id); } }}
+                  className="flex-1 truncate text-xs font-medium text-left hover:text-primary"
+                >
                   {opp?.name ?? "—"}
-                </div>
+                </button>
                 <ResultBadge outcome={outcome} score={`${us}-${them}`} />
               </div>
             );
@@ -267,10 +277,18 @@ export function DashboardScreen() {
                 </div>
               </div>
               <div className="flex flex-col items-center gap-1 flex-1">
-                <ClubBadge short={opponent.shortName} primaryColor={opponent.primaryColor} size={44} />
-                <span className="text-[11px] font-semibold truncate max-w-[100px]">
+                <button
+                  onClick={() => { haptic("light"); setSelectedTeamId(opponent.id); }}
+                  className="tm-tap"
+                >
+                  <ClubBadge short={opponent.shortName} primaryColor={opponent.primaryColor} size={44} />
+                </button>
+                <button
+                  onClick={() => { haptic("light"); setSelectedTeamId(opponent.id); }}
+                  className="text-[11px] font-semibold truncate max-w-[100px] hover:text-primary"
+                >
                   {opponent.name}
-                </span>
+                </button>
                 <span className="text-[9px] text-muted-foreground">
                   {next.awayId === opponent.id ? t("dash.away") : t("dash.home")}
                 </span>
@@ -339,6 +357,20 @@ export function DashboardScreen() {
           onClose={() => setSeasonSummary(null)}
         />
       )}
+
+      {/* Team detail modal */}
+      {selectedTeamId && team && (() => {
+        const selected = clubs.find((c) => c.id === selectedTeamId);
+        if (!selected) return null;
+        return (
+          <TeamDetailModal
+            team={selected}
+            isMyTeam={selected.id === team.id}
+            onClose={() => setSelectedTeamId(null)}
+            onMessage={() => {}}
+          />
+        );
+      })()}
     </div>
   );
 }
