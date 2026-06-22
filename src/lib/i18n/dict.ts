@@ -6,7 +6,7 @@ import { Dict } from "./types";
  */
 export const dict: Dict = {
   // ---- app ----
-  "app.name": { tr: "Touchline Manager", en: "Touchline Manager" },
+  "app.name": { tr: "Siyah Beyaz FC", en: "Siyah Beyaz FC" },
   "app.tagline": { tr: "Saha kenarından yönet", en: "Manage from the touchline" },
 
   // ---- auth ----
