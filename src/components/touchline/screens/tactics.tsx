@@ -49,6 +49,16 @@ export function TacticsScreen() {
   const [profilePlayer, setProfilePlayer] = useState<PlayerT | null>(null);
   const [compareIds, setCompareIds] = useState<string[]>([]);
 
+  // Açılır/kapanır toolbox state
+  const [labOpen, setLabOpen] = useState(false);
+  const [instructionsOpen, setInstructionsOpen] = useState(false);
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({
+    team: true,
+    attacking: false,
+    defensive: false,
+    set_piece: false,
+  });
+
   // Eski localStorage verilerinde tactics.active olmayabilir — fallback
   const active = tactics.active ?? DEFAULT_TACTIC;
   const formation = active.formation;
@@ -252,127 +262,188 @@ export function TacticsScreen() {
         )}
       </div>
 
-      {/* Tactical Lab — tüm slider + toggle'lar */}
-      <div className="tm-card p-3">
-        <div className="flex items-center gap-2 mb-2">
-          <SlidersHorizontal size={14} className="text-muted-foreground" />
-          <span className="text-xs font-bold">{t("tactics.tactical_lab")}</span>
-        </div>
-
-        {/* Sliders — 2x2 grid */}
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <SliderMini label={t("tactics.aggression")} value={active.aggression} onChange={(v) => updateActiveTactic({ aggression: v })} />
-          <SliderMini label={t("tactics.width")} value={active.width} onChange={(v) => updateActiveTactic({ width: v })} />
-          <SliderMini label={t("tactics.passingIntensity")} value={active.passingIntensity} onChange={(v) => updateActiveTactic({ passingIntensity: v })} />
-          <SliderMini label={t("tactics.lineHeight")} value={active.lineHeight} onChange={(v) => updateActiveTactic({ lineHeight: v })} />
-        </div>
-
-        {/* Toggles — 7 toggle */}
-        <div className="grid grid-cols-2 gap-1.5 mb-3">
-          <ToggleChip label={t("tactics.pressing")} icon="🔥" active={active.pressing} onClick={() => updateActiveTactic({ pressing: !active.pressing })} />
-          <ToggleChip label={t("tactics.parkTheBus")} icon="🚌" active={active.parkTheBus} onClick={() => updateActiveTactic({ parkTheBus: !active.parkTheBus })} />
-          <ToggleChip label={t("tactics.wasteTime")} icon="⏰" active={active.wasteTime} onClick={() => updateActiveTactic({ wasteTime: !active.wasteTime })} />
-          <ToggleChip label={t("tactics.offsideTrap")} icon="🪤" active={active.offsideTrap} onClick={() => updateActiveTactic({ offsideTrap: !active.offsideTrap })} />
-          <ToggleChip label={t("tactics.screenKeeper")} icon="🎯" active={active.screenKeeper} onClick={() => updateActiveTactic({ screenKeeper: !active.screenKeeper })} />
-          <ToggleChip label={t("tactics.crossGame")} icon="⚔️" active={active.crossGame} onClick={() => updateActiveTactic({ crossGame: !active.crossGame })} />
-          <ToggleChip label={t("tactics.loneStrikerCounter")} icon="⚡" active={active.loneStrikerCounter} onClick={() => updateActiveTactic({ loneStrikerCounter: !active.loneStrikerCounter })} />
-        </div>
-
-        {/* Passing style + Play style */}
-        <div className="space-y-2">
-          <div>
-            <div className="text-[10px] text-muted-foreground mb-1">{t("tactics.passingStyle")}</div>
-            <div className="flex gap-1">
-              {(["Karışık", "Kısa", "Uzun", "Direkt"] as PassingStyle[]).map((ps) => (
-                <button
-                  key={ps}
-                  onClick={() => updateActiveTactic({ passingStyle: ps })}
-                  className={cn(
-                    "tm-tap flex-1 py-1 rounded text-[10px] font-semibold border",
-                    active.passingStyle === ps
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card border-border"
-                  )}
-                >
-                  {ps}
-                </button>
-              ))}
-            </div>
+      {/* Tactical Lab — tüm slider + toggle'lar (açılır/kapanır) */}
+      <div className="tm-card overflow-hidden">
+        <button
+          onClick={() => { haptic("light"); setLabOpen(!labOpen); }}
+          className="tm-tap w-full flex items-center justify-between px-3 py-2.5"
+        >
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal size={14} className="text-muted-foreground" />
+            <span className="text-xs font-bold">{t("tactics.tactical_lab")}</span>
           </div>
-          <div>
-            <div className="text-[10px] text-muted-foreground mb-1">{t("tactics.playStyle")}</div>
-            <div className="flex gap-1 overflow-x-auto tm-no-scrollbar">
-              {PLAY_STYLES.map((ps) => (
-                <button
-                  key={ps.id}
-                  onClick={() => updateActiveTactic({ playStyle: ps.id })}
-                  className={cn(
-                    "tm-tap px-2 py-1 rounded text-[10px] font-semibold border whitespace-nowrap",
-                    active.playStyle === ps.id
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card border-border"
-                  )}
-                >
-                  {ps.icon !== "_PRESS" ? ps.icon : "🔥"} {ps.name}
-                </button>
-              ))}
-            </div>
+          <div className="flex items-center gap-2">
+            {/* Aktif ayar sayısı özeti */}
+            <span className="text-[9px] text-muted-foreground">
+              {active.pressing ? 1 : 0 + active.parkTheBus ? 1 : 0 + active.offsideTrap ? 1 : 0 +
+               active.crossGame ? 1 : 0 + active.screenKeeper ? 1 : 0 + active.wasteTime ? 1 : 0 +
+               active.loneStrikerCounter ? 1 : 0} aktif
+            </span>
+            <ChevronDown
+              size={14}
+              className={cn("text-muted-foreground transition-transform", labOpen && "rotate-180")}
+            />
           </div>
-        </div>
-      </div>
+        </button>
 
-      {/* Tactical Instructions — 20 talimat, 4 kategori */}
-      <div className="tm-card p-3">
-        <div className="flex items-center gap-2 mb-2">
-          <SlidersHorizontal size={14} className="text-muted-foreground" />
-          <span className="text-xs font-bold">{t("tactics.instructions")}</span>
-        </div>
-        <div className="space-y-2.5">
-          {INSTRUCTION_CATEGORIES.map((cat) => {
-            const catInstructions = TACTICAL_INSTRUCTIONS.filter((i) => i.category === cat.key);
-            return (
-              <div key={cat.key}>
-                <div className="text-[9px] text-muted-foreground uppercase tracking-wide mb-1 font-bold flex items-center gap-1">
-                  <span>{cat.icon}</span>
-                  <span>{cat.label[locale]}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {catInstructions.map((inst) => {
-                    const selected = tactics.activeInstructions?.[inst.name];
-                    return (
-                      <div key={inst.name} className="flex flex-col">
-                        <div className="text-[9px] text-foreground/80 mb-0.5 truncate">{inst.name}</div>
-                        <div className="flex gap-0.5">
-                          {inst.options.map((opt) => (
-                            <button
-                              key={opt}
-                              onClick={() => {
-                                haptic("light");
-                                if (selected === opt) {
-                                  resetInstruction(inst.name);
-                                } else {
-                                  setInstruction(inst.name, opt);
-                                }
-                              }}
-                              className={cn(
-                                "tm-tap flex-1 px-1 py-1 rounded text-[8px] font-bold border transition-colors",
-                                selected === opt
-                                  ? "bg-primary text-primary-foreground border-primary"
-                                  : "bg-card border-border text-muted-foreground"
-                              )}
-                            >
-                              {opt}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
+        {labOpen && (
+          <div className="px-3 pb-3 border-t border-border">
+            {/* Sliders — 2x2 grid */}
+            <div className="grid grid-cols-2 gap-3 mt-3 mb-3">
+              <SliderMini label={t("tactics.aggression")} value={active.aggression} onChange={(v) => updateActiveTactic({ aggression: v })} />
+              <SliderMini label={t("tactics.width")} value={active.width} onChange={(v) => updateActiveTactic({ width: v })} />
+              <SliderMini label={t("tactics.passingIntensity")} value={active.passingIntensity} onChange={(v) => updateActiveTactic({ passingIntensity: v })} />
+              <SliderMini label={t("tactics.lineHeight")} value={active.lineHeight} onChange={(v) => updateActiveTactic({ lineHeight: v })} />
+            </div>
+
+            {/* Toggles — 7 toggle */}
+            <div className="grid grid-cols-2 gap-1.5 mb-3">
+              <ToggleChip label={t("tactics.pressing")} icon="🔥" active={active.pressing} onClick={() => updateActiveTactic({ pressing: !active.pressing })} />
+              <ToggleChip label={t("tactics.parkTheBus")} icon="🚌" active={active.parkTheBus} onClick={() => updateActiveTactic({ parkTheBus: !active.parkTheBus })} />
+              <ToggleChip label={t("tactics.wasteTime")} icon="⏰" active={active.wasteTime} onClick={() => updateActiveTactic({ wasteTime: !active.wasteTime })} />
+              <ToggleChip label={t("tactics.offsideTrap")} icon="🪤" active={active.offsideTrap} onClick={() => updateActiveTactic({ offsideTrap: !active.offsideTrap })} />
+              <ToggleChip label={t("tactics.screenKeeper")} icon="🎯" active={active.screenKeeper} onClick={() => updateActiveTactic({ screenKeeper: !active.screenKeeper })} />
+              <ToggleChip label={t("tactics.crossGame")} icon="⚔️" active={active.crossGame} onClick={() => updateActiveTactic({ crossGame: !active.crossGame })} />
+              <ToggleChip label={t("tactics.loneStrikerCounter")} icon="⚡" active={active.loneStrikerCounter} onClick={() => updateActiveTactic({ loneStrikerCounter: !active.loneStrikerCounter })} />
+            </div>
+
+            {/* Passing style + Play style */}
+            <div className="space-y-2">
+              <div>
+                <div className="text-[10px] text-muted-foreground mb-1">{t("tactics.passingStyle")}</div>
+                <div className="flex gap-1">
+                  {(["Karışık", "Kısa", "Uzun", "Direkt"] as PassingStyle[]).map((ps) => (
+                    <button
+                      key={ps}
+                      onClick={() => updateActiveTactic({ passingStyle: ps })}
+                      className={cn(
+                        "tm-tap flex-1 py-1 rounded text-[10px] font-semibold border",
+                        active.passingStyle === ps
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-card border-border"
+                      )}
+                    >
+                      {ps}
+                    </button>
+                  ))}
                 </div>
               </div>
-            );
-          })}
-        </div>
+              <div>
+                <div className="text-[10px] text-muted-foreground mb-1">{t("tactics.playStyle")}</div>
+                <div className="flex gap-1 overflow-x-auto tm-no-scrollbar">
+                  {PLAY_STYLES.map((ps) => (
+                    <button
+                      key={ps.id}
+                      onClick={() => updateActiveTactic({ playStyle: ps.id })}
+                      className={cn(
+                        "tm-tap px-2 py-1 rounded text-[10px] font-semibold border whitespace-nowrap",
+                        active.playStyle === ps.id
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-card border-border"
+                      )}
+                    >
+                      {ps.icon !== "_PRESS" ? ps.icon : "🔥"} {ps.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Tactical Instructions — 20 talimat, 4 kategori (açılır/kapanır) */}
+      <div className="tm-card overflow-hidden">
+        <button
+          onClick={() => { haptic("light"); setInstructionsOpen(!instructionsOpen); }}
+          className="tm-tap w-full flex items-center justify-between px-3 py-2.5"
+        >
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal size={14} className="text-muted-foreground" />
+            <span className="text-xs font-bold">{t("tactics.instructions")}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] text-muted-foreground">
+              {Object.keys(tactics.activeInstructions ?? {}).length} aktif
+            </span>
+            <ChevronDown
+              size={14}
+              className={cn("text-muted-foreground transition-transform", instructionsOpen && "rotate-180")}
+            />
+          </div>
+        </button>
+
+        {instructionsOpen && (
+          <div className="px-3 pb-3 border-t border-border space-y-1">
+            {INSTRUCTION_CATEGORIES.map((cat) => {
+              const catInstructions = TACTICAL_INSTRUCTIONS.filter((i) => i.category === cat.key);
+              const isCatOpen = openCategories[cat.key];
+              const activeCount = catInstructions.filter(
+                (i) => tactics.activeInstructions?.[i.name]
+              ).length;
+              return (
+                <div key={cat.key} className="border-b border-border/50 last:border-b-0">
+                  <button
+                    onClick={() => {
+                      haptic("light");
+                      setOpenCategories((prev) => ({ ...prev, [cat.key]: !prev[cat.key] }));
+                    }}
+                    className="tm-tap w-full flex items-center justify-between py-2"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm">{cat.icon}</span>
+                      <span className="text-[11px] font-bold uppercase tracking-wide">{cat.label[locale]}</span>
+                      {activeCount > 0 && (
+                        <span className="text-[8px] px-1 py-0.5 rounded bg-primary/20 text-primary font-bold">
+                          {activeCount}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown
+                      size={12}
+                      className={cn("text-muted-foreground transition-transform", isCatOpen && "rotate-180")}
+                    />
+                  </button>
+                  {isCatOpen && (
+                    <div className="grid grid-cols-2 gap-1.5 pb-2">
+                      {catInstructions.map((inst) => {
+                        const selected = tactics.activeInstructions?.[inst.name];
+                        return (
+                          <div key={inst.name} className="flex flex-col">
+                            <div className="text-[9px] text-foreground/80 mb-0.5 truncate">{inst.name}</div>
+                            <div className="flex gap-0.5">
+                              {inst.options.map((opt) => (
+                                <button
+                                  key={opt}
+                                  onClick={() => {
+                                    haptic("light");
+                                    if (selected === opt) {
+                                      resetInstruction(inst.name);
+                                    } else {
+                                      setInstruction(inst.name, opt);
+                                    }
+                                  }}
+                                  className={cn(
+                                    "tm-tap flex-1 px-1 py-1 rounded text-[8px] font-bold border transition-colors",
+                                    selected === opt
+                                      ? "bg-primary text-primary-foreground border-primary"
+                                      : "bg-card border-border text-muted-foreground"
+                                  )}
+                                >
+                                  {opt}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Squad list */}
