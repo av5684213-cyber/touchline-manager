@@ -1,12 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { computeStandings, SEASON_INFO } from "@/lib/mock/season";
 import { ClubBadge } from "../ui-bits";
+import { TeamDetailModal } from "../team-detail-modal";
+import { TeamMessageModal } from "../team-message-modal";
 import { cn } from "@/lib/utils";
+import { haptic } from "@/hooks/touchline";
 import type { FormResult } from "@/lib/mock/season";
+import type { Team } from "@/lib/mock/data";
 
 // 18 takım için: 0-1 promotion, 2-5 playoff, 15-17 relegation
 function getZone(idx: number): "promotion" | "playoff" | "relegation" | "middle" {
@@ -34,6 +38,8 @@ export function StandingsScreen() {
   const { t } = useI18n();
   const { clubs, fixtures } = useAppStore();
   const team = useMyTeam();
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [messageTeam, setMessageTeam] = useState<Team | null>(null);
 
   const standings = useMemo(
     () => computeStandings(clubs, fixtures),
@@ -86,11 +92,16 @@ export function StandingsScreen() {
             const isMe = row.teamId === team?.id;
             const zone = getZone(idx);
             const gd = row.goalsFor - row.goalsAgainst;
+            const teamData = clubs.find((c) => c.id === row.teamId);
             return (
-              <div
+              <button
                 key={row.teamId}
+                onClick={() => {
+                  haptic("light");
+                  if (teamData) setSelectedTeam(teamData);
+                }}
                 className={cn(
-                  "grid grid-cols-[24px_1fr_22px_22px_22px_22px_24px_28px_22px_22px] gap-1 px-2 py-2 text-xs items-center border-l-2 border-b border-border/40 last:border-b-0",
+                  "grid grid-cols-[24px_1fr_22px_22px_22px_22px_24px_28px_22px_22px] gap-1 px-2 py-2 text-xs items-center border-l-2 border-b border-border/40 last:border-b-0 w-full text-left hover:bg-accent/50 transition-colors",
                   ZONE_COLORS[zone],
                   isMe && "bg-primary/5"
                 )}
@@ -147,7 +158,7 @@ export function StandingsScreen() {
                     row.form.map((f, i) => <FormDot key={i} result={f} />)
                   )}
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -164,6 +175,28 @@ export function StandingsScreen() {
           <LegendItem color="bg-red-500" label={t("standings.zone.relegation")} />
         </div>
       </div>
+
+      {/* Team detail modal */}
+      {selectedTeam && team && (
+        <TeamDetailModal
+          team={selectedTeam}
+          isMyTeam={selectedTeam.id === team.id}
+          onClose={() => setSelectedTeam(null)}
+          onMessage={(t) => {
+            setSelectedTeam(null);
+            setMessageTeam(t);
+          }}
+        />
+      )}
+
+      {/* Team message modal */}
+      {messageTeam && team && (
+        <TeamMessageModal
+          team={messageTeam}
+          myTeam={team}
+          onClose={() => setMessageTeam(null)}
+        />
+      )}
     </div>
   );
 }
