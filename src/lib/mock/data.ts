@@ -410,13 +410,20 @@ function generatePlayer(pos: Position, ovrRange: { min: number; max: number }): 
   const boost = (n: number, lo = 4, hi = 14) =>
     Math.max(30, Math.min(99, n + rand(lo, hi)));
 
-  // Traits havuzu
-  const POSITIVE_TRAITS = [
-    "Profesyonel", "Çalışkan", "Lider", "Antrenman Yıldızı", "Mentor",
-    "Soğukkanlı", "Yaratıcı", "Bitirici", "Pas Ustası", "Kale Fidirisi",
-  ];
-  const NEGATIVE_TRAITS = ["Tembel", "Disiplinsiz", "Sakatlanmaya Müsait", "Baskı Altında Eriyen"];
-  const PERSONALITY_TRAITS = ["Yıkıcı", "Playmaker", "Kale Fidirisi", "Hız Kanat"];
+  // Traits havuzu — TRAITS_DATA'dan gerçek isimlerle (motor bunları tanır)
+  const groupKey = pos === "GK" ? "kaleci" : ["CB", "LB", "RB", "LWB", "RWB"].includes(pos) ? "defans"
+    : ["CDM", "CM", "CAM", "LM", "RM"].includes(pos) ? "orta_saha" : "forvet";
+  // TRAITS_DATA yapısı: { defans: { pozitif: [], negatif: [] }, ... }
+  const traitsByGroup: Record<string, { pozitif: { name: string }[]; negatif: { name: string }[] }> = {
+    kaleci: { pozitif: [{ name: "Refleks canavarı" }, { name: "Güvenli eller" }, { name: "1v1 ustası" }, { name: "Hava hakimiyeti" }], negatif: [{ name: "Sektirir" }, { name: "Yavaş refleks" }] },
+    defans: { pozitif: [{ name: "Kale gibi" }, { name: "Top kapma uzmanı" }, { name: "Pozisyon ustası" }, { name: "Hava hakimiyeti" }, { name: "Markajcı" }, { name: "Oyun okuyan" }, { name: "Lider stoper" }, { name: "Ofsayt ustası" }, { name: "Soğukkanlı" }, { name: "Dayanıklı" }, { name: "Topla çıkan stoper" }, { name: "Uzun pas ustası" }], negatif: [{ name: "Ağır kalır" }, { name: "Zamanlama hatası" }, { name: "Zayıf markaj" }, { name: "Hava zaafı" }] },
+    orta_saha: { pozitif: [{ name: "Oyun kurucu" }, { name: "Top dağıtıcı" }, { name: "Box-to-box" }, { name: "Pres ustası" }, { name: "Top saklayan" }, { name: "Oyun görüşü yüksek" }, { name: "Boşluk bulucu" }, { name: "Tempo kontrolcüsü" }, { name: "Pas arası ustası" }, { name: "Regista" }, { name: "10 numara" }, { name: "Uzaktan şutçu" }], negatif: [{ name: "Top kaybı yapar" }, { name: "Yavaş karar verir" }, { name: "Savunmaya yardım etmez" }, { name: "Pas hatası yapar" }] },
+    forvet: { pozitif: [{ name: "Bitirici" }, { name: "Pozisyoncu" }, { name: "Hızlı forvet" }, { name: "Fiziksel santrafor" }, { name: "Fırsatçı" }, { name: "Boşluk avcısı" }, { name: "Ofsayt ustası" }, { name: "Gol makinesi" }, { name: "Sahte 9" }, { name: "Kontra canavarı" }], negatif: [{ name: "Beceriksiz bitirici" }, { name: "Ofsayta düşer" }, { name: "Bencil" }, { name: "Kararsız" }] },
+  };
+  const groupTraits = traitsByGroup[groupKey] ?? traitsByGroup.defans;
+  const POSITIVE_TRAITS = groupTraits.pozitif.map((t) => t.name);
+  const NEGATIVE_TRAITS = groupTraits.negatif.map((t) => t.name);
+  const PERSONALITY_TRAITS = ["Profesyonel", "Disiplinli", "Çalışkan", "Hırslı", "Kazanan karakter", "Takım oyuncusu", "Mentor", "Lider", "Soğukkanlı", "Büyük maç oyuncusu"];
 
   // Pozisyona göre teknik attribute vurguları
   const technical = {

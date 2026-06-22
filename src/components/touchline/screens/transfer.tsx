@@ -28,6 +28,7 @@ import {
   type PositionGroup,
 } from "@/lib/mock/data";
 import { ClubBadge, PlayerAvatar, PositionPill, RatingBadge } from "../ui-bits";
+import { PlayerProfileModal } from "../player-profile-modal";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
@@ -41,6 +42,7 @@ export function TransferScreen() {
   const [sub, setSub] = useState<SubTab>("market");
   const [filter, setFilter] = useState<PositionGroup | "ALL">("ALL");
   const [offerModal, setOfferModal] = useState<Player | null>(null);
+  const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
 
   const filteredListings = useMemo(() => {
     if (filter === "ALL") return transfer.freeAgents;
@@ -152,6 +154,7 @@ export function TransferScreen() {
                 isWatched={transfer.watchlist.includes(listing.player.id)}
                 onToggleWatch={() => useAppStore.getState().toggleWatchlist(listing.player.id)}
                 onMakeOffer={() => setOfferModal(listing.player)}
+                onOpenProfile={() => setProfilePlayer(listing.player)}
               />
             ))}
           </div>
@@ -181,6 +184,7 @@ export function TransferScreen() {
               isWatched={true}
               onToggleWatch={() => useAppStore.getState().toggleWatchlist(listing.player.id)}
               onMakeOffer={() => setOfferModal(listing.player)}
+                onOpenProfile={() => setProfilePlayer(listing.player)}
             />
           ))}
         </div>
@@ -260,6 +264,15 @@ export function TransferScreen() {
           onClose={() => setOfferModal(null)}
         />
       )}
+
+      {/* Player profile modal */}
+      {profilePlayer && (
+        <PlayerProfileModal
+          player={profilePlayer}
+          teamColor={team?.primaryColor ?? "#1a3a2a"}
+          onClose={() => setProfilePlayer(null)}
+        />
+      )}
     </div>
   );
 }
@@ -273,6 +286,7 @@ function PlayerCard({
   isWatched,
   onToggleWatch,
   onMakeOffer,
+  onOpenProfile,
 }: {
   player: Player;
   askingPrice: number;
@@ -281,6 +295,7 @@ function PlayerCard({
   isWatched: boolean;
   onToggleWatch: () => void;
   onMakeOffer: () => void;
+  onOpenProfile: () => void;
 }) {
   const { t } = useI18n();
   const nat = NATIONALITIES.find((n) =>
@@ -293,11 +308,20 @@ function PlayerCard({
 
   return (
     <div className="p-3 flex items-center gap-3">
-      <PlayerAvatar
-        initials={`${player.firstName[0]}${player.lastName[0]}`}
-        size={36}
-      />
-      <div className="flex-1 min-w-0">
+      <button
+        onClick={onOpenProfile}
+        className="tm-tap shrink-0"
+        aria-label="Profil"
+      >
+        <PlayerAvatar
+          initials={`${player.firstName[0]}${player.lastName[0]}`}
+          size={36}
+        />
+      </button>
+      <button
+        onClick={onOpenProfile}
+        className="flex-1 min-w-0 text-left"
+      >
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-sm font-semibold truncate">
             {player.firstName} {player.lastName}
@@ -314,7 +338,7 @@ function PlayerCard({
             </>
           )}
         </div>
-      </div>
+      </button>
       <div className="flex flex-col items-end gap-1">
         <RatingBadge value={player.rating} />
         <button

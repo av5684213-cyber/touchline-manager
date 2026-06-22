@@ -9,7 +9,7 @@ import {
 } from "@/lib/match/engine";
 import type { Player, Team } from "@/lib/mock/data";
 import { useAppStore } from "@/lib/store";
-import { FORMATION_SLOTS } from "@/lib/tactics/types";
+import { FORMATION_SLOTS, DEFAULT_TACTIC } from "@/lib/tactics/types";
 
 const TICK_MS = 800; // 1 oyun dakikası = 800ms
 
@@ -236,9 +236,9 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
 
     // İlk başlatma — tüm maç'ı simüle et
     if (!fullResultRef.current) {
-      // Store'dan kullanıcının taktiğini al
+      // Store'dan kullanıcının taktiğini al (fallback: DEFAULT_TACTIC)
       const storeState = useAppStore.getState();
-      const userTactic = storeState.tactics.active;
+      const userTactic = storeState.tactics.active ?? DEFAULT_TACTIC;
       const formation = userTactic.formation || "4-4-2";
 
       // İlk 11'i formasyon bazlı seç

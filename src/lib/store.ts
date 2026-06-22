@@ -707,6 +707,13 @@ export const useAppStore = create<AppState>()(
         if (state.fixtures.length === 0) {
           state.fixtures = buildInitialFixtures(state.clubs);
         }
+        // Eski localStorage verilerinde tactics.active yoksa ekle
+        if (!state.tactics.active) {
+          state.tactics.active = { ...DEFAULT_TACTIC };
+        }
+        if (!state.tactics.slotRoles) {
+          state.tactics.slotRoles = {};
+        }
         // myTeam varsa taktikleri güncelle (lineup eski kalmış olabilir)
         if (state.myTeamId) {
           const team = state.clubs.find((c) => c.id === state.myTeamId);

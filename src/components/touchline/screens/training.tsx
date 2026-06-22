@@ -25,6 +25,7 @@ import {
 } from "@/lib/training/engine";
 import { POSITION_GROUP, type Player, type PositionGroup } from "@/lib/mock/data";
 import { PlayerAvatar, PositionPill } from "../ui-bits";
+import { PlayerProfileModal } from "../player-profile-modal";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 
@@ -34,6 +35,7 @@ export function TrainingScreen() {
   const { training, facilities, runSession } = useAppStore();
   const [filter, setFilter] = useState<PositionGroup | "ALL">("ALL");
   const [pickerFor, setPickerFor] = useState<Player | null>(null);
+  const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
   const [mentorModal, setMentorModal] = useState(false);
   const [running, setRunning] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
@@ -245,12 +247,21 @@ export function TrainingScreen() {
             const mentorship = training.mentorAssignments.find((m) => m.menteeId === p.id);
             return (
               <div key={p.id} className="p-3 flex items-center gap-3">
-                <PlayerAvatar
-                  initials={`${p.firstName[0]}${p.lastName[0]}`}
-                  color={team.primaryColor}
-                  size={36}
-                />
-                <div className="flex-1 min-w-0">
+                <button
+                  onClick={() => { haptic("light"); setProfilePlayer(p); }}
+                  className="tm-tap shrink-0"
+                  aria-label="Profil"
+                >
+                  <PlayerAvatar
+                    initials={`${p.firstName[0]}${p.lastName[0]}`}
+                    color={team.primaryColor}
+                    size={36}
+                  />
+                </button>
+                <button
+                  onClick={() => { haptic("light"); setProfilePlayer(p); }}
+                  className="flex-1 min-w-0 text-left"
+                >
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-sm font-semibold truncate">
                       {p.firstName} {p.lastName}
@@ -269,7 +280,7 @@ export function TrainingScreen() {
                       </>
                     )}
                   </div>
-                </div>
+                </button>
                 <button
                   onClick={() => { haptic("light"); setPickerFor(p); }}
                   className={cn(
@@ -305,6 +316,15 @@ export function TrainingScreen() {
       {/* Mentor modal */}
       {mentorModal && (
         <MentorModal onClose={() => setMentorModal(false)} />
+      )}
+
+      {/* Player profile modal */}
+      {profilePlayer && (
+        <PlayerProfileModal
+          player={profilePlayer}
+          teamColor={team.primaryColor}
+          onClose={() => setProfilePlayer(null)}
+        />
       )}
     </div>
   );

@@ -25,6 +25,7 @@ import {
   MENTALITY_LABELS,
   PLAY_STYLES,
   ROLES,
+  DEFAULT_TACTIC,
   type ActiveTactic,
   type Mentality,
   type PassingStyle,
@@ -44,7 +45,9 @@ export function TacticsScreen() {
   const [profilePlayer, setProfilePlayer] = useState<PlayerT | null>(null);
   const [compareIds, setCompareIds] = useState<string[]>([]);
 
-  const formation = tactics.active.formation;
+  // Eski localStorage verilerinde tactics.active olmayabilir — fallback
+  const active = tactics.active ?? DEFAULT_TACTIC;
+  const formation = active.formation;
   const slots = FORMATION_SLOTS[formation] ?? FORMATION_SLOTS["4-4-2"];
   const pitchCoords = FORMATION_PITCH[formation] ?? FORMATION_PITCH["4-4-2"];
 
@@ -60,10 +63,10 @@ export function TacticsScreen() {
     }).length / slots.length;
     const sliderBalance =
       100 -
-      Math.abs(50 - tactics.active.aggression) * 0.1 -
-      Math.abs(50 - tactics.active.width) * 0.1 -
-      Math.abs(50 - tactics.active.passingIntensity) * 0.1 -
-      Math.abs(50 - tactics.active.lineHeight) * 0.1;
+      Math.abs(50 - active.aggression) * 0.1 -
+      Math.abs(50 - active.width) * 0.1 -
+      Math.abs(50 - active.passingIntensity) * 0.1 -
+      Math.abs(50 - active.lineHeight) * 0.1;
     const avgMorale = filled.reduce((s, p) => s + p.morale, 0) / filled.length;
     return Math.round(
       Math.max(0, Math.min(100, avgOvr * 0.55 + slotMatch * 100 * 0.25 + sliderBalance * 0.1 + avgMorale * 0.1))
@@ -137,7 +140,7 @@ export function TacticsScreen() {
               onClick={() => updateActiveTactic({ mentality: m })}
               className={cn(
                 "tm-tap flex-1 py-1 rounded text-[9px] font-bold transition-colors",
-                tactics.active.mentality === m
+                active.mentality === m
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground"
               )}
@@ -254,21 +257,21 @@ export function TacticsScreen() {
 
         {/* Sliders — 2x2 grid */}
         <div className="grid grid-cols-2 gap-3 mb-3">
-          <SliderMini label={t("tactics.aggression")} value={tactics.active.aggression} onChange={(v) => updateActiveTactic({ aggression: v })} />
-          <SliderMini label={t("tactics.width")} value={tactics.active.width} onChange={(v) => updateActiveTactic({ width: v })} />
-          <SliderMini label={t("tactics.passingIntensity")} value={tactics.active.passingIntensity} onChange={(v) => updateActiveTactic({ passingIntensity: v })} />
-          <SliderMini label={t("tactics.lineHeight")} value={tactics.active.lineHeight} onChange={(v) => updateActiveTactic({ lineHeight: v })} />
+          <SliderMini label={t("tactics.aggression")} value={active.aggression} onChange={(v) => updateActiveTactic({ aggression: v })} />
+          <SliderMini label={t("tactics.width")} value={active.width} onChange={(v) => updateActiveTactic({ width: v })} />
+          <SliderMini label={t("tactics.passingIntensity")} value={active.passingIntensity} onChange={(v) => updateActiveTactic({ passingIntensity: v })} />
+          <SliderMini label={t("tactics.lineHeight")} value={active.lineHeight} onChange={(v) => updateActiveTactic({ lineHeight: v })} />
         </div>
 
         {/* Toggles — 7 toggle */}
         <div className="grid grid-cols-2 gap-1.5 mb-3">
-          <ToggleChip label={t("tactics.pressing")} icon="🔥" active={tactics.active.pressing} onClick={() => updateActiveTactic({ pressing: !tactics.active.pressing })} />
-          <ToggleChip label={t("tactics.parkTheBus")} icon="🚌" active={tactics.active.parkTheBus} onClick={() => updateActiveTactic({ parkTheBus: !tactics.active.parkTheBus })} />
-          <ToggleChip label={t("tactics.wasteTime")} icon="⏰" active={tactics.active.wasteTime} onClick={() => updateActiveTactic({ wasteTime: !tactics.active.wasteTime })} />
-          <ToggleChip label={t("tactics.offsideTrap")} icon="🪤" active={tactics.active.offsideTrap} onClick={() => updateActiveTactic({ offsideTrap: !tactics.active.offsideTrap })} />
-          <ToggleChip label={t("tactics.screenKeeper")} icon="🎯" active={tactics.active.screenKeeper} onClick={() => updateActiveTactic({ screenKeeper: !tactics.active.screenKeeper })} />
-          <ToggleChip label={t("tactics.crossGame")} icon="⚔️" active={tactics.active.crossGame} onClick={() => updateActiveTactic({ crossGame: !tactics.active.crossGame })} />
-          <ToggleChip label={t("tactics.loneStrikerCounter")} icon="⚡" active={tactics.active.loneStrikerCounter} onClick={() => updateActiveTactic({ loneStrikerCounter: !tactics.active.loneStrikerCounter })} />
+          <ToggleChip label={t("tactics.pressing")} icon="🔥" active={active.pressing} onClick={() => updateActiveTactic({ pressing: !active.pressing })} />
+          <ToggleChip label={t("tactics.parkTheBus")} icon="🚌" active={active.parkTheBus} onClick={() => updateActiveTactic({ parkTheBus: !active.parkTheBus })} />
+          <ToggleChip label={t("tactics.wasteTime")} icon="⏰" active={active.wasteTime} onClick={() => updateActiveTactic({ wasteTime: !active.wasteTime })} />
+          <ToggleChip label={t("tactics.offsideTrap")} icon="🪤" active={active.offsideTrap} onClick={() => updateActiveTactic({ offsideTrap: !active.offsideTrap })} />
+          <ToggleChip label={t("tactics.screenKeeper")} icon="🎯" active={active.screenKeeper} onClick={() => updateActiveTactic({ screenKeeper: !active.screenKeeper })} />
+          <ToggleChip label={t("tactics.crossGame")} icon="⚔️" active={active.crossGame} onClick={() => updateActiveTactic({ crossGame: !active.crossGame })} />
+          <ToggleChip label={t("tactics.loneStrikerCounter")} icon="⚡" active={active.loneStrikerCounter} onClick={() => updateActiveTactic({ loneStrikerCounter: !active.loneStrikerCounter })} />
         </div>
 
         {/* Passing style + Play style */}
@@ -282,7 +285,7 @@ export function TacticsScreen() {
                   onClick={() => updateActiveTactic({ passingStyle: ps })}
                   className={cn(
                     "tm-tap flex-1 py-1 rounded text-[10px] font-semibold border",
-                    tactics.active.passingStyle === ps
+                    active.passingStyle === ps
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-card border-border"
                   )}
@@ -301,7 +304,7 @@ export function TacticsScreen() {
                   onClick={() => updateActiveTactic({ playStyle: ps.id })}
                   className={cn(
                     "tm-tap px-2 py-1 rounded text-[10px] font-semibold border whitespace-nowrap",
-                    tactics.active.playStyle === ps.id
+                    active.playStyle === ps.id
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-card border-border"
                   )}
