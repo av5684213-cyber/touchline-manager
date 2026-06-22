@@ -67,11 +67,12 @@ export function TacticsScreen() {
   const slots = FORMATION_SLOTS[formation] ?? FORMATION_SLOTS["4-4-2"];
   const pitchCoords = FORMATION_PITCH[formation] ?? FORMATION_PITCH["4-4-2"];
 
-  // Taktik skoru (basit hesaplama)
-  const score = useMemo(() => {
-    if (!team) return 0;
+  // Taktik skoru — 3 alt skor + toplam
+  const { score, roleScore, instructionScore, attributeScore, strengths, weaknesses } = useMemo(() => {
+    if (!team) return { score: 0, roleScore: 0, instructionScore: 0, attributeScore: 0, strengths: [] as string[], weaknesses: [] as string[] };
     const filled = tactics.lineup.filter((p): p is PlayerT => p !== null);
-    if (filled.length === 0) return 0;
+    if (filled.length === 0) return { score: 0, roleScore: 0, instructionScore: 0, attributeScore: 0, strengths: [], weaknesses: [] };
+
     const avgOvr = filled.reduce((s, p) => s + p.rating, 0) / filled.length;
     const slotMatch = slots.filter((sp, i) => {
       const p = tactics.lineup[i];
@@ -84,10 +85,50 @@ export function TacticsScreen() {
       Math.abs(50 - active.passingIntensity) * 0.1 -
       Math.abs(50 - active.lineHeight) * 0.1;
     const avgMorale = filled.reduce((s, p) => s + p.morale, 0) / filled.length;
-    return Math.round(
+
+    // Rol uyumu — atanmış rollerin pozisyonla uyumu
+    const assignedRoles = Object.entries(tactics.slotRoles).filter(([, id]) => id);
+    const roleCompat = assignedRoles.length === 0 ? 50 :
+      assignedRoles.filter(([slotIdx, roleId]) => {
+        const role = ROLES.find((r) => r.id === roleId);
+        const slotPos = slots[Number(slotIdx)];
+        return role && role.positions.includes(slotPos);
+      }).length / assignedRoles.length * 100;
+
+    // Talimat sinerjisi — çelişen talimatlar var mı
+    const instCount = Object.keys(tactics.activeInstructions ?? {}).length;
+    const instScore = instCount === 0 ? 50 : Math.min(100, 50 + instCount * 10);
+
+    // Özellik uyumu — oyuncu OVR ile taktik mentalite uyumu
+    const attrScore = Math.min(100, avgOvr * 0.7 + (active.mentality >= 3 ? 10 : 0) + avgMorale * 0.2);
+
+    const total = Math.round(
       Math.max(0, Math.min(100, avgOvr * 0.55 + slotMatch * 100 * 0.25 + sliderBalance * 0.1 + avgMorale * 0.1))
     );
-  }, [team, tactics.lineup, tactics.active, slots]);
+
+    // Güçlü/zayıf yönler
+    const st: string[] = [];
+    const wk: string[] = [];
+    if (slotMatch > 0.8) st.push("Pozisyon uyumu yüksek");
+    else if (slotMatch < 0.5) wk.push("Pozisyon uyumu düşük");
+    if (avgMorale > 75) st.push("Yüksek takım morali");
+    else if (avgMorale < 50) wk.push("Düşük takım morali");
+    if (active.pressing) st.push("Pres aktif");
+    if (active.offsideTrap) st.push("Ofsayt tuzağı aktif");
+    if (roleCompat > 70) st.push("Rol uyumu iyi");
+    else if (roleCompat < 40 && assignedRoles.length > 0) wk.push("Rol-pozisyon uyumsuzluğu");
+    if (avgOvr > 72) st.push("Kadro kalitesi iyi");
+    else if (avgOvr < 65) wk.push("Kadro kalitesi düşük");
+
+    return {
+      score: total,
+      roleScore: Math.round(roleCompat),
+      instructionScore: Math.round(instScore),
+      attributeScore: Math.round(attrScore),
+      strengths: st,
+      weaknesses: wk,
+    };
+  }, [team, tactics.lineup, tactics.active, tactics.slotRoles, tactics.activeInstructions, slots]);
 
   if (!team) return null;
 
@@ -166,6 +207,37 @@ export function TacticsScreen() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Taktik skoru detayları — 3 alt skor + güçlü/zayıf yönler */}
+      <div className="tm-card p-3">
+        <div className="grid grid-cols-3 gap-2 mb-2">
+          <SubScore label="Rol Uyumu" value={roleScore} />
+          <SubScore label="Talimat" value={instructionScore} />
+          <SubScore label="Özellik" value={attributeScore} />
+        </div>
+        {(strengths.length > 0 || weaknesses.length > 0) && (
+          <div className="space-y-1">
+            {strengths.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {strengths.map((s, i) => (
+                  <span key={i} className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-semibold">
+                    ✓ {s}
+                  </span>
+                ))}
+              </div>
+            )}
+            {weaknesses.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {weaknesses.map((w, i) => (
+                  <span key={i} className="text-[8px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 font-semibold">
+                    ⚠ {w}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Pitch + lineup */}
@@ -730,6 +802,20 @@ function SlotPlayerPicker({
             );
           })}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function SubScore({ label, value }: { label: string; value: number }) {
+  const color = value >= 70 ? "text-emerald-400" : value >= 50 ? "text-amber-400" : "text-red-400";
+  const barColor = value >= 70 ? "bg-emerald-500" : value >= 50 ? "bg-amber-400" : "bg-red-500";
+  return (
+    <div className="text-center">
+      <div className="text-[8px] text-muted-foreground uppercase mb-0.5">{label}</div>
+      <div className={cn("text-lg font-bold tabular-nums", color)}>{value}</div>
+      <div className="h-1 rounded-full bg-muted overflow-hidden mt-0.5">
+        <div className={cn("h-full rounded-full", barColor)} style={{ width: `${value}%` }} />
       </div>
     </div>
   );

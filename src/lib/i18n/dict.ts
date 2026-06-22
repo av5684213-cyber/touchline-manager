@@ -37,6 +37,7 @@ export const dict: Dict = {
   "nav.youth": { tr: "Altyapı", en: "Youth" },
   "nav.awards": { tr: "Ödüller", en: "Awards" },
   "nav.reports": { tr: "Raporlar", en: "Reports" },
+  "nav.cup": { tr: "Kupa", en: "Cup" },
   "nav.other": { tr: "Diğer", en: "More" },
 
   // ---- common ----
@@ -543,4 +544,18 @@ export const dict: Dict = {
   "reports.expense": { tr: "Gider", en: "Expense" },
   "reports.net": { tr: "Net", en: "Net" },
   "reports.matches": { tr: "Maçlar", en: "Matches" },
+
+  // ---- cup ----
+  "cup.title": { tr: "Lig Kupası", en: "League Cup" },
+  "cup.round": { tr: "Tur", en: "Round" },
+  "cup.round.final": { tr: "Final", en: "Final" },
+  "cup.round.semi": { tr: "Yarı Final", en: "Semi Final" },
+  "cup.round.quarter": { tr: "Çeyrek Final", en: "Quarter Final" },
+  "cup.round.last16": { tr: "Son 16", en: "Last 16" },
+  "cup.champion": { tr: "Şampiyon", en: "Champion" },
+  "cup.reward": { tr: "Ödül", en: "Reward" },
+  "cup.no_matches": { tr: "Bu tur için maç yok", en: "No matches for this round" },
+  "cup.your_match": { tr: "Senin Maçın", en: "Your Match" },
+  "cup.play": { tr: "Oyna", en: "Play" },
+  "cup.weekend": { tr: "Hafta Sonu Kupası", en: "Weekend Cup" },
 };

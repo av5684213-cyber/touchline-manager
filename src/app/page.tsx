@@ -21,6 +21,7 @@ import { YouthAcademyScreen } from "@/components/touchline/screens/youth-academy
 import { FacilitiesScreen } from "@/components/touchline/screens/facilities";
 import { FinanceScreen } from "@/components/touchline/screens/finance";
 import { AwardsScreen } from "@/components/touchline/screens/awards";
+import { CupScreen } from "@/components/touchline/screens/cup";
 import { WeeklyReportScreen } from "@/components/touchline/screens/weekly-report";
 import { OtherDrawer } from "@/components/touchline/other-drawer";
 import { useI18n } from "@/lib/i18n/locale-provider";
@@ -81,6 +82,7 @@ export default function Home() {
           {tab === "facilities" && <FacilitiesScreen />}
           {tab === "finance" && <FinanceScreen />}
           {tab === "awards" && <AwardsScreen />}
+          {tab === "cup" && <CupScreen />}
           {tab === "reports" && <WeeklyReportScreen />}
         </main>
         <BottomNav
