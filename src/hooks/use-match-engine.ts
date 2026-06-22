@@ -12,6 +12,25 @@ import type { Player, Team } from "@/lib/mock/data";
 const TICK_MS = 800; // 1 oyun dakikası = 800ms
 
 /**
+ * İlk 11'i formasyon bazlı seçer (1 GK + 4 DEF + 4 MID + 2 FWD).
+ * Pozisyon gruplarına göre en yüksek OVR'li oyuncuları alır.
+ */
+function pickStartingXI(players: Player[]): Player[] {
+  const sorted = [...players].sort((a, b) => b.rating - a.rating);
+  const gk = sorted.filter((p) => p.specificPosition === "GK").slice(0, 1);
+  const def = sorted
+    .filter((p) => ["CB", "LB", "RB", "LWB", "RWB"].includes(p.specificPosition))
+    .slice(0, 4);
+  const mid = sorted
+    .filter((p) => ["CDM", "CM", "CAM", "LM", "RM"].includes(p.specificPosition))
+    .slice(0, 4);
+  const fwd = sorted
+    .filter((p) => ["LW", "RW", "ST", "CF"].includes(p.specificPosition))
+    .slice(0, 2);
+  return [...gk, ...def, ...mid, ...fwd];
+}
+
+/**
  * Yeni maç motoru hook'u.
  *
  * Eski hook tick-by-tick simülasyon yapardı. Yeni motor (enhancedMatchEngine)
@@ -171,30 +190,31 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
 
     // İlk başlatma — tüm maç'ı simüle et
     if (!fullResultRef.current) {
-      const homeSquad = home.players.slice(0, 11) as unknown as MatchEnginePlayer[];
-      const awaySquad = away.players.slice(0, 11) as unknown as MatchEnginePlayer[];
+      // İlk 11'i formasyon bazlı seç (1 GK + 4 DEF + 4 MID + 2 FWD)
+      const homeSquad = pickStartingXI(home.players) as unknown as MatchEnginePlayer[];
+      const awaySquad = pickStartingXI(away.players) as unknown as MatchEnginePlayer[];
 
-      // Basit taktikler — motorun beklediği şema
+      // Basit taktikler — motorun ActiveTactic şemasına uygun
       const homeTactic = {
         formation: "4-4-2",
-        mentality: "balanced" as const,
+        tactic_type: "4-4-2",
+        mentality: 3,
+        pressing: false,
+        passingStyle: "Karışık",
+        intensity: "normal" as const,
+        aggression: 50,
+        width: 50,
+        passingIntensity: 50,
+        lineHeight: 50,
+        screenKeeper: false,
+        wasteTime: false,
+        parkTheBus: false,
+        crossGame: false,
+        loneStrikerCounter: false,
+        offsideTrap: false,
         playStyle: "balanced",
-        pressing: 60,
-        defensiveLine: 50,
-        tempo: 60,
-        width: 60,
-        playerRoles: {},
       };
-      const awayTactic = {
-        formation: "4-4-2",
-        mentality: "balanced" as const,
-        playStyle: "balanced",
-        pressing: 55,
-        defensiveLine: 55,
-        tempo: 55,
-        width: 55,
-        playerRoles: {},
-      };
+      const awayTactic = { ...homeTactic };
 
       const result = simulateEnhancedMatch(
         homeSquad,
