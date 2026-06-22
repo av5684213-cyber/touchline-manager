@@ -32,6 +32,7 @@ export const dict: Dict = {
   "nav.training": { tr: "Antrenman", en: "Training" },
   "nav.standings": { tr: "Puan Durumu", en: "Standings" },
   "nav.facilities": { tr: "Yerleşke", en: "Facilities" },
+  "nav.fixture": { tr: "Fikstür", en: "Fixture" },
   "nav.other": { tr: "Diğer", en: "More" },
 
   // ---- common ----
@@ -476,4 +477,21 @@ export const dict: Dict = {
   "finance.health.ok": { tr: "Orta", en: "Stable" },
   "finance.health.bad": { tr: "Riskli", en: "At Risk" },
   "finance.wage_distribution": { tr: "Maaş Dağılımı (Pozisyona göre)", en: "Wage Distribution (by position)" },
+
+  // ---- fixture ----
+  "fixture.title": { tr: "Fikstür", en: "Fixture" },
+  "fixture.matchday": { tr: "Hafta", en: "Matchday" },
+  "fixture.filter.all": { tr: "Tümü", en: "All" },
+  "fixture.filter.played": { tr: "Oynanan", en: "Played" },
+  "fixture.filter.upcoming": { tr: "Yaklaşan", en: "Upcoming" },
+  "fixture.play": { tr: "Oyna", en: "Play" },
+  "fixture.replay": { tr: "Tekrar Oynat", en: "Replay" },
+  "fixture.vs": { tr: "vs", en: "vs" },
+  "fixture.home": { tr: "Ev", en: "Home" },
+  "fixture.away": { tr: "Dep", en: "Away" },
+  "fixture.form": { tr: "Form", en: "Form" },
+  "fixture.current_week": { tr: "Bu Hafta", en: "Current Week" },
+  "fixture.season_progress": { tr: "Sezon İlerlemesi", en: "Season Progress" },
+  "fixture.next_match": { tr: "Sonraki Maç", en: "Next Match" },
+  "fixture.no_upcoming": { tr: "Tüm maçlar oynandı", en: "All matches played" },
 };

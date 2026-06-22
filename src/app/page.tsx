@@ -15,6 +15,7 @@ import { MatchScreen } from "@/components/touchline/screens/match";
 import { TransferScreen } from "@/components/touchline/screens/transfer";
 import { TrainingScreen } from "@/components/touchline/screens/training";
 import { StandingsScreen } from "@/components/touchline/screens/standings";
+import { FixtureScreen } from "@/components/touchline/screens/fixture";
 import { FacilitiesScreen } from "@/components/touchline/screens/facilities";
 import { FinanceScreen } from "@/components/touchline/screens/finance";
 import { OtherDrawer } from "@/components/touchline/other-drawer";
@@ -70,6 +71,7 @@ export default function Home() {
           {tab === "transfer" && <TransferScreen />}
           {tab === "training" && <TrainingScreen />}
           {tab === "standings" && <StandingsScreen />}
+          {tab === "fixture" && <FixtureScreen />}
           {tab === "facilities" && <FacilitiesScreen />}
           {tab === "finance" && <FinanceScreen />}
         </main>

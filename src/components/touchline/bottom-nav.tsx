@@ -7,6 +7,7 @@ import {
   ArrowLeftRight,
   Dumbbell,
   Grid2x2,
+  Calendar,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { haptic } from "@/hooks/touchline";
@@ -20,6 +21,7 @@ export type TabKey =
   | "training"
   // Diğer drawer'ındaki sekmeler
   | "standings"
+  | "fixture"
   | "facilities"
   | "finance";
 
@@ -33,6 +35,7 @@ export const MAIN_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: s
 
 export const OTHER_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: string }[] = [
   { key: "standings", icon: Trophy, labelKey: "nav.standings" },
+  { key: "fixture", icon: Calendar, labelKey: "nav.fixture" },
   { key: "facilities", icon: Grid2x2, labelKey: "nav.facilities" },
   { key: "finance", icon: LayoutDashboard, labelKey: "nav.finance" },
 ];
