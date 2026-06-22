@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
+import type { SeasonSummary } from "@/lib/store";
+import { SeasonEndModal } from "../season-end-modal";
 import {
   computeStandings,
   myNextMatch,
@@ -69,6 +71,7 @@ export function DashboardScreen() {
   const [notifs] = useState<Notification[]>(() => seedNotifications());
   const [target] = useState(() => nextMatchTarget());
   const [, force] = useState(0);
+  const [seasonSummary, setSeasonSummary] = useState<SeasonSummary | null>(null);
 
   // Geri sayım her dakika güncelle
   useEffect(() => {
@@ -85,6 +88,13 @@ export function DashboardScreen() {
   const recent = useMemo(() => {
     if (!team) return [];
     return myRecentMatches(fixtures, team.id, 4);
+  }, [fixtures, team]);
+
+  // Tüm fikstür oynandı mı?
+  const allPlayed = useMemo(() => {
+    if (!team) return false;
+    const myFixtures = fixtures.filter((f) => f.homeId === team.id || f.awayId === team.id);
+    return myFixtures.length > 0 && myFixtures.every((f) => f.played);
   }, [fixtures, team]);
 
   const next = useMemo(() => {
@@ -292,6 +302,29 @@ export function DashboardScreen() {
           ))}
         </div>
       </section>
+
+      {/* Season end button — tüm maçlar oynandığında */}
+      {allPlayed && (
+        <button
+          onClick={() => {
+            const result = useAppStore.getState().endSeason();
+            if (result.success && result.summary) {
+              setSeasonSummary(result.summary);
+            }
+          }}
+          className="tm-tap w-full py-3 rounded-lg bg-amber-600 text-white text-sm font-bold flex items-center justify-center gap-2"
+        >
+          <Trophy size={16} /> Sezonu Bitir
+        </button>
+      )}
+
+      {/* Season end modal */}
+      {seasonSummary && (
+        <SeasonEndModal
+          summary={seasonSummary}
+          onClose={() => setSeasonSummary(null)}
+        />
+      )}
     </div>
   );
 }

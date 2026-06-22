@@ -5,12 +5,14 @@ import { persist } from "zustand/middleware";
 import {
   FORMATIONS,
   generateAllClubs,
+  generatePlayer,
   type Formation,
   type Player,
   type Team,
 } from "@/lib/mock/data";
 import {
   autoFillLineup,
+  computeStandings,
   generateFixtures,
   playFixturesUpTo,
   SEASON_INFO,
@@ -146,6 +148,24 @@ type AppState = {
   hireStaff: (type: StaffMember["type"], stars: number) => { success: boolean; reason?: string };
   fireStaff: (staffId: string) => void;
   setTicketPrice: (price: number) => void;
+  // season actions
+  endSeason: () => { success: boolean; summary?: SeasonSummary };
+  advanceMatchday: () => void;
+};
+
+export type SeasonSummary = {
+  season: number;
+  finalPosition: number;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  points: number;
+  promoted: boolean;
+  relegated: boolean;
+  topScorer: { name: string; goals: number } | null;
+  retiredPlayers: string[];
+  newRegens: number;
 };
 
 function buildInitialClubs(): Team[] {
@@ -709,6 +729,125 @@ export const useAppStore = create<AppState>()(
       setTicketPrice: (price) => {
         const { facilities } = get();
         set({ facilities: { ...facilities, ticketPrice: Math.max(0, Math.min(150, price)) } });
+      },
+
+      // ===== Season actions =====
+      advanceMatchday: () => {
+        const { fixtures, clubs, myTeamId } = get();
+        const currentMd = SEASON_INFO.matchday;
+
+        // Bot vs bot maçlarını simüle et (kullanıcının maçları hariç)
+        const updatedFixtures = fixtures.map((f) => {
+          if (f.matchday !== currentMd || f.played) return f;
+          // Kullanıcının maçını otomatik oynama
+          if (f.homeId === myTeamId || f.awayId === myTeamId) return f;
+          // Bot maçı — rastgele skor
+          const hs = Math.floor(Math.random() * 5);
+          const as = Math.floor(Math.random() * 4);
+          return { ...f, homeScore: hs, awayScore: as, played: true };
+        });
+
+        // Matchday'i ilerlet
+        SEASON_INFO.matchday = Math.min(SEASON_INFO.totalMatchdays, currentMd + 1);
+
+        set({ fixtures: updatedFixtures });
+      },
+
+      endSeason: () => {
+        const { clubs, fixtures, myTeamId } = get();
+        if (!myTeamId) return { success: false };
+
+        const team = clubs.find((c) => c.id === myTeamId);
+        if (!team) return { success: false };
+
+        // Final standings hesapla
+        const standings = computeStandings(clubs, fixtures);
+        const myIdx = standings.findIndex((s) => s.teamId === myTeamId);
+        const myStat = standings[myIdx];
+
+        // Top scorer bul
+        let topScorer: { name: string; goals: number } | null = null;
+        for (const club of clubs) {
+          for (const p of club.players) {
+            if (!topScorer || p.goals > topScorer.goals) {
+              topScorer = { name: `${p.firstName} ${p.lastName}`, goals: p.goals };
+            }
+          }
+        }
+
+        // 40+ yaş oyuncuları emekli et, regen üret
+        const retiredNames: string[] = [];
+        const updatedClubs = clubs.map((c) => {
+          const remainingPlayers = c.players.filter((p) => {
+            if (p.age >= 40) {
+              retiredNames.push(`${p.firstName} ${p.lastName}`);
+              return false;
+            }
+            return true;
+          });
+
+          // Regen üret — emekli edilen oyuncu sayısı kadar yeni genç oyuncu
+          const retireCount = c.players.length - remainingPlayers.length;
+          const regens: Player[] = [];
+          for (let i = 0; i < retireCount; i++) {
+            const pos = c.players[Math.floor(Math.random() * c.players.length)].specificPosition;
+            const regen = generatePlayer(pos, { min: 55, max: 70 });
+            regen.age = 17; // Yeni regen
+            regens.push(regen);
+          }
+
+          // Tüm oyuncuları yaşlandır + stat sıfırla
+          const agedPlayers = [...remainingPlayers, ...regens].map((p) => ({
+            ...p,
+            age: p.age + 1,
+            goals: 0,
+            assists: 0,
+            saves: 0,
+            appearances: 0,
+            match_ratings: [],
+            last_match_rating: undefined,
+            cond: 100,
+            condition: 100,
+            form: 70,
+            morale: 70,
+            confidence: 70,
+          }));
+
+          return { ...c, players: agedPlayers };
+        });
+
+        // Yeni sezon fikstürü üret
+        const newFixtures = generateFixtures(updatedClubs);
+
+        // Sezon numarasını artır
+        SEASON_INFO.matchday = 1;
+
+        // Taktikleri sıfırla
+        const updatedTeam = updatedClubs.find((c) => c.id === myTeamId);
+        const newTactics = updatedTeam ? defaultTacticsFor(updatedTeam) : get().tactics;
+
+        set({
+          clubs: updatedClubs,
+          fixtures: newFixtures,
+          tactics: newTactics,
+        });
+
+        const summary: SeasonSummary = {
+          season: 1, // şimdilik sabit
+          finalPosition: myIdx + 1,
+          played: myStat?.played ?? 0,
+          won: myStat?.won ?? 0,
+          drawn: myStat?.drawn ?? 0,
+          lost: myStat?.lost ?? 0,
+          points: myStat?.points ?? 0,
+          promoted: myIdx < 2,
+          relegated: myIdx >= 15,
+          topScorer,
+          retiredPlayers: retiredNames,
+          newRegens: retiredNames.length,
+        };
+
+        return { success: true, summary };
       },
     }),
     {
