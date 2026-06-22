@@ -41,7 +41,7 @@ export function StandingsScreen() {
   );
 
   const myPos = useMemo(
-    () => standings.findIndex((s) => s.teamId === team?.id ?? ""),
+    () => standings.findIndex((s) => s.teamId === (team?.id ?? "")),
     [standings, team]
   );
 

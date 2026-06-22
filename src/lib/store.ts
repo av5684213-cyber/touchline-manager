@@ -151,6 +151,7 @@ type AppState = {
   // season actions
   endSeason: () => { success: boolean; summary?: SeasonSummary };
   advanceMatchday: () => void;
+  recordMatchResult: (homeId: string, awayId: string, homeScore: number, awayScore: number) => void;
 };
 
 export type SeasonSummary = {
@@ -897,6 +898,18 @@ export const useAppStore = create<AppState>()(
         };
 
         return { success: true, summary };
+      },
+
+      recordMatchResult: (homeId, awayId, homeScore, awayScore) => {
+        const { fixtures } = get();
+        const currentMd = SEASON_INFO.matchday;
+        const updatedFixtures = fixtures.map((f) => {
+          if (f.matchday === currentMd && f.homeId === homeId && f.awayId === awayId && !f.played) {
+            return { ...f, homeScore, awayScore, played: true };
+          }
+          return f;
+        });
+        set({ fixtures: updatedFixtures });
       },
     }),
     {

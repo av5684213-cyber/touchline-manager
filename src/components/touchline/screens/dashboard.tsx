@@ -16,6 +16,7 @@ import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import type { SeasonSummary } from "@/lib/store";
 import { SeasonEndModal } from "../season-end-modal";
+import { haptic } from "@/hooks/touchline";
 import {
   computeStandings,
   myNextMatch,
@@ -302,6 +303,19 @@ export function DashboardScreen() {
           ))}
         </div>
       </section>
+
+      {/* Advance matchday button — bot maçlarını oynar + haftayı ilerletir */}
+      {!allPlayed && (
+        <button
+          onClick={() => {
+            haptic("medium");
+            useAppStore.getState().advanceMatchday();
+          }}
+          className="tm-tap w-full py-3 rounded-lg bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center gap-2"
+        >
+          <ChevronRight size={16} /> Haftayı İlerlet (Bot Maçlarını Oyna)
+        </button>
+      )}
 
       {/* Season end button — tüm maçlar oynandığında */}
       {allPlayed && (

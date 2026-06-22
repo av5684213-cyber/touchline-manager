@@ -37,6 +37,7 @@ import { PlayerAvatar, PositionPill, RatingBadge } from "../ui-bits";
 import { PlayerProfileModal } from "../player-profile-modal";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { haptic } from "@/hooks/touchline";
 
 export function TacticsScreen() {
   const { t, locale } = useI18n();

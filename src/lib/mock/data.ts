@@ -181,6 +181,7 @@ export type Team = {
   budget: number;
   stadiumCapacity: number;
   stadiumName: string;
+  is_bot?: boolean;
 };
 
 // ===== Sahte takım isimleri (kurgusal, hiçbiri gerçek değil) =====
@@ -552,6 +553,7 @@ export function generateTeam(
     budget: rand(2_000_000, 6_500_000),
     stadiumCapacity: rand(8000, 32000),
     stadiumName: `${meta.name} Stadyumu`,
+    is_bot: true,
   };
 }
 

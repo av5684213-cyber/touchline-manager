@@ -474,9 +474,16 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
       if (!result) return;
       const allEvents = sortedEvents(result.events);
       if (eventCursorRef.current >= allEvents.length) {
-        // Tüm event'ler gösterildi — bitir + kondisyon/form güncelle
+        // Tüm event'ler gösterildi — bitir + kondisyon/form güncelle + fikstür güncelle
         setSnapshot((s) => ({ ...s, status: "finished" }));
         applyPostMatchEffects(result);
+        // Fikstüre sonucu yaz
+        useAppStore.getState().recordMatchResult(
+          home.id,
+          away.id,
+          result.homeScore,
+          result.awayScore
+        );
         clearInterval(id);
         return;
       }
