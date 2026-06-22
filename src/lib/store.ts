@@ -264,16 +264,16 @@ export const useAppStore = create<AppState>()(
         const team = clubs.find((c) => c.id === myTeamId)!;
         const tactics = defaultTacticsFor(team);
 
-        // Transfer verisi — boşsa üret
+        // Transfer verisi — eksikse üret
         let transfer = get().transfer;
-        if (transfer.freeAgents.length === 0) {
+        if (transfer.freeAgents.length === 0 || !transfer.freeAgentListings || transfer.freeAgentListings.length === 0 || !transfer.loanListings || transfer.loanListings.length === 0) {
           transfer = {
-            freeAgents: generateFreeAgents(30),
-            freeAgentListings: generateFreeAgentListings(15),
-            loanListings: generateLoanListings(clubs, 10),
-            watchlist: [],
-            incomingOffers: generateIncomingOffers(team.players),
-            myListedPlayers: [],
+            freeAgents: transfer.freeAgents.length > 0 ? transfer.freeAgents : generateFreeAgents(30),
+            freeAgentListings: (transfer.freeAgentListings && transfer.freeAgentListings.length > 0) ? transfer.freeAgentListings : generateFreeAgentListings(15),
+            loanListings: (transfer.loanListings && transfer.loanListings.length > 0) ? transfer.loanListings : generateLoanListings(clubs, 10),
+            watchlist: transfer.watchlist ?? [],
+            incomingOffers: transfer.incomingOffers.length > 0 ? transfer.incomingOffers : generateIncomingOffers(team.players),
+            myListedPlayers: transfer.myListedPlayers ?? [],
           };
         }
 
@@ -1011,11 +1011,24 @@ export const useAppStore = create<AppState>()(
           state.tactics.activeInstructions = {};
         }
         // Eski transfer verilerinde yeni alanlar yoksa üret
-        if (!state.transfer.freeAgentListings) {
+        if (!state.transfer) {
+          state.transfer = {
+            freeAgents: [],
+            freeAgentListings: [],
+            loanListings: [],
+            watchlist: [],
+            incomingOffers: [],
+            myListedPlayers: [],
+          };
+        }
+        if (!state.transfer.freeAgentListings || state.transfer.freeAgentListings.length === 0) {
           state.transfer.freeAgentListings = generateFreeAgentListings(15);
         }
-        if (!state.transfer.loanListings) {
+        if (!state.transfer.loanListings || state.transfer.loanListings.length === 0) {
           state.transfer.loanListings = generateLoanListings(state.clubs, 10);
+        }
+        if (!state.transfer.freeAgents || state.transfer.freeAgents.length === 0) {
+          state.transfer.freeAgents = generateFreeAgents(30);
         }
         // myTeam varsa taktikleri güncelle (lineup eski kalmış olabilir)
         if (state.myTeamId) {
