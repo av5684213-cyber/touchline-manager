@@ -946,7 +946,7 @@ export const useAppStore = create<AppState>()(
         const currentDept = team.department ?? 1;
         let newTier = currentTier;
         let newDept = currentDept;
-        if (myFinalIdx < 2 && currentTier > 1) {
+        if (myFinalIdx < 3 && currentTier > 1) {
           // Promosyon — bir üst lig
           newTier = (currentTier - 1) as LeagueTier;
           newDept = currentDept; // aynı departman
@@ -994,7 +994,7 @@ export const useAppStore = create<AppState>()(
           drawn: myStat?.drawn ?? 0,
           lost: myStat?.lost ?? 0,
           points: myStat?.points ?? 0,
-          promoted: myIdx < 2 && (team.leagueTier ?? 2) > 1,
+          promoted: myIdx < 3 && (team.leagueTier ?? 2) > 1,
           relegated: myIdx >= 15 && (team.leagueTier ?? 2) < 4,
           topScorer,
           retiredPlayers: retiredNames,

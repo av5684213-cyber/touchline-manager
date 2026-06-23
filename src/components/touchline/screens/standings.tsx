@@ -13,9 +13,9 @@ import { haptic } from "@/hooks/touchline";
 import type { FormResult } from "@/lib/mock/season";
 import type { Team } from "@/lib/mock/data";
 
-// 18 takım için: 0-1 promotion, 2-5 playoff, 15-17 relegation
+// 18 takım için: 0-2 promotion (ilk 3), 3-5 playoff, 15-17 relegation (son 3)
 function getZone(idx: number): "promotion" | "playoff" | "relegation" | "middle" {
-  if (idx <= 1) return "promotion";
+  if (idx <= 2) return "promotion";
   if (idx <= 5) return "playoff";
   if (idx >= 15) return "relegation";
   return "middle";
