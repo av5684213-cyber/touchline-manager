@@ -7,6 +7,7 @@ import { computeStandings, SEASON_INFO } from "@/lib/mock/season";
 import { ClubBadge } from "../ui-bits";
 import { TeamDetailModal } from "../team-detail-modal";
 import { TeamMessageModal } from "../team-message-modal";
+import { LEAGUE_NAMES } from "@/lib/mock/data";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 import type { FormResult } from "@/lib/mock/season";
@@ -35,7 +36,7 @@ const ZONE_DOT: Record<string, string> = {
 };
 
 export function StandingsScreen() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { clubs, fixtures } = useAppStore();
   const team = useMyTeam();
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
@@ -58,7 +59,7 @@ export function StandingsScreen() {
         <div>
           <h1 className="text-base font-bold">{t("standings.title")}</h1>
           <p className="text-[11px] text-muted-foreground">
-            {t("dash.1lig")} · {t("standings.matchday")} {SEASON_INFO.matchday}/{SEASON_INFO.totalMatchdays}
+            {(team?.leagueTier ? LEAGUE_NAMES[team.leagueTier][locale] : t("dash.1lig"))}{team?.department ? ` D${team.department}` : ""} · {t("standings.matchday")} {SEASON_INFO.matchday}/{SEASON_INFO.totalMatchdays}
           </p>
         </div>
         <div className="text-right">

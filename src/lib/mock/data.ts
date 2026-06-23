@@ -171,18 +171,29 @@ export type Player = {
   };
 };
 
+export type LeagueTier = 1 | 2 | 3 | 4;
+export type Department = 1 | 2 | 3 | 4;
+
 export type Team = {
   id: string;
   name: string;
   shortName: string;
   primaryColor: string;
   secondaryColor: string;
-  league: "1lig";
+  leagueTier: LeagueTier; // 1=Süper Lig, 2=1. Lig, 3=2. Lig, 4=3. Lig
+  department: Department; // 1-4 (her lig 4 departmana bölünmüş)
   players: Player[];
   budget: number;
   stadiumCapacity: number;
   stadiumName: string;
   is_bot?: boolean;
+};
+
+export const LEAGUE_NAMES: Record<LeagueTier, { tr: string; en: string }> = {
+  1: { tr: "Süper Lig", en: "Super Lig" },
+  2: { tr: "1. Lig", en: "1. Lig" },
+  3: { tr: "2. Lig", en: "2. Lig" },
+  4: { tr: "3. Lig", en: "3. Lig" },
 };
 
 // ===== Sahte takım isimleri (kurgusal, hiçbiri gerçek değil) =====
@@ -559,31 +570,55 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
 }
 
 export function generateTeam(
-  meta: { name: string; short: string; c1: string; c2: string }
+  meta: { name: string; short: string; c1: string; c2: string },
+  leagueTier: LeagueTier = 2,
+  department: Department = 1
 ): Team {
   const players: Player[] = [];
+  // Lig seviyesine göre OVR aralıkları
+  const ovrMult: Record<LeagueTier, number> = { 1: 1.15, 2: 1.0, 3: 0.85, 4: 0.7 };
+  const mult = ovrMult[leagueTier];
   for (const slot of ROSTER_SHAPE) {
     for (let i = 0; i < slot.count; i++) {
-      players.push(generatePlayer(slot.pos, { min: slot.minOvr, max: slot.maxOvr }));
+      const adjustedMin = Math.max(30, Math.round(slot.minOvr * mult));
+      const adjustedMax = Math.max(35, Math.round(slot.maxOvr * mult));
+      players.push(generatePlayer(slot.pos, { min: adjustedMin, max: adjustedMax }));
     }
   }
+  // Lig seviyesine göre bütçe
+  const budgetRanges: Record<LeagueTier, [number, number]> = {
+    1: [10_000_000, 50_000_000],
+    2: [2_000_000, 8_000_000],
+    3: [500_000, 2_000_000],
+    4: [100_000, 500_000],
+  };
+  const [minBudget, maxBudget] = budgetRanges[leagueTier];
   return {
     id: nextId("t"),
     name: meta.name,
     shortName: meta.short,
     primaryColor: meta.c1,
     secondaryColor: meta.c2,
-    league: "1lig",
+    leagueTier,
+    department,
     players,
-    budget: rand(2_000_000, 6_500_000),
-    stadiumCapacity: rand(8000, 32000),
+    budget: rand(minBudget, maxBudget),
+    stadiumCapacity: rand(8000, 32000) * (leagueTier === 1 ? 2 : leagueTier === 4 ? 0.5 : 1),
     stadiumName: `${meta.name} Stadyumu`,
     is_bot: true,
   };
 }
 
+// 18 takım ismi × 16 lig/departman = 288 takım
+// Ama biz 18 takım per lig per departman yapalım = 4×4×18 = 288 takım
+// Performans için: sadece kullanıcının lig/departmanındaki 18 takımı üret
 export function generateAllClubs(): Team[] {
-  return FICTIONAL_CLUB_NAMES.map((m) => generateTeam(m));
+  return FICTIONAL_CLUB_NAMES.map((m) => generateTeam(m, 2, 1));
+}
+
+// Belirli bir lig/departman için 18 takım üret
+export function generateClubsForLeague(tier: LeagueTier, dept: Department): Team[] {
+  return FICTIONAL_CLUB_NAMES.map((m) => generateTeam(m, tier, dept));
 }
 
 export function getInitials(p: Player): string {

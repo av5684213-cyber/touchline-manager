@@ -5,8 +5,11 @@ import { persist } from "zustand/middleware";
 import {
   FORMATIONS,
   generateAllClubs,
+  generateClubsForLeague,
   generatePlayer,
   type Formation,
+  type LeagueTier,
+  type Department,
   type Player,
   type Team,
 } from "@/lib/mock/data";
@@ -176,7 +179,11 @@ export type SeasonSummary = {
 };
 
 function buildInitialClubs(): Team[] {
-  return generateAllClubs();
+  // Kullanıcı rastgele bir lig/departmana atanacak
+  // Sadece o lig/departmandaki 18 takımı üret
+  const tier = ([1, 2, 2, 2, 3, 3, 3, 4, 4, 4] as const)[Math.floor(Math.random() * 10)];
+  const dept = ([1, 1, 2, 2, 3, 3, 4, 4] as const)[Math.floor(Math.random() * 8)] as 1 | 2 | 3 | 4;
+  return generateClubsForLeague(tier as 1 | 2 | 3 | 4, dept);
 }
 
 function buildInitialFixtures(clubs: Team[]): FixtureRow[] {
@@ -933,6 +940,36 @@ export const useAppStore = create<AppState>()(
           return { ...c, players: agedPlayers };
         });
 
+        // Promosyon/relegasyon — kullanıcının takımının ligini değiştir
+        const myFinalIdx = standings.findIndex((s) => s.teamId === myTeamId);
+        const currentTier = team.leagueTier ?? 2;
+        const currentDept = team.department ?? 1;
+        let newTier = currentTier;
+        let newDept = currentDept;
+        if (myFinalIdx < 2 && currentTier > 1) {
+          // Promosyon — bir üst lig
+          newTier = (currentTier - 1) as LeagueTier;
+          newDept = currentDept; // aynı departman
+        } else if (myFinalIdx >= 15 && currentTier < 4) {
+          // Relegasyon — bir alt lig
+          newTier = (currentTier + 1) as LeagueTier;
+          newDept = currentDept;
+        }
+
+        // Yeni lig/departman için takımları üret (kullanıcının takımı hariç)
+        if (newTier !== currentTier || newDept !== currentDept) {
+          const newLeagueClubs: Team[] = generateClubsForLeague(newTier, newDept);
+          // Kullanıcının takımını yeni lige taşı
+          const myUpdatedTeam = updatedClubs.find((c) => c.id === myTeamId);
+          if (myUpdatedTeam) {
+            myUpdatedTeam.leagueTier = newTier;
+            myUpdatedTeam.department = newDept;
+            newLeagueClubs[0] = myUpdatedTeam;
+          }
+          updatedClubs.length = 0;
+          (updatedClubs as Team[]).push(...newLeagueClubs);
+        }
+
         // Yeni sezon fikstürü üret
         const newFixtures = generateFixtures(updatedClubs);
 
@@ -957,8 +994,8 @@ export const useAppStore = create<AppState>()(
           drawn: myStat?.drawn ?? 0,
           lost: myStat?.lost ?? 0,
           points: myStat?.points ?? 0,
-          promoted: myIdx < 2,
-          relegated: myIdx >= 15,
+          promoted: myIdx < 2 && (team.leagueTier ?? 2) > 1,
+          relegated: myIdx >= 15 && (team.leagueTier ?? 2) < 4,
           topScorer,
           retiredPlayers: retiredNames,
           newRegens: retiredNames.length,

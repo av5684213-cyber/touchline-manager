@@ -3,6 +3,7 @@
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { LocaleSwitcher } from "@/lib/i18n/locale-switcher";
 import { useAppStore } from "@/lib/store";
+import { LEAGUE_NAMES, type LeagueTier } from "@/lib/mock/data";
 import { ClubBadge } from "./ui-bits";
 import { formatEuro } from "@/lib/format";
 
@@ -29,7 +30,8 @@ export function TopBar({ compact = false }: { compact?: boolean }) {
                 {team.name}
               </span>
               <span className="text-[11px] opacity-80">
-                2025–26 · {t("dash.1lig")}
+                2025–26 · {team.leagueTier ? LEAGUE_NAMES[team.leagueTier][locale] : t("dash.1lig")}
+                {team.department ? ` D${team.department}` : ""}
               </span>
               <span className="text-xs font-bold tabular-nums opacity-90">
                 {formatEuro(team.budget, locale)}
@@ -72,7 +74,7 @@ export function TopBar({ compact = false }: { compact?: boolean }) {
                   {team.name}
                 </div>
                 <div className="text-[11px] opacity-80 truncate">
-                  {t("dash.season")} 2025–26 · {t("dash.1lig")}
+                  {t("dash.season")} 2025–26 · {team.leagueTier ? LEAGUE_NAMES[team.leagueTier][locale] : t("dash.1lig")}{team.department ? ` D${team.department}` : ""}
                 </div>
               </div>
               <div className="text-right">
