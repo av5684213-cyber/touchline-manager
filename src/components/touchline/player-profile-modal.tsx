@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { X, User, Upload, ArrowLeftRight, Banknote } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { POSITION_GROUP, type Player } from "@/lib/mock/data";
-import { useAppStore } from "@/lib/store";
+import { useAppStore, useMyTeam } from "@/lib/store";
 import { PlayerAvatar, PositionPill, RatingBadge } from "./ui-bits";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -401,12 +401,15 @@ function ActionsTab({
   locale: "tr" | "en";
 }) {
   const { listPlayerForSale, transfer } = useAppStore();
+  const myTeam = useMyTeam();
   const [listPrice, setListPrice] = useState(player.marketValue);
   const [loanFee, setLoanFee] = useState(Math.round(player.marketValue * 0.05));
   const [loanWeeks, setLoanWeeks] = useState(8);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const isListed = transfer.myListedPlayers.some((l) => l.playerId === player.id);
+  // Oyuncu kullanıcının takımında mı?
+  const isMyPlayer = myTeam?.players.some((p) => p.id === player.id) ?? false;
 
   const handleList = () => {
     haptic("success");
@@ -435,6 +438,14 @@ function ActionsTab({
         <RatingBadge value={player.formRating} />
       </div>
 
+      {!isMyPlayer ? (
+        <div className="tm-card p-4 text-center">
+          <div className="text-xs text-muted-foreground">
+            Bu oyuncu senin takımında değil. Sadece kendi oyuncularını transfer listesine veya kiralık listesine koyabilirsin.
+          </div>
+        </div>
+      ) : (
+      <>
       {/* Normal transfer — satışa listele */}
       <div className="tm-card p-3">
         <div className="flex items-center gap-2 mb-2">
@@ -528,6 +539,9 @@ function ActionsTab({
         <div className="tm-card p-2.5 text-center text-xs font-bold bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
           {feedback}
         </div>
+      )}
+
+      </>
       )}
 
       {/* Quick stats summary */}

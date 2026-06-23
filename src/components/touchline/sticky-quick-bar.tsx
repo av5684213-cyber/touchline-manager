@@ -15,7 +15,7 @@ type QuickAction = {
 const QUICK_ACTIONS: QuickAction[] = [
   { key: "match", icon: Trophy, labelKey: "dash.play_match" },
   { key: "standings", icon: Users, labelKey: "dash.standings" },
-  { key: "match", icon: CalendarDays, labelKey: "dash.fixtures" },
+  { key: "fixture", icon: CalendarDays, labelKey: "dash.fixtures" },
   { key: "training", icon: Dumbbell, labelKey: "dash.training" },
   { key: "tactics", icon: ClipboardList, labelKey: "dash.tactics" },
 ];
@@ -36,10 +36,7 @@ export function StickyQuickBar({
       <div className="grid grid-cols-5 gap-0.5 px-2 py-1.5">
         {QUICK_ACTIONS.map((action, i) => {
           const Icon = action.icon;
-          const isActive =
-            activeTab === action.key &&
-            // Fikstür ile Maçı Oyna aynı tab'a gittiği için: sadece ilk buton (Maçı Oyna) match tab'da aktif olsun
-            (i !== 2 || activeTab === "match");
+          const isActive = activeTab === action.key;
           return (
             <button
               key={i}
