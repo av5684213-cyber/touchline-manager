@@ -5,7 +5,6 @@ import { useI18n } from "@/lib/i18n/locale-provider";
 import { haptic } from "@/hooks/touchline";
 import type { TabKey } from "./bottom-nav";
 import { cn } from "@/lib/utils";
-import { useLiveMatch } from "@/lib/live-match-store";
 import { useAppStore } from "@/lib/store";
 
 type QuickAction = {
@@ -30,9 +29,9 @@ export function StickyQuickBar({
   onChange: (k: TabKey) => void;
 }) {
   const { t } = useI18n();
-  const liveMatch = useLiveMatch();
-  const isLive = liveMatch && (liveMatch.status === "live" || liveMatch.status === "halftime" || liveMatch.status === "paused");
   const unreadMessages = useAppStore((s) => s.transfer.messages.filter((m) => !m.read).length);
+  const liveMatch: any = null; // live-match-store silindi, canlı maç şeridi暂 devre dışı
+  const isLive = false;
 
   return (
     <div
