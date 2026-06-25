@@ -104,7 +104,7 @@ export function StandingsScreen() {
                 className={cn(
                   "grid grid-cols-[24px_1fr_22px_22px_22px_22px_24px_28px_22px_22px] gap-1 px-2 py-2 text-xs items-center border-l-2 border-b border-border/40 last:border-b-0 w-full text-left hover:bg-accent/50 transition-colors",
                   ZONE_COLORS[zone],
-                  isMe && "bg-primary/5"
+                  isMe && "bg-amber-500/15 border-l-amber-400"
                 )}
               >
                 {/* Position + zone dot */}

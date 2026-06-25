@@ -264,7 +264,7 @@ export function DashboardScreen({ onNavigate }: { onNavigate?: (tab: string) => 
             <div className="flex items-center justify-between mb-3">
               <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
                 <ClubBadge short={team.shortName} primaryColor={team.primaryColor} size={44} />
-                <span className="text-[10px] font-semibold truncate max-w-[90px] text-center">
+                <span className="text-[9px] font-semibold truncate max-w-[110px] text-center leading-tight">
                   {team.name}
                 </span>
                 <span className="text-[8px] text-muted-foreground">
@@ -294,7 +294,7 @@ export function DashboardScreen({ onNavigate }: { onNavigate?: (tab: string) => 
                 </button>
                 <button
                   onClick={() => { haptic("light"); setSelectedTeamId(opponent.id); }}
-                  className="text-[10px] font-semibold truncate max-w-[90px] text-center hover:text-primary"
+                  className="text-[9px] font-semibold truncate max-w-[110px] text-center leading-tight hover:text-primary"
                 >
                   {opponent.name}
                 </button>
