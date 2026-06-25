@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Bell,
+  Calendar,
   ChevronRight,
   Clock,
   Flame,
@@ -13,7 +14,7 @@ import {
   Users,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
-import { useAppStore, useMyTeam } from "@/lib/store";
+import { useAppStore, useMyTeam, useSeasonMatchday, getTodaySchedule, getCompetitionIcon, getCompetitionLabel, getMinutesToNextMatch, formatCountdown } from "@/lib/store";
 import type { SeasonSummary } from "@/lib/store";
 import type { Player as PlayerT } from "@/lib/mock/data";
 import { SeasonEndModal } from "../season-end-modal";
@@ -67,10 +68,11 @@ function StatCard({
   );
 }
 
-export function DashboardScreen() {
+export function DashboardScreen({ onNavigate }: { onNavigate?: (tab: string) => void }) {
   const { t, locale } = useI18n();
   const { clubs, fixtures } = useAppStore();
   const team = useMyTeam();
+  const seasonMatchday = useSeasonMatchday();
 
   const [notifs] = useState<Notification[]>(() => seedNotifications(clubs, team?.id ?? ""));
   const [target] = useState(() => nextMatchTarget());
@@ -134,36 +136,41 @@ export function DashboardScreen() {
 
   return (
     <div className="px-4 py-4 space-y-4 pb-6">
-      {/* Team summary compact row */}
-      <div className="tm-card p-3 grid grid-cols-3 gap-2 text-center">
-        <div>
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-            {t("dash.squad_size")}
+      {/* Team summary — tıklanabilir kadro */}
+      <button
+        onClick={() => { haptic("light"); onNavigate?.("tactics"); }}
+        className="tm-tap tm-card p-3 w-full text-left"
+      >
+        <div className="flex items-center gap-3 mb-2">
+          <ClubBadge short={team.shortName} primaryColor={team.primaryColor} size={40} />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold truncate">{team.name}</div>
+            <div className="text-[10px] text-muted-foreground">{team.players.length} oyuncu · OVR {teamQuality}</div>
           </div>
-          <div className="text-base font-bold tabular-nums">
-            {team.players.length}{" "}
-            <span className="text-[10px] font-normal text-muted-foreground">
-              {t("dash.players")}
-            </span>
-          </div>
+          <Users size={16} className="text-muted-foreground" />
         </div>
-        <div className="border-x border-border">
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-            {t("dash.squad_quality")}
-          </div>
-          <div className="text-base font-bold tabular-nums">{teamQuality}</div>
+      </button>
+
+      {/* G-B-M stat cards */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="tm-card p-2.5 text-center">
+          <div className="text-[9px] text-muted-foreground uppercase font-bold mb-0.5">G</div>
+          <div className="text-xl font-bold tabular-nums text-emerald-400">{myStat.won}</div>
+          <div className="text-[8px] text-muted-foreground">Galibiyet</div>
         </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-            {t("dash.season_day")}
-          </div>
-          <div className="text-base font-bold tabular-nums">
-            {SEASON_INFO.matchday}/{SEASON_INFO.totalMatchdays}
-          </div>
+        <div className="tm-card p-2.5 text-center">
+          <div className="text-[9px] text-muted-foreground uppercase font-bold mb-0.5">B</div>
+          <div className="text-xl font-bold tabular-nums text-amber-400">{myStat.drawn}</div>
+          <div className="text-[8px] text-muted-foreground">Beraberlik</div>
+        </div>
+        <div className="tm-card p-2.5 text-center">
+          <div className="text-[9px] text-muted-foreground uppercase font-bold mb-0.5">M</div>
+          <div className="text-xl font-bold tabular-nums text-red-400">{myStat.lost}</div>
+          <div className="text-[8px] text-muted-foreground">Mağlubiyet</div>
         </div>
       </div>
 
-      {/* 2x2 stat cards */}
+      {/* Ek istatistikler */}
       <div className="grid grid-cols-2 gap-3">
         <StatCard
           label={t("dash.points")}
@@ -173,27 +180,28 @@ export function DashboardScreen() {
           trend="up"
         />
         <StatCard
-          label={t("dash.winloss")}
-          value={`${myStat.won}-${myStat.lost}`}
-          sub={`${myStat.drawn} ${t("dash.draws")}`}
-          icon={ListChecks}
-          trend="flat"
-        />
-        <StatCard
           label={t("dash.goals_scored")}
           value={String(myStat.goalsFor)}
           sub={`${(myStat.goalsFor / Math.max(1, myStat.played)).toFixed(2)} ${t("common.per_match")}`}
           icon={Flame}
           trend="up"
         />
-        <StatCard
-          label={t("dash.morale")}
-          value={moraleLabel}
-          sub={`${moraleAvg}/100 · ${t("common.last_3")} ↑`}
-          icon={Heart}
-          trend="up"
-        />
       </div>
+
+      {/* Maç Programı — fikstüre yönlendir */}
+      <button
+        onClick={() => { haptic("light"); onNavigate?.("fixture"); }}
+        className="tm-tap tm-card p-3 w-full text-left flex items-center gap-3"
+      >
+        <Calendar size={18} className="text-primary shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="text-xs font-bold">Maç Programı</div>
+          <div className="text-[10px] text-muted-foreground">
+            {seasonMatchday}/{SEASON_INFO.totalMatchdays} hafta · {myStat.played} oynandı
+          </div>
+        </div>
+        <ChevronRight size={14} className="text-muted-foreground shrink-0" />
+      </button>
 
       {/* Recent matches */}
       <section>
@@ -248,38 +256,36 @@ export function DashboardScreen() {
         </div>
       </section>
 
-      {/* Next match countdown */}
+      {/* Next match countdown — tam takım isimleri */}
       {next && opponent && (
         <section>
           <SectionTitle icon={Clock} title={t("dash.next_match")} />
           <div className="tm-card p-4">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex flex-col items-center gap-1 flex-1">
+              <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
                 <ClubBadge short={team.shortName} primaryColor={team.primaryColor} size={44} />
-                <span className="text-[11px] font-semibold truncate max-w-[100px]">
+                <span className="text-[10px] font-semibold truncate max-w-[90px] text-center">
                   {team.name}
                 </span>
-                <span className="text-[9px] text-muted-foreground">
+                <span className="text-[8px] text-muted-foreground">
                   {next.homeId === team.id ? t("dash.home") : t("dash.away")}
                 </span>
               </div>
-              <div className="px-2 text-center">
-                <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+              <div className="px-2 text-center shrink-0">
+                <div className="text-[9px] uppercase tracking-wide text-muted-foreground font-semibold">
                   {t("dash.kickoff_in")}
                 </div>
-                <div className="text-lg font-bold tabular-nums">
-                  {countdownParts(target, locale)}
+                <div className="text-base font-bold tabular-nums text-primary">
+                  {(() => {
+                    const slot = getMinutesToNextMatch();
+                    return slot ? formatCountdown(slot.minutes) : "—";
+                  })()}
                 </div>
-                <div className="text-[10px] text-muted-foreground">
-                  {new Intl.DateTimeFormat(locale === "tr" ? "tr-TR" : "en-US", {
-                    day: "2-digit",
-                    month: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }).format(target)}
+                <div className="text-[9px] text-muted-foreground mt-0.5">
+                  {next.matchday}. hafta
                 </div>
               </div>
-              <div className="flex flex-col items-center gap-1 flex-1">
+              <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
                 <button
                   onClick={() => { haptic("light"); setSelectedTeamId(opponent.id); }}
                   className="tm-tap"
@@ -288,11 +294,11 @@ export function DashboardScreen() {
                 </button>
                 <button
                   onClick={() => { haptic("light"); setSelectedTeamId(opponent.id); }}
-                  className="text-[11px] font-semibold truncate max-w-[100px] hover:text-primary"
+                  className="text-[10px] font-semibold truncate max-w-[90px] text-center hover:text-primary"
                 >
                   {opponent.name}
                 </button>
-                <span className="text-[9px] text-muted-foreground">
+                <span className="text-[8px] text-muted-foreground">
                   {next.awayId === opponent.id ? t("dash.away") : t("dash.home")}
                 </span>
               </div>
@@ -301,9 +307,71 @@ export function DashboardScreen() {
         </section>
       )}
 
-      {/* Notifications */}
+      {/* Bildirimler + Performans özeti */}
       <section>
         <SectionTitle icon={Bell} title={t("dash.notifications")} />
+
+        {/* Son maçın en iyi oyuncusu */}
+        {(() => {
+          const lastMatch = fixtures
+            .filter((f) => f.played && (f.homeId === team.id || f.awayId === team.id))
+            .sort((a, b) => b.matchday - a.matchday)[0];
+          if (!lastMatch) return null;
+
+          const isHome = lastMatch.homeId === team.id;
+          const myScore = isHome ? lastMatch.homeScore : lastMatch.awayScore;
+          const oppScore = isHome ? lastMatch.awayScore : lastMatch.homeScore;
+          const result = (myScore ?? 0) > (oppScore ?? 0) ? "GALİBİYET" : (myScore ?? 0) < (oppScore ?? 0) ? "MAĞLUBİYET" : "BERABERLİK";
+          const opp = clubs.find((c) => c.id === (isHome ? lastMatch.awayId : lastMatch.homeId));
+          const topScorer = [...team.players].sort((a, b) => b.goals - a.goals)[0];
+          const topRated = [...team.players].filter(p => p.last_match_rating)
+            .sort((a, b) => (b.last_match_rating ?? 0) - (a.last_match_rating ?? 0))[0];
+
+          return (
+            <div className="tm-card p-3 mb-2 border-primary/30">
+              <div className="flex items-center gap-2 mb-2">
+                <span className={cn(
+                  "tm-chip",
+                  result === "GALİBİYET" ? "bg-emerald-500/20 text-emerald-300" :
+                  result === "MAĞLUBİYET" ? "bg-red-500/20 text-red-300" :
+                  "bg-amber-500/20 text-amber-300"
+                )}>
+                  {result} {myScore}-{oppScore}
+                </span>
+                <span className="text-[10px] text-muted-foreground truncate">
+                  vs {opp?.name ?? "—"}
+                </span>
+              </div>
+              {/* En iyi performans */}
+              {topRated && (
+                <div className="flex items-center gap-2 p-1.5 rounded-md bg-muted/30">
+                  <span className="text-sm">⭐</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[10px] font-bold truncate">Maçın Yıldızı: {topRated.firstName} {topRated.lastName}</div>
+                    <div className="text-[9px] text-muted-foreground">
+                      {topRated.specificPosition} · Puan {(topRated.last_match_rating ?? 6.5).toFixed(1)}
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold tabular-nums text-amber-300">
+                    {(topRated.last_match_rating ?? 6.5).toFixed(1)}
+                  </span>
+                </div>
+              )}
+              {/* Gol krallığı */}
+              {topScorer && topScorer.goals > 0 && (
+                <div className="flex items-center gap-2 p-1.5 rounded-md bg-muted/30 mt-1">
+                  <span className="text-sm">⚽</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[10px] font-bold truncate">Gol Kralı: {topScorer.firstName} {topScorer.lastName}</div>
+                    <div className="text-[9px] text-muted-foreground">{topScorer.goals} gol · {topScorer.assists} asist</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Dinamik bildirimler */}
         <div className="tm-card divide-y divide-border">
           {notifs.length === 0 && (
             <div className="p-4 text-sm text-muted-foreground text-center">
@@ -336,19 +404,6 @@ export function DashboardScreen() {
           })}
         </div>
       </section>
-
-      {/* Advance matchday button — bot maçlarını oynar + haftayı ilerletir */}
-      {!allPlayed && (
-        <button
-          onClick={() => {
-            haptic("medium");
-            useAppStore.getState().advanceMatchday();
-          }}
-          className="tm-tap w-full py-3 rounded-lg bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center gap-2"
-        >
-          <ChevronRight size={16} /> Haftayı İlerlet (Bot Maçlarını Oyna)
-        </button>
-      )}
 
       {/* Season end button — tüm maçlar oynandığında */}
       {allPlayed && (

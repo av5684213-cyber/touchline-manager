@@ -108,6 +108,10 @@ type AppState = {
   managerName: string;
   myTeamId: string | null;
 
+  // season
+  seasonMatchday: number;
+  seasonNumber: number;
+
   // data
   clubs: Team[];
   fixtures: FixtureRow[];
@@ -219,6 +223,8 @@ export const useAppStore = create<AppState>()(
       isAuthed: false,
       managerName: "",
       myTeamId: null,
+      seasonMatchday: 14,
+      seasonNumber: 1,
       clubs: [],
       fixtures: [],
       tactics: {
@@ -1094,6 +1100,90 @@ export const useAppStore = create<AppState>()(
 // Helpers (selectors)
 export function useMyTeam(): Team | null {
   return useAppStore((s) => s.clubs.find((c) => c.id === s.myTeamId) ?? null);
+}
+
+export function useSeasonMatchday(): number {
+  return useAppStore((s) => s.seasonMatchday ?? 14);
+}
+
+// Schedule helpers — İstanbul saati (UTC+3)
+export function getIstanbulNow(): Date {
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  return new Date(utc + 3 * 3600000);
+}
+
+export function getMinutesToNextMatch(): { minutes: number; slot: { type: string; time: string; dayName: string } } | null {
+  const istNow = getIstanbulNow();
+  const currentHour = istNow.getHours();
+  const currentMinute = istNow.getMinutes();
+  const currentTotalMinutes = currentHour * 60 + currentMinute;
+
+  const LEAGUE_TIMES = ["12:00", "18:00"];
+  const CUP_TIMES = ["18:00"];
+  const DAY_NAMES: Record<number, string> = { 0: "Paz", 1: "Pzt", 2: "Sal", 3: "Çar", 4: "Per", 5: "Cum", 6: "Cmt" };
+
+  for (let i = 0; i < 7; i++) {
+    const checkDate = new Date(istNow);
+    checkDate.setDate(checkDate.getDate() + i);
+    const dow = checkDate.getDay();
+    const isLeague = dow >= 1 && dow <= 5;
+    const isCup = dow === 0 || dow === 6;
+    const times = isLeague ? LEAGUE_TIMES : isCup ? CUP_TIMES : [];
+    const type = isLeague ? "league" : isCup ? "cup" : null;
+    if (!type) continue;
+
+    for (const time of times) {
+      const [h, m] = time.split(":").map(Number);
+      const slotTotalMinutes = h * 60 + m;
+      if (i === 0 && slotTotalMinutes <= currentTotalMinutes) continue;
+      const totalMinutesUntil = i * 24 * 60 + (slotTotalMinutes - currentTotalMinutes);
+      return {
+        minutes: totalMinutesUntil,
+        slot: { type, time, dayName: i === 0 ? "Bugün" : DAY_NAMES[dow] ?? "" },
+      };
+    }
+  }
+  return null;
+}
+
+export function formatCountdown(minutes: number): string {
+  if (minutes <= 0) return "Şimdi";
+  const days = Math.floor(minutes / (24 * 60));
+  const hours = Math.floor((minutes % (24 * 60)) / 60);
+  const mins = Math.floor(minutes % 60);
+  if (days > 0) return `${days}g ${hours}sa`;
+  if (hours > 0) return `${hours}sa ${mins}dk`;
+  return `${mins}dk`;
+}
+
+export function getTodaySchedule() {
+  const dow = getIstanbulNow().getDay();
+  const isLeague = dow >= 1 && dow <= 5;
+  const isCup = dow === 0 || dow === 6;
+  const DAY_NAMES: Record<number, string> = { 0: "Pazar", 1: "Pazartesi", 2: "Salı", 3: "Çarşamba", 4: "Perşembe", 5: "Cuma", 6: "Cumartesi" };
+  const matchSlots: { time: string; competitionType: string }[] = [];
+  if (isLeague) {
+    matchSlots.push({ time: "12:00", competitionType: "league" });
+    matchSlots.push({ time: "18:00", competitionType: "league" });
+  }
+  if (isCup) {
+    matchSlots.push({ time: "18:00", competitionType: "cup" });
+  }
+  const trainingTimes = isLeague ? ["15:00", "21:00"] : [];
+  return { dayName: DAY_NAMES[dow] ?? "", dayOfWeek: dow, matchSlots, trainingTimes, isRestDay: false };
+}
+
+export function getCompetitionIcon(type: string): string {
+  if (type === "cup") return "🏆";
+  if (type === "friendly") return "🤝";
+  return "⚽";
+}
+
+export function getCompetitionLabel(type: string): string {
+  if (type === "cup") return "Kupa Maçı";
+  if (type === "friendly") return "Hazırlık Maçı";
+  return "Lig Maçı";
 }
 
 export function getFormation(key: string): Formation {
