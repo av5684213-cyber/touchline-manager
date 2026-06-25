@@ -84,12 +84,14 @@ export function FriendlyMatchScreen() {
     return () => clearInterval(timer);
   }, [searchState]);
 
-  // Poll for match
+  // Poll for match — ücretsiz sıra daha yavaş eşleşir
   useEffect(() => {
     if (searchState !== "searching") return;
+    if (isPriority) return; // öncelikli zaten hemen başladı
     const poll = setInterval(() => {
-      const chance = isPriority ? 0.7 : 0.5;
-      if (Math.random() < chance) {
+      // Ücretsiz: %15 ihtimalle her poll'da eşleşme
+      // (ortalama ~13 sn bekleme)
+      if (Math.random() < 0.15) {
         handleMatchFound();
       }
     }, POLL_INTERVAL);
@@ -132,8 +134,21 @@ export function FriendlyMatchScreen() {
   const handleStartSearch = (priority: boolean = false) => {
     haptic("medium");
     setIsPriority(priority);
-    setTimeLeft(QUEUE_DURATION);
-    setSearchState("searching");
+
+    if (priority) {
+      // Öncelikli sıra — 1 kredi, hemen maç başlat
+      // Kredi kontrolü (şimdilik credits yok, direkt başlat)
+      setTimeLeft(0);
+      // Hemen eşleşme — 1 saniye sonra
+      setSearchState("searching");
+      setTimeout(() => handleMatchFound(), 1000);
+    } else {
+      // Ücretsiz sıra — beklemeli
+      // Öncelikli sıraya giren biriyle eşleşene kadar bekle
+      // %30 ihtimalle öncelikli sıradan biriyle, %70 ihtimalle normal
+      setTimeLeft(QUEUE_DURATION);
+      setSearchState("searching");
+    }
   };
 
   const handleMatchFound = () => {
@@ -290,10 +305,11 @@ export function FriendlyMatchScreen() {
                 onClick={() => handleStartSearch(true)}
                 className="tm-tap w-full py-2.5 rounded-xl text-xs font-bold bg-amber-500/10 border border-amber-500/30 text-amber-300 flex items-center justify-center gap-2"
               >
-                <Zap size={14} /> Öncelikli Sıra (1 Kredi)
+                <Zap size={14} /> Hemen Oyna (1 Kredi)
               </button>
               <p className="text-[9px] text-muted-foreground mt-3">
-                💡 Sıraya girenler ücretsiz oynar. Öncelikli sıra daha hızlı eşleşir.
+                💡 Ücretsiz sıra bekler, öncelikli sıraya girenlerle eşleşir.
+                <br />⚡ 1 Kredi ile hemen maç başlat.
               </p>
             </div>
           )}
@@ -308,13 +324,22 @@ export function FriendlyMatchScreen() {
                   <Search size={24} className="text-primary" />
                 </div>
               </div>
-              <h2 className="text-sm font-bold mb-1">Sırada Bekliyor...</h2>
+              <h2 className="text-sm font-bold mb-1">
+                {isPriority ? "Maç Başlatılıyor..." : "Sırada Bekliyor..."}
+              </h2>
               <p className="text-[11px] text-muted-foreground mb-3">
-                {isPriority ? "⚡ Öncelikli sırada" : "Rakip aranıyor"}
+                {isPriority ? "⚡ Öncelikli sıra — hemen başlatılıyor" : "Rakip bekleniyor..."}
               </p>
-              <div className="text-2xl font-bold tabular-nums text-primary mb-3">
-                0:{String(timeLeft).padStart(2, "0")}
-              </div>
+              {!isPriority && (
+                <div className="text-2xl font-bold tabular-nums text-primary mb-3">
+                  0:{String(timeLeft).padStart(2, "0")}
+                </div>
+              )}
+              {isPriority && (
+                <div className="mb-3">
+                  <Loader2 size={24} className="animate-spin text-primary mx-auto" />
+                </div>
+              )}
               <button
                 onClick={handleCancelSearch}
                 className="tm-tap px-4 py-2 rounded-md text-xs font-bold border border-border text-muted-foreground"
