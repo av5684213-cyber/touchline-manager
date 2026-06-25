@@ -6,12 +6,11 @@ import {
   Trophy,
   ArrowLeftRight,
   Dumbbell,
-  Grid2x2,
   Calendar,
-  Search,
   GraduationCap,
   Award,
   BarChart3,
+  Newspaper,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { haptic } from "@/hooks/touchline";
@@ -32,7 +31,10 @@ export type TabKey =
   | "finance"
   | "awards"
   | "reports"
-  | "cup";
+  | "cup"
+  | "news"
+  | "friendly"
+  | "messages";
 
 export const MAIN_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: string }[] = [
   { key: "dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard" },
@@ -43,14 +45,11 @@ export const MAIN_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: s
 ];
 
 export const OTHER_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: string }[] = [
-  { key: "standings", icon: Trophy, labelKey: "nav.standings" },
   { key: "fixture", icon: Calendar, labelKey: "nav.fixture" },
-  { key: "scouting", icon: Search, labelKey: "nav.scouting" },
   { key: "youth", icon: GraduationCap, labelKey: "nav.youth" },
-  { key: "facilities", icon: Grid2x2, labelKey: "nav.facilities" },
   { key: "finance", icon: LayoutDashboard, labelKey: "nav.finance" },
   { key: "awards", icon: Award, labelKey: "nav.awards" },
-  { key: "cup", icon: Trophy, labelKey: "nav.cup" },
+  { key: "news", icon: Newspaper, labelKey: "nav.news" },
   { key: "reports", icon: BarChart3, labelKey: "nav.reports" },
 ];
 
@@ -119,7 +118,7 @@ export function BottomNav({
             : "text-muted-foreground hover:text-foreground"
         )}
       >
-        <Grid2x2 size={20} strokeWidth={otherActive ? 2.4 : 2} />
+        <LayoutDashboard size={20} strokeWidth={otherActive ? 2.4 : 2} />
         <span className="truncate max-w-full px-1">{t("nav.other")}</span>
         <span
           className={cn(

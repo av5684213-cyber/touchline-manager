@@ -20,10 +20,11 @@ import { YouthAcademyScreen } from "@/components/touchline/screens/youth-academy
 import { FacilitiesScreen } from "@/components/touchline/screens/facilities";
 import { FinanceScreen } from "@/components/touchline/screens/finance";
 import { AwardsScreen } from "@/components/touchline/screens/awards";
-import { CupScreen } from "@/components/touchline/screens/cup";
 import { WeeklyReportScreen } from "@/components/touchline/screens/weekly-report";
+import { NewsScreen } from "@/components/touchline/screens/news";
+import { FriendlyMatchScreen } from "@/components/touchline/screens/friendly";
+import { MessagesScreen } from "@/components/touchline/screens/messages";
 import { OtherDrawer } from "@/components/touchline/other-drawer";
-import { useI18n } from "@/lib/i18n/locale-provider";
 import { useSwipe, useBodyScrollLock } from "@/hooks/touchline";
 
 const TAB_ORDER: TabKey[] = [
@@ -35,7 +36,6 @@ const TAB_ORDER: TabKey[] = [
 ];
 
 export default function Home() {
-  const { t } = useI18n();
   const [tab, setTab] = useState<TabKey>("dashboard");
   const [otherOpen, setOtherOpen] = useState(false);
 
@@ -60,7 +60,6 @@ export default function Home() {
     setOtherOpen(false);
   };
 
-  // StickyQuickBar her zaman görünür (canlı maç şeridi + navigasyon)
   return (
     <AuthGate>
       <div className="tm-app-shell flex flex-col">
@@ -72,13 +71,15 @@ export default function Home() {
           {tab === "transfer" && <TransferScreen />}
           {tab === "training" && <TrainingScreen />}
           {tab === "standings" && <StandingsScreen />}
-          {tab === "fixture" && <FixtureScreen />}
+          {tab === "fixture" && <FixtureScreen onPlayMatch={() => setTab("match")} />}
           {tab === "scouting" && <ScoutingScreen />}
           {tab === "youth" && <YouthAcademyScreen />}
           {tab === "facilities" && <FacilitiesScreen />}
           {tab === "finance" && <FinanceScreen />}
           {tab === "awards" && <AwardsScreen />}
-          {tab === "cup" && <CupScreen />}
+          {tab === "friendly" && <FriendlyMatchScreen />}
+          {tab === "news" && <NewsScreen />}
+          {tab === "messages" && <MessagesScreen />}
           {tab === "reports" && <WeeklyReportScreen />}
         </main>
         <BottomNav

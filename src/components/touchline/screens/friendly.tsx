@@ -13,13 +13,17 @@ import {
 } from "lucide-react";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { simulateEnhancedMatch } from "@/lib/match/engine";
-import { pickStartingXIByFormation } from "@/lib/live-match-store";
-import { FORMATION_SLOTS, DEFAULT_TACTIC } from "@/lib/tactics/types";
-import { ClubBadge, PlayerAvatar } from "../ui-bits";
+import { DEFAULT_TACTIC } from "@/lib/tactics/types";
+import { ClubBadge } from "../ui-bits";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
-import type { Team } from "@/lib/mock/data";
+import type { Team, Player } from "@/lib/mock/data";
+
+// Inline pickStartingXI — en yüksek OVR'li 11 oyuncu
+function pickXI(players: Player[]): Player[] {
+  return [...players].sort((a, b) => b.rating - a.rating).slice(0, 11);
+}
 
 type FriendlyResult = {
   id: string;
@@ -120,8 +124,8 @@ export function FriendlyMatchScreen() {
     const away = opponent;
     const isHome = Math.random() < 0.5;
 
-    const homeSquad = pickStartingXIByFormation(home.players, DEFAULT_TACTIC.formation);
-    const awaySquad = pickStartingXIByFormation(away.players, "4-4-2");
+    const homeSquad = pickXI(home.players);
+    const awaySquad = pickXI(away.players);
 
     setTimeout(() => {
       const matchResult = simulateEnhancedMatch(
