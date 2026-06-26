@@ -567,7 +567,8 @@ export const useAppStore = create<AppState>()(
         if (training.lastTrainingDate !== today) {
           todayCount = 0;
         }
-        if (todayCount >= 2) {
+        // Antrenman günde 1 kez (zamanlanmış pencerede) — limit 1
+        if (todayCount >= 1) {
           return { success: false, reason: "daily-limit" };
         }
 

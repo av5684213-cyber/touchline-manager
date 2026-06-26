@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  Activity,
+  Clock,
   Dumbbell,
   GraduationCap,
   Heart,
@@ -26,8 +26,78 @@ import {
 import { POSITION_GROUP, type Player, type PositionGroup } from "@/lib/mock/data";
 import { PlayerAvatar, PositionPill } from "../ui-bits";
 import { PlayerProfileModal } from "../player-profile-modal";
+import { formatCountdown } from "@/lib/match/scheduler";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
+
+// Antrenman saatleri = maç saatleriyle aynı (TR saatiyle her 4 saatte bir)
+const TRAINING_HOUR_TR = [0, 4, 8, 12, 16, 20] as const;
+const TRAINING_WINDOW_MINUTES = 60;
+
+function isTrainingHour(trHour: number): boolean {
+  return (TRAINING_HOUR_TR as readonly number[]).includes(trHour);
+}
+
+function formatTrTime(hour: number): string {
+  return `${String(hour).padStart(2, "0")}:00`;
+}
+
+type TrainingScheduleStatus = {
+  inWindow: boolean;
+  windowEndsAt: number | null;
+  nextWindowAt: number;
+  nextTimeTr: string;
+  nextDateTr: string;
+  msUntilNext: number;
+};
+
+const TR_MONTHS = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
+
+function getTrainingSchedule(now: Date = new Date()): TrainingScheduleStatus {
+  const nowMs = now.getTime();
+  const trMs = nowMs + 3 * 60 * 60 * 1000;
+  const trDate = new Date(trMs);
+  const trHour = trDate.getUTCHours();
+  const trMinute = trDate.getUTCMinutes();
+
+  if (isTrainingHour(trHour) && trMinute < TRAINING_WINDOW_MINUTES) {
+    const trDayStart = new Date(trDate.toISOString().slice(0, 10) + "T00:00:00Z").getTime();
+    const windowStart = trDayStart + trHour * 60 * 60 * 1000 - 3 * 60 * 60 * 1000;
+    const windowEnd = windowStart + TRAINING_WINDOW_MINUTES * 60 * 1000;
+    return {
+      inWindow: true,
+      windowEndsAt: windowEnd,
+      nextWindowAt: windowStart,
+      nextTimeTr: formatTrTime(trHour),
+      nextDateTr: `${trDate.getUTCDate()} ${TR_MONTHS[trDate.getUTCMonth()]}`,
+      msUntilNext: 0,
+    };
+  }
+
+  let nextHour = -1;
+  let nextDayOffset = 0;
+  for (const h of TRAINING_HOUR_TR) {
+    if (h > trHour) {
+      nextHour = h;
+      break;
+    }
+  }
+  if (nextHour === -1) {
+    nextHour = TRAINING_HOUR_TR[0];
+    nextDayOffset = 1;
+  }
+  const trTodayStart = new Date(trDate.toISOString().slice(0, 10) + "T00:00:00Z").getTime();
+  const nextWindowMs = trTodayStart + nextDayOffset * 24 * 60 * 60 * 1000 + nextHour * 60 * 60 * 1000 - 3 * 60 * 60 * 1000;
+  const nextDate = new Date(nextWindowMs + 3 * 60 * 60 * 1000);
+  return {
+    inWindow: false,
+    windowEndsAt: null,
+    nextWindowAt: nextWindowMs,
+    nextTimeTr: formatTrTime(nextHour),
+    nextDateTr: `${nextDate.getUTCDate()} ${TR_MONTHS[nextDate.getUTCMonth()]}`,
+    msUntilNext: Math.max(0, nextWindowMs - nowMs),
+  };
+}
 
 export function TrainingScreen() {
   const { t, locale } = useI18n();
@@ -40,9 +110,19 @@ export function TrainingScreen() {
   const [running, setRunning] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
+  // ===== Scheduler — antrenman TR saatiyle belli saatlerde =====
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const schedule = useMemo(() => getTrainingSchedule(new Date(nowTick)), [nowTick]);
+
   const today = todayKey();
-  const todayCount = training.lastTrainingDate === today ? training.dailyCount : 0;
-  const canTrain = todayCount < 2 && training.assignments.length > 0;
+  // Bugün o pencerede antrenman yapıldı mı? lastTrainingDate + sessionSlot kontrolü
+  const todayTrained = training.lastTrainingDate === today && training.dailyCount > 0;
+
+  const canTrainNow = schedule.inWindow && !todayTrained && training.assignments.length > 0;
 
   const filteredPlayers = useMemo(() => {
     if (!team) return [];
@@ -55,7 +135,7 @@ export function TrainingScreen() {
   const facilityMult = (1.0 + facilities.levels.pitch * 0.1).toFixed(1);
 
   const handleRun = () => {
-    if (!canTrain) return;
+    if (!canTrainNow) return;
     setRunning(true);
     haptic("medium");
     setTimeout(() => {
@@ -63,15 +143,18 @@ export function TrainingScreen() {
       setRunning(false);
       if (result.success) {
         haptic("success");
-        setFeedback({ type: "success", msg: t("training.run_session") + " ✓" });
+        setFeedback({ type: "success", msg: "Antrenman tamamlandı ✓" });
       } else {
         haptic("error");
-        const msg = result.reason === "daily-limit" ? t("training.limit_full") : "Hata";
+        const msg = result.reason === "daily-limit" ? "Bugünkü antrenman yapıldı" : "Hata";
         setFeedback({ type: "error", msg });
       }
       setTimeout(() => setFeedback(null), 2500);
     }, 600);
   };
+
+  // Pencere süresi kalan
+  const windowRemaining = schedule.windowEndsAt ? schedule.windowEndsAt - Date.now() : 0;
 
   return (
     <div className="px-4 py-4 pb-6 space-y-3">
@@ -79,47 +162,94 @@ export function TrainingScreen() {
       <div className="tm-card p-3">
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h1 className="text-base font-bold">{t("training.title")}</h1>
-            <p className="text-[11px] text-muted-foreground">
-              {t("training.daily_limit")} · {t("training.facility_level")} {facilities.levels.pitch} (×{facilityMult})
+            <h1 className="text-base font-bold flex items-center gap-1.5">
+              <Dumbbell size={16} className="text-primary" />
+              {t("training.title")}
+            </h1>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {t("training.facility_level")} {facilities.levels.pitch} (×{facilityMult})
             </p>
           </div>
-          <div className="text-right">
-            <div className="flex gap-1 mb-1">
-              {[0, 1].map((i) => (
-                <span
-                  key={i}
-                  className={cn(
-                    "w-3 h-3 rounded-full",
-                    i < todayCount ? "bg-emerald-500" : "bg-muted"
-                  )}
-                />
-              ))}
+        </div>
+
+        {/* Scheduler widget — antrenman saati bekleniyor / pencere açık */}
+        {schedule.inWindow ? (
+          <div className={cn(
+            "rounded-lg p-3 border space-y-2",
+            todayTrained
+              ? "bg-emerald-50/60 border-emerald-200"
+              : "bg-amber-50/60 border-amber-300"
+          )}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                {!todayTrained && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold animate-pulse">
+                    <span className="w-1 h-1 rounded-full bg-white" />
+                    ANTRENMAN SAATİ
+                  </span>
+                )}
+                <span className="text-sm font-bold tabular-nums">{schedule.nextTimeTr}</span>
+              </div>
+              <div className="text-[10px] text-muted-foreground tabular-nums">
+                Pencere: {formatCountdown(windowRemaining)}
+              </div>
             </div>
-            <div className="text-[10px] text-muted-foreground">
-              {todayCount}/2 {t("training.daily_count")}
+
+            {todayTrained ? (
+              <div className="text-center py-1.5">
+                <div className="text-xs font-bold text-emerald-700">
+                  ✓ Bugünkü antrenman tamamlandı
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">
+                  Sonraki antrenman: {schedule.nextDateTr} · {schedule.nextTimeTr}
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={handleRun}
+                disabled={!canTrainNow || running}
+                className={cn(
+                  "tm-tap w-full py-2.5 rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-transform",
+                  !canTrainNow || running
+                    ? "bg-muted text-muted-foreground cursor-not-allowed"
+                    : "bg-emerald-600 text-white active:scale-[0.98] animate-pulse"
+                )}
+              >
+                <Play size={14} />
+                {running ? "Çalışıyor…" : "Antrenmanı Başlat"}
+              </button>
+            )}
+            {training.assignments.length === 0 && !todayTrained && (
+              <div className="text-[9px] text-amber-700 text-center">
+                En az 1 oyuncuya program ata, sonra antrenmanı başlat.
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-lg p-3 border border-border bg-muted/30 space-y-2">
+            <div className="flex items-center gap-1.5">
+              <Clock size={12} className="text-muted-foreground" />
+              <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                Sonraki Antrenman
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <div>
+                <span className="text-xl font-bold tabular-nums">{schedule.nextTimeTr}</span>
+                <span className="text-[10px] text-muted-foreground ml-2">{schedule.nextDateTr}</span>
+              </div>
+              <div className="text-right">
+                <div className="text-[9px] text-muted-foreground uppercase">Başlangıca</div>
+                <div className="text-sm font-bold tabular-nums text-primary">
+                  {formatCountdown(schedule.msUntilNext)}
+                </div>
+              </div>
+            </div>
+            <div className="text-[9px] text-muted-foreground leading-relaxed pt-1 border-t border-border">
+              Antrenmanlar her gün TR saatiyle 00:00, 04:00, 08:00, 12:00, 16:00, 20:00'de. Saat gelince "Antrenmanı Başlat" butonu aktif olur.
             </div>
           </div>
-        </div>
-        <button
-          onClick={handleRun}
-          disabled={!canTrain || running}
-          className={cn(
-            "tm-tap w-full py-2.5 rounded-md text-sm font-bold flex items-center justify-center gap-2",
-            !canTrain || running
-              ? "bg-muted text-muted-foreground cursor-not-allowed"
-              : "bg-primary text-primary-foreground active:scale-[0.98]"
-          )}
-        >
-          <Play size={14} />
-          {running
-            ? t("training.running")
-            : todayCount >= 2
-            ? t("training.limit_full")
-            : todayCount === 0
-            ? t("training.session.morning")
-            : t("training.session.afternoon")}
-        </button>
+        )}
       </div>
 
       {feedback && (
