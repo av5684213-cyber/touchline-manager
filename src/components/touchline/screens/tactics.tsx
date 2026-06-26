@@ -84,6 +84,8 @@ export function TacticsScreen() {
   const [slotPicker, setSlotPicker] = useState<number | null>(null);
   // Üst sekme — Diziliş / Oyuncularım / Karşılaştır / Antrenman
   const [topTab, setTopTab] = useState<"lineup" | "squad" | "compare" | "training">("lineup");
+  // Formation seçici modal
+  const [formationModalOpen, setFormationModalOpen] = useState(false);
 
   // Eski localStorage verilerinde tactics.active olmayabilir — fallback
   const active = tactics.active ?? DEFAULT_TACTIC;
@@ -222,24 +224,17 @@ export function TacticsScreen() {
           </div>
         </div>
 
-        {/* Formation yatay seçici */}
-        <div className="flex gap-1 overflow-x-auto tm-no-scrollbar pb-1.5 mb-2">
-          {FORMATIONS_14.map((f) => (
-            <button
-              key={f}
-              onClick={() => updateActiveTactic({ formation: f })}
-              className={cn(
-                "tm-tap px-2.5 py-1 rounded-md text-[11px] font-bold whitespace-nowrap transition-colors border",
-                formation === f
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card border-border"
-              )}
-              style={{ minHeight: 28 }}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
+        {/* Formation seçici — tıklayınca modal açılır */}
+        <button
+          onClick={() => { haptic("light"); setFormationModalOpen(true); }}
+          className="tm-tap w-full flex items-center justify-between px-3 py-2 rounded-md border border-border bg-card hover:bg-accent transition-colors mb-2"
+        >
+          <div className="flex items-center gap-2">
+            <ChevronDown size={14} className="text-muted-foreground" />
+            <span className="text-sm font-bold tabular-nums">{formation}</span>
+          </div>
+          <span className="text-[10px] text-muted-foreground">Değiştir</span>
+        </button>
 
         {/* Mentality 5 buton */}
         <div className="flex gap-1">
@@ -729,12 +724,74 @@ export function TacticsScreen() {
           onClose={() => setProfilePlayer(null)}
         />
       )}
+
+      {/* Formation seçici modal */}
+      {formationModalOpen && (
+        <FormationPickerModal
+          current={formation}
+          onPick={(f) => {
+            haptic("success");
+            updateActiveTactic({ formation: f });
+            setFormationModalOpen(false);
+          }}
+          onClose={() => setFormationModalOpen(false)}
+        />
+      )}
     </div>
   );
 
   function setCompareMode_on() {
     setCompareIds([]);
   }
+}
+
+// ===== Formation seçici modal =====
+function FormationPickerModal({
+  current,
+  onPick,
+  onClose,
+}: {
+  current: string;
+  onPick: (formation: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-label="close" />
+      <div className="relative w-full max-w-[390px] bg-background rounded-t-2xl border-t border-border tm-safe-bottom max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <h3 className="text-sm font-bold">Formasyon Seç</h3>
+          <button onClick={onClose} className="tm-tap p-1">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="overflow-y-auto tm-thin-scrollbar p-3">
+          <div className="grid grid-cols-3 gap-2">
+            {FORMATIONS_14.map((f) => {
+              const isSelected = f === current;
+              return (
+                <button
+                  key={f}
+                  onClick={() => onPick(f)}
+                  className={cn(
+                    "tm-tap py-3 rounded-md text-sm font-bold tabular-nums border-2 transition-colors flex flex-col items-center gap-1",
+                    isSelected
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card border-border hover:border-primary/50"
+                  )}
+                >
+                  <span className="text-base">{f}</span>
+                  {isSelected && (
+                    <span className="text-[8px] font-semibold opacity-80">SEÇİLİ</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ===== Compare tab — 2 oyuncu seç + karşılaştır =====
