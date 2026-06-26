@@ -157,12 +157,14 @@
 .tm-thin-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
 .tm-thin-scrollbar::-webkit-scrollbar-thumb { background: oklch(0.7 0.02 150); border-radius: 4px; }
 
-/* Sticky bottom nav with safe-area */
+/* Sticky bottom nav with safe-area — üst şerit ile uyumlu (background/95 + blur) */
 .tm-bottom-nav {
   position: sticky;
   bottom: 0;
   padding-bottom: var(--safe-bottom);
-  background: oklch(1 0 0);
+  background: color-mix(in oklch, var(--background) 95%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-top: 1px solid var(--border);
   z-index: 40;
 }
