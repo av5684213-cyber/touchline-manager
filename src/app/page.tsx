@@ -23,6 +23,7 @@ import { AwardsScreen } from "@/components/touchline/screens/awards";
 import { CupScreen } from "@/components/touchline/screens/cup";
 import { WeeklyReportScreen } from "@/components/touchline/screens/weekly-report";
 import { ComingSoonScreen } from "@/components/touchline/screens/coming-soon";
+import { FriendlyScreen } from "@/components/touchline/screens/friendly";
 import { OtherDrawer } from "@/components/touchline/other-drawer";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useSwipe, useBodyScrollLock } from "@/hooks/touchline";
@@ -82,7 +83,7 @@ export default function Home() {
           {tab === "awards" && <AwardsScreen />}
           {tab === "cup" && <CupScreen />}
           {tab === "reports" && <WeeklyReportScreen />}
-          {tab === "friendly" && <ComingSoonScreen title="Hazırlık Maçı" />}
+          {tab === "friendly" && <FriendlyScreen />}
         </main>
         <BottomNav
           active={tab}
