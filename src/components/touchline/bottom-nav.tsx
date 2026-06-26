@@ -32,7 +32,9 @@ export type TabKey =
   | "finance"
   | "awards"
   | "reports"
-  | "cup";
+  | "cup"
+  // Üst şerit sekmesi — coming-soon
+  | "friendly";
 
 export const MAIN_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: string }[] = [
   { key: "dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard" },
