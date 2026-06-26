@@ -41,7 +41,6 @@ export const MAIN_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: s
   { key: "tactics", icon: ClipboardList, labelKey: "nav.tactics" },
   { key: "match", icon: Trophy, labelKey: "nav.match" },
   { key: "transfer", icon: ArrowLeftRight, labelKey: "nav.transfer" },
-  { key: "training", icon: Dumbbell, labelKey: "nav.training" },
 ];
 
 export const OTHER_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: string }[] = [
@@ -66,7 +65,7 @@ export function BottomNav({
 
   return (
     <nav
-      className="tm-bottom-nav grid grid-cols-6 gap-0"
+      className="tm-bottom-nav grid grid-cols-5 gap-0"
       role="tablist"
       aria-label="tabs"
     >

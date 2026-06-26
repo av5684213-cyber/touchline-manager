@@ -35,6 +35,7 @@ import {
 } from "@/lib/tactics/types";
 import { PlayerAvatar, PositionPill, RatingBadge } from "../ui-bits";
 import { PlayerProfileModal } from "../player-profile-modal";
+import { TrainingScreen } from "./training";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
@@ -81,8 +82,8 @@ export function TacticsScreen() {
   });
   // Slot oyuncu seçim modal'ı
   const [slotPicker, setSlotPicker] = useState<number | null>(null);
-  // Üst sekme — Diziliş / Oyuncularım / Karşılaştır
-  const [topTab, setTopTab] = useState<"lineup" | "squad" | "compare">("lineup");
+  // Üst sekme — Diziliş / Oyuncularım / Karşılaştır / Antrenman
+  const [topTab, setTopTab] = useState<"lineup" | "squad" | "compare" | "training">("lineup");
 
   // Eski localStorage verilerinde tactics.active olmayabilir — fallback
   const active = tactics.active ?? DEFAULT_TACTIC;
@@ -171,12 +172,13 @@ export function TacticsScreen() {
 
   return (
     <div className="px-3 py-3 space-y-3 pb-6">
-      {/* ===== Üst sekme nav — Diziliş / Oyuncularım / Karşılaştır ===== */}
+      {/* ===== Üst sekme nav — Diziliş / Oyuncularım / Karşılaştır / Antrenman ===== */}
       <div className="flex border-b border-border bg-card rounded-t-lg">
         {([
           { key: "lineup", label: "Diziliş" },
           { key: "squad", label: `Oyuncularım (${team.players.length})` },
           { key: "compare", label: `Karşılaştır${compareIds.length > 0 ? ` (${compareIds.length}/2)` : ""}` },
+          { key: "training", label: "Antrenman" },
         ] as const).map((tab) => (
           <button
             key={tab.key}
@@ -706,6 +708,12 @@ export function TacticsScreen() {
           t={t}
           locale={locale}
         />
+      )}
+
+      {topTab === "training" && (
+        <div className="-mx-3 -my-3">
+          <TrainingScreen />
+        </div>
       )}
 
       {/* Compare modal */}

@@ -13,7 +13,6 @@ import { DashboardScreen } from "@/components/touchline/screens/dashboard";
 import { TacticsScreen } from "@/components/touchline/screens/tactics";
 import { MatchScreen } from "@/components/touchline/screens/match";
 import { TransferScreen } from "@/components/touchline/screens/transfer";
-import { TrainingScreen } from "@/components/touchline/screens/training";
 import { StandingsScreen } from "@/components/touchline/screens/standings";
 import { FixtureScreen } from "@/components/touchline/screens/fixture";
 import { ScoutingScreen } from "@/components/touchline/screens/scouting";
@@ -33,7 +32,6 @@ const TAB_ORDER: TabKey[] = [
   "tactics",
   "match",
   "transfer",
-  "training",
 ];
 
 export default function Home() {
@@ -75,7 +73,6 @@ export default function Home() {
           {tab === "tactics" && <TacticsScreen />}
           {tab === "match" && <MatchScreen />}
           {tab === "transfer" && <TransferScreen />}
-          {tab === "training" && <TrainingScreen />}
           {tab === "standings" && <StandingsScreen />}
           {tab === "fixture" && <FixtureScreen />}
           {tab === "scouting" && <ScoutingScreen />}
