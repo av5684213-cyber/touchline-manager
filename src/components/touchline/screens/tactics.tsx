@@ -39,12 +39,12 @@ import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 
-// Mevki pozisyon grubuna göre satır arka planı — hafif tonlar
+// Mevki pozisyon grubuna göre satır arka planı — çok sölük tonlar
 const POSITION_ROW_BG: Record<PositionGroup, string> = {
-  GK: "bg-amber-50/60 dark:bg-amber-950/20",
-  DEF: "bg-sky-50/60 dark:bg-sky-950/20",
-  MID: "bg-emerald-50/60 dark:bg-emerald-950/20",
-  FWD: "bg-rose-50/60 dark:bg-rose-950/20",
+  GK: "bg-amber-50/30 dark:bg-amber-950/10",
+  DEF: "bg-sky-50/30 dark:bg-sky-950/10",
+  MID: "bg-emerald-50/30 dark:bg-emerald-950/10",
+  FWD: "bg-rose-50/30 dark:bg-rose-950/10",
 };
 
 export function TacticsScreen() {
