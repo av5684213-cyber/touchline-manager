@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Search, Grid2x2, Trophy, Users } from "lucide-react";
+import { CalendarDays, Search, Grid2x2, Trophy, Users, Medal } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { haptic } from "@/hooks/touchline";
 import type { TabKey } from "./bottom-nav";
@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
  * - Fikstür (fixture)
  * - Hazırlık Maçı (friendly) — henüz ekranı yok, coming-soon gösterir
  * - Yerleşke (facilities)
+ * - Kupa (cup)
  *
  * Alt nav ana akışı taşır: dashboard / tactics / match / transfer / training / Diğer.
  */
@@ -23,7 +24,8 @@ type TopTabKey =
   | "scouting"
   | "fixture"
   | "friendly"
-  | "facilities";
+  | "facilities"
+  | "cup";
 
 const TOP_TABS: { key: TopTabKey; icon: typeof Trophy; label: string }[] = [
   { key: "standings", icon: Trophy, label: "Puan Durumu" },
@@ -31,6 +33,7 @@ const TOP_TABS: { key: TopTabKey; icon: typeof Trophy; label: string }[] = [
   { key: "fixture", icon: CalendarDays, label: "Fikstür" },
   { key: "friendly", icon: Users, label: "Hazırlık Maçı" },
   { key: "facilities", icon: Grid2x2, label: "Yerleşke" },
+  { key: "cup", icon: Medal, label: "Kupa" },
 ];
 
 export function StickyQuickBar({
@@ -45,10 +48,9 @@ export function StickyQuickBar({
       className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border"
       style={{ paddingTop: "var(--safe-top)" }}
     >
-      <div className="grid grid-cols-5 gap-0.5 px-2 py-1.5">
+      <div className="grid grid-cols-6 gap-0.5 px-2 py-1.5">
         {TOP_TABS.map((action) => {
           const Icon = action.icon;
-          // activeTab string ile karşılaştır — TabKey daha geniş ama tüm TopTabKey'ler TabKey'lerin alt kümesi (friendly hariç)
           const isActive = activeTab === (action.key as TabKey);
           return (
             <button

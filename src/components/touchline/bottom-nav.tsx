@@ -48,7 +48,6 @@ export const OTHER_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: 
   { key: "youth", icon: GraduationCap, labelKey: "nav.youth" },
   { key: "finance", icon: LayoutDashboard, labelKey: "nav.finance" },
   { key: "awards", icon: Award, labelKey: "nav.awards" },
-  { key: "cup", icon: Trophy, labelKey: "nav.cup" },
   { key: "reports", icon: BarChart3, labelKey: "nav.reports" },
 ];
 
