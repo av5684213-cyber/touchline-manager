@@ -45,11 +45,7 @@ export const MAIN_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: s
 ];
 
 export const OTHER_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: string }[] = [
-  { key: "standings", icon: Trophy, labelKey: "nav.standings" },
-  { key: "fixture", icon: Calendar, labelKey: "nav.fixture" },
-  { key: "scouting", icon: Search, labelKey: "nav.scouting" },
   { key: "youth", icon: GraduationCap, labelKey: "nav.youth" },
-  { key: "facilities", icon: Grid2x2, labelKey: "nav.facilities" },
   { key: "finance", icon: LayoutDashboard, labelKey: "nav.finance" },
   { key: "awards", icon: Award, labelKey: "nav.awards" },
   { key: "cup", icon: Trophy, labelKey: "nav.cup" },
