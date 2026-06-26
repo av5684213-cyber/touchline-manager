@@ -670,7 +670,7 @@ export function TacticsScreen() {
                     inLineup && "border-l-2 border-l-emerald-500"
                   )}
                 >
-                  <PlayerAvatar initials={`${p.firstName[0]}${p.lastName[0]}`} size={32} color={team.primaryColor} />
+                  <PlayerAvatar initials={p.specificPosition} size={32} color={team.primaryColor} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-semibold truncate">{p.firstName} {p.lastName}</span>
@@ -804,7 +804,7 @@ function CompareTab({
                 {p ? (
                   <div className="flex flex-col items-center text-center">
                     <PlayerAvatar
-                      initials={`${p.firstName[0]}${p.lastName[0]}`}
+                      initials={p.specificPosition}
                       color={team.primaryColor}
                       size={36}
                     />
@@ -1000,7 +1000,7 @@ function SlotPlayerPicker({
                 )}
               >
                 <PlayerAvatar
-                  initials={`${p.firstName[0]}${p.lastName[0]}`}
+                  initials={p.specificPosition}
                   color={team.primaryColor}
                   size={32}
                 />
@@ -1173,7 +1173,7 @@ function PlayerHeader({
 }) {
   return (
     <div className={cn("flex items-center gap-2", alignRight && "flex-row-reverse")}>
-      <PlayerAvatar initials={`${p.firstName[0]}${p.lastName[0]}`} size={32} color={teamColor} />
+      <PlayerAvatar initials={p.specificPosition} size={32} color={teamColor} />
       <div className={cn("min-w-0", alignRight && "text-right")}>
         <div className="text-xs font-semibold truncate">{p.firstName} {p.lastName}</div>
         <div className="text-[10px] text-muted-foreground">{p.specificPosition} · {p.age}</div>

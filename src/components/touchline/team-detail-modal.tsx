@@ -3,12 +3,32 @@
 import { useState } from "react";
 import { MessageSquare, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
-import { POSITION_GROUP, type Player, type Team } from "@/lib/mock/data";
+import { POSITION_GROUP, type Player, type PositionGroup, type Team } from "@/lib/mock/data";
 import { ClubBadge, PlayerAvatar, PositionPill, RatingBadge } from "./ui-bits";
 import { PlayerProfileModal } from "./player-profile-modal";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
+
+// Mevki pozisyon grubuna göre satır arka planı — taktik sekmesiyle aynı
+const POSITION_ROW_BG: Record<PositionGroup, string> = {
+  GK: "bg-amber-100/70 dark:bg-amber-950/30",
+  DEF: "bg-sky-100/70 dark:bg-sky-950/30",
+  MID: "bg-emerald-100/70 dark:bg-emerald-950/30",
+  FWD: "bg-rose-100/70 dark:bg-rose-950/30",
+};
+
+// Mevki sıralaması — önce kaleci, sonra defans, orta saha, forvet
+const POSITION_GROUP_ORDER: PositionGroup[] = ["GK", "DEF", "MID", "FWD"];
+
+function sortByPositionThenRating(players: Player[]): Player[] {
+  return players.slice().sort((a, b) => {
+    const ga = POSITION_GROUP_ORDER.indexOf(POSITION_GROUP[a.specificPosition]);
+    const gb = POSITION_GROUP_ORDER.indexOf(POSITION_GROUP[b.specificPosition]);
+    if (ga !== gb) return ga - gb;
+    return b.rating - a.rating;
+  });
+}
 
 export function TeamDetailModal({
   team,
@@ -29,7 +49,8 @@ export function TeamDetailModal({
     ? team.players
     : team.players.filter((p) => POSITION_GROUP[p.specificPosition] === posFilter);
 
-  const sortedPlayers = [...filteredPlayers].sort((a, b) => b.rating - a.rating);
+  // Mevkiiye göre sırala (GK → DEF → MID → FWD), aynı grupta rating'e göre
+  const sortedPlayers = sortByPositionThenRating(filteredPlayers);
   const avgOvr = Math.round(team.players.reduce((s, p) => s + p.rating, 0) / team.players.length);
   const totalValue = team.players.reduce((s, p) => s + p.marketValue, 0);
 
@@ -95,32 +116,47 @@ export function TeamDetailModal({
           ))}
         </div>
 
-        {/* Player list */}
-        <div className="flex-1 overflow-y-auto tm-thin-scrollbar p-2 space-y-1">
-          {sortedPlayers.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => { haptic("light"); setProfilePlayer(p); }}
-              className="tm-tap w-full flex items-center gap-2.5 p-2 rounded-md hover:bg-accent text-left"
-            >
-              <PlayerAvatar
-                initials={`${p.firstName[0]}${p.lastName[0]}`}
-                color={team.primaryColor}
-                size={30}
-              />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-semibold truncate">{p.firstName} {p.lastName}</span>
-                  <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
-                </div>
-                <div className="text-[9px] text-muted-foreground">
-                  {p.age}{t("common.year")} · {p.archetype ?? "—"} · {p.nationality === "TR" ? "🇹🇷" : "🌍"}
-                </div>
-              </div>
-              <RatingBadge value={p.formRating} />
-              <span className="text-[10px] font-bold tabular-nums w-6 text-right">{p.rating}</span>
-            </button>
-          ))}
+        {/* Player list — taktik sekmesindeki 'Oyuncularım' ile aynı görünüm */}
+        <div className="flex-1 overflow-y-auto tm-thin-scrollbar p-2">
+          <div className="tm-card divide-y divide-border">
+            {sortedPlayers.map((p) => {
+              const posGroup = POSITION_GROUP[p.specificPosition];
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => { haptic("light"); setProfilePlayer(p); }}
+                  className={cn(
+                    "tm-tap w-full flex items-center gap-3 p-2.5 text-left transition-colors",
+                    POSITION_ROW_BG[posGroup]
+                  )}
+                >
+                  <PlayerAvatar
+                    initials={p.specificPosition}
+                    color={team.primaryColor}
+                    size={32}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-semibold truncate">{p.firstName} {p.lastName}</span>
+                      <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
+                      {p.archetype && (
+                        <span className="text-[9px] text-amber-300 truncate">{p.archetype}</span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {p.age}{t("common.year")} · {p.nationality === "TR" ? "🇹🇷" : "🌍"} · {p.foot}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <RatingBadge value={p.formRating} />
+                    <div className="text-[9px] text-muted-foreground mt-0.5">
+                      {p.specificPosition === "GK" ? `${p.saves}K` : `${p.goals}G·${p.assists}A`}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
