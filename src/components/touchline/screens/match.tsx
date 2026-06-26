@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Ban,
   ChevronDown,
+  Clock,
   CloudRain,
   CloudSun,
   Pause,
@@ -11,6 +12,7 @@ import {
   RefreshCw,
   Settings,
   Sun,
+  Trophy,
   Wind,
   X,
   Zap,
@@ -27,6 +29,14 @@ import type {
   EnhancedMatchEvent as MatchEvent,
 } from "@/lib/match/engine";
 import type { LiveMatchState } from "@/hooks/use-match-engine";
+import {
+  formatCountdown,
+  getMatchScheduleStatus,
+  isMatchAutoSimmed,
+  isMatchWatched,
+  markMatchAutoSimmed,
+  markMatchWatched,
+} from "@/lib/match/scheduler";
 
 type MatchState = LiveMatchState;
 type MatchTactics = {
@@ -92,6 +102,76 @@ export function MatchScreen() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showPreMatch, setShowPreMatch] = useState(false);
 
+  // ===== Scheduler — maçlar TR saatiyle belli saatlerde =====
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const schedule = useMemo(() => getMatchScheduleStatus(new Date(nowTick)), [nowTick]);
+  // Mevcut maç penceresinin ID'si (örn "2026-06-27_12")
+  const currentMatchId = schedule.currentMatchId;
+  // Bu pencere daha önce izlendi mi? (canlı simülasyon görüldü mü?)
+  const currentWatched = currentMatchId ? isMatchWatched(currentMatchId) : false;
+  // Bu pencere daha önce otomatik simüle edildi mi? (kullanıcı izlemedi)
+  const currentAutoSimmed = currentMatchId ? isMatchAutoSimmed(currentMatchId) : false;
+
+  // Maç penceresi bittiğinde (inWindow: false'a döndü) ve kullanıcı izlemediyse:
+  // bir önceki pencereyi otomatik simüle et.
+  // Basit yaklaşımla: schedule.inWindow false iken ve bir önceki pencere auto-simlenmemişse,
+  // engine.state.status idle ise otomatik çalıştır ve sonucu kaydet.
+  useEffect(() => {
+    if (!team || !opponent) return;
+    // Yalnızca idle durumda çalış — live/paused/finished ise dokunma
+    if (engine.state.status !== "idle") return;
+    // Maç penceresi dışındayız
+    if (schedule.inWindow) return;
+    // Bir önceki pencereyi bul — şu anki saatten hemen önceki maç saati
+    const trMs = nowTick + 3 * 60 * 60 * 1000;
+    const trDate = new Date(trMs);
+    const trHour = trDate.getUTCHours();
+    const trMinute = trDate.getUTCMinutes();
+    // Hangi pencere "yeni geçti"?
+    // Yani trMinute < 60 değilse (yani pencere dışındayız), bir önceki maç saatinin penceresi geçmiş demek
+    // Bir önceki maç saatini bul:
+    const allHours = [0, 4, 8, 12, 16, 20];
+    let prevHour = -1;
+    let prevDayOffset = 0;
+    for (let i = allHours.length - 1; i >= 0; i--) {
+      const h = allHours[i];
+      if (h < trHour || (h === trHour && trMinute >= 60)) {
+        prevHour = h;
+        break;
+      }
+    }
+    if (prevHour === -1) {
+      // Bugünün hiçbiri geçmemişse, dünün son penceresi (20:00)
+      prevHour = 20;
+      prevDayOffset = -1;
+    }
+    const trTodayStart = new Date(new Date(trMs).toISOString().slice(0, 10) + "T00:00:00Z").getTime();
+    const prevWindowEnd = trTodayStart
+      + prevDayOffset * 24 * 60 * 60 * 1000
+      + prevHour * 60 * 60 * 1000
+      + 60 * 60 * 1000  // pencere sonu
+      - 3 * 60 * 60 * 1000;
+
+    // Şu an pencere sonundan sonraysa ve pencere auto-simlenmediyse
+    if (nowTick > prevWindowEnd) {
+      const trDayKey = new Date(prevWindowEnd + 3 * 60 * 60 * 1000 - 60 * 60 * 1000).toISOString().slice(0, 10);
+      const prevMatchId = `${trDayKey}_${prevHour}`;
+      if (!isMatchAutoSimmed(prevMatchId) && !isMatchWatched(prevMatchId)) {
+        // Otomatik simülasyon — maçı arka planda çalıştır, sonucu kaydet
+        markMatchAutoSimmed(prevMatchId);
+        // Engine'i başlat ve hemen bitir (kullanıcı görmesin)
+        engine.start();
+        // engine maçı canlı simüle eder ama bittiğinde recordMatchResult otomatik çağrılır
+        // (use-match-engine.ts içinde applyPostMatchEffects + recordMatchResult)
+      }
+    }
+  }, [nowTick, schedule.inWindow, team, opponent, engine]);
+
   if (!team || !opponent || !homeTeam || !awayTeam) {
     return (
       <div className="px-4 py-16 text-center text-sm text-muted-foreground">
@@ -135,6 +215,8 @@ export function MatchScreen() {
         onStart={() => {
           setShowPreMatch(false);
           engine.start();
+          // İzlendi olarak işaretle
+          if (currentMatchId) markMatchWatched(currentMatchId);
         }}
         onBack={() => setShowPreMatch(false)}
       />
@@ -153,17 +235,29 @@ export function MatchScreen() {
         {/* Referee & weather info banner */}
         <InfoBanner state={engine.state} />
 
-        {/* Action buttons: kick off / pause / tactics */}
-        {engine.state.status !== "finished" && (
+        {/* ===== Scheduler Widget — maç saati bekleniyor ===== */}
+        {engine.state.status === "idle" && !showPreMatch && (
+          <ScheduleWidget
+            schedule={schedule}
+            homeTeam={homeTeam}
+            awayTeam={awayTeam}
+            currentWatched={currentWatched}
+            currentAutoSimmed={currentAutoSimmed}
+            onWatch={() => {
+              // Sadece pencere içindeyken izlenebilir
+              if (!schedule.inWindow) {
+                haptic("error");
+                return;
+              }
+              haptic("medium");
+              setShowPreMatch(true);
+            }}
+          />
+        )}
+
+        {/* Action buttons: pause / tactics — yalnızca live/paused durumunda */}
+        {(engine.state.status === "live" || engine.state.status === "paused") && (
           <div className="flex gap-2">
-            {engine.state.status === "idle" && (
-              <button
-                onClick={() => { haptic("medium"); setShowPreMatch(true); }}
-                className="tm-tap flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-bold active:scale-[0.98] transition-transform"
-              >
-                <Play size={16} /> {t("match.kick_off")}
-              </button>
-            )}
             {engine.state.status === "live" && (
               <button
                 onClick={() => { haptic("light"); engine.pause(); }}
@@ -174,7 +268,7 @@ export function MatchScreen() {
             )}
             {engine.state.status === "paused" && (
               <button
-                onClick={() => { haptic("medium"); setShowPreMatch(true); }}
+                onClick={() => { haptic("medium"); engine.start(); }}
                 className="tm-tap flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-bold active:scale-[0.98] transition-transform"
               >
                 <Play size={16} /> {t("match.resume")}
@@ -252,6 +346,136 @@ export function MatchScreen() {
         mySide={mySide}
         myTeam={team}
       />
+    </div>
+  );
+}
+
+// ---- Schedule Widget — maç saati bekleniyor / maç penceresi ----
+function ScheduleWidget({
+  schedule,
+  homeTeam,
+  awayTeam,
+  currentWatched,
+  currentAutoSimmed,
+  onWatch,
+}: {
+  schedule: import("@/lib/match/scheduler").MatchScheduleStatus;
+  homeTeam: { name: string; shortName: string; primaryColor: string; secondaryColor?: string };
+  awayTeam: { name: string; shortName: string; primaryColor: string; secondaryColor?: string };
+  currentWatched: boolean;
+  currentAutoSimmed: boolean;
+  onWatch: () => void;
+}) {
+  const { t } = useI18n();
+
+  // Pencere içindeyiz ve kullanıcı izledi → "Maç bitti" durumu (engine finished olacak)
+  if (schedule.inWindow && currentWatched) {
+    return (
+      <div className="tm-card p-4 bg-emerald-50/40 border-emerald-200 text-center">
+        <Trophy size={28} className="text-emerald-600 mx-auto mb-2" />
+        <div className="text-sm font-bold text-emerald-700 mb-1">Maçını izledin</div>
+        <div className="text-[10px] text-muted-foreground">
+          Sonraki maç: {schedule.nextMatchDateTr} · {schedule.nextMatchTimeTr}
+        </div>
+      </div>
+    );
+  }
+
+  // Pencere içindeyiz — kullanıcı maçı izleyebilir
+  if (schedule.inWindow) {
+    const windowRemaining = schedule.windowEndsAt ? schedule.windowEndsAt - Date.now() : 0;
+    return (
+      <div className="tm-card p-4 bg-amber-50/40 border-amber-300 space-y-3">
+        <div className="text-center">
+          <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-red-500 text-white text-[10px] font-bold mb-2 animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-white" />
+            MAÇ SAATİ
+          </div>
+          <div className="text-base font-bold mb-1">{schedule.nextMatchTimeTr}</div>
+          <div className="text-[10px] text-muted-foreground">
+            Pencere süresi: {formatCountdown(windowRemaining)}
+          </div>
+        </div>
+
+        {/* Takım rozetleri */}
+        <div className="flex items-center justify-center gap-3 py-2">
+          <div className="flex flex-col items-center gap-1 min-w-0 flex-1">
+            <ClubBadge short={homeTeam.shortName} primaryColor={homeTeam.primaryColor} size={48} />
+            <span className="text-[10px] font-semibold truncate w-full text-center">
+              {homeTeam.name}
+            </span>
+          </div>
+          <span className="text-lg font-bold text-muted-foreground">vs</span>
+          <div className="flex flex-col items-center gap-1 min-w-0 flex-1">
+            <ClubBadge short={awayTeam.shortName} primaryColor={awayTeam.primaryColor} size={48} />
+            <span className="text-[10px] font-semibold truncate w-full text-center">
+              {awayTeam.name}
+            </span>
+          </div>
+        </div>
+
+        <button
+          onClick={onWatch}
+          className="tm-tap w-full py-3 rounded-lg bg-emerald-600 text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform animate-pulse"
+        >
+          <Play size={18} />
+          MAÇI İZLE
+        </button>
+        <div className="text-[9px] text-muted-foreground text-center">
+          Pencere dolmadan izle, yoksa otomatik simüle edilir.
+        </div>
+      </div>
+    );
+  }
+
+  // Pencere dışı — sonraki maça geri sayım
+  return (
+    <div className="tm-card p-4 space-y-3">
+      <div className="text-center">
+        <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-muted text-muted-foreground text-[10px] font-bold mb-2">
+          <Clock size={11} />
+          SONRAKİ MAÇ
+        </div>
+        <div className="text-2xl font-bold tabular-nums">
+          {schedule.nextMatchTimeTr}
+        </div>
+        <div className="text-[11px] text-muted-foreground mt-0.5">
+          {schedule.nextMatchDateTr} · Türkiye saatiyle
+        </div>
+      </div>
+
+      {/* Takım rozetleri */}
+      <div className="flex items-center justify-center gap-3 py-1">
+        <div className="flex flex-col items-center gap-1 min-w-0 flex-1 opacity-70">
+          <ClubBadge short={homeTeam.shortName} primaryColor={homeTeam.primaryColor} size={40} />
+          <span className="text-[10px] font-semibold truncate w-full text-center">
+            {homeTeam.name}
+          </span>
+        </div>
+        <span className="text-base font-bold text-muted-foreground">vs</span>
+        <div className="flex flex-col items-center gap-1 min-w-0 flex-1 opacity-70">
+          <ClubBadge short={awayTeam.shortName} primaryColor={awayTeam.primaryColor} size={40} />
+          <span className="text-[10px] font-semibold truncate w-full text-center">
+            {awayTeam.name}
+          </span>
+        </div>
+      </div>
+
+      {/* Geri sayım */}
+      <div className="bg-muted/40 rounded-lg p-3 text-center">
+        <div className="text-[9px] text-muted-foreground uppercase tracking-wide mb-1">
+          Maç başlangıcına
+        </div>
+        <div className="text-xl font-bold tabular-nums text-primary">
+          {formatCountdown(schedule.msUntilNext)}
+        </div>
+      </div>
+
+      <div className="text-[9px] text-muted-foreground text-center leading-relaxed">
+        Maçlar her gün TR saatiyle 00:00, 04:00, 08:00, 12:00, 16:00, 20:00'de oynanır.
+        <br />
+        Saat gelince "MAÇI İZLE" butonu aktif olur.
+      </div>
     </div>
   );
 }
