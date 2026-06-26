@@ -30,8 +30,9 @@ import { formatCountdown } from "@/lib/match/scheduler";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 
-// Antrenman saatleri = maç saatleriyle aynı (TR saatiyle her 4 saatte bir)
-const TRAINING_HOUR_TR = [0, 4, 8, 12, 16, 20] as const;
+// Antrenman saatleri — maç saatleriyle ÇAKIŞMAZ.
+// Maçlar: 00/04/08/12/16/20 → antrenman 02/06/10/14/18/22 (maçlar arası boşlukta)
+const TRAINING_HOUR_TR = [2, 6, 10, 14, 18, 22] as const;
 const TRAINING_WINDOW_MINUTES = 60;
 
 function isTrainingHour(trHour: number): boolean {
@@ -246,7 +247,7 @@ export function TrainingScreen() {
               </div>
             </div>
             <div className="text-[9px] text-muted-foreground leading-relaxed pt-1 border-t border-border">
-              Antrenmanlar her gün TR saatiyle 00:00, 04:00, 08:00, 12:00, 16:00, 20:00'de. Saat gelince "Antrenmanı Başlat" butonu aktif olur.
+              Antrenmanlar her gün TR saatiyle 02:00, 06:00, 10:00, 14:00, 18:00, 22:00'de (maç saatleriyle çakışmaz). Saat gelince "Antrenmanı Başlat" butonu aktif olur.
             </div>
           </div>
         )}
