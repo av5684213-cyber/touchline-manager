@@ -30,9 +30,9 @@ import { formatCountdown } from "@/lib/match/scheduler";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 
-// Antrenman saatleri — maç saatleriyle ÇAKIŞMAZ.
-// Maçlar: 00/04/08/12/16/20 → antrenman 02/06/10/14/18/22 (maçlar arası boşlukta)
-const TRAINING_HOUR_TR = [2, 6, 10, 14, 18, 22] as const;
+// Antrenman saatleri (TR saatiyle) — her gün 15:00 ve 21:00
+// Maçlar: 12:00, 18:00 → antrenman 15:00, 21:00 (maçlarla çakışmaz)
+const TRAINING_HOUR_TR = [15, 21] as const;
 const TRAINING_WINDOW_MINUTES = 60;
 
 function isTrainingHour(trHour: number): boolean {
@@ -120,10 +120,11 @@ export function TrainingScreen() {
   const schedule = useMemo(() => getTrainingSchedule(new Date(nowTick)), [nowTick]);
 
   const today = todayKey();
-  // Bugün o pencerede antrenman yapıldı mı? lastTrainingDate + sessionSlot kontrolü
-  const todayTrained = training.lastTrainingDate === today && training.dailyCount > 0;
+  // Bugünkü antrenman sayısı (0, 1 veya 2)
+  const todayCount = training.lastTrainingDate === today ? training.dailyCount : 0;
+  const allDone = todayCount >= 2;
 
-  const canTrainNow = schedule.inWindow && !todayTrained && training.assignments.length > 0;
+  const canTrainNow = schedule.inWindow && !allDone && training.assignments.length > 0;
 
   const filteredPlayers = useMemo(() => {
     if (!team) return [];
@@ -177,29 +178,34 @@ export function TrainingScreen() {
         {schedule.inWindow ? (
           <div className={cn(
             "rounded-lg p-3 border space-y-2",
-            todayTrained
+            allDone
               ? "bg-emerald-50/60 border-emerald-200"
               : "bg-amber-50/60 border-amber-300"
           )}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
-                {!todayTrained && (
+                {!allDone && (
                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold animate-pulse">
                     <span className="w-1 h-1 rounded-full bg-white" />
                     ANTRENMAN SAATİ
                   </span>
                 )}
                 <span className="text-sm font-bold tabular-nums">{schedule.nextTimeTr}</span>
+                {todayCount > 0 && !allDone && (
+                  <span className="text-[9px] font-bold text-emerald-600">
+                    {todayCount}/2 tamam
+                  </span>
+                )}
               </div>
               <div className="text-[10px] text-muted-foreground tabular-nums">
                 Pencere: {formatCountdown(windowRemaining)}
               </div>
             </div>
 
-            {todayTrained ? (
+            {allDone ? (
               <div className="text-center py-1.5">
                 <div className="text-xs font-bold text-emerald-700">
-                  ✓ Bugünkü antrenman tamamlandı
+                  ✓ Bugünkü 2 antrenman da tamamlandı
                 </div>
                 <div className="text-[10px] text-muted-foreground mt-0.5">
                   Sonraki antrenman: {schedule.nextDateTr} · {schedule.nextTimeTr}
@@ -217,10 +223,10 @@ export function TrainingScreen() {
                 )}
               >
                 <Play size={14} />
-                {running ? "Çalışıyor…" : "Antrenmanı Başlat"}
+                {running ? "Çalışıyor…" : `Antrenmanı Başlat (${todayCount + 1}/2)`}
               </button>
             )}
-            {training.assignments.length === 0 && !todayTrained && (
+            {training.assignments.length === 0 && !allDone && (
               <div className="text-[9px] text-amber-700 text-center">
                 En az 1 oyuncuya program ata, sonra antrenmanı başlat.
               </div>
@@ -247,7 +253,7 @@ export function TrainingScreen() {
               </div>
             </div>
             <div className="text-[9px] text-muted-foreground leading-relaxed pt-1 border-t border-border">
-              Antrenmanlar her gün TR saatiyle 02:00, 06:00, 10:00, 14:00, 18:00, 22:00'de (maç saatleriyle çakışmaz). Saat gelince "Antrenmanı Başlat" butonu aktif olur.
+              Antrenmanlar her gün TR saatiyle 15:00 ve 21:00'de (maçlar 12:00 ve 18:00'de). Saat gelince "Antrenmanı Başlat" butonu aktif olur.
             </div>
           </div>
         )}

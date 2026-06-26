@@ -11,8 +11,8 @@
  * Tüm hesaplar UTC'de yapılır, gösterimde TR'ye (UTC+3) çevrilir.
  */
 
-// Maç saatleri (TR saatiyle, 24s formatında)
-export const MATCH_HOUR_TR = [0, 4, 8, 12, 16, 20] as const;
+// Maç saatleri (TR saatiyle) — hafta içi her gün 12:00 ve 18:00
+export const MATCH_HOUR_TR = [12, 18] as const;
 
 // İzleme penceresi süresi (dakika) — maç saati başlangıcından itibaren
 export const MATCH_WINDOW_MINUTES = 60;

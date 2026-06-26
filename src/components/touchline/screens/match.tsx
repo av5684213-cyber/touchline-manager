@@ -135,7 +135,7 @@ export function MatchScreen() {
     // Hangi pencere "yeni geçti"?
     // Yani trMinute < 60 değilse (yani pencere dışındayız), bir önceki maç saatinin penceresi geçmiş demek
     // Bir önceki maç saatini bul:
-    const allHours = [0, 4, 8, 12, 16, 20];
+    const allHours = [12, 18];
     let prevHour = -1;
     let prevDayOffset = 0;
     for (let i = allHours.length - 1; i >= 0; i--) {
@@ -472,7 +472,7 @@ function ScheduleWidget({
       </div>
 
       <div className="text-[9px] text-muted-foreground text-center leading-relaxed">
-        Maçlar her gün TR saatiyle 00:00, 04:00, 08:00, 12:00, 16:00, 20:00'de oynanır.
+        Maçlar her gün TR saatiyle 12:00 ve 18:00'de oynanır.
         <br />
         Saat gelince "MAÇI İZLE" butonu aktif olur.
       </div>
