@@ -39,13 +39,26 @@ import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 
-// Mevki pozisyon grubuna göre satır arka planı — çok sölük tonlar
+// Mevki pozisyon grubuna göre satır arka planı — orta ton (belirgin ama göz yormaz)
 const POSITION_ROW_BG: Record<PositionGroup, string> = {
-  GK: "bg-amber-50/30 dark:bg-amber-950/10",
-  DEF: "bg-sky-50/30 dark:bg-sky-950/10",
-  MID: "bg-emerald-50/30 dark:bg-emerald-950/10",
-  FWD: "bg-rose-50/30 dark:bg-rose-950/10",
+  GK: "bg-amber-100/70 dark:bg-amber-950/30",
+  DEF: "bg-sky-100/70 dark:bg-sky-950/30",
+  MID: "bg-emerald-100/70 dark:bg-emerald-950/30",
+  FWD: "bg-rose-100/70 dark:bg-rose-950/30",
 };
+
+// Mevki sıralaması — listelemede önce kaleci, sonra defans, orta saha, forvet
+const POSITION_GROUP_ORDER: PositionGroup[] = ["GK", "DEF", "MID", "FWD"];
+
+// Oyuncuları mevkiiye göre sırala — önce GK, DEF, MID, FWD; aynı grupta rating'e göre
+function sortByPositionThenRating(players: PlayerT[]): PlayerT[] {
+  return players.slice().sort((a, b) => {
+    const ga = POSITION_GROUP_ORDER.indexOf(POSITION_GROUP[a.specificPosition]);
+    const gb = POSITION_GROUP_ORDER.indexOf(POSITION_GROUP[b.specificPosition]);
+    if (ga !== gb) return ga - gb;
+    return b.rating - a.rating;
+  });
+}
 
 export function TacticsScreen() {
   const { t, locale } = useI18n();
@@ -632,10 +645,9 @@ export function TacticsScreen() {
 
         {/* Player list */}
         <div className="tm-card divide-y divide-border">
-          {(filter === "ALL" ? team.players : team.players.filter((p) => POSITION_GROUP[p.specificPosition] === filter))
-            .slice()
-            .sort((a, b) => b.rating - a.rating)
-            .map((p) => {
+          {sortByPositionThenRating(
+            filter === "ALL" ? team.players : team.players.filter((p) => POSITION_GROUP[p.specificPosition] === filter)
+          ).map((p) => {
               const isSelected = compareIds.includes(p.id);
               const inLineup = tactics.lineup.some((lp) => lp?.id === p.id);
               const posGroup = POSITION_GROUP[p.specificPosition];
@@ -735,10 +747,11 @@ function CompareTab({
 }) {
   const [filter, setFilter] = useState<PositionGroup | "ALL">("ALL");
 
-  const filteredPlayers = (filter === "ALL"
-    ? team.players
-    : team.players.filter((p) => POSITION_GROUP[p.specificPosition] === filter)
-  ).slice().sort((a, b) => b.rating - a.rating);
+  const filteredPlayers = sortByPositionThenRating(
+    filter === "ALL"
+      ? team.players
+      : team.players.filter((p) => POSITION_GROUP[p.specificPosition] === filter)
+  );
 
   const comparePair = compareIds.length === 2
     ? compareIds.map((id) => team.players.find((p) => p.id === id)).filter(Boolean) as PlayerT[]
