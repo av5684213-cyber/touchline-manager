@@ -21,6 +21,22 @@ export const MATCH_WINDOW_MINUTES = 60;
 const TR_OFFSET_MS = 3 * 60 * 60 * 1000;
 
 /**
+ * Verilen UTC zamanının TR gün dizini (0=Pazar, 1=Pazartesi, ..., 6=Cumartesi).
+ */
+function trDayOfWeek(now: Date): number {
+  const trDate = new Date(now.getTime() + TR_OFFSET_MS);
+  return trDate.getUTCDay();
+}
+
+/**
+ * Verilen UTC zamanı hafta içi mi (Pazartesi-Cuma)?
+ */
+export function isWeekday(now: Date = new Date()): boolean {
+  const d = trDayOfWeek(now);
+  return d >= 1 && d <= 5;
+}
+
+/**
  * Şu anki zamanın TR saatiyle gün içindeki dakika değerini döndür.
  */
 function nowTrMinuteOfDay(now: Date = new Date()): number {
@@ -85,17 +101,15 @@ function isMatchHour(trHour: number): boolean {
  */
 export function getMatchScheduleStatus(now: Date = new Date()): MatchScheduleStatus {
   const nowMs = now.getTime();
-  const trMinute = nowTrMinuteOfDay(now);
   const trMs = nowMs + TR_OFFSET_MS;
   const trDate = new Date(trMs);
   const trHour = trDate.getUTCHours();
   const trMinuteOfHour = trDate.getUTCMinutes();
   const today = trDateKey(nowMs);
+  const weekday = isWeekday(now);
 
-  // Şu an bir maç penceresinde miyiz?
-  // Maç saati = tam saat başı (00 dk). Pencere = [saat:00, saat:00+WINDOW]
-  // Yani 12:00-12:59 arası penceredeyiz (eğer 12 bir maç saati ise)
-  if (isMatchHour(trHour) && trMinuteOfHour < MATCH_WINDOW_MINUTES) {
+  // Şu an bir maç penceresinde miyiz? (sadece hafta içi)
+  if (weekday && isMatchHour(trHour) && trMinuteOfHour < MATCH_WINDOW_MINUTES) {
     // Pencerenin başlangıcı: bugün TR saati trHour:00 → UTC'ye çevir
     const trDayStart = new Date(trDate.toISOString().slice(0, 10) + "T00:00:00Z").getTime();
     const windowStartMs = trDayStart + trHour * 60 * 60 * 1000 - TR_OFFSET_MS;
@@ -114,26 +128,36 @@ export function getMatchScheduleStatus(now: Date = new Date()): MatchScheduleSta
     };
   }
 
-  // Pencerede değiliz — bir sonraki maç saatini bul
+  // Pencerede değiliz — bir sonraki HAFTA İÇİ maç saatini bul
+  // En fazla 7 gün ileri ara (hafta sonu atlanır)
   let nextHour = -1;
-  let nextDateOffset = 0; // gün eklemek için
+  let nextDateOffset = 0;
+  for (let dayOffset = 0; dayOffset < 8; dayOffset++) {
+    const candidateDate = new Date(trMs + dayOffset * 24 * 60 * 60 * 1000);
+    const candidateDay = candidateDate.getUTCDay();
+    // Hafta içi (1-5) değilse atla
+    if (candidateDay < 1 || candidateDay > 5) continue;
 
-  // Bugünün kalan maç saatlerini ara
-  for (const h of MATCH_HOUR_TR) {
-    if (h > trHour || (h === trHour && trMinuteOfHour >= MATCH_WINDOW_MINUTES)) {
-      // Bu saatin penceresi henüz başlamadı (saat başından önce)
-      // veya pencere geçti ama aynı saatte başka pencere yok — bir sonraki maç saati
-      // Aslında: h > trHour ise h:00 henüz gelmemiştir
-      if (h > trHour) {
-        nextHour = h;
-        break;
+    if (dayOffset === 0) {
+      // Bugün — kalan saatleri ara
+      for (const h of MATCH_HOUR_TR) {
+        if (h > trHour) {
+          nextHour = h;
+          break;
+        }
       }
+      if (nextHour !== -1) break;
+    } else {
+      // Gelecek gün — ilk maç saatini al
+      nextHour = MATCH_HOUR_TR[0];
+      nextDateOffset = dayOffset;
+      break;
     }
   }
 
-  // Bugünün maç saatleri tükendiyse yarınki ilk maç saati
+  // Fallback (olmaması gerek ama)
   if (nextHour === -1) {
-    nextHour = MATCH_HOUR_TR[0]; // 00:00
+    nextHour = MATCH_HOUR_TR[0];
     nextDateOffset = 1;
   }
 

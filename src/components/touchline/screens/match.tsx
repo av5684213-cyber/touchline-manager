@@ -132,9 +132,6 @@ export function MatchScreen() {
     const trDate = new Date(trMs);
     const trHour = trDate.getUTCHours();
     const trMinute = trDate.getUTCMinutes();
-    // Hangi pencere "yeni geçti"?
-    // Yani trMinute < 60 değilse (yani pencere dışındayız), bir önceki maç saatinin penceresi geçmiş demek
-    // Bir önceki maç saatini bul:
     const allHours = [12, 18];
     let prevHour = -1;
     let prevDayOffset = 0;
@@ -146,10 +143,15 @@ export function MatchScreen() {
       }
     }
     if (prevHour === -1) {
-      // Bugünün hiçbiri geçmemişse, dünün son penceresi (20:00)
-      prevHour = 20;
+      // Bugünün hiçbiri geçmemişse, dünün son penceresi (18:00)
+      prevHour = 18;
       prevDayOffset = -1;
     }
+    // Bir önceki pencerenin olduğu gün hafta içi miydi?
+    const prevDay = new Date(trMs + prevDayOffset * 24 * 60 * 60 * 1000).getUTCDay();
+    const prevWeekday = prevDay >= 1 && prevDay <= 5;
+    if (!prevWeekday) return; // hafta sonu penceresi — otomatik sim yok
+
     const trTodayStart = new Date(new Date(trMs).toISOString().slice(0, 10) + "T00:00:00Z").getTime();
     const prevWindowEnd = trTodayStart
       + prevDayOffset * 24 * 60 * 60 * 1000
@@ -164,10 +166,7 @@ export function MatchScreen() {
       if (!isMatchAutoSimmed(prevMatchId) && !isMatchWatched(prevMatchId)) {
         // Otomatik simülasyon — maçı arka planda çalıştır, sonucu kaydet
         markMatchAutoSimmed(prevMatchId);
-        // Engine'i başlat ve hemen bitir (kullanıcı görmesin)
         engine.start();
-        // engine maçı canlı simüle eder ama bittiğinde recordMatchResult otomatik çağrılır
-        // (use-match-engine.ts içinde applyPostMatchEffects + recordMatchResult)
       }
     }
   }, [nowTick, schedule.inWindow, team, opponent, engine]);
@@ -472,7 +471,7 @@ function ScheduleWidget({
       </div>
 
       <div className="text-[9px] text-muted-foreground text-center leading-relaxed">
-        Maçlar her gün TR saatiyle 12:00 ve 18:00'de oynanır.
+        Maçlar hafta içi (Pzt-Cum) TR saatiyle 12:00 ve 18:00'de oynanır. Hafta sonu maç yok.
         <br />
         Saat gelince "MAÇI İZLE" butonu aktif olur.
       </div>

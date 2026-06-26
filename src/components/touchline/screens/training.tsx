@@ -39,6 +39,13 @@ function isTrainingHour(trHour: number): boolean {
   return (TRAINING_HOUR_TR as readonly number[]).includes(trHour);
 }
 
+// TR gün dizini (0=Pazar, 1-5=Pazartesi-Cuma, 6=Cumartesi)
+function isWeekdayTr(now: Date): boolean {
+  const trDate = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+  const d = trDate.getUTCDay();
+  return d >= 1 && d <= 5;
+}
+
 function formatTrTime(hour: number): string {
   return `${String(hour).padStart(2, "0")}:00`;
 }
@@ -54,14 +61,21 @@ type TrainingScheduleStatus = {
 
 const TR_MONTHS = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
 
+function formatTrDateForTraining(ts: number): string {
+  const d = new Date(ts + 3 * 60 * 60 * 1000);
+  return `${d.getUTCDate()} ${TR_MONTHS[d.getUTCMonth()]}`;
+}
+
 function getTrainingSchedule(now: Date = new Date()): TrainingScheduleStatus {
   const nowMs = now.getTime();
   const trMs = nowMs + 3 * 60 * 60 * 1000;
   const trDate = new Date(trMs);
   const trHour = trDate.getUTCHours();
   const trMinute = trDate.getUTCMinutes();
+  const weekday = isWeekdayTr(now);
 
-  if (isTrainingHour(trHour) && trMinute < TRAINING_WINDOW_MINUTES) {
+  // Pencere içindeyiz mi? (sadece hafta içi)
+  if (weekday && isTrainingHour(trHour) && trMinute < TRAINING_WINDOW_MINUTES) {
     const trDayStart = new Date(trDate.toISOString().slice(0, 10) + "T00:00:00Z").getTime();
     const windowStart = trDayStart + trHour * 60 * 60 * 1000 - 3 * 60 * 60 * 1000;
     const windowEnd = windowStart + TRAINING_WINDOW_MINUTES * 60 * 1000;
@@ -70,32 +84,47 @@ function getTrainingSchedule(now: Date = new Date()): TrainingScheduleStatus {
       windowEndsAt: windowEnd,
       nextWindowAt: windowStart,
       nextTimeTr: formatTrTime(trHour),
-      nextDateTr: `${trDate.getUTCDate()} ${TR_MONTHS[trDate.getUTCMonth()]}`,
+      nextDateTr: formatTrDateForTraining(nowMs),
       msUntilNext: 0,
     };
   }
 
+  // Pencere dışı — bir sonraki HAFTA İÇİ antrenman saatini bul
   let nextHour = -1;
-  let nextDayOffset = 0;
-  for (const h of TRAINING_HOUR_TR) {
-    if (h > trHour) {
-      nextHour = h;
+  let nextDateOffset = 0;
+  for (let dayOffset = 0; dayOffset < 8; dayOffset++) {
+    const candidateDate = new Date(trMs + dayOffset * 24 * 60 * 60 * 1000);
+    const candidateDay = candidateDate.getUTCDay();
+    if (candidateDay < 1 || candidateDay > 5) continue; // hafta sonu atla
+
+    if (dayOffset === 0) {
+      for (const h of TRAINING_HOUR_TR) {
+        if (h > trHour) {
+          nextHour = h;
+          break;
+        }
+      }
+      if (nextHour !== -1) break;
+    } else {
+      nextHour = TRAINING_HOUR_TR[0];
+      nextDateOffset = dayOffset;
       break;
     }
   }
+
   if (nextHour === -1) {
     nextHour = TRAINING_HOUR_TR[0];
-    nextDayOffset = 1;
+    nextDateOffset = 1;
   }
+
   const trTodayStart = new Date(trDate.toISOString().slice(0, 10) + "T00:00:00Z").getTime();
-  const nextWindowMs = trTodayStart + nextDayOffset * 24 * 60 * 60 * 1000 + nextHour * 60 * 60 * 1000 - 3 * 60 * 60 * 1000;
-  const nextDate = new Date(nextWindowMs + 3 * 60 * 60 * 1000);
+  const nextWindowMs = trTodayStart + nextDateOffset * 24 * 60 * 60 * 1000 + nextHour * 60 * 60 * 1000 - 3 * 60 * 60 * 1000;
   return {
     inWindow: false,
     windowEndsAt: null,
     nextWindowAt: nextWindowMs,
     nextTimeTr: formatTrTime(nextHour),
-    nextDateTr: `${nextDate.getUTCDate()} ${TR_MONTHS[nextDate.getUTCMonth()]}`,
+    nextDateTr: formatTrDateForTraining(nextWindowMs),
     msUntilNext: Math.max(0, nextWindowMs - nowMs),
   };
 }
@@ -253,7 +282,7 @@ export function TrainingScreen() {
               </div>
             </div>
             <div className="text-[9px] text-muted-foreground leading-relaxed pt-1 border-t border-border">
-              Antrenmanlar her gün TR saatiyle 15:00 ve 21:00'de (maçlar 12:00 ve 18:00'de). Saat gelince "Antrenmanı Başlat" butonu aktif olur.
+              Antrenmanlar hafta içi (Pzt-Cum) TR saatiyle 15:00 ve 21:00'de (maçlar 12:00 ve 18:00'de). Hafta sonu antrenman yok. Saat gelince "Antrenmanı Başlat" butonu aktif olur.
             </div>
           </div>
         )}
