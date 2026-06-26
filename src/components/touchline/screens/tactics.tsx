@@ -39,6 +39,14 @@ import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 
+// Mevki pozisyon grubuna göre satır arka planı — hafif tonlar
+const POSITION_ROW_BG: Record<PositionGroup, string> = {
+  GK: "bg-amber-50/60 dark:bg-amber-950/20",
+  DEF: "bg-sky-50/60 dark:bg-sky-950/20",
+  MID: "bg-emerald-50/60 dark:bg-emerald-950/20",
+  FWD: "bg-rose-50/60 dark:bg-rose-950/20",
+};
+
 export function TacticsScreen() {
   const { t, locale } = useI18n();
   const team = useMyTeam();
@@ -630,6 +638,7 @@ export function TacticsScreen() {
             .map((p) => {
               const isSelected = compareIds.includes(p.id);
               const inLineup = tactics.lineup.some((lp) => lp?.id === p.id);
+              const posGroup = POSITION_GROUP[p.specificPosition];
               return (
                 <button
                   key={p.id}
@@ -644,7 +653,8 @@ export function TacticsScreen() {
                   }}
                   className={cn(
                     "tm-tap w-full flex items-center gap-3 p-2.5 text-left transition-colors",
-                    isSelected && "bg-primary/5",
+                    POSITION_ROW_BG[posGroup],
+                    isSelected && "bg-primary/10",
                     inLineup && "border-l-2 border-l-emerald-500"
                   )}
                 >
@@ -810,6 +820,7 @@ function CompareTab({
         {filteredPlayers.map((p) => {
           const isSelected = compareIds.includes(p.id);
           const selectedSlot = compareIds.indexOf(p.id);
+          const posGroup = POSITION_GROUP[p.specificPosition];
           return (
             <button
               key={p.id}
@@ -823,7 +834,8 @@ function CompareTab({
               }}
               className={cn(
                 "tm-tap w-full flex items-center gap-3 p-2.5 text-left transition-colors",
-                isSelected && "bg-primary/5"
+                POSITION_ROW_BG[posGroup],
+                isSelected && "bg-primary/10"
               )}
             >
               <PlayerAvatar initials={`${p.firstName[0]}${p.lastName[0]}`} size={32} color={team.primaryColor} />
