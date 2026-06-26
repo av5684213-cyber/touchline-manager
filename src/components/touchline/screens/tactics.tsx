@@ -60,6 +60,8 @@ export function TacticsScreen() {
   });
   // Slot oyuncu seçim modal'ı
   const [slotPicker, setSlotPicker] = useState<number | null>(null);
+  // Üst sekme — Diziliş / Oyuncularım / Karşılaştır
+  const [topTab, setTopTab] = useState<"lineup" | "squad" | "compare">("lineup");
 
   // Eski localStorage verilerinde tactics.active olmayabilir — fallback
   const active = tactics.active ?? DEFAULT_TACTIC;
@@ -148,6 +150,33 @@ export function TacticsScreen() {
 
   return (
     <div className="px-3 py-3 space-y-3 pb-6">
+      {/* ===== Üst sekme nav — Diziliş / Oyuncularım / Karşılaştır ===== */}
+      <div className="flex border-b border-border bg-card rounded-t-lg">
+        {([
+          { key: "lineup", label: "Diziliş" },
+          { key: "squad", label: `Oyuncularım (${team.players.length})` },
+          { key: "compare", label: `Karşılaştır${compareIds.length > 0 ? ` (${compareIds.length}/2)` : ""}` },
+        ] as const).map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => { haptic("light"); setTopTab(tab.key); }}
+            className={cn(
+              "tm-tap flex-1 py-2.5 text-xs font-bold transition-colors relative",
+              topTab === tab.key
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab.label}
+            {topTab === tab.key && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {topTab === "lineup" && (
+        <>
       {/* Üst kart: formation + score + mentality */}
       <div className="tm-card p-3">
         <div className="flex items-center justify-between mb-2">
@@ -549,7 +578,11 @@ export function TacticsScreen() {
           </div>
         )}
       </div>
+        </>
+      )}
 
+      {topTab === "squad" && (
+      <>
       {/* Squad list */}
       <div>
         <div className="flex items-center justify-between mb-2">
@@ -639,6 +672,19 @@ export function TacticsScreen() {
             })}
         </div>
       </div>
+      </>
+      )}
+
+      {topTab === "compare" && (
+        <CompareTab
+          team={team}
+          compareIds={compareIds}
+          setCompareIds={setCompareIds}
+          onPlayerTap={onPlayerTap}
+          t={t}
+          locale={locale}
+        />
+      )}
 
       {/* Compare modal */}
       {comparePair.length === 2 && (
@@ -659,6 +705,165 @@ export function TacticsScreen() {
   function setCompareMode_on() {
     setCompareIds([]);
   }
+}
+
+// ===== Compare tab — 2 oyuncu seç + karşılaştır =====
+function CompareTab({
+  team,
+  compareIds,
+  setCompareIds,
+  onPlayerTap,
+  t,
+  locale,
+}: {
+  team: import("@/lib/mock/data").Team;
+  compareIds: string[];
+  setCompareIds: React.Dispatch<React.SetStateAction<string[]>>;
+  onPlayerTap: (p: PlayerT) => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  locale: "tr" | "en";
+}) {
+  const [filter, setFilter] = useState<PositionGroup | "ALL">("ALL");
+
+  const filteredPlayers = (filter === "ALL"
+    ? team.players
+    : team.players.filter((p) => POSITION_GROUP[p.specificPosition] === filter)
+  ).slice().sort((a, b) => b.rating - a.rating);
+
+  const comparePair = compareIds.length === 2
+    ? compareIds.map((id) => team.players.find((p) => p.id === id)).filter(Boolean) as PlayerT[]
+    : [];
+
+  return (
+    <div className="space-y-3">
+      {/* Bilgi kartı */}
+      <div className="tm-card p-3 bg-primary/5 border-primary/20">
+        <div className="flex items-center gap-2">
+          <GitCompare size={14} className="text-primary" />
+          <span className="text-xs font-bold">Karşılaştırma Modu</span>
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-1">
+          2 oyuncu seç, yan yana tüm stat'ları karşılaştır. {compareIds.length}/2 seçili.
+        </p>
+      </div>
+
+      {/* Filter */}
+      <div className="flex gap-1.5 overflow-x-auto tm-no-scrollbar">
+        {(["ALL", "GK", "DEF", "MID", "FWD"] as const).map((g) => (
+          <button
+            key={g}
+            onClick={() => setFilter(g)}
+            className={cn(
+              "tm-tap px-3 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap border",
+              filter === g ? "bg-foreground text-background border-foreground" : "bg-card border-border"
+            )}
+            style={{ minHeight: 28 }}
+          >
+            {g === "ALL" ? t("common.all") : t(`pos.${g.toLowerCase()}`)}
+          </button>
+        ))}
+      </div>
+
+      {/* Seçili oyuncular kartları */}
+      {compareIds.length > 0 && (
+        <div className="grid grid-cols-2 gap-2">
+          {compareIds.map((id, slot) => {
+            const p = team.players.find((pl) => pl.id === id);
+            return (
+              <div key={id} className="tm-card p-2 border-primary/30 relative">
+                <button
+                  onClick={() => setCompareIds((ids) => ids.filter((x) => x !== id))}
+                  className="tm-tap absolute top-1 right-1 p-0.5 text-muted-foreground"
+                  aria-label="Kaldır"
+                >
+                  <X size={11} />
+                </button>
+                {p ? (
+                  <div className="flex flex-col items-center text-center">
+                    <PlayerAvatar
+                      initials={`${p.firstName[0]}${p.lastName[0]}`}
+                      color={team.primaryColor}
+                      size={36}
+                    />
+                    <div className="text-[10px] font-bold mt-1 truncate w-full">
+                      {p.firstName} {p.lastName}
+                    </div>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
+                      <span className="text-[9px] text-muted-foreground">{p.age}{t("common.year")}</span>
+                    </div>
+                    <div className="text-xs font-bold text-amber-300 mt-0.5">{p.rating}</div>
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-muted-foreground text-center py-4">
+                    Slot {slot + 1} — boş
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Player list — seçim için */}
+      <div className="tm-card divide-y divide-border">
+        {filteredPlayers.map((p) => {
+          const isSelected = compareIds.includes(p.id);
+          const selectedSlot = compareIds.indexOf(p.id);
+          return (
+            <button
+              key={p.id}
+              onClick={() => {
+                haptic("light");
+                setCompareIds((ids) => {
+                  if (ids.includes(p.id)) return ids.filter((x) => x !== p.id);
+                  if (ids.length >= 2) return [...ids.slice(1), p.id];
+                  return [...ids, p.id];
+                });
+              }}
+              className={cn(
+                "tm-tap w-full flex items-center gap-3 p-2.5 text-left transition-colors",
+                isSelected && "bg-primary/5"
+              )}
+            >
+              <PlayerAvatar initials={`${p.firstName[0]}${p.lastName[0]}`} size={32} color={team.primaryColor} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-semibold truncate">{p.firstName} {p.lastName}</span>
+                  <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
+                  {p.archetype && (
+                    <span className="text-[9px] text-amber-300 truncate">{p.archetype}</span>
+                  )}
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  {p.age}{t("common.year")} · {p.nationality === "TR" ? "🇹🇷" : "🌍"} · {p.foot}
+                </div>
+              </div>
+              <div className="text-right">
+                {isSelected ? (
+                  <span className="inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-md bg-primary text-primary-foreground text-[10px] font-bold">
+                    {selectedSlot + 1}
+                  </span>
+                ) : (
+                  <RatingBadge value={p.formRating} />
+                )}
+                {!isSelected && (
+                  <div className="text-[9px] text-muted-foreground mt-0.5">
+                    {p.specificPosition === "GK" ? `${p.saves}K` : `${p.goals}G·${p.assists}A`}
+                  </div>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* CompareCard modal — 2 oyuncu seçilince gösterilir */}
+      {comparePair.length === 2 && (
+        <CompareCard players={comparePair} teamColor={team.primaryColor} onClose={() => setCompareIds([])} />
+      )}
+    </div>
+  );
 }
 
 // ===== Slot oyuncu seçim modal'ı =====
