@@ -364,6 +364,7 @@ function StatsTab({
   const isGK = player.specificPosition === "GK";
   // Eğer seasonHistory yoksa (ör. Supabase'den gelen oyuncu), mevcut stat'lardan üret
   const history: SeasonStat[] = player.seasonHistory ?? generateFallbackHistory(player);
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
   // Kariyer toplamları
   const totals = history.reduce(
@@ -374,9 +375,14 @@ function StatsTab({
       acc.yellow += s.yellowCards;
       acc.red += s.redCards;
       acc.minutes += s.minutesPlayed;
+      acc.right += s.goalsRight ?? 0;
+      acc.left += s.goalsLeft ?? 0;
+      acc.head += s.goalsHead ?? 0;
+      acc.penalty += s.goalsPenalty ?? 0;
+      acc.freekick += s.goalsFreekick ?? 0;
       return acc;
     },
-    { apps: 0, goals: 0, assists: 0, yellow: 0, red: 0, minutes: 0 }
+    { apps: 0, goals: 0, assists: 0, yellow: 0, red: 0, minutes: 0, right: 0, left: 0, head: 0, penalty: 0, freekick: 0 }
   );
 
   if (history.length === 0) {
@@ -386,6 +392,11 @@ function StatsTab({
       </div>
     );
   }
+
+  const toggleExpand = (idx: number) => {
+    haptic("light");
+    setExpandedIdx(expandedIdx === idx ? null : idx);
+  };
 
   return (
     <div className="space-y-2.5">
@@ -409,6 +420,11 @@ function StatsTab({
           </div>
         </div>
       </div>
+
+      {/* Kariyer Gol Dağılımı kartı (C) — sadece gol atan oyuncular için */}
+      {!isGK && totals.goals > 0 && (
+        <GoalDistributionCard totals={totals} />
+      )}
 
       {/* Sezon sezon listesi — kompakt tek satır */}
       <div className="space-y-0.5">
@@ -434,7 +450,92 @@ function StatsTab({
           <span className="shrink-0 w-6 text-right">Puan</span>
         </div>
         {history.map((s, idx) => (
-          <SeasonRow key={`${s.season}-${idx}`} season={s} isGK={isGK} />
+          <div key={`${s.season}-${idx}`}>
+            <SeasonRow
+              season={s}
+              isGK={isGK}
+              expanded={expandedIdx === idx}
+              onToggle={() => toggleExpand(idx)}
+            />
+            {expandedIdx === idx && !isGK && s.goals > 0 && (
+              <SeasonGoalBreakdown season={s} />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Kariyer Gol Dağılımı kartı (C)
+function GoalDistributionCard({ totals }: {
+  totals: { goals: number; right: number; left: number; head: number; penalty: number; freekick: number };
+}) {
+  const total = totals.goals;
+  if (total === 0) return null;
+  const pct = (n: number) => Math.round((n / total) * 100);
+  const segments = [
+    { label: "Sağ Ayak", value: totals.right, color: "bg-sky-500", text: "text-sky-400" },
+    { label: "Sol Ayak", value: totals.left, color: "bg-amber-500", text: "text-amber-400" },
+    { label: "Kafa", value: totals.head, color: "bg-purple-500", text: "text-purple-400" },
+    { label: "Penaltı", value: totals.penalty, color: "bg-emerald-500", text: "text-emerald-400" },
+    { label: "Serbest", value: totals.freekick, color: "bg-red-500", text: "text-red-400" },
+  ];
+  return (
+    <div className="tm-card p-2.5">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[9px] text-muted-foreground uppercase tracking-wide font-bold">Kariyer Gol Dağılımı</div>
+        <div className="text-[10px] font-bold text-emerald-400 tabular-nums">{total} gol</div>
+      </div>
+      {/* Stacked bar */}
+      <div className="flex h-3 rounded-full overflow-hidden bg-muted mb-2">
+        {segments.map((seg) => seg.value > 0 && (
+          <div
+            key={seg.label}
+            className={cn(seg.color, "transition-all")}
+            style={{ width: `${pct(seg.value)}%` }}
+            title={`${seg.label}: ${seg.value} (${pct(seg.value)}%)`}
+          />
+        ))}
+      </div>
+      {/* Legend */}
+      <div className="grid grid-cols-5 gap-1">
+        {segments.map((seg) => (
+          <div key={seg.label} className="text-center">
+            <div className="flex items-center justify-center gap-0.5 mb-0.5">
+              <span className={cn("w-1.5 h-1.5 rounded-full", seg.color)} />
+            </div>
+            <div className={cn("text-[10px] font-bold tabular-nums leading-none", seg.text)}>{seg.value}</div>
+            <div className="text-[7px] text-muted-foreground uppercase leading-none mt-0.5">{seg.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Sezon gol türü breakdown paneli (A) — açılır
+function SeasonGoalBreakdown({ season }: { season: SeasonStat }) {
+  const items = [
+    { label: "Sağ Ayak", value: season.goalsRight ?? 0, color: "text-sky-400", dot: "bg-sky-500" },
+    { label: "Sol Ayak", value: season.goalsLeft ?? 0, color: "text-amber-400", dot: "bg-amber-500" },
+    { label: "Kafa", value: season.goalsHead ?? 0, color: "text-purple-400", dot: "bg-purple-500" },
+    { label: "Penaltı", value: season.goalsPenalty ?? 0, color: "text-emerald-400", dot: "bg-emerald-500" },
+    { label: "Serbest", value: season.goalsFreekick ?? 0, color: "text-red-400", dot: "bg-red-500" },
+  ].filter((it) => it.value > 0);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="tm-card px-2 py-1.5 mx-1 mb-1 bg-muted/20 border-l-2 border-amber-500/40">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[8px] text-muted-foreground uppercase font-bold shrink-0">Gol Türü:</span>
+        {items.map((it) => (
+          <div key={it.label} className="flex items-center gap-1">
+            <span className={cn("w-1.5 h-1.5 rounded-full", it.dot)} />
+            <span className={cn("text-[9px] font-bold tabular-nums", it.color)}>{it.value}</span>
+            <span className="text-[8px] text-muted-foreground">{it.label}</span>
+          </div>
         ))}
       </div>
     </div>
@@ -462,6 +563,20 @@ function generateFallbackHistory(player: Player): SeasonStat[] {
   const isAtt = player.specificPosition.startsWith("ST") || player.specificPosition === "CF" || player.specificPosition.startsWith("W");
   const isMid = player.specificPosition.startsWith("CM") || player.specificPosition.startsWith("AM") || player.specificPosition.startsWith("DM");
 
+  // Gol türü ağırlıkları (foot + heading)
+  const foot = player.foot ?? "Right";
+  const heading = player.heading ?? 50;
+  let wRight = 0.55, wLeft = 0.20, wHead = 0.25;
+  if (foot === "Left") { wRight = 0.20; wLeft = 0.55; }
+  else if (foot === "Both") { wRight = 0.40; wLeft = 0.35; }
+  const headBoost = Math.max(0, (heading - 50) / 200);
+  wHead = Math.max(0.05, Math.min(0.45, wHead + headBoost));
+  const wSum = wRight + wLeft + wHead;
+  wRight /= wSum; wLeft /= wSum; wHead /= wSum;
+
+  const penaltyRate = isAtt ? 0.18 : isMid ? 0.10 : 0.04;
+  const freekickRate = isMid ? 0.08 : isAtt ? 0.05 : 0.02;
+
   const seasons: SeasonStat[] = [];
   for (let i = 0; i < totalSeasons; i++) {
     const seasonAge = careerStartAge + i;
@@ -478,6 +593,23 @@ function generateFallbackHistory(player: Player): SeasonStat[] {
     const aMax = isGK ? 0 : isAtt ? 10 : isMid ? 12 : 5;
     const goals = Math.round(Math.random() * gMax * perf);
     const assists = Math.round(Math.random() * aMax * perf);
+
+    // Gol türü dağılımı
+    let goalsPenalty = Math.round(goals * penaltyRate * (0.5 + Math.random()));
+    let goalsFreekick = Math.round(goals * freekickRate * (0.3 + Math.random()));
+    const setPieces = Math.min(goalsPenalty + goalsFreekick, goals);
+    goalsPenalty = Math.min(goalsPenalty, setPieces);
+    goalsFreekick = setPieces - goalsPenalty;
+    const openGoals = goals - setPieces;
+    let goalsRight = Math.round(openGoals * wRight);
+    let goalsLeft = Math.round(openGoals * wLeft);
+    let goalsHead = openGoals - goalsRight - goalsLeft;
+    if (goalsHead < 0) { goalsRight += goalsHead; goalsHead = 0; }
+    const drift = goals - (goalsRight + goalsLeft + goalsHead + goalsPenalty + goalsFreekick);
+    if (drift !== 0) goalsRight += drift;
+    if (goalsRight < 0) { goalsLeft += goalsRight; goalsRight = 0; }
+    if (goalsLeft < 0) { goalsHead += goalsLeft; goalsLeft = 0; }
+
     const yellowCards = Math.round(Math.random() * 8 * perf);
     const redCards = Math.random() < 0.15 ? 1 : 0;
     const avgRating = Math.max(4.5, Math.min(9.5, Math.round((5.8 + Math.random() * 2.5 + (player.rating - 60) * 0.02) * 10) / 10));
@@ -494,12 +626,27 @@ function generateFallbackHistory(player: Player): SeasonStat[] {
       redCards,
       avgRating,
       minutesPlayed,
+      goalsRight: Math.max(0, goalsRight),
+      goalsLeft: Math.max(0, goalsLeft),
+      goalsHead: Math.max(0, goalsHead),
+      goalsPenalty,
+      goalsFreekick,
     });
   }
   return seasons.reverse();
 }
 
-function SeasonRow({ season, isGK }: { season: SeasonStat; isGK: boolean }) {
+function SeasonRow({
+  season,
+  isGK,
+  expanded = false,
+  onToggle,
+}: {
+  season: SeasonStat;
+  isGK: boolean;
+  expanded?: boolean;
+  onToggle?: () => void;
+}) {
   const tierLabel = ["", "SL", "1L", "2L", "3L"][season.leagueTier] ?? "—";
   const tierColor =
     season.leagueTier === 1 ? "text-emerald-400"
@@ -513,9 +660,20 @@ function SeasonRow({ season, isGK }: { season: SeasonStat; isGK: boolean }) {
     : season.avgRating >= 6.5 ? "text-amber-300"
     : "text-red-400";
 
-  // Tek satır — kompakt
+  // Sadece gol atan saha oyuncuları genişletilebilir
+  const canExpand = !isGK && season.goals > 0;
+
   return (
-    <div className="tm-card px-1 py-1 flex items-center gap-0.5 text-[9px]">
+    <button
+      type="button"
+      onClick={canExpand ? onToggle : undefined}
+      disabled={!canExpand}
+      className={cn(
+        "tm-card px-1 py-1 flex items-center gap-0.5 text-[9px] w-full text-left transition-colors",
+        canExpand && "tm-tap hover:bg-accent/50",
+        expanded && "bg-amber-500/5 border-amber-500/30"
+      )}
+    >
       {/* Sezon */}
       <span className="font-bold tabular-nums shrink-0 w-9">{season.season}</span>
       {/* Lig kodu */}
@@ -526,7 +684,9 @@ function SeasonRow({ season, isGK }: { season: SeasonStat; isGK: boolean }) {
       <span className="text-sky-400 font-bold tabular-nums shrink-0 w-4 text-right">{season.appearances}</span>
       {!isGK ? (
         <>
-          <span className="text-emerald-400 font-bold tabular-nums shrink-0 w-4 text-right">{season.goals}</span>
+          <span className={cn("text-emerald-400 font-bold tabular-nums shrink-0 w-4 text-right", canExpand && "underline decoration-dotted")}>
+            {season.goals}
+          </span>
           <span className="text-amber-400 font-bold tabular-nums shrink-0 w-4 text-right">{season.assists}</span>
         </>
       ) : (
@@ -538,7 +698,7 @@ function SeasonRow({ season, isGK }: { season: SeasonStat; isGK: boolean }) {
       <span className="text-yellow-400 font-bold tabular-nums shrink-0 w-3 text-right">{season.yellowCards}</span>
       <span className="text-red-400 font-bold tabular-nums shrink-0 w-3 text-right">{season.redCards}</span>
       <span className={cn("font-bold tabular-nums shrink-0 w-6 text-right", ratingColor)}>{season.avgRating.toFixed(1)}</span>
-    </div>
+    </button>
   );
 }
 

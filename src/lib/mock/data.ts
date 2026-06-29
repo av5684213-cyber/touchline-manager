@@ -188,6 +188,12 @@ export type SeasonStat = {
   redCards: number;
   avgRating: number;     // 0-10
   minutesPlayed: number;
+  // Gol türü dağılımı (toplam = goals)
+  goalsRight?: number;     // sağ ayak
+  goalsLeft?: number;      // sol ayak
+  goalsHead?: number;      // kafa
+  goalsPenalty?: number;   // penaltıdan
+  goalsFreekick?: number;  // serbest vuruştan
 };
 
 export type LeagueTier = 1 | 2 | 3 | 4;
@@ -466,6 +472,7 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
     Math.max(30, Math.min(99, n + rand(-hi, -lo)));
   const boost = (n: number, lo = 4, hi = 14) =>
     Math.max(30, Math.min(99, n + rand(lo, hi)));
+  const headingVal = pos === "CB" || pos === "ST" ? boost(base, 5, 12) : spread(base, 5, 15);
 
   // Traits havuzu — TRAITS_DATA'dan gerçek isimlerle (motor bunları tanır)
   const groupKey = pos === "GK" ? "kaleci" : ["CB", "LB", "RB", "LWB", "RWB"].includes(pos) ? "defans"
@@ -554,10 +561,9 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
     vision: pos === "CAM" || pos === "CM" ? boost(base, 5, 12) : spread(base, 5, 15),
     control: stats.dribbling,
     stamina: rand(50, 90),
-    heading: pos === "CB" || pos === "ST" ? boost(base, 5, 12) : spread(base, 5, 15),
+    heading: headingVal,
     goalkeeping: pos === "GK" ? boost(base, 8, 18) : spread(base, 40, 50),
     stats,
-
     ...technical,
     ...mental,
     ...physical,
@@ -583,7 +589,7 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
     match_ratings: Array.from({ length: rand(0, 10) }, () => rand(50, 90) / 10),
     last_match_rating: rand(50, 90) / 10,
 
-    seasonHistory: generateSeasonHistory(age, pos, ovr, goals, assists, appearancesVal),
+    seasonHistory: generateSeasonHistory(age, pos, ovr, goals, assists, appearancesVal, foot, headingVal),
 
     is_for_sale: false,
     isResting: false,
@@ -605,7 +611,9 @@ function generateSeasonHistory(
   ovr: number,
   currentGoals: number,
   currentAssists: number,
-  currentApps: number
+  currentApps: number,
+  foot: Foot = "Right",
+  heading: number = 50
 ): SeasonStat[] {
   // Kariyer başlangıcı: 17 yaşında
   const careerStartAge = 17;
@@ -617,6 +625,24 @@ function generateSeasonHistory(
 
   // OVR'e göre lig seviyesi (genç yaşta daha alt lig)
   const baseTier = ovr >= 75 ? 1 : ovr >= 65 ? 2 : ovr >= 55 ? 3 : 4;
+
+  // Gol türü ağırlıkları (oyuncunun foot + heading'ine göre)
+  // Varsayılan: sağ ayak baskın
+  let wRight = 0.55, wLeft = 0.20, wHead = 0.25;
+  if (foot === "Left") { wRight = 0.20; wLeft = 0.55; }
+  else if (foot === "Both") { wRight = 0.40; wLeft = 0.35; }
+  // Kafa — heading yüksekse ağırlık artar
+  const headBoost = Math.max(0, (heading - 50) / 200); // -0.25..+0.25
+  wHead = Math.max(0.05, Math.min(0.45, wHead + headBoost));
+  // Toplam 1'e normalize et
+  const wSum = wRight + wLeft + wHead;
+  wRight /= wSum; wLeft /= wSum; wHead /= wSum;
+
+  // Mevkiye göre penaltı/serbest vuruş oranı
+  const isAttacker = pos.startsWith("ST") || pos === "CF" || pos.startsWith("W");
+  const isMid = pos.startsWith("CM") || pos.startsWith("AM") || pos.startsWith("DM");
+  const penaltyRate = isAttacker ? 0.18 : isMid ? 0.10 : 0.04; // gollerin %kaçı penaltıdan
+  const freekickRate = isMid ? 0.08 : isAttacker ? 0.05 : 0.02;
 
   for (let i = 0; i < totalSeasons; i++) {
     const seasonAge = careerStartAge + i;
@@ -639,12 +665,29 @@ function generateSeasonHistory(
     let seasonGoals = 0;
     let seasonAssists = 0;
     if (pos !== "GK") {
-      const isAttacker = pos.startsWith("ST") || pos === "CF" || pos.startsWith("W");
-      const isMid = pos.startsWith("CM") || pos.startsWith("AM") || pos.startsWith("DM");
       const gMax = isAttacker ? 18 : isMid ? 8 : 3;
       seasonGoals = Math.round(Math.random() * gMax * perfFactor);
       seasonAssists = Math.round(Math.random() * (isAttacker ? 10 : isMid ? 12 : 5) * perfFactor);
     }
+
+    // Gol türü dağılımı — toplam = seasonGoals
+    let goalsPenalty = Math.round(seasonGoals * penaltyRate * (0.5 + Math.random()));
+    let goalsFreekick = Math.round(seasonGoals * freekickRate * (0.3 + Math.random()));
+    // Penaltı + serbest vuruş toplam golleri aşmasın
+    const setPieces = Math.min(goalsPenalty + goalsFreekick, seasonGoals);
+    goalsPenalty = Math.min(goalsPenalty, setPieces);
+    goalsFreekick = setPieces - goalsPenalty;
+    // Kalan goller açık oyundan — ayak/kafa dağıt
+    const openGoals = seasonGoals - setPieces;
+    let goalsRight = Math.round(openGoals * wRight);
+    let goalsLeft = Math.round(openGoals * wLeft);
+    let goalsHead = openGoals - goalsRight - goalsLeft;
+    // Negatif olmasın, toplam doğru olsun
+    if (goalsHead < 0) { goalsRight += goalsHead; goalsHead = 0; }
+    const drift = seasonGoals - (goalsRight + goalsLeft + goalsHead + goalsPenalty + goalsFreekick);
+    if (drift !== 0) goalsRight += drift;
+    if (goalsRight < 0) { goalsLeft += goalsRight; goalsRight = 0; }
+    if (goalsLeft < 0) { goalsHead += goalsLeft; goalsLeft = 0; }
 
     // Kartlar
     const yellowCards = Math.round(Math.random() * 8 * perfFactor);
@@ -667,6 +710,11 @@ function generateSeasonHistory(
       redCards,
       avgRating: Math.max(4.5, Math.min(9.5, avgRating)),
       minutesPlayed,
+      goalsRight: Math.max(0, goalsRight),
+      goalsLeft: Math.max(0, goalsLeft),
+      goalsHead: Math.max(0, goalsHead),
+      goalsPenalty,
+      goalsFreekick,
     });
   }
 
