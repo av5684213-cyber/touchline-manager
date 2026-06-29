@@ -26,6 +26,7 @@ jobs:
         npm install
         sed -i 's/output: "standalone"/output: "export"/' next.config.ts
         sed -i 's/output: "standalone",/output: "export",/' next.config.ts
+        rm -rf src/app/api src/app/download
         grep output next.config.ts
         npx next build
         ls -la out/
