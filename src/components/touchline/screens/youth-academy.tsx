@@ -36,8 +36,14 @@ export function YouthAcademyScreen() {
 
   const handlePromote = (player: Player) => {
     haptic("success");
-    // Oyuncuyu A takıma ekle
-    team.players.push(player);
+    // Oyuncuyu A takıma ekle — immutable update
+    const state = useAppStore.getState();
+    const updatedClubs = state.clubs.map((c) =>
+      c.id === team.id
+        ? { ...c, players: [...c.players, player] }
+        : c
+    );
+    useAppStore.setState({ clubs: updatedClubs });
     setYouthPlayers((prev) => prev.filter((p) => p.id !== player.id));
     setFeedback(`✓ ${player.firstName} ${player.lastName} A takıma terfi etti`);
     setTimeout(() => setFeedback(null), 2500);

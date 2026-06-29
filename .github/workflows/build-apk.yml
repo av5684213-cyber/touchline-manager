@@ -31,12 +31,17 @@ jobs:
         # API route'ları kaldır (static export desteklemiyor)
         rm -rf src/app/api src/app/download
         grep output next.config.ts
+        # Production build — küçük bundle için
         npx next build
+        echo "=== Static export ==="
         ls -la out/
-        find out -type f | head -10
+        echo "=== Total size ==="
+        du -sh out/
+        find out -type f | wc -l
       env:
         NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        NODE_ENV: production
     
     - name: Install Gradle
       run: |
@@ -50,6 +55,10 @@ jobs:
         DIR=android-app/app/src/main
         mkdir -p $DIR/res/values
         mkdir -p $DIR/res/mipmap-hdpi
+        mkdir -p $DIR/res/mipmap-mdpi
+        mkdir -p $DIR/res/mipmap-xhdpi
+        mkdir -p $DIR/res/mipmap-xxhdpi
+        mkdir -p $DIR/res/mipmap-xxxhdpi
         mkdir -p $DIR/java/com/touchline/manager
         mkdir -p $DIR/assets/web
         
@@ -63,31 +72,40 @@ jobs:
         
         printf 'plugins {\n    id "com.android.application" version "8.2.0" apply false\n}\n' > android-app/build.gradle
         
-        printf 'plugins {\n    id "com.android.application"\n}\nandroid {\n    namespace "com.touchline.manager"\n    compileSdk 34\n    defaultConfig {\n        applicationId "com.touchline.manager"\n        minSdk 24\n        targetSdk 34\n        versionCode 1\n        versionName "1.0.0"\n    }\n    buildTypes {\n        release {\n            minifyEnabled false\n            signingConfig signingConfigs.debug\n        }\n    }\n}\n' > android-app/app/build.gradle
+        printf 'plugins {\n    id "com.android.application"\n}\nandroid {\n    namespace "com.touchline.manager"\n    compileSdk 34\n    defaultConfig {\n        applicationId "com.touchline.manager"\n        minSdk 24\n        targetSdk 34\n        versionCode 1\n        versionName "1.0.0"\n    }\n    buildTypes {\n        release {\n            minifyEnabled false\n            shrinkResources false\n            signingConfig signingConfigs.debug\n        }\n    }\n}\n' > android-app/app/build.gradle
         
-        printf 'android.useAndroidX=true\norg.gradle.jvmargs=-Xmx2048m\norg.gradle.daemon=false\n' > android-app/gradle.properties
+        printf 'android.useAndroidX=true\norg.gradle.jvmargs=-Xmx2048m\norg.gradle.daemon=false\nandroid.bundle.enableUncompressedNativeLibs=false\n' > android-app/gradle.properties
         
-        printf '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET" />\n    <application\n        android:label="Touchline Manager"\n        android:icon="@mipmap/ic_launcher"\n        android:theme="@android:style/Theme.NoTitleBar.Fullscreen"\n        android:allowBackup="true"\n        android:usesCleartextTraffic="true">\n        <activity\n            android:name=".MainActivity"\n            android:label="Touchline Manager"\n            android:exported="true"\n            android:configChanges="orientation|screenSize">\n            <intent-filter>\n                <action android:name="android.intent.action.MAIN" />\n                <category android:name="android.intent.category.LAUNCHER" />\n            </intent-filter>\n        </activity>\n    </application>\n</manifest>\n' > $DIR/AndroidManifest.xml
+        printf '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <application\n        android:label="Touchline Manager"\n        android:icon="@mipmap/ic_launcher"\n        android:theme="@android:style/Theme.NoTitleBar.Fullscreen"\n        android:allowBackup="true"\n        android:usesCleartextTraffic="true"\n        android:hardwareAccelerated="true">\n        <activity\n            android:name=".MainActivity"\n            android:label="Touchline Manager"\n            android:exported="true"\n            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout"\n            android:windowSoftInputMode="adjustResize">\n            <intent-filter>\n                <action android:name="android.intent.action.MAIN" />\n                <category android:name="android.intent.category.LAUNCHER" />\n            </intent-filter>\n        </activity>\n    </application>\n</manifest>\n' > $DIR/AndroidManifest.xml
         
         printf '<resources>\n    <string name="app_name">Touchline Manager</string>\n</resources>\n' > $DIR/res/values/strings.xml
         
-        printf '<resources>\n    <color name="colorPrimary">#1a3a2a</color>\n</resources>\n' > $DIR/res/values/colors.xml
+        printf '<resources>\n    <color name="colorPrimary">#1a3a2a</color>\n    <color name="colorBackground">#0d0d1a</color>\n</resources>\n' > $DIR/res/values/colors.xml
         
-        # WebView — assets'ten yükle, Supabase API'ye internet erişimi
-        printf 'package com.touchline.manager;\n\nimport android.app.Activity;\nimport android.os.Bundle;\nimport android.webkit.WebView;\nimport android.webkit.WebViewClient;\n\npublic class MainActivity extends Activity {\n    private WebView webView;\n\n    @Override\n    protected void onCreate(Bundle savedInstanceState) {\n        super.onCreate(savedInstanceState);\n        webView = new WebView(this);\n        setContentView(webView);\n        webView.getSettings().setJavaScriptEnabled(true);\n        webView.getSettings().setDomStorageEnabled(true);\n        webView.getSettings().setAllowFileAccess(true);\n        webView.getSettings().setDatabaseEnabled(true);\n        webView.setWebViewClient(new WebViewClient());\n        webView.loadUrl("file:///android_asset/web/index.html");\n    }\n\n    @Override\n    public void onBackPressed() {\n        if (webView.canGoBack()) {\n            webView.goBack();\n        } else {\n            super.onBackPressed();\n        }\n    }\n}\n' > $DIR/java/com/touchline/manager/MainActivity.java
+        # WebView — tam gömülü, file:// scheme ile assets'ten yükle
+        # Dark mode, localStorage, vibration, back button desteği
+        printf 'package com.touchline.manager;\n\nimport android.app.Activity;\nimport android.graphics.Color;\nimport android.os.Build;\nimport android.os.Bundle;\nimport android.view.View;\nimport android.view.Window;\nimport android.view.WindowManager;\nimport android.webkit.WebChromeClient;\nimport android.webkit.WebSettings;\nimport android.webkit.WebView;\nimport android.webkit.WebViewClient;\n\npublic class MainActivity extends Activity {\n    private WebView webView;\n\n    @Override\n    protected void onCreate(Bundle savedInstanceState) {\n        super.onCreate(savedInstanceState);\n        \n        // Edge-to-edge, status bar dark\n        Window window = getWindow();\n        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);\n        window.setStatusBarColor(Color.parseColor("#0d0d1a"));\n        window.setNavigationBarColor(Color.parseColor("#0d0d1a"));\n        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {\n            window.setDecorFitsSystemWindows(true);\n        }\n        \n        webView = new WebView(this);\n        setContentView(webView);\n        \n        WebSettings settings = webView.getSettings();\n        settings.setJavaScriptEnabled(true);\n        settings.setDomStorageEnabled(true);\n        settings.setAllowFileAccess(true);\n        settings.setAllowContentAccess(true);\n        settings.setDatabaseEnabled(true);\n        settings.setCacheMode(WebSettings.LOAD_DEFAULT);\n        settings.setJavaScriptCanOpenWindowsAutomatically(false);\n        settings.setSupportMultipleWindows(false);\n        settings.setLoadWithOverviewMode(true);\n        settings.setUseWideViewPort(true);\n        settings.setMediaPlaybackRequiresUserGesture(false);\n        // Dark mode: web content follow system\n        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {\n            settings.setForceDark(WebSettings.FORCE_DARK_OFF);\n        }\n        \n        // Vibration API for haptics\n        webView.setWebChromeClient(new WebChromeClient());\n        webView.setWebViewClient(new WebViewClient() {\n            @Override\n            public boolean shouldOverrideUrlLoading(WebView view, String url) {\n                // Internal file:// URLs always load in WebView\n                if (url.startsWith("file://") || url.startsWith("about:")) {\n                    return false;\n                }\n                // External URLs: don\\'t open (fully embedded app, no redirects)\n                return true;\n            }\n        });\n        \n        // White background fallback (before CSS loads)\n        webView.setBackgroundColor(Color.parseColor("#0d0d1a"));\n        \n        // Load embedded app from assets — NO external URL, NO redirect\n        webView.loadUrl("file:///android_asset/web/index.html");\n    }\n\n    @Override\n    public void onBackPressed() {\n        if (webView != null && webView.canGoBack()) {\n            webView.goBack();\n        } else {\n            super.onBackPressed();\n        }\n    }\n    \n    @Override\n    protected void onPause() {\n        super.onPause();\n        if (webView != null) webView.onPause();\n    }\n    \n    @Override\n    protected void onResume() {\n        super.onResume();\n        if (webView != null) webView.onResume();\n    }\n    \n    @Override\n    protected void onDestroy() {\n        if (webView != null) {\n            webView.destroy();\n            webView = null;\n        }\n        super.onDestroy();\n    }\n}\n' > $DIR/java/com/touchline/manager/MainActivity.java
         
-        # PNG ikonu repodan kopyala
+        # PNG ikonu repodan kopyala (farklı yoğunluklar için)
+        cp android-icon.png $DIR/res/mipmap-xxxhdpi/ic_launcher.png
+        cp android-icon.png $DIR/res/mipmap-xxhdpi/ic_launcher.png
+        cp android-icon.png $DIR/res/mipmap-xhdpi/ic_launcher.png
         cp android-icon.png $DIR/res/mipmap-hdpi/ic_launcher.png
+        cp android-icon.png $DIR/res/mipmap-mdpi/ic_launcher.png
         
         echo "=== Project structure ==="
         find android-app -type f | wc -l
+        du -sh android-app/
 
     - name: Build APK
       run: |
         cd android-app
-        /tmp/gradle-8.7/bin/gradle assembleRelease --no-daemon --no-build-cache 2>&1
+        /tmp/gradle-8.7/bin/gradle assembleRelease --no-daemon --no-build-cache 2>&1 | tail -30
+        echo "=== APK files ==="
         find . -name "*.apk" -type f
         ls -la app/build/outputs/apk/release/*.apk 2>/dev/null
+        echo "=== APK size ==="
+        du -sh app/build/outputs/apk/release/*.apk 2>/dev/null
 
     - uses: actions/upload-artifact@v4
       if: success()
@@ -101,5 +119,7 @@ jobs:
       if: failure()
       with:
         name: build-fail
-        path: android-app/
+        path: |
+          android-app/
+          out/
         retention-days: 7

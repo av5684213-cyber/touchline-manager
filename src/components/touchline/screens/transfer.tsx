@@ -231,8 +231,13 @@ export function TransferScreen() {
                     haptic("success");
                     // Bedelsiz transfer — sadece maaş öde
                     if (team) {
-                      team.players.push(p);
-                      useAppStore.setState({ clubs: [...useAppStore.getState().clubs] });
+                      const state = useAppStore.getState();
+                      const updatedClubs = state.clubs.map((c) =>
+                        c.id === team.id
+                          ? { ...c, players: [...c.players, p], budget: c.budget }
+                          : c
+                      );
+                      useAppStore.setState({ clubs: updatedClubs });
                       setProfilePlayer(null);
                     }
                   }}
@@ -301,13 +306,17 @@ export function TransferScreen() {
                     haptic("success");
                     // Kiralık al — kadroya ekle
                     if (team) {
-                      team.players.push({ ...p, is_free_agent: false });
-                      useAppStore.setState({ clubs: [...useAppStore.getState().clubs] });
-                      // Listedeen kaldır
+                      const state = useAppStore.getState();
+                      const updatedClubs = state.clubs.map((c) =>
+                        c.id === team.id
+                          ? { ...c, players: [...c.players, { ...p, is_free_agent: false }] }
+                          : c
+                      );
                       useAppStore.setState({
+                        clubs: updatedClubs,
                         transfer: {
-                          ...useAppStore.getState().transfer,
-                          loanListings: (useAppStore.getState().transfer.loanListings ?? []).filter((_, i) => i !== idx),
+                          ...state.transfer,
+                          loanListings: (state.transfer.loanListings ?? []).filter((_, i) => i !== idx),
                         },
                       });
                     }
