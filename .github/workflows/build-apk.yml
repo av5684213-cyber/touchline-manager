@@ -10,33 +10,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
     - uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '17'
-    
     - uses: android-actions/setup-android@v3
-    
     - run: yes | sdkmanager --licenses || true
     - run: sdkmanager "build-tools;34.0.0" "platforms;android-34"
     
-    - name: Download and Install Gradle
+    - name: Install Gradle
       run: |
         cd /tmp
         curl -sL https://services.gradle.org/distributions/gradle-8.7-bin.zip -o gradle.zip
         unzip -qo gradle.zip
-        echo "/tmp/gradle-8.7/bin" >> $GITHUB_PATH
         /tmp/gradle-8.7/bin/gradle --version
-    
+
     - name: Create Android Project
       run: |
-        mkdir -p android-app/app/src/main/res/values
-        mkdir -p android-app/app/src/main/res/mipmap-anydpi-v26
-        mkdir -p android-app/app/src/main/res/mipmap-hdpi
-        cd android-app
+        DIR=android-app/app/src/main
+        mkdir -p $DIR/res/values
+        mkdir -p $DIR/res/mipmap-anydpi-v26
+        mkdir -p $DIR/res/mipmap-hdpi
         
-        cat > settings.gradle << 'G'
+        cat > android-app/settings.gradle << 'EOF'
         pluginManagement {
             repositories {
                 google()
@@ -53,16 +49,15 @@ jobs:
         }
         rootProject.name = "TouchlineManager"
         include ':app'
-        G
+        EOF
         
-        cat > build.gradle << 'G'
+        cat > android-app/build.gradle << 'EOF'
         plugins {
             id 'com.android.application' version '8.2.0' apply false
         }
-        G
+        EOF
         
-        mkdir -p app
-        cat > app/build.gradle << 'G'
+        cat > android-app/app/build.gradle << 'EOF'
         plugins {
             id 'com.android.application'
         }
@@ -86,15 +81,15 @@ jobs:
         dependencies {
             implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
         }
-        G
+        EOF
         
-        cat > gradle.properties << 'G'
+        cat > android-app/gradle.properties << 'EOF'
         android.useAndroidX=true
         org.gradle.jvmargs=-Xmx2048m
         org.gradle.daemon=false
-        G
+        EOF
         
-        cat > app/src/main/AndroidManifest.xml << 'G'
+        cat > $DIR/AndroidManifest.xml << 'EOF'
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <application
                 android:label="Touchline Manager"
@@ -115,46 +110,40 @@ jobs:
                 </activity>
             </application>
         </manifest>
-        G
+        EOF
         
-        cat > app/src/main/res/values/strings.xml << 'G'
+        cat > $DIR/res/values/strings.xml << 'EOF'
         <resources>
             <string name="app_name">Touchline Manager</string>
             <string name="asset_statements">[{\&quot;relation\&quot;:[\&quot;delegate_permission/common.handle_all_urls\&quot;],\&quot;target\&quot;:{\&quot;namespace\&quot;:\&quot;web\&quot;,\&quot;site\&quot;:\&quot;https://preview-z.space-z.ai/\&quot;}}]</string>
         </resources>
-        G
+        EOF
         
-        cat > app/src/main/res/values/colors.xml << 'G'
+        cat > $DIR/res/values/colors.xml << 'EOF'
         <resources>
             <color name="colorPrimary">#1a3a2a</color>
         </resources>
-        G
+        EOF
         
-        cat > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml << 'G'
+        cat > $DIR/res/mipmap-anydpi-v26/ic_launcher.xml << 'EOF'
         <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
             <background android:drawable="@color/colorPrimary"/>
             <foreground android:drawable="@color/colorPrimary"/>
         </adaptive-icon>
-        G
+        EOF
         
-        # Python ile PNG ikonlar
-        python3 -c "
-        from PIL import Image
-        img = Image.new('RGBA', (72, 72), (26, 58, 42, 255))
-        img.save('app/src/main/res/mipmap-hdpi/ic_launcher.png')
-        "
+        # PNG ikon — base64 decode ile
+        echo "iVBORw0KGgoAAAANSUhEUgAAAEgAAABICAYAAABV7bNHAAAAQElEQVR4nO3BAQEAAACCIP+vbkhAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOBmHA0AAdmDj5IAAAAASUVORK5CYII=" | base64 -d > $DIR/res/mipmap-hdpi/ic_launcher.png
         
-        echo "=== Files ==="
-        find . -type f | sort
-    
-    - name: Build APK with Gradle
+        echo "FILES:"
+        find android-app -type f | sort
+
+    - name: Build APK
       run: |
         cd android-app
         /tmp/gradle-8.7/bin/gradle assembleRelease --no-daemon --no-build-cache 2>&1
-        echo "=== APK ==="
-        find . -name "*.apk" -type f
-        ls -la app/build/outputs/apk/release/ 2>/dev/null || echo "No APK dir"
-    
+        find . -name "*.apk"
+
     - uses: actions/upload-artifact@v4
       if: success()
       with:
