@@ -157,6 +157,9 @@ export type Player = {
   match_ratings?: number[];
   last_match_rating?: number;
 
+  // ── Kariyer sezon geçmişi ──────────────────────────────
+  seasonHistory?: SeasonStat[];
+
   // ── Transfer/durum ─────────────────────────────────────
   is_for_sale?: boolean;
   sale_price?: number;
@@ -169,6 +172,20 @@ export type Player = {
     remaining_days: number;
     severity: number;
   };
+};
+
+// ── Kariyer sezon istatistiği ──────────────────────────
+export type SeasonStat = {
+  season: string;        // "2024/25"
+  club: string;          // kulüp adı
+  leagueTier: number;    // 1=Süper Lig ... 4=3. Lig
+  appearances: number;
+  goals: number;
+  assists: number;
+  yellowCards: number;
+  redCards: number;
+  avgRating: number;     // 0-10
+  minutesPlayed: number;
 };
 
 export type LeagueTier = 1 | 2 | 3 | 4;
@@ -432,6 +449,7 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
   const goals = pos === "GK" ? 0 : rand(0, pos.startsWith("ST") || pos === "CF" ? 12 : 6);
   const assists = pos === "GK" ? 0 : rand(0, 8);
   const saves = pos === "GK" ? rand(10, 60) : 0;
+  const appearancesVal = rand(8, 28);
   const nation = isForeign ? "Yabancı" : "Türkiye";
   const foot: Foot = Math.random() < 0.7 ? "Right" : Math.random() < 0.5 ? "Left" : "Both";
   const marketValue = ovr * rand(80_000, 180_000);
@@ -559,14 +577,102 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
     goals,
     assists,
     saves,
-    appearances: rand(8, 28),
+    appearances: appearancesVal,
     match_ratings: Array.from({ length: rand(0, 10) }, () => rand(50, 90) / 10),
     last_match_rating: rand(50, 90) / 10,
+
+    seasonHistory: generateSeasonHistory(age, pos, ovr, goals, assists, appearancesVal),
 
     is_for_sale: false,
     isResting: false,
     is_injured: false,
   };
+}
+
+// Geçmiş kulüp adları (kariyer geçmişi için)
+const PAST_CLUBS = [
+  "Galatasaray", "Fenerbahçe", "Beşiktaş", "Trabzonspor",
+  "Başakşehir", "Adana Demir", "Konyaspor", "Antalyaspor",
+  "Alanyaspor", "Sivasspor", "Kayserispor", "Gaziantep FK",
+  "Hatayspor", "Rizespor", "Kasımpaşa", "Karagümrük",
+  "Göztepe", "Ankaragücü", "Bursaspor", "Samsunspor",
+  "Eyüpspor", "Bandırmaspor", "Boluspor", "Erzurumspor",
+  "Manisa FK", "Şanlıurfaspor", "Çorum FK", "Gençlerbirliği",
+];
+
+function generateSeasonHistory(
+  age: number,
+  pos: string,
+  ovr: number,
+  currentGoals: number,
+  currentAssists: number,
+  currentApps: number
+): SeasonStat[] {
+  // Kariyer başlangıcı: 17 yaşında
+  const careerStartAge = 17;
+  if (age <= careerStartAge) return [];
+
+  const seasons: SeasonStat[] = [];
+  const totalSeasons = Math.min(age - careerStartAge, 18); // max 18 sezon
+  const currentYear = new Date().getFullYear();
+
+  // OVR'e göre lig seviyesi (genç yaşta daha alt lig)
+  const baseTier = ovr >= 75 ? 1 : ovr >= 65 ? 2 : ovr >= 55 ? 3 : 4;
+
+  for (let i = 0; i < totalSeasons; i++) {
+    const seasonAge = careerStartAge + i;
+    const startYear = currentYear - (totalSeasons - i);
+    const seasonLabel = `${startYear}/${String(startYear + 1).slice(-2)}`;
+
+    // Genç yaşta daha az süre, gelişim yıllarında alt ligler
+    const youngFactor = seasonAge < 20 ? 0.4 : seasonAge < 23 ? 0.7 : 1.0;
+    const primeFactor = seasonAge >= 24 && seasonAge <= 29 ? 1.15 : 1.0;
+    const perfFactor = youngFactor * primeFactor;
+
+    // Lig seviyesi: yaşla yükselir
+    const tierBoost = Math.floor((seasonAge - careerStartAge) / 4);
+    const tier = Math.max(1, Math.min(4, baseTier - tierBoost));
+
+    // Maç sayısı
+    const apps = Math.max(0, Math.round(currentApps * perfFactor * (0.7 + Math.random() * 0.6)));
+
+    // Gol/asist (mevkiye göre)
+    let seasonGoals = 0;
+    let seasonAssists = 0;
+    if (pos !== "GK") {
+      const isAttacker = pos.startsWith("ST") || pos === "CF" || pos.startsWith("W");
+      const isMid = pos.startsWith("CM") || pos.startsWith("AM") || pos.startsWith("DM");
+      const gMax = isAttacker ? 18 : isMid ? 8 : 3;
+      seasonGoals = Math.round(Math.random() * gMax * perfFactor);
+      seasonAssists = Math.round(Math.random() * (isAttacker ? 10 : isMid ? 12 : 5) * perfFactor);
+    }
+
+    // Kartlar
+    const yellowCards = Math.round(Math.random() * 8 * perfFactor);
+    const redCards = Math.random() < 0.15 ? 1 : 0;
+
+    // Ortalama rating
+    const avgRating = Math.round((5.8 + Math.random() * 2.5 + (ovr - 60) * 0.02) * 10) / 10;
+
+    // Dakika
+    const minutesPlayed = apps * Math.round(60 + Math.random() * 30);
+
+    seasons.push({
+      season: seasonLabel,
+      club: PAST_CLUBS[Math.floor(Math.random() * PAST_CLUBS.length)],
+      leagueTier: tier,
+      appearances: apps,
+      goals: seasonGoals,
+      assists: seasonAssists,
+      yellowCards,
+      redCards,
+      avgRating: Math.max(4.5, Math.min(9.5, avgRating)),
+      minutesPlayed,
+    });
+  }
+
+  // En son sezon en üstte olacak şekilde tersine çevir
+  return seasons.reverse();
 }
 
 export function generateTeam(

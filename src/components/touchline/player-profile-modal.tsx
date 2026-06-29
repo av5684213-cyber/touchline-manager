@@ -3,14 +3,14 @@
 import { useRef, useState } from "react";
 import { X, User, Upload, ArrowLeftRight, Banknote } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
-import { POSITION_GROUP, type Player } from "@/lib/mock/data";
+import { POSITION_GROUP, type Player, type SeasonStat } from "@/lib/mock/data";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { PlayerAvatar, PositionPill, RatingBadge } from "./ui-bits";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 
-type Tab = "overview" | "actions";
+type Tab = "overview" | "stats" | "actions";
 
 export function PlayerProfileModal({
   player,
@@ -121,6 +121,15 @@ export function PlayerProfileModal({
             Genel Bakış
           </button>
           <button
+            onClick={() => setTab("stats")}
+            className={cn(
+              "tm-tap flex-1 py-2 text-xs font-bold",
+              tab === "stats" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"
+            )}
+          >
+            İstatistikler
+          </button>
+          <button
             onClick={() => setTab("actions")}
             className={cn(
               "tm-tap flex-1 py-2 text-xs font-bold",
@@ -147,6 +156,7 @@ export function PlayerProfileModal({
               t={t}
             />
           )}
+          {tab === "stats" && <StatsTab player={player} t={t} locale={locale} />}
           {tab === "actions" && (
             <ActionsTab player={player} teamColor={teamColor} onClose={onClose} t={t} locale={locale} />
           )}
@@ -329,6 +339,204 @@ function OverviewTab({
           })()}
         </div>
       )}
+    </div>
+  );
+}
+
+// ===== İstatistikler sekmesi — kariyer sezon sezon =====
+function StatsTab({
+  player,
+  t,
+  locale,
+}: {
+  player: Player;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  locale: "tr" | "en";
+}) {
+  const isGK = player.specificPosition === "GK";
+  // Eğer seasonHistory yoksa (ör. Supabase'den gelen oyuncu), mevcut stat'lardan üret
+  const history: SeasonStat[] = player.seasonHistory ?? generateFallbackHistory(player);
+
+  // Kariyer toplamları
+  const totals = history.reduce(
+    (acc, s) => {
+      acc.apps += s.appearances;
+      acc.goals += s.goals;
+      acc.assists += s.assists;
+      acc.yellow += s.yellowCards;
+      acc.red += s.redCards;
+      acc.minutes += s.minutesPlayed;
+      return acc;
+    },
+    { apps: 0, goals: 0, assists: 0, yellow: 0, red: 0, minutes: 0 }
+  );
+
+  if (history.length === 0) {
+    return (
+      <div className="tm-card p-4 text-center text-xs text-muted-foreground">
+        Bu oyuncunun kayıtlı sezon geçmişi yok.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5">
+      {/* Kariyer özeti */}
+      <div className="tm-card p-2.5">
+        <div className="text-[9px] text-muted-foreground uppercase tracking-wide font-bold mb-2">Kariyer Toplamı</div>
+        <div className="grid grid-cols-4 gap-1.5">
+          <CareerStat label="Maç" value={totals.apps} color="text-sky-400" />
+          <CareerStat label="Gol" value={totals.goals} color="text-emerald-400" />
+          <CareerStat label="Asist" value={totals.assists} color="text-amber-400" />
+          <CareerStat label="Dk" value={totals.minutes} color="text-purple-400" />
+        </div>
+        <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+          <div className="flex justify-between text-[10px]">
+            <span className="text-muted-foreground">Sarı Kart</span>
+            <span className="font-bold text-yellow-400 tabular-nums">{totals.yellow}</span>
+          </div>
+          <div className="flex justify-between text-[10px]">
+            <span className="text-muted-foreground">Kırmızı Kart</span>
+            <span className="font-bold text-red-400 tabular-nums">{totals.red}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Sezon sezon listesi — alt alta */}
+      <div className="space-y-1.5">
+        {history.map((s, idx) => (
+          <SeasonRow key={`${s.season}-${idx}`} season={s} isGK={isGK} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CareerStat({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className="bg-muted/30 rounded px-1 py-1 text-center">
+      <div className={cn("text-sm font-bold tabular-nums leading-none", color)}>{value}</div>
+      <div className="text-[8px] text-muted-foreground uppercase mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+// Supabase'den gelen oyuncularda seasonHistory yoksa — mevcut stat'lardan üret
+const FALLBACK_CLUBS = [
+  "Galatasaray", "Fenerbahçe", "Beşiktaş", "Trabzonspor",
+  "Başakşehir", "Adana Demir", "Konyaspor", "Antalyaspor",
+  "Alanyaspor", "Sivasspor", "Kayserispor", "Gaziantep FK",
+  "Kasımpaşa", "Karagümrük", "Göztepe", "Samsunspor",
+];
+
+function generateFallbackHistory(player: Player): SeasonStat[] {
+  const age = player.age ?? 20;
+  const careerStartAge = 17;
+  if (age <= careerStartAge) return [];
+
+  const totalSeasons = Math.min(age - careerStartAge, 18);
+  const currentYear = new Date().getFullYear();
+  const baseTier = player.rating >= 75 ? 1 : player.rating >= 65 ? 2 : player.rating >= 55 ? 3 : 4;
+  const isGK = player.specificPosition === "GK";
+  const isAtt = player.specificPosition.startsWith("ST") || player.specificPosition === "CF" || player.specificPosition.startsWith("W");
+  const isMid = player.specificPosition.startsWith("CM") || player.specificPosition.startsWith("AM") || player.specificPosition.startsWith("DM");
+
+  const seasons: SeasonStat[] = [];
+  for (let i = 0; i < totalSeasons; i++) {
+    const seasonAge = careerStartAge + i;
+    const startYear = currentYear - (totalSeasons - i);
+    const youngFactor = seasonAge < 20 ? 0.4 : seasonAge < 23 ? 0.7 : 1.0;
+    const primeFactor = seasonAge >= 24 && seasonAge <= 29 ? 1.15 : 1.0;
+    const perf = youngFactor * primeFactor;
+
+    const tierBoost = Math.floor((seasonAge - careerStartAge) / 4);
+    const tier = Math.max(1, Math.min(4, baseTier - tierBoost));
+
+    const apps = Math.max(0, Math.round((player.appearances ?? 18) * perf * (0.7 + Math.random() * 0.6)));
+    const gMax = isGK ? 0 : isAtt ? 18 : isMid ? 8 : 3;
+    const aMax = isGK ? 0 : isAtt ? 10 : isMid ? 12 : 5;
+    const goals = Math.round(Math.random() * gMax * perf);
+    const assists = Math.round(Math.random() * aMax * perf);
+    const yellowCards = Math.round(Math.random() * 8 * perf);
+    const redCards = Math.random() < 0.15 ? 1 : 0;
+    const avgRating = Math.max(4.5, Math.min(9.5, Math.round((5.8 + Math.random() * 2.5 + (player.rating - 60) * 0.02) * 10) / 10));
+    const minutesPlayed = apps * Math.round(60 + Math.random() * 30);
+
+    seasons.push({
+      season: `${startYear}/${String(startYear + 1).slice(-2)}`,
+      club: FALLBACK_CLUBS[Math.floor(Math.random() * FALLBACK_CLUBS.length)],
+      leagueTier: tier,
+      appearances: apps,
+      goals,
+      assists,
+      yellowCards,
+      redCards,
+      avgRating,
+      minutesPlayed,
+    });
+  }
+  return seasons.reverse();
+}
+
+function SeasonRow({ season, isGK }: { season: SeasonStat; isGK: boolean }) {
+  const tierLabel = ["", "Süper Lig", "1. Lig", "2. Lig", "3. Lig"][season.leagueTier] ?? "—";
+  const tierColor =
+    season.leagueTier === 1 ? "bg-emerald-500/20 text-emerald-300"
+    : season.leagueTier === 2 ? "bg-sky-500/20 text-sky-300"
+    : season.leagueTier === 3 ? "bg-amber-500/20 text-amber-300"
+    : "bg-muted text-muted-foreground";
+
+  // Rating renk
+  const ratingColor =
+    season.avgRating >= 7.5 ? "text-emerald-400"
+    : season.avgRating >= 6.5 ? "text-amber-300"
+    : "text-red-400";
+
+  return (
+    <div className="tm-card p-2">
+      {/* Üst satır: sezon + kulüp + lig */}
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-[11px] font-bold tabular-nums shrink-0">{season.season}</span>
+          <span className="text-[10px] text-muted-foreground truncate">· {season.club}</span>
+        </div>
+        <span className={cn("text-[8px] px-1.5 py-0.5 rounded font-bold shrink-0", tierColor)}>
+          {tierLabel}
+        </span>
+      </div>
+
+      {/* Alt satır: istatistikler (6 sütun) */}
+      <div className="grid grid-cols-6 gap-1 text-center">
+        <SeasonCell label="Maç" value={season.appearances} color="text-sky-400" />
+        {!isGK ? (
+          <>
+            <SeasonCell label="Gol" value={season.goals} color="text-emerald-400" />
+            <SeasonCell label="Asist" value={season.assists} color="text-amber-400" />
+          </>
+        ) : (
+          <>
+            <SeasonCell label="Dk" value={season.minutesPlayed} color="text-purple-400" />
+            <SeasonCell label="Krt" value={season.yellowCards + season.redCards} color="text-orange-400" />
+          </>
+        )}
+        <SeasonCell label="Sarı" value={season.yellowCards} color="text-yellow-400" />
+        <SeasonCell label="Krm" value={season.redCards} color="text-red-400" />
+        <div className="flex flex-col items-center justify-center">
+          <span className={cn("text-[11px] font-bold tabular-nums leading-none", ratingColor)}>
+            {season.avgRating.toFixed(1)}
+          </span>
+          <span className="text-[7px] text-muted-foreground uppercase mt-0.5">Puan</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SeasonCell({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center">
+      <span className={cn("text-[11px] font-bold tabular-nums leading-none", color)}>{value}</span>
+      <span className="text-[7px] text-muted-foreground uppercase mt-0.5">{label}</span>
     </div>
   );
 }
