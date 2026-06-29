@@ -1020,7 +1020,20 @@ export const useAppStore = create<AppState>()(
         const newFixtures = generateFixtures(updatedClubs);
 
         // Sezon numarasını artır
+        const oldSeasonNumber = get().seasonNumber ?? 1;
+        const newSeasonNumber = oldSeasonNumber + 1;
         SEASON_INFO.matchday = 1;
+
+        // Enflasyon uygula — bütçeleri yeni sezona göre güncelle
+        const { getInflationMultiplier } = require("@/lib/fm/inflation");
+        const { TIER_BASE_BUDGETS } = require("@/lib/match/engine/constants");
+        const newBudgetMultiplier = getInflationMultiplier(newSeasonNumber);
+        updatedClubs.forEach((c) => {
+          // Yeni lig tier'ına göre baz bütçe × enflasyon
+          const tier = c.leagueTier ?? 2;
+          const baseBudget = TIER_BASE_BUDGETS[tier] ?? TIER_BASE_BUDGETS[2];
+          c.budget = Math.round(baseBudget * newBudgetMultiplier);
+        });
 
         // Taktikleri sıfırla
         const updatedTeam = updatedClubs.find((c) => c.id === myTeamId);
@@ -1030,10 +1043,12 @@ export const useAppStore = create<AppState>()(
           clubs: updatedClubs,
           fixtures: newFixtures,
           tactics: newTactics,
+          seasonNumber: newSeasonNumber,
+          seasonMatchday: 1,
         });
 
         const summary: SeasonSummary = {
-          season: 1, // şimdilik sabit
+          season: newSeasonNumber,
           finalPosition: myIdx + 1,
           played: myStat?.played ?? 0,
           won: myStat?.won ?? 0,

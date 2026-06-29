@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
+import { getInflationMultiplier, removeInflation } from "@/lib/fm/inflation";
 import { isTransferWindowOpen } from "@/lib/mock/season";
 import {
   NATIONALITIES,
@@ -706,6 +707,17 @@ function OfferModal({
             <div className="text-right">
               <div className="text-[10px] text-muted-foreground">{t("transfer.market_value")}</div>
               <div className="font-bold tabular-nums">{formatEuro(player.marketValue)}</div>
+              {(() => {
+                const seasonNumber = useAppStore.getState().seasonNumber ?? 1;
+                const mult = getInflationMultiplier(seasonNumber);
+                if (mult <= 1.0) return null;
+                const baseValue = removeInflation(player.marketValue, seasonNumber);
+                return (
+                  <div className="text-[8px] text-yellow-400/70 mt-0.5">
+                    Baz: {formatEuro(baseValue)} · +%{Math.round((mult - 1) * 100)} enflasyon
+                  </div>
+                );
+              })()}
             </div>
           </div>
 

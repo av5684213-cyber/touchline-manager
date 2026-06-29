@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
+import { getInflationMultiplier, formatInflationLabel } from "@/lib/fm/inflation";
 import type { SeasonSummary } from "@/lib/store";
 import type { Player as PlayerT } from "@/lib/mock/data";
 import { SeasonEndModal } from "../season-end-modal";
@@ -162,6 +163,9 @@ export function DashboardScreen() {
           </div>
         </div>
       </div>
+
+      {/* Enflasyon göstergesi */}
+      <InflationIndicator />
 
       {/* 2x2 stat cards */}
       <div className="grid grid-cols-2 gap-3">
@@ -435,5 +439,38 @@ function NotifIcon({ kind }: { kind: Notification["kind"] }) {
     <span className={cn("inline-flex items-center justify-center w-7 h-7 rounded-full shrink-0", c)}>
       <Icon size={14} />
     </span>
+  );
+}
+
+function InflationIndicator() {
+  const seasonNumber = useAppStore((s) => s.seasonNumber) ?? 1;
+  const mult = getInflationMultiplier(seasonNumber);
+  const pct = Math.round((mult - 1) * 100);
+
+  // Sezon 1'de göstermeye gerek yok
+  if (seasonNumber <= 1) return null;
+
+  return (
+    <div className="tm-card p-2.5 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <span className="text-base">📈</span>
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-bold">
+            Sezon {seasonNumber} Enflasyonu
+          </div>
+          <div className="text-[9px] text-muted-foreground">
+            Piyasa değerleri, maaşlar ve maliyetler buna göre
+          </div>
+        </div>
+      </div>
+      <div className="text-right">
+        <div className="text-sm font-bold text-yellow-400 tabular-nums">
+          +%{pct}
+        </div>
+        <div className="text-[8px] text-muted-foreground uppercase">
+          ×{mult.toFixed(2)}
+        </div>
+      </div>
+    </div>
   );
 }

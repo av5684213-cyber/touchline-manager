@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
+import { applyInflation } from "@/lib/fm/inflation";
 import type { StaffMember } from "@/lib/store";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -56,8 +57,11 @@ const STAFF_TYPE_ORDER: StaffMember["type"][] = [
   "scout", "coach", "physio", "analyst", "youth_coordinator", "sporting_director",
 ];
 
+// Tesis yükseltme maliyeti — baz × level çarpanı × enflasyon
 function calcUpgradeCost(currentLevel: number): number {
-  return Math.floor(250000 * Math.pow(2.2, currentLevel));
+  const seasonNumber = useAppStore.getState().seasonNumber ?? 1;
+  const baseCost = Math.floor(250000 * Math.pow(2.2, currentLevel));
+  return applyInflation(baseCost, seasonNumber);
 }
 function calcUpgradeDays(currentLevel: number): number {
   return currentLevel <= 1 ? 2 : Math.floor(2 * Math.pow(1.5, currentLevel - 2));

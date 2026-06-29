@@ -327,6 +327,29 @@ export const PHILOSOPHY_BONUSES = {
 export const TEAMS_PER_LEAGUE = 18;
 export const MAX_WEEKS_PER_SEASON = 34;
 
+// ─── Enflasyon Sistemi ─────────────────────────────────────────────
+export const BASE_INFLATION_RATE = 0.08;        // yıllık %8 enflasyon
+export const MAX_INFLATION_MULTIPLIER = 3.0;    // maksimum 3x (Sezon 1 fiyatının 3 katı)
+export const MIN_INFLATION_MULTIPLIER = 1.0;    // Sezon 1'de çarpan 1.0
+
+// Sezon başı lig baz bütçeleri (enflasyon çarpanı ile çarpılır)
+export const TIER_BASE_BUDGETS: Record<number, number> = {
+  1: 20_000_000,   // Süper Lig: 20M baz
+  2: 10_000_000,   // 1. Lig: 10M
+  3: 5_000_000,    // 2. Lig: 5M
+  4: 2_000_000,    // 3. Lig: 2M
+};
+
+// Tesis yükseltme baz maliyetleri (enflasyon çarpanı ile çarpılır)
+export const FACILITY_BASE_COSTS = {
+  stadium_capacity: 500_000,
+  training_facility: 300_000,
+  youth_academy: 200_000,
+  scout_slot: 150_000,
+  // Var olan sistemdeki genel tesis yükseltme maliyeti
+  generic_upgrade: 250_000,
+};
+
 // ─── DB Sağlık Kontrolü ────────────────────────────────────────────
 /** DB bağlantı kontrolü aralığı (ms) — 5 dakika */
 export const DB_HEALTH_CHECK_INTERVAL = 300_000;

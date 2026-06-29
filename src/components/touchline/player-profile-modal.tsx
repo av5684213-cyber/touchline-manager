@@ -555,7 +555,7 @@ function CareerStat({ label, value, color }: { label: string; value: number; col
   );
 }
 
-// Güncel sezon için gol türü breakdown — oyuncunun foot + heading'ine göre deterministik
+// Güncel sezon için gol türü breakdown — arketip + foot + rightFoot/leftFoot/heading'e göre deterministik
 function computeGoalBreakdown(player: Player): {
   right: number; left: number; head: number; penalty: number; freekick: number;
 } {
@@ -564,16 +564,79 @@ function computeGoalBreakdown(player: Player): {
 
   const foot = player.foot ?? "Right";
   const heading = player.heading ?? 50;
+  const rightFootStat = player.rightFoot ?? 50;
+  const leftFootStat = player.leftFoot ?? 30;
+  const archetype = player.archetype ?? "";
   const pos = player.specificPosition;
   const isAtt = pos.startsWith("ST") || pos === "CF" || pos.startsWith("W");
   const isMid = pos.startsWith("CM") || pos.startsWith("AM") || pos.startsWith("DM");
 
-  // Ağırlıklar (generateSeasonHistory ile aynı mantık)
-  let wRight = 0.55, wLeft = 0.20, wHead = 0.25;
-  if (foot === "Left") { wRight = 0.20; wLeft = 0.55; }
-  else if (foot === "Both") { wRight = 0.40; wLeft = 0.35; }
-  const headBoost = Math.max(0, (heading - 50) / 200);
-  wHead = Math.max(0.05, Math.min(0.45, wHead + headBoost));
+  // Arketip baz ağırlıkları (fallback ile aynı tablo)
+  const ARK_MOD: Record<string, { right: number; left: number; head: number }> = {
+    "Gol Makinesi":   { right: 0.45, left: 0.40, head: 0.15 },
+    "Bitirici":       { right: 0.50, left: 0.35, head: 0.15 },
+    "Hedef Adam":     { right: 0.30, left: 0.25, head: 0.45 },
+    "Fırsatçı":       { right: 0.40, left: 0.35, head: 0.25 },
+    "Hızlı Forvet":   { right: 0.50, left: 0.40, head: 0.10 },
+    "İkinci Forvet":  { right: 0.40, left: 0.40, head: 0.20 },
+    "Yaratıcı Forvet":{ right: 0.40, left: 0.40, head: 0.20 },
+    "Hızlı Kanat":    { right: 0.55, left: 0.35, head: 0.10 },
+    "İçeri Dönen":    { right: 0.50, left: 0.40, head: 0.10 },
+    "Dripling Ustası":{ right: 0.45, left: 0.40, head: 0.15 },
+    "Kanat":          { right: 0.50, left: 0.35, head: 0.15 },
+    "Playmaker":      { right: 0.50, left: 0.35, head: 0.15 },
+    "Numara 10":      { right: 0.45, left: 0.40, head: 0.15 },
+    "Yaratıcı":       { right: 0.50, left: 0.35, head: 0.15 },
+    "Oyun Kurucu":    { right: 0.50, left: 0.35, head: 0.15 },
+    "Motor":          { right: 0.50, left: 0.30, head: 0.20 },
+    "Truva Atı":      { right: 0.45, left: 0.30, head: 0.25 },
+    "Pas Ustası":     { right: 0.55, left: 0.30, head: 0.15 },
+    "Box-to-Box":     { right: 0.45, left: 0.35, head: 0.20 },
+    "Tempo Kontrolcüsü":{ right: 0.55, left: 0.30, head: 0.15 },
+    "Yıkıcı":         { right: 0.45, left: 0.30, head: 0.25 },
+    "Regista":        { right: 0.55, left: 0.30, head: 0.15 },
+    "Ekran Oyuncusu": { right: 0.45, left: 0.35, head: 0.20 },
+    "Duvar Orta Saha":{ right: 0.45, left: 0.30, head: 0.25 },
+    "Duvar":          { right: 0.40, left: 0.25, head: 0.35 },
+    "Lider Stoper":   { right: 0.40, left: 0.25, head: 0.35 },
+    "Top Çıkan Stoper":{ right: 0.45, left: 0.30, head: 0.25 },
+    "Hava Hakimi":    { right: 0.30, left: 0.20, head: 0.50 },
+    "Baskı Ustası":   { right: 0.45, left: 0.30, head: 0.25 },
+    "Kale Gibi":      { right: 0.45, left: 0.30, head: 0.25 },
+    "Kanat Beki":     { right: 0.50, left: 0.35, head: 0.15 },
+    "Hücumcu Bek":    { right: 0.50, left: 0.35, head: 0.15 },
+    "Defansif Bek":   { right: 0.50, left: 0.30, head: 0.20 },
+    "Ters Bek":       { right: 0.45, left: 0.40, head: 0.15 },
+    "Ofansif Bek":    { right: 0.50, left: 0.35, head: 0.15 },
+  };
+  const arkMod = ARK_MOD[archetype] ?? { right: 0.45, left: 0.30, head: 0.25 };
+
+  let wRight = arkMod.right;
+  let wLeft = arkMod.left;
+  let wHead = arkMod.head;
+
+  // rightFoot/leftFoot stat oranına göre kaydır
+  const totalFootStat = Math.max(1, rightFootStat + leftFootStat);
+  const footRightShare = rightFootStat / totalFootStat;
+  const footLeftShare = leftFootStat / totalFootStat;
+
+  if (foot === "Left") {
+    wLeft = Math.max(wLeft, wRight * 0.8);
+    wRight = wRight * 0.6;
+  } else if (foot === "Both") {
+    wRight = (wRight + wLeft) * 0.45;
+    wLeft = (wRight + wLeft) * 0.45;
+  }
+  const footDelta = (footRightShare - footLeftShare) * 0.3;
+  wRight += footDelta;
+  wLeft -= footDelta;
+
+  const headDelta = (heading - 50) / 200;
+  wHead = Math.max(0.05, Math.min(0.60, wHead + headDelta));
+
+  wRight = Math.max(0.05, wRight);
+  wLeft = Math.max(0.05, wLeft);
+  wHead = Math.max(0.05, wHead);
   const wSum = wRight + wLeft + wHead;
   wRight /= wSum; wLeft /= wSum; wHead /= wSum;
 
@@ -708,19 +771,85 @@ function generateFallbackHistory(player: Player): SeasonStat[] {
   const isAtt = player.specificPosition.startsWith("ST") || player.specificPosition === "CF" || player.specificPosition.startsWith("W");
   const isMid = player.specificPosition.startsWith("CM") || player.specificPosition.startsWith("AM") || player.specificPosition.startsWith("DM");
 
-  // Gol türü ağırlıkları (foot + heading)
+  // ===== Gol türü ağırlıkları — arketip + foot + rightFoot/leftFoot/heading =====
   const foot = player.foot ?? "Right";
   const heading = player.heading ?? 50;
-  let wRight = 0.55, wLeft = 0.20, wHead = 0.25;
-  if (foot === "Left") { wRight = 0.20; wLeft = 0.55; }
-  else if (foot === "Both") { wRight = 0.40; wLeft = 0.35; }
-  const headBoost = Math.max(0, (heading - 50) / 200);
-  wHead = Math.max(0.05, Math.min(0.45, wHead + headBoost));
+  const rightFootStat = player.rightFoot ?? 50;
+  const leftFootStat = player.leftFoot ?? 30;
+  const archetype = player.archetype ?? "";
+
+  // Arketip baz ağırlıkları (mock/data.ts ile aynı tablo)
+  const ARK_MOD: Record<string, { right: number; left: number; head: number; goals: number }> = {
+    "Gol Makinesi":   { right: 0.45, left: 0.40, head: 0.15, goals: 1.30 },
+    "Bitirici":       { right: 0.50, left: 0.35, head: 0.15, goals: 1.20 },
+    "Hedef Adam":     { right: 0.30, left: 0.25, head: 0.45, goals: 1.10 },
+    "Fırsatçı":       { right: 0.40, left: 0.35, head: 0.25, goals: 1.15 },
+    "Hızlı Forvet":   { right: 0.50, left: 0.40, head: 0.10, goals: 1.10 },
+    "İkinci Forvet":  { right: 0.40, left: 0.40, head: 0.20, goals: 0.95 },
+    "Yaratıcı Forvet":{ right: 0.40, left: 0.40, head: 0.20, goals: 0.85 },
+    "Hızlı Kanat":    { right: 0.55, left: 0.35, head: 0.10, goals: 0.70 },
+    "İçeri Dönen":    { right: 0.50, left: 0.40, head: 0.10, goals: 0.85 },
+    "Dripling Ustası":{ right: 0.45, left: 0.40, head: 0.15, goals: 0.80 },
+    "Kanat":          { right: 0.50, left: 0.35, head: 0.15, goals: 0.65 },
+    "Playmaker":      { right: 0.50, left: 0.35, head: 0.15, goals: 0.50 },
+    "Numara 10":      { right: 0.45, left: 0.40, head: 0.15, goals: 0.70 },
+    "Yaratıcı":       { right: 0.50, left: 0.35, head: 0.15, goals: 0.55 },
+    "Oyun Kurucu":    { right: 0.50, left: 0.35, head: 0.15, goals: 0.45 },
+    "Motor":          { right: 0.50, left: 0.30, head: 0.20, goals: 0.55 },
+    "Truva Atı":      { right: 0.45, left: 0.30, head: 0.25, goals: 0.65 },
+    "Pas Ustası":     { right: 0.55, left: 0.30, head: 0.15, goals: 0.40 },
+    "Box-to-Box":     { right: 0.45, left: 0.35, head: 0.20, goals: 0.60 },
+    "Tempo Kontrolcüsü":{ right: 0.55, left: 0.30, head: 0.15, goals: 0.45 },
+    "Yıkıcı":         { right: 0.45, left: 0.30, head: 0.25, goals: 0.30 },
+    "Regista":        { right: 0.55, left: 0.30, head: 0.15, goals: 0.35 },
+    "Ekran Oyuncusu": { right: 0.45, left: 0.35, head: 0.20, goals: 0.40 },
+    "Duvar Orta Saha":{ right: 0.45, left: 0.30, head: 0.25, goals: 0.30 },
+    "Duvar":          { right: 0.40, left: 0.25, head: 0.35, goals: 0.25 },
+    "Lider Stoper":   { right: 0.40, left: 0.25, head: 0.35, goals: 0.30 },
+    "Top Çıkan Stoper":{ right: 0.45, left: 0.30, head: 0.25, goals: 0.35 },
+    "Hava Hakimi":    { right: 0.30, left: 0.20, head: 0.50, goals: 0.40 },
+    "Baskı Ustası":   { right: 0.45, left: 0.30, head: 0.25, goals: 0.25 },
+    "Kale Gibi":      { right: 0.45, left: 0.30, head: 0.25, goals: 0.20 },
+    "Kanat Beki":     { right: 0.50, left: 0.35, head: 0.15, goals: 0.30 },
+    "Hücumcu Bek":    { right: 0.50, left: 0.35, head: 0.15, goals: 0.45 },
+    "Defansif Bek":   { right: 0.50, left: 0.30, head: 0.20, goals: 0.20 },
+    "Ters Bek":       { right: 0.45, left: 0.40, head: 0.15, goals: 0.35 },
+    "Ofansif Bek":    { right: 0.50, left: 0.35, head: 0.15, goals: 0.40 },
+  };
+
+  const arkMod = ARK_MOD[archetype] ?? { right: 0.45, left: 0.30, head: 0.25, goals: 0.60 };
+  let wRight = arkMod.right;
+  let wLeft = arkMod.left;
+  let wHead = arkMod.head;
+
+  // rightFoot/leftFoot stat oranına göre kaydır
+  const totalFootStat = Math.max(1, rightFootStat + leftFootStat);
+  const footRightShare = rightFootStat / totalFootStat;
+  const footLeftShare = leftFootStat / totalFootStat;
+
+  if (foot === "Left") {
+    wLeft = Math.max(wLeft, wRight * 0.8);
+    wRight = wRight * 0.6;
+  } else if (foot === "Both") {
+    wRight = (wRight + wLeft) * 0.45;
+    wLeft = (wRight + wLeft) * 0.45;
+  }
+  const footDelta = (footRightShare - footLeftShare) * 0.3;
+  wRight += footDelta;
+  wLeft -= footDelta;
+
+  const headDelta = (heading - 50) / 200;
+  wHead = Math.max(0.05, Math.min(0.60, wHead + headDelta));
+
+  wRight = Math.max(0.05, wRight);
+  wLeft = Math.max(0.05, wLeft);
+  wHead = Math.max(0.05, wHead);
   const wSum = wRight + wLeft + wHead;
   wRight /= wSum; wLeft /= wSum; wHead /= wSum;
 
   const penaltyRate = isAtt ? 0.18 : isMid ? 0.10 : 0.04;
   const freekickRate = isMid ? 0.08 : isAtt ? 0.05 : 0.02;
+  const goalMult = arkMod.goals;
 
   const seasons: SeasonStat[] = [];
   for (let i = 0; i < totalSeasons; i++) {
@@ -736,7 +865,7 @@ function generateFallbackHistory(player: Player): SeasonStat[] {
     const apps = Math.max(0, Math.round((player.appearances ?? 18) * perf * (0.7 + Math.random() * 0.6)));
     const gMax = isGK ? 0 : isAtt ? 18 : isMid ? 8 : 3;
     const aMax = isGK ? 0 : isAtt ? 10 : isMid ? 12 : 5;
-    const goals = Math.round(Math.random() * gMax * perf);
+    const goals = Math.round(Math.random() * gMax * perf * goalMult);
     const assists = Math.round(Math.random() * aMax * perf);
 
     // Gol türü dağılımı
