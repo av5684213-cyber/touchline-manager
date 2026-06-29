@@ -10,6 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
     - uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
@@ -18,6 +21,14 @@ jobs:
     - run: yes | sdkmanager --licenses || true
     - run: sdkmanager "build-tools;34.0.0" "platforms;android-34"
     
+    - name: Build Next.js Static Export
+      run: |
+        npm ci || npm install
+        npx next build
+      env:
+        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+    
     - name: Install Gradle
       run: |
         cd /tmp
@@ -25,12 +36,19 @@ jobs:
         unzip -qo gradle.zip
         /tmp/gradle-8.7/bin/gradle --version
 
-    - name: Create WebView Android Project
+    - name: Create WebView APK with embedded app
       run: |
         DIR=android-app/app/src/main
         mkdir -p $DIR/res/values
         mkdir -p $DIR/res/mipmap-hdpi
         mkdir -p $DIR/java/com/touchline/manager
+        mkdir -p $DIR/assets/web
+        
+        # Static export çıktısını assets'e kopyala
+        cp -r out/* $DIR/assets/web/
+        echo "=== Assets ==="
+        find $DIR/assets/web -type f | wc -l
+        du -sh $DIR/assets/web
         
         printf 'pluginManagement {\n    repositories {\n        google()\n        mavenCentral()\n        gradlePluginPortal()\n    }\n}\ndependencyResolutionManagement {\n    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)\n    repositories {\n        google()\n        mavenCentral()\n    }\n}\nrootProject.name = "TouchlineManager"\ninclude ":app"\n' > android-app/settings.gradle
         
@@ -40,25 +58,27 @@ jobs:
         
         printf 'android.useAndroidX=true\norg.gradle.jvmargs=-Xmx2048m\norg.gradle.daemon=false\n' > android-app/gradle.properties
         
-        printf '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET" />\n    <application\n        android:label="Touchline Manager"\n        android:icon="@mipmap/ic_launcher"\n        android:theme="@android:style/Theme.NoTitleBar.Fullscreen"\n        android:allowBackup="true">\n        <activity\n            android:name=".MainActivity"\n            android:label="Touchline Manager"\n            android:exported="true"\n            android:configChanges="orientation|screenSize">\n            <intent-filter>\n                <action android:name="android.intent.action.MAIN" />\n                <category android:name="android.intent.category.LAUNCHER" />\n            </intent-filter>\n        </activity>\n    </application>\n</manifest>\n' > $DIR/AndroidManifest.xml
+        printf '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET" />\n    <application\n        android:label="Touchline Manager"\n        android:icon="@mipmap/ic_launcher"\n        android:theme="@android:style/Theme.NoTitleBar.Fullscreen"\n        android:allowBackup="true"\n        android:usesCleartextTraffic="true">\n        <activity\n            android:name=".MainActivity"\n            android:label="Touchline Manager"\n            android:exported="true"\n            android:configChanges="orientation|screenSize">\n            <intent-filter>\n                <action android:name="android.intent.action.MAIN" />\n                <category android:name="android.intent.category.LAUNCHER" />\n            </intent-filter>\n        </activity>\n    </application>\n</manifest>\n' > $DIR/AndroidManifest.xml
         
         printf '<resources>\n    <string name="app_name">Touchline Manager</string>\n</resources>\n' > $DIR/res/values/strings.xml
         
         printf '<resources>\n    <color name="colorPrimary">#1a3a2a</color>\n</resources>\n' > $DIR/res/values/colors.xml
         
-        printf 'package com.touchline.manager;\n\nimport android.app.Activity;\nimport android.os.Bundle;\nimport android.webkit.WebView;\nimport android.webkit.WebViewClient;\n\npublic class MainActivity extends Activity {\n    private WebView webView;\n\n    @Override\n    protected void onCreate(Bundle savedInstanceState) {\n        super.onCreate(savedInstanceState);\n        webView = new WebView(this);\n        setContentView(webView);\n        webView.getSettings().setJavaScriptEnabled(true);\n        webView.getSettings().setDomStorageEnabled(true);\n        webView.getSettings().setUserAgentString(webView.getSettings().getUserAgentString() + " TouchlineManager/1.0");\n        webView.setWebViewClient(new WebViewClient());\n        webView.loadUrl("https://preview-chat-7607d7f0-5dfe-4ef4-ab8c-06b965326a8c.space-z.ai/");\n    }\n\n    @Override\n    public void onBackPressed() {\n        if (webView.canGoBack()) {\n            webView.goBack();\n        } else {\n            super.onBackPressed();\n        }\n    }\n}\n' > $DIR/java/com/touchline/manager/MainActivity.java
+        # WebView — assets'ten yükle, Supabase API'ye internet erişimi
+        printf 'package com.touchline.manager;\n\nimport android.app.Activity;\nimport android.os.Bundle;\nimport android.webkit.WebView;\nimport android.webkit.WebViewClient;\nimport android.webkit.WebAssetLoader;\n\npublic class MainActivity extends Activity {\n    private WebView webView;\n\n    @Override\n    protected void onCreate(Bundle savedInstanceState) {\n        super.onCreate(savedInstanceState);\n        webView = new WebView(this);\n        setContentView(webView);\n        \n        WebAssetLoader assetLoader = new WebAssetLoader.Builder()\n            .addPathHandler("/assets/", new WebAssetLoader.AssetsPathHandler(this))\n            .build();\n        \n        webView.getSettings().setJavaScriptEnabled(true);\n        webView.getSettings().setDomStorageEnabled(true);\n        webView.getSettings().setAllowFileAccess(true);\n        webView.getSettings().setDatabaseEnabled(true);\n        webView.setWebViewClient(new WebViewClient() {\n            @Override\n            public android.webkit.WebResourceResponse shouldInterceptRequest(WebView view, android.webkit.WebResourceRequest request) {\n                return assetLoader.shouldInterceptRequest(request.getUrl());\n            }\n        });\n        webView.loadUrl("https://appassets.androidplatform.net/assets/web/index.html");\n    }\n\n    @Override\n    public void onBackPressed() {\n        if (webView.canGoBack()) {\n            webView.goBack();\n        } else {\n            super.onBackPressed();\n        }\n    }\n}\n' > $DIR/java/com/touchline/manager/MainActivity.java
         
         # PNG ikonu repodan kopyala
         cp android-icon.png $DIR/res/mipmap-hdpi/ic_launcher.png
         
-        echo "=== FILES ==="
-        find android-app -type f | sort
+        echo "=== Project structure ==="
+        find android-app -type f | wc -l
 
     - name: Build APK
       run: |
         cd android-app
         /tmp/gradle-8.7/bin/gradle assembleRelease --no-daemon --no-build-cache 2>&1
         find . -name "*.apk" -type f
+        ls -la app/build/outputs/apk/release/*.apk 2>/dev/null
 
     - uses: actions/upload-artifact@v4
       if: success()
