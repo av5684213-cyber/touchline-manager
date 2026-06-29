@@ -15,11 +15,20 @@ import type { FormResult } from "@/lib/mock/season";
 // Lig başına 18 takım; 3. Lig (tier 4) 5 departman
 const TIER_DEPTS: Record<LeagueTier, number> = { 1: 1, 2: 1, 3: 1, 4: 5 };
 
-// 18 takım için: 0-2 promotion (ilk 3), 3-5 playoff, 15-17 relegation (son 3)
-function getZone(idx: number): "promotion" | "playoff" | "relegation" | "middle" {
-  if (idx <= 2) return "promotion";
-  if (idx <= 5) return "playoff";
-  if (idx >= 15) return "relegation";
+// 18 takım için: 0-1 şampiyonluk, 2-3 kupa, 16-17 düşme (her ligde 2'şer)
+// Bu oyunda Avrupa kupası yok — tier 1'de ilk 2 şampiyonluk, 2-3 kupa, son 2 düşme
+function getZone(idx: number, tier: number = 2): "promotion" | "playoff" | "relegation" | "middle" {
+  if (tier === 1) {
+    // Süper Lig: ilk 2 şampiyonluk, 2-3 kupa, son 2 düşme
+    if (idx <= 1) return "promotion";
+    if (idx <= 3) return "playoff";
+    if (idx >= 16) return "relegation";
+    return "middle";
+  }
+  // Diğer ligler: ilk 2直接promotion, 2-3 playoff, son 2 düşme
+  if (idx <= 1) return "promotion";
+  if (idx <= 3) return "playoff";
+  if (idx >= 16) return "relegation";
   return "middle";
 }
 
@@ -180,7 +189,7 @@ export function StandingsScreen() {
               /* Gerçek puan durumu — kullanıcının ligi */
               standings.map((row, idx) => {
                 const isMe = row.teamId === team?.id;
-                const zone = getZone(idx);
+                const zone = getZone(idx, selTier);
                 const gd = row.goalsFor - row.goalsAgainst;
                 const teamData = leagueClubs.find((c) => c.id === row.teamId);
                 return (

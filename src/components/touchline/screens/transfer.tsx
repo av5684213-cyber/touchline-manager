@@ -16,7 +16,7 @@ import {
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { getInflationMultiplier, removeInflation } from "@/lib/fm/inflation";
-import { isTransferWindowOpen } from "@/lib/mock/season";
+import { isTransferWindowOpen, transferWindowStatus } from "@/lib/mock/season";
 import {
   NATIONALITIES,
   calculateBuyerCost,
@@ -62,6 +62,7 @@ export function TransferScreen() {
   if (!team) return null;
 
   const transferWindowOpen = isTransferWindowOpen();
+  const windowStatus = transferWindowStatus();
 
   return (
     <div className="px-4 py-4 pb-6 space-y-3">
@@ -89,7 +90,10 @@ export function TransferScreen() {
         transferWindowOpen ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"
       )}>
         <span>{transferWindowOpen ? "🟢" : "🔴"}</span>
-        <span>{transferWindowOpen ? t("transfer.window_open") : t("transfer.window_closed")}</span>
+        <span className="flex-1">{transferWindowOpen ? t("transfer.window_open") : t("transfer.window_closed")}</span>
+        <span className="text-[10px] text-muted-foreground tabular-nums">
+          {windowStatus.week}/{windowStatus.totalWeeks}
+        </span>
       </div>
 
       {/* Sub-tabs */}
