@@ -4,6 +4,14 @@ import { useRef, useState } from "react";
 import { X, User, Upload, ArrowLeftRight, Banknote } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { POSITION_GROUP, type Player, type SeasonStat } from "@/lib/mock/data";
+import { TIER_TEAM_NAMES, TEAM_NAME_BANK } from "@/lib/match/engine/constants";
+
+// Oyun içi takım havuzu — Supabase'den gelen oyuncular için fallback
+const FALLBACK_CLUBS: string[] = Array.from(new Set([
+  ...TIER_TEAM_NAMES[1], ...TIER_TEAM_NAMES[2],
+  ...TIER_TEAM_NAMES[3], ...TIER_TEAM_NAMES[4],
+  ...TEAM_NAME_BANK,
+]));
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { PlayerAvatar, PositionPill, RatingBadge } from "./ui-bits";
 import { formatEuro } from "@/lib/format";
@@ -402,8 +410,29 @@ function StatsTab({
         </div>
       </div>
 
-      {/* Sezon sezon listesi — alt alta */}
-      <div className="space-y-1.5">
+      {/* Sezon sezon listesi — kompakt tek satır */}
+      <div className="space-y-0.5">
+        {/* Başlık satırı */}
+        <div className="flex items-center gap-1 text-[7px] uppercase text-muted-foreground font-bold px-1.5">
+          <span className="shrink-0 w-10">Sezon</span>
+          <span className="shrink-0 w-5 text-center">Lig</span>
+          <span className="flex-1 min-w-0">Kulüp</span>
+          <span className="shrink-0 w-5 text-right">M</span>
+          {!isGK ? (
+            <>
+              <span className="shrink-0 w-5 text-right">G</span>
+              <span className="shrink-0 w-5 text-right">A</span>
+            </>
+          ) : (
+            <>
+              <span className="shrink-0 w-8 text-right">Dk</span>
+              <span className="shrink-0 w-5 text-right">Krt</span>
+            </>
+          )}
+          <span className="shrink-0 w-4 text-right">S</span>
+          <span className="shrink-0 w-4 text-right">K</span>
+          <span className="shrink-0 w-7 text-right">Puan</span>
+        </div>
         {history.map((s, idx) => (
           <SeasonRow key={`${s.season}-${idx}`} season={s} isGK={isGK} />
         ))}
@@ -420,14 +449,6 @@ function CareerStat({ label, value, color }: { label: string; value: number; col
     </div>
   );
 }
-
-// Supabase'den gelen oyuncularda seasonHistory yoksa — mevcut stat'lardan üret
-const FALLBACK_CLUBS = [
-  "Galatasaray", "Fenerbahçe", "Beşiktaş", "Trabzonspor",
-  "Başakşehir", "Adana Demir", "Konyaspor", "Antalyaspor",
-  "Alanyaspor", "Sivasspor", "Kayserispor", "Gaziantep FK",
-  "Kasımpaşa", "Karagümrük", "Göztepe", "Samsunspor",
-];
 
 function generateFallbackHistory(player: Player): SeasonStat[] {
   const age = player.age ?? 20;
@@ -479,12 +500,12 @@ function generateFallbackHistory(player: Player): SeasonStat[] {
 }
 
 function SeasonRow({ season, isGK }: { season: SeasonStat; isGK: boolean }) {
-  const tierLabel = ["", "Süper Lig", "1. Lig", "2. Lig", "3. Lig"][season.leagueTier] ?? "—";
+  const tierLabel = ["", "SL", "1L", "2L", "3L"][season.leagueTier] ?? "—";
   const tierColor =
-    season.leagueTier === 1 ? "bg-emerald-500/20 text-emerald-300"
-    : season.leagueTier === 2 ? "bg-sky-500/20 text-sky-300"
-    : season.leagueTier === 3 ? "bg-amber-500/20 text-amber-300"
-    : "bg-muted text-muted-foreground";
+    season.leagueTier === 1 ? "text-emerald-400"
+    : season.leagueTier === 2 ? "text-sky-300"
+    : season.leagueTier === 3 ? "text-amber-300"
+    : "text-muted-foreground";
 
   // Rating renk
   const ratingColor =
@@ -492,42 +513,31 @@ function SeasonRow({ season, isGK }: { season: SeasonStat; isGK: boolean }) {
     : season.avgRating >= 6.5 ? "text-amber-300"
     : "text-red-400";
 
+  // Tek satır — kompakt
   return (
-    <div className="tm-card p-2">
-      {/* Üst satır: sezon + kulüp + lig */}
-      <div className="flex items-center justify-between mb-1.5">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-[11px] font-bold tabular-nums shrink-0">{season.season}</span>
-          <span className="text-[10px] text-muted-foreground truncate">· {season.club}</span>
-        </div>
-        <span className={cn("text-[8px] px-1.5 py-0.5 rounded font-bold shrink-0", tierColor)}>
-          {tierLabel}
-        </span>
-      </div>
-
-      {/* Alt satır: istatistikler (6 sütun) */}
-      <div className="grid grid-cols-6 gap-1 text-center">
-        <SeasonCell label="Maç" value={season.appearances} color="text-sky-400" />
-        {!isGK ? (
-          <>
-            <SeasonCell label="Gol" value={season.goals} color="text-emerald-400" />
-            <SeasonCell label="Asist" value={season.assists} color="text-amber-400" />
-          </>
-        ) : (
-          <>
-            <SeasonCell label="Dk" value={season.minutesPlayed} color="text-purple-400" />
-            <SeasonCell label="Krt" value={season.yellowCards + season.redCards} color="text-orange-400" />
-          </>
-        )}
-        <SeasonCell label="Sarı" value={season.yellowCards} color="text-yellow-400" />
-        <SeasonCell label="Krm" value={season.redCards} color="text-red-400" />
-        <div className="flex flex-col items-center justify-center">
-          <span className={cn("text-[11px] font-bold tabular-nums leading-none", ratingColor)}>
-            {season.avgRating.toFixed(1)}
-          </span>
-          <span className="text-[7px] text-muted-foreground uppercase mt-0.5">Puan</span>
-        </div>
-      </div>
+    <div className="tm-card px-1.5 py-1 flex items-center gap-1 text-[9px]">
+      {/* Sezon */}
+      <span className="font-bold tabular-nums shrink-0 w-10">{season.season}</span>
+      {/* Lig kodu */}
+      <span className={cn("font-bold shrink-0 w-5 text-center", tierColor)}>{tierLabel}</span>
+      {/* Kulüp — esnek genişlik */}
+      <span className="text-muted-foreground truncate flex-1 min-w-0">{season.club}</span>
+      {/* Stats — sabit genişlik */}
+      <span className="text-sky-400 font-bold tabular-nums shrink-0 w-5 text-right">{season.appearances}</span>
+      {!isGK ? (
+        <>
+          <span className="text-emerald-400 font-bold tabular-nums shrink-0 w-5 text-right">{season.goals}</span>
+          <span className="text-amber-400 font-bold tabular-nums shrink-0 w-5 text-right">{season.assists}</span>
+        </>
+      ) : (
+        <>
+          <span className="text-purple-400 font-bold tabular-nums shrink-0 w-8 text-right">{season.minutesPlayed}</span>
+          <span className="text-orange-400 font-bold tabular-nums shrink-0 w-5 text-right">{season.yellowCards + season.redCards}</span>
+        </>
+      )}
+      <span className="text-yellow-400 font-bold tabular-nums shrink-0 w-4 text-right">{season.yellowCards}</span>
+      <span className="text-red-400 font-bold tabular-nums shrink-0 w-4 text-right">{season.redCards}</span>
+      <span className={cn("font-bold tabular-nums shrink-0 w-7 text-right", ratingColor)}>{season.avgRating.toFixed(1)}</span>
     </div>
   );
 }

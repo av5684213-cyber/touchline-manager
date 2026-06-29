@@ -8,6 +8,8 @@
  * Mock data üreticisi tüm alanları doldurur.
  */
 
+import { TIER_TEAM_NAMES, TEAM_NAME_BANK } from "@/lib/match/engine/constants";
+
 export type Position =
   | "GK"
   | "CB"
@@ -589,16 +591,13 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
   };
 }
 
-// Geçmiş kulüp adları (kariyer geçmişi için)
-const PAST_CLUBS = [
-  "Galatasaray", "Fenerbahçe", "Beşiktaş", "Trabzonspor",
-  "Başakşehir", "Adana Demir", "Konyaspor", "Antalyaspor",
-  "Alanyaspor", "Sivasspor", "Kayserispor", "Gaziantep FK",
-  "Hatayspor", "Rizespor", "Kasımpaşa", "Karagümrük",
-  "Göztepe", "Ankaragücü", "Bursaspor", "Samsunspor",
-  "Eyüpspor", "Bandırmaspor", "Boluspor", "Erzurumspor",
-  "Manisa FK", "Şanlıurfaspor", "Çorum FK", "Gençlerbirliği",
-];
+// Oyun içi takım havuzu (TIER_TEAM_NAMES + TEAM_NAME_BANK)
+// Kariyer geçmişi bu takımlardan rastgele seçilir
+const GAME_CLUBS: string[] = Array.from(new Set([
+  ...TIER_TEAM_NAMES[1], ...TIER_TEAM_NAMES[2],
+  ...TIER_TEAM_NAMES[3], ...TIER_TEAM_NAMES[4],
+  ...TEAM_NAME_BANK,
+]));
 
 function generateSeasonHistory(
   age: number,
@@ -659,7 +658,7 @@ function generateSeasonHistory(
 
     seasons.push({
       season: seasonLabel,
-      club: PAST_CLUBS[Math.floor(Math.random() * PAST_CLUBS.length)],
+      club: GAME_CLUBS[Math.floor(Math.random() * GAME_CLUBS.length)],
       leagueTier: tier,
       appearances: apps,
       goals: seasonGoals,
