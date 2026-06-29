@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { X, ArrowLeftRight, Banknote } from "lucide-react";
+import { useRef, useState } from "react";
+import { X, User, Upload, ArrowLeftRight, Banknote } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { POSITION_GROUP, type Player } from "@/lib/mock/data";
 import { useAppStore, useMyTeam } from "@/lib/store";
@@ -23,8 +23,21 @@ export function PlayerProfileModal({
 }) {
   const { t, locale } = useI18n();
   const [tab, setTab] = useState<Tab>("overview");
+  const [photo, setPhoto] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const isGK = player.specificPosition === "GK";
+
+  const onPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPhoto(reader.result as string);
+      haptic("light");
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Stat grupları
   const technical: { label: string; value: number | undefined }[] = isGK
@@ -124,6 +137,9 @@ export function PlayerProfileModal({
             <OverviewTab
               player={player}
               teamColor={teamColor}
+              photo={photo}
+              fileRef={fileRef}
+              onPhotoUpload={onPhotoUpload}
               technical={technical}
               mental={mental}
               physical={physical}
@@ -143,6 +159,9 @@ export function PlayerProfileModal({
 function OverviewTab({
   player,
   teamColor,
+  photo,
+  fileRef,
+  onPhotoUpload,
   technical,
   mental,
   physical,
@@ -151,6 +170,9 @@ function OverviewTab({
 }: {
   player: Player;
   teamColor: string;
+  photo: string | null;
+  fileRef: React.RefObject<HTMLInputElement | null>;
+  onPhotoUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   technical: { label: string; value: number | undefined }[];
   mental: { label: string; value: number | undefined }[];
   physical: { label: string; value: number | undefined }[];
@@ -159,13 +181,32 @@ function OverviewTab({
 }) {
   return (
     <div className="space-y-3">
-      {/* Radar chart + identity — sol üst */}
+      {/* Photo box + identity — sol üst */}
       <div className="flex gap-3">
-        {/* Radar chart — yuvarlak pozisyonu */}
+        {/* Photo upload box */}
         <div className="shrink-0">
-          <div className="w-20 h-20 rounded-xl border-2 border-amber-500/30 bg-muted/30 flex items-center justify-center overflow-hidden">
-            <StatRadar player={player} compact />
-          </div>
+          <label className="relative block w-20 h-20 rounded-xl border-2 border-amber-500/30 bg-muted/30 overflow-hidden cursor-pointer group">
+            {photo ? (
+              <img src={photo} alt={player.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <User size={20} className="text-white/30" />
+                <span className="text-[8px] text-amber-300/70 mt-0.5 font-bold">{player.rating}</span>
+                <span className="text-[7px] text-white/30 uppercase">GENEL</span>
+              </div>
+            )}
+            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center">
+              <Upload size={12} className="text-white" />
+              <span className="text-[7px] text-white font-bold mt-0.5">FOTO YÜKLE</span>
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              onChange={onPhotoUpload}
+              className="hidden"
+            />
+          </label>
         </div>
 
         {/* Identity */}
@@ -197,10 +238,12 @@ function OverviewTab({
           )}
         </div>
 
-        {/* OVR */}
-        <div className="text-right shrink-0">
-          <div className="text-2xl font-bold text-amber-300 tabular-nums">{player.rating}</div>
+        {/* OVR + radar chart altında */}
+        <div className="text-right shrink-0 flex flex-col items-center">
+          <div className="text-2xl font-bold text-amber-300 tabular-nums leading-none">{player.rating}</div>
           <div className="text-[8px] text-muted-foreground uppercase">OVR</div>
+          {/* Radar chart — OVR'ın altında */}
+          <StatRadar player={player} compact />
         </div>
       </div>
 
