@@ -10,7 +10,7 @@ import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 
-type Tab = "overview" | "actions";
+type Tab = "overview" | "stats" | "actions";
 
 export function PlayerProfileModal({
   player,
@@ -121,6 +121,15 @@ export function PlayerProfileModal({
             Genel Bakış
           </button>
           <button
+            onClick={() => setTab("stats")}
+            className={cn(
+              "tm-tap flex-1 py-2 text-xs font-bold",
+              tab === "stats" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"
+            )}
+          >
+            İstatistikler
+          </button>
+          <button
             onClick={() => setTab("actions")}
             className={cn(
               "tm-tap flex-1 py-2 text-xs font-bold",
@@ -146,6 +155,9 @@ export function PlayerProfileModal({
               locale={locale}
               t={t}
             />
+          )}
+          {tab === "stats" && (
+            <StatsTab player={player} technical={technical} mental={mental} physical={physical} t={t} locale={locale} />
           )}
           {tab === "actions" && (
             <ActionsTab player={player} teamColor={teamColor} onClose={onClose} t={t} locale={locale} />
@@ -327,6 +339,85 @@ function OverviewTab({
           })()}
         </div>
       )}
+    </div>
+  );
+}
+
+// ===== İstatistikler sekmesi =====
+function StatsTab({
+  player,
+  technical,
+  mental,
+  physical,
+  t,
+  locale,
+}: {
+  player: Player;
+  technical: { label: string; value: number | undefined }[];
+  mental: { label: string; value: number | undefined }[];
+  physical: { label: string; value: number | undefined }[];
+  t: (key: string, params?: Record<string, string | number>) => string;
+  locale: "tr" | "en";
+}) {
+  return (
+    <div className="space-y-3">
+      {/* Radar chart + sezon istatistikleri kutusu yan yana */}
+      <div className="flex gap-2 items-stretch -my-1">
+        <div className="tm-card p-1.5 flex-1 min-w-0 flex flex-col justify-center">
+          <div className="text-[8px] text-muted-foreground uppercase tracking-wide font-bold mb-1 text-center">Sezon</div>
+          <div className="grid grid-cols-2 gap-1">
+            <SeasonStatTile label="Maç" value={player.appearances ?? 0} color="text-sky-400" />
+            <SeasonStatTile label="Gol" value={player.goals ?? 0} color="text-emerald-400" />
+            <SeasonStatTile label="Asist" value={player.assists ?? 0} color="text-amber-400" />
+            <SeasonStatTile label="Puan" value={player.last_match_rating != null ? player.last_match_rating.toFixed(1) : "—"} color="text-purple-400" />
+            <SeasonStatTile label="Sarı" value={0} color="text-yellow-400" />
+            <SeasonStatTile label="Kırmızı" value={0} color="text-red-400" />
+          </div>
+        </div>
+        <div className="shrink-0 flex items-center justify-center">
+          <StatRadar player={player} />
+        </div>
+      </div>
+      {/* Tüm stat'lar — 3 sütun bar'lı */}
+      <div className="grid grid-cols-3 gap-2">
+        <StatColumn title="Teknik" stats={technical} />
+        <StatColumn title="Zihinsel" stats={mental} />
+        <StatColumn title="Fiziksel" stats={physical} />
+      </div>
+      {/* Match stats */}
+      <div className="grid grid-cols-4 gap-2 pt-2 border-t border-border">
+        <StatTile label="Maç" value={player.appearances} />
+        <StatTile label="Gol" value={player.goals} />
+        <StatTile label="Asist" value={player.assists} />
+        <StatTile label="Değer" value={formatEuro(player.marketValue, locale)} small />
+      </div>
+      {/* Son maç puanları grafiği */}
+      {player.match_ratings && player.match_ratings.length > 0 && (
+        <div className="pt-2 border-t border-border">
+          <div className="text-[9px] text-muted-foreground uppercase tracking-wide mb-1 font-bold">Son Maç Puanları</div>
+          <div className="flex items-end gap-1 h-12">
+            {player.match_ratings.slice(-10).map((r, i) => {
+              const pct = ((r - 3) / 7) * 100;
+              const color = r >= 7 ? "bg-emerald-500" : r >= 6 ? "bg-amber-400" : "bg-red-500";
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center justify-end h-full">
+                  <span className="text-[7px] text-muted-foreground mb-0.5">{r.toFixed(1)}</span>
+                  <div className={cn("w-full rounded-sm", color)} style={{ height: `${Math.max(10, pct)}%` }} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SeasonStatTile({ label, value, color }: { label: string; value: number | string; color: string }) {
+  return (
+    <div className="bg-muted/30 rounded px-1 py-0.5 text-center">
+      <div className={cn("text-[10px] font-bold tabular-nums leading-none", color)}>{value}</div>
+      <div className="text-[7px] text-muted-foreground uppercase leading-none mt-0.5">{label}</div>
     </div>
   );
 }
@@ -553,6 +644,57 @@ function ActionsTab({
           <div className="flex justify-between"><span className="text-muted-foreground">Potansiyel</span><span className="font-bold tabular-nums">{player.potential}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground">Sözleşme</span><span className="font-bold">2 yıl</span></div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// 6 eksenli radar chart — SVG
+function StatRadar({ player }: { player: Player }) {
+  const isGK = player.specificPosition === "GK";
+  const axes = isGK
+    ? [
+        { label: "Refleks", value: player.goalkeeping ?? 50 },
+        { label: "Top Tutma", value: player.goalkeeping ?? 50 },
+        { label: "Hava", value: player.heading ?? 50 },
+        { label: "Alan", value: player.positioning ?? 50 },
+        { label: "Pas", value: player.passing ?? 50 },
+        { label: "Mental", value: player.leadership ?? 50 },
+      ]
+    : [
+        { label: "Hız", value: player.stats?.pace ?? 50 },
+        { label: "Şut", value: player.stats?.shooting ?? 50 },
+        { label: "Pas", value: player.stats?.passing ?? 50 },
+        { label: "Dribling", value: player.stats?.dribbling ?? 50 },
+        { label: "Defans", value: player.stats?.defending ?? 50 },
+        { label: "Fizik", value: player.stats?.physical ?? 50 },
+      ];
+  const size = 95;
+  const cx = size / 2;
+  const cy = size / 2;
+  const R = 36;
+  const n = axes.length;
+  const points = axes.map((a, i) => {
+    const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
+    const r = (Math.max(0, Math.min(100, a.value)) / 100) * R;
+    return { x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r, lx: cx + Math.cos(angle) * (R + 10), ly: cy + Math.sin(angle) * (R + 10), label: a.label, value: a.value };
+  });
+  const polygon = points.map((p) => `${p.x},${p.y}`).join(" ");
+  const rings = [25, 50, 75, 100];
+  const avg = Math.round(points.reduce((s, p) => s + p.value, 0) / n);
+  return (
+    <div className="relative flex flex-col items-center">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="overflow-visible">
+        <defs><linearGradient id="radar-grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#10b981" stopOpacity="0.6" /><stop offset="100%" stopColor="#3b82f6" stopOpacity="0.4" /></linearGradient></defs>
+        {rings.map((r) => { const ringPts = axes.map((_, i) => { const angle = (Math.PI * 2 * i) / n - Math.PI / 2; return `${cx + Math.cos(angle) * (R * r / 100)},${cy + Math.sin(angle) * (R * r / 100)}`; }).join(" "); return <polygon key={r} points={ringPts} fill="none" stroke="currentColor" strokeOpacity={0.1} strokeWidth={0.5} />; })}
+        {axes.map((_, i) => { const angle = (Math.PI * 2 * i) / n - Math.PI / 2; return <line key={i} x1={cx} y1={cy} x2={cx + Math.cos(angle) * R} y2={cy + Math.sin(angle) * R} stroke="currentColor" strokeOpacity={0.08} strokeWidth={0.5} />; })}
+        <polygon points={polygon} fill="url(#radar-grad)" stroke="#10b981" strokeWidth={1.5} strokeLinejoin="round" />
+        {points.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={2} fill="#10b981" stroke="#fff" strokeWidth={0.8} />)}
+        {points.map((p, i) => <text key={i} x={p.lx} y={p.ly} textAnchor="middle" dominantBaseline="middle" className="fill-current text-muted-foreground" style={{ fontSize: 7, fontWeight: 600 }}>{p.label}</text>)}
+      </svg>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none">
+        <span className="text-[6px] text-muted-foreground uppercase">OVR</span>
+        <span className="text-xs font-bold text-amber-300 tabular-nums leading-none">{avg}</span>
       </div>
     </div>
   );
