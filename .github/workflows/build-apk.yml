@@ -21,121 +21,140 @@ jobs:
     - run: yes | sdkmanager --licenses || true
     - run: sdkmanager "build-tools;34.0.0" "platforms;android-34"
     
-    - name: Init Gradle Project
+    - name: Download and Install Gradle
+      run: |
+        cd /tmp
+        curl -sL https://services.gradle.org/distributions/gradle-8.7-bin.zip -o gradle.zip
+        unzip -qo gradle.zip
+        echo "/tmp/gradle-8.7/bin" >> $GITHUB_PATH
+        /tmp/gradle-8.7/bin/gradle --version
+    
+    - name: Create Android Project
       run: |
         mkdir -p android-app/app/src/main/res/values
         mkdir -p android-app/app/src/main/res/mipmap-anydpi-v26
         mkdir -p android-app/app/src/main/res/mipmap-hdpi
-        mkdir -p android-app/app/src/main/res/mipmap-mdpi
-        mkdir -p android-app/app/src/main/res/mipmap-xhdpi
-        mkdir -p android-app/app/src/main/res/mipmap-xxhdpi
-        mkdir -p android-app/app/src/main/res/mipmap-xxxhdpi
         cd android-app
         
-        echo 'pluginManagement {
-          repositories {
-            google()
-            mavenCentral()
-            gradlePluginPortal()
-          }
+        cat > settings.gradle << 'G'
+        pluginManagement {
+            repositories {
+                google()
+                mavenCentral()
+                gradlePluginPortal()
+            }
         }
         dependencyResolutionManagement {
-          repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-          repositories {
-            google()
-            mavenCentral()
-          }
+            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+            repositories {
+                google()
+                mavenCentral()
+            }
         }
         rootProject.name = "TouchlineManager"
-        include ":app"' > settings.gradle
+        include ':app'
+        G
         
-        echo 'plugins {
-          id "com.android.application" version "8.2.0" apply false
-        }' > build.gradle
+        cat > build.gradle << 'G'
+        plugins {
+            id 'com.android.application' version '8.2.0' apply false
+        }
+        G
         
         mkdir -p app
-        echo 'plugins {
-          id "com.android.application"
+        cat > app/build.gradle << 'G'
+        plugins {
+            id 'com.android.application'
         }
         android {
-          namespace "com.touchline.manager"
-          compileSdk 34
-          defaultConfig {
-            applicationId "com.touchline.manager"
-            minSdk 24
-            targetSdk 34
-            versionCode 1
-            versionName "1.0.0"
-          }
-          buildTypes {
-            release {
-              minifyEnabled false
-              signingConfig signingConfigs.debug
+            namespace 'com.touchline.manager'
+            compileSdk 34
+            defaultConfig {
+                applicationId 'com.touchline.manager'
+                minSdk 24
+                targetSdk 34
+                versionCode 1
+                versionName '1.0.0'
             }
-          }
+            buildTypes {
+                release {
+                    minifyEnabled false
+                    signingConfig signingConfigs.debug
+                }
+            }
         }
         dependencies {
-          implementation "com.google.androidbrowserhelper:androidbrowserhelper:2.5.0"
-        }' > app/build.gradle
+            implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+        }
+        G
         
-        echo 'android.useAndroidX=true
+        cat > gradle.properties << 'G'
+        android.useAndroidX=true
         org.gradle.jvmargs=-Xmx2048m
-        org.gradle.daemon=false' > gradle.properties
+        org.gradle.daemon=false
+        G
         
-        echo '<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-          <application
-            android:label="Touchline Manager"
-            android:icon="@mipmap/ic_launcher"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar"
-            android:allowBackup="true">
-            <meta-data android:name="asset_statements" android:resource="@string/asset_statements" />
-            <activity
-              android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
-              android:label="Touchline Manager"
-              android:exported="true">
-              <meta-data android:name="android.support.customapps.trusted.DEFAULT_URL" android:value="https://preview-z.space-z.ai/" />
-              <meta-data android:name="android.support.customapps.trusted.STATUS_BAR_COLOR" android:resource="@color/colorPrimary" />
-              <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-              </intent-filter>
-            </activity>
-          </application>
-        </manifest>' > app/src/main/AndroidManifest.xml
+        cat > app/src/main/AndroidManifest.xml << 'G'
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <application
+                android:label="Touchline Manager"
+                android:icon="@mipmap/ic_launcher"
+                android:theme="@android:style/Theme.Translucent.NoTitleBar"
+                android:allowBackup="true">
+                <meta-data android:name="asset_statements" android:resource="@string/asset_statements" />
+                <activity
+                    android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
+                    android:label="Touchline Manager"
+                    android:exported="true">
+                    <meta-data android:name="android.support.customapps.trusted.DEFAULT_URL" android:value="https://preview-z.space-z.ai/" />
+                    <meta-data android:name="android.support.customapps.trusted.STATUS_BAR_COLOR" android:resource="@color/colorPrimary" />
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN" />
+                        <category android:name="android.intent.category.LAUNCHER" />
+                    </intent-filter>
+                </activity>
+            </application>
+        </manifest>
+        G
         
-        echo '<resources>
-          <string name="app_name">Touchline Manager</string>
-          <string name="asset_statements">[{\&quot;relation\&quot;:[\&quot;delegate_permission/common.handle_all_urls\&quot;],\&quot;target\&quot;:{\&quot;namespace\&quot;:\&quot;web\&quot;,\&quot;site\&quot;:\&quot;https://preview-z.space-z.ai/\&quot;}}]</string>
-        </resources>' > app/src/main/res/values/strings.xml
+        cat > app/src/main/res/values/strings.xml << 'G'
+        <resources>
+            <string name="app_name">Touchline Manager</string>
+            <string name="asset_statements">[{\&quot;relation\&quot;:[\&quot;delegate_permission/common.handle_all_urls\&quot;],\&quot;target\&quot;:{\&quot;namespace\&quot;:\&quot;web\&quot;,\&quot;site\&quot;:\&quot;https://preview-z.space-z.ai/\&quot;}}]</string>
+        </resources>
+        G
         
-        echo '<resources>
-          <color name="colorPrimary">#1a3a2a</color>
-        </resources>' > app/src/main/res/values/colors.xml
+        cat > app/src/main/res/values/colors.xml << 'G'
+        <resources>
+            <color name="colorPrimary">#1a3a2a</color>
+        </resources>
+        G
         
-        echo '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-          <background android:drawable="@color/colorPrimary"/>
-          <foreground android:drawable="@color/colorPrimary"/>
-        </adaptive-icon>' > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+        cat > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml << 'G'
+        <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+            <background android:drawable="@color/colorPrimary"/>
+            <foreground android:drawable="@color/colorPrimary"/>
+        </adaptive-icon>
+        G
         
-        # Doğru PNG ikonlar oluştur — Python ile
+        # Python ile PNG ikonlar
         python3 -c "
         from PIL import Image
-        sizes = {'mdpi':48, 'hdpi':72, 'xhdpi':96, 'xxhdpi':144, 'xxxhdpi':192}
-        for density, size in sizes.items():
-            img = Image.new('RGBA', (size, size), (26, 58, 42, 255))
-            img.save(f'app/src/main/res/mipmap-{density}/ic_launcher.png')
-        print('Icons created')
+        img = Image.new('RGBA', (72, 72), (26, 58, 42, 255))
+        img.save('app/src/main/res/mipmap-hdpi/ic_launcher.png')
         "
         
-        # Gradle wrapper
-        gradle wrapper --gradle-version 8.7 --no-daemon 2>&1 || true
-        
-    - name: Build APK
+        echo "=== Files ==="
+        find . -type f | sort
+    
+    - name: Build APK with Gradle
       run: |
         cd android-app
-        ./gradlew assembleRelease --no-daemon --no-build-cache 2>&1
+        /tmp/gradle-8.7/bin/gradle assembleRelease --no-daemon --no-build-cache 2>&1
+        echo "=== APK ==="
         find . -name "*.apk" -type f
-        
+        ls -la app/build/outputs/apk/release/ 2>/dev/null || echo "No APK dir"
+    
     - uses: actions/upload-artifact@v4
       if: success()
       with:
@@ -143,10 +162,10 @@ jobs:
         path: android-app/app/build/outputs/apk/release/*.apk
         if-no-files-found: warn
         retention-days: 30
-        
+    
     - uses: actions/upload-artifact@v4
       if: failure()
       with:
-        name: build-output
+        name: build-fail
         path: android-app/
         retention-days: 7
