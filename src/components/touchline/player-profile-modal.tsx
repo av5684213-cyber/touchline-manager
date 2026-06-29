@@ -5,6 +5,7 @@ import { X, User, Upload, ArrowLeftRight, Banknote } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { POSITION_GROUP, type Player, type SeasonStat } from "@/lib/mock/data";
 import { TIER_TEAM_NAMES, TEAM_NAME_BANK } from "@/lib/match/engine/constants";
+import { SEASON_INFO } from "@/lib/mock/season";
 
 // Oyun içi takım havuzu — Supabase'den gelen oyuncular için fallback
 const FALLBACK_CLUBS: string[] = Array.from(new Set([
@@ -306,6 +307,9 @@ function OverviewTab({
         <StatTile label="Değer" value={formatEuro(player.marketValue, locale)} small />
       </div>
 
+      {/* Güncel sezon kartı — sezon istatistikleri + gol türü dağılımı */}
+      <CurrentSeasonCard player={player} locale={locale} />
+
       {/* Gelişim grafiği — son maç rating'leri */}
       {player.match_ratings && player.match_ratings.length > 0 && (
         <div className="pt-2 border-t border-border">
@@ -547,6 +551,147 @@ function CareerStat({ label, value, color }: { label: string; value: number; col
     <div className="bg-muted/30 rounded px-1 py-1 text-center">
       <div className={cn("text-sm font-bold tabular-nums leading-none", color)}>{value}</div>
       <div className="text-[8px] text-muted-foreground uppercase mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+// Güncel sezon için gol türü breakdown — oyuncunun foot + heading'ine göre deterministik
+function computeGoalBreakdown(player: Player): {
+  right: number; left: number; head: number; penalty: number; freekick: number;
+} {
+  const goals = player.goals ?? 0;
+  if (goals === 0) return { right: 0, left: 0, head: 0, penalty: 0, freekick: 0 };
+
+  const foot = player.foot ?? "Right";
+  const heading = player.heading ?? 50;
+  const pos = player.specificPosition;
+  const isAtt = pos.startsWith("ST") || pos === "CF" || pos.startsWith("W");
+  const isMid = pos.startsWith("CM") || pos.startsWith("AM") || pos.startsWith("DM");
+
+  // Ağırlıklar (generateSeasonHistory ile aynı mantık)
+  let wRight = 0.55, wLeft = 0.20, wHead = 0.25;
+  if (foot === "Left") { wRight = 0.20; wLeft = 0.55; }
+  else if (foot === "Both") { wRight = 0.40; wLeft = 0.35; }
+  const headBoost = Math.max(0, (heading - 50) / 200);
+  wHead = Math.max(0.05, Math.min(0.45, wHead + headBoost));
+  const wSum = wRight + wLeft + wHead;
+  wRight /= wSum; wLeft /= wSum; wHead /= wSum;
+
+  const penaltyRate = isAtt ? 0.18 : isMid ? 0.10 : 0.04;
+  const freekickRate = isMid ? 0.08 : isAtt ? 0.05 : 0.02;
+
+  // Deterministik: oyuncu ID'sine göre sabit seed
+  const seed = player.id.split("").reduce((s, c) => s + c.charCodeAt(0), 0);
+  const rand = (i: number) => {
+    const x = Math.sin(seed * 31 + i * 17) * 10000;
+    return x - Math.floor(x);
+  };
+
+  let goalsPenalty = Math.round(goals * penaltyRate * (0.5 + rand(1)));
+  let goalsFreekick = Math.round(goals * freekickRate * (0.3 + rand(2)));
+  const setPieces = Math.min(goalsPenalty + goalsFreekick, goals);
+  goalsPenalty = Math.min(goalsPenalty, setPieces);
+  goalsFreekick = setPieces - goalsPenalty;
+  const openGoals = goals - setPieces;
+  let goalsRight = Math.round(openGoals * wRight);
+  let goalsLeft = Math.round(openGoals * wLeft);
+  let goalsHead = openGoals - goalsRight - goalsLeft;
+  if (goalsHead < 0) { goalsRight += goalsHead; goalsHead = 0; }
+  const drift = goals - (goalsRight + goalsLeft + goalsHead + goalsPenalty + goalsFreekick);
+  if (drift !== 0) goalsRight += drift;
+  if (goalsRight < 0) { goalsLeft += goalsRight; goalsRight = 0; }
+  if (goalsLeft < 0) { goalsHead += goalsLeft; goalsLeft = 0; }
+
+  return {
+    right: Math.max(0, goalsRight),
+    left: Math.max(0, goalsLeft),
+    head: Math.max(0, goalsHead),
+    penalty: goalsPenalty,
+    freekick: goalsFreekick,
+  };
+}
+
+// Güncel sezon kartı — sezon istatistikleri + gol türü dağılımı
+function CurrentSeasonCard({ player, locale }: { player: Player; locale: "tr" | "en" }) {
+  const isGK = player.specificPosition === "GK";
+  const goals = player.goals ?? 0;
+  const breakdown = computeGoalBreakdown(player);
+  const hasGoals = !isGK && goals > 0;
+
+  // Dakika tahmini (maç sayısı × ortalama 75 dk)
+  const minutes = (player.appearances ?? 0) * 75;
+  // Sarı/kırmızı kart canlı veri yok — 0 göster
+  const yellow = 0;
+  const red = 0;
+
+  const segments = [
+    { label: "Sağ", value: breakdown.right, color: "bg-sky-500", text: "text-sky-400" },
+    { label: "Sol", value: breakdown.left, color: "bg-amber-500", text: "text-amber-400" },
+    { label: "Kafa", value: breakdown.head, color: "bg-purple-500", text: "text-purple-400" },
+    { label: "Pen", value: breakdown.penalty, color: "bg-emerald-500", text: "text-emerald-400" },
+    { label: "Ser", value: breakdown.freekick, color: "bg-red-500", text: "text-red-400" },
+  ];
+
+  return (
+    <div className="tm-card p-2.5 space-y-2">
+      {/* Başlık */}
+      <div className="flex items-center justify-between">
+        <div className="text-[9px] text-muted-foreground uppercase tracking-wide font-bold">Güncel Sezon</div>
+        <div className="text-[9px] text-muted-foreground tabular-nums">
+          {SEASON_INFO.year} · {SEASON_INFO.matchday}. {locale === "tr" ? "Hafta" : "GW"}
+        </div>
+      </div>
+
+      {/* Sezon istatistikleri — kompakt */}
+      <div className="grid grid-cols-6 gap-1">
+        <SeasonStatMini label="Maç" value={player.appearances ?? 0} color="text-sky-400" />
+        <SeasonStatMini label="Gol" value={goals} color="text-emerald-400" />
+        <SeasonStatMini label="Asist" value={player.assists ?? 0} color="text-amber-400" />
+        <SeasonStatMini label="Dk" value={minutes} color="text-purple-400" />
+        <SeasonStatMini label="Sarı" value={yellow} color="text-yellow-400" />
+        <SeasonStatMini label="Krm" value={red} color="text-red-400" />
+      </div>
+
+      {/* Gol türü dağılımı — sadece gol atan saha oyuncuları */}
+      {hasGoals && (
+        <div className="pt-1.5 border-t border-border">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[8px] text-muted-foreground uppercase font-bold">Gol Dağılımı</span>
+            <span className="text-[9px] font-bold text-emerald-400 tabular-nums">{goals} gol</span>
+          </div>
+          {/* Stacked bar */}
+          <div className="flex h-2 rounded-full overflow-hidden bg-muted mb-1.5">
+            {segments.map((seg) => seg.value > 0 && (
+              <div
+                key={seg.label}
+                className={cn(seg.color, "transition-all")}
+                style={{ width: `${(seg.value / goals) * 100}%` }}
+              />
+            ))}
+          </div>
+          {/* Legend */}
+          <div className="grid grid-cols-5 gap-0.5">
+            {segments.map((seg) => (
+              <div key={seg.label} className="text-center">
+                <div className="flex items-center justify-center gap-0.5 mb-0.5">
+                  <span className={cn("w-1 h-1 rounded-full", seg.color)} />
+                </div>
+                <div className={cn("text-[9px] font-bold tabular-nums leading-none", seg.text)}>{seg.value}</div>
+                <div className="text-[6px] text-muted-foreground uppercase leading-none mt-0.5">{seg.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SeasonStatMini({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className="bg-muted/30 rounded px-0.5 py-1 text-center">
+      <div className={cn("text-[11px] font-bold tabular-nums leading-none", color)}>{value}</div>
+      <div className="text-[7px] text-muted-foreground uppercase leading-none mt-0.5">{label}</div>
     </div>
   );
 }
