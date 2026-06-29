@@ -1247,7 +1247,6 @@ function StatRadar({ player, compact = false }: { player: Player; compact?: bool
   });
   const polygon = points.map((p) => `${p.x},${p.y}`).join(" ");
   const rings = [25, 50, 75, 100];
-  const avg = Math.round(points.reduce((s, p) => s + p.value, 0) / n);
   return (
     <div className="relative flex flex-col items-center">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="overflow-visible">
@@ -1258,10 +1257,6 @@ function StatRadar({ player, compact = false }: { player: Player; compact?: bool
         {points.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={2} fill="#10b981" stroke="#fff" strokeWidth={0.8} />)}
         {points.map((p, i) => <text key={i} x={p.lx} y={p.ly} textAnchor="middle" dominantBaseline="middle" className="fill-current text-muted-foreground" style={{ fontSize, fontWeight: 600 }}>{p.label}</text>)}
       </svg>
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none">
-        <span className="text-[6px] text-muted-foreground uppercase">OVR</span>
-        <span className="text-xs font-bold text-amber-300 tabular-nums leading-none">{avg}</span>
-      </div>
     </div>
   );
 }
