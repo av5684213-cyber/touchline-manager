@@ -9,23 +9,30 @@ import { useEffect } from "react";
  * fixed bottom nav'ın klavyenin üstüne binmesini önler).
  * Blur olduğunda eski haline getirir.
  *
- * Kullanım:
- *   const { onInputFocus, onInputBlur } = useKeyboardScrollLock();
- *   <input onFocus={onInputFocus} onBlur={onInputBlur} ... />
- *
- * Veya hook'u otomatik uygulamak için:
- *   useKeyboardScrollLock(); // sayfa genelinde tüm inputlara uygular
+ * Event delegation kullanır — document seviyesinde tek listener,
+ * tüm mevcut ve gelecek inputları otomatik yakalar (tab değişse bile).
  */
 export function useKeyboardScrollLock() {
   useEffect(() => {
-    // Tüm input/textarea/select'lere otomatik focus/blur handler ekle
-    const handleFocus = () => {
+    if (typeof window === "undefined") return;
+
+    const handleFocusIn = () => {
+      const target = document.activeElement;
+      if (!target) return;
+      const tag = (target.tagName || "").toLowerCase();
+      if (tag !== "input" && tag !== "textarea" && tag !== "select") return;
+      // Sadece iOS'ta veya küçük ekranlarda uygula (klavye açılan cihazlar)
+      if (window.innerWidth > 768) return;
       document.body.style.overflow = "hidden";
       document.body.style.position = "fixed";
       document.body.style.width = "100%";
       document.body.style.top = `-${window.scrollY}px`;
     };
-    const handleBlur = () => {
+    const handleFocusOut = (e: FocusEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const tag = (target.tagName || "").toLowerCase();
+      if (tag !== "input" && tag !== "textarea" && tag !== "select") return;
       const scrollY = document.body.style.top;
       document.body.style.overflow = "";
       document.body.style.position = "";
@@ -36,18 +43,12 @@ export function useKeyboardScrollLock() {
       }
     };
 
-    // iOS'ta klavye açıldığında focus event'ini yakala
-    const inputs = document.querySelectorAll("input, textarea, select");
-    inputs.forEach((el) => {
-      el.addEventListener("focus", handleFocus);
-      el.addEventListener("blur", handleBlur);
-    });
-
+    // Event delegation: focus bubbles, document seviyesinde yakala
+    document.addEventListener("focusin", handleFocusIn);
+    document.addEventListener("focusout", handleFocusOut);
     return () => {
-      inputs.forEach((el) => {
-        el.removeEventListener("focus", handleFocus);
-        el.removeEventListener("blur", handleBlur);
-      });
+      document.removeEventListener("focusin", handleFocusIn);
+      document.removeEventListener("focusout", handleFocusOut);
     };
   }, []);
 }

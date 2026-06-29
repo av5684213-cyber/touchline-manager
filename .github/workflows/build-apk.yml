@@ -24,8 +24,11 @@ jobs:
     - name: Build Next.js Static Export
       run: |
         npm install
-        sed -i 's/output: "standalone"/output: "export"/' next.config.ts
-        sed -i 's/output: "standalone",/output: "export",/' next.config.ts
+        # next.config.ts'e output: "export" ekle (yoksa)
+        if ! grep -q 'output:' next.config.ts; then
+          sed -i 's/const nextConfig: NextConfig = {/const nextConfig: NextConfig = {\n  output: "export",/' next.config.ts
+        fi
+        # API route'ları kaldır (static export desteklemiyor)
         rm -rf src/app/api src/app/download
         grep output next.config.ts
         npx next build

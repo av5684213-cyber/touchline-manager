@@ -112,7 +112,7 @@ export function DashboardScreen() {
   if (!team || !myStat) return null;
 
   const teamQuality = Math.round(
-    team.players.sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11
+    [...team.players].sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11
   );
   const goalsScored = recent.reduce(
     (s, f) =>
