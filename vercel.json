@@ -1,0 +1,16 @@
+{
+  "crons": [
+    { "path": "/api/cron/match-scheduler",      "schedule": "0,30 9,15 * * 1-5" },
+    { "path": "/api/cron/match-tick",            "schedule": "*/2 9-19 * * 1-5" },
+    { "path": "/api/cron/match-simulator",       "schedule": "*/2 9-19 * * 1-5" },
+    { "path": "/api/cron/apply-training",        "schedule": "30 11,17 * * 1-5" },
+    { "path": "/api/cron/season-end",            "schedule": "0 18 * * 2" },
+    { "path": "/api/cron/weekly-income",         "schedule": "0 3 * * 1" },
+    { "path": "/api/cron/weekly-evolution",      "schedule": "0 19 * * 0" },
+    { "path": "/api/cron/bot-actions",           "schedule": "0 4 * * *" },
+    { "path": "/api/cron/daily-tasks",           "schedule": "0 21 * * *" },
+    { "path": "/api/cron/update-player-values",  "schedule": "0 23 * * *" },
+    { "path": "/api/cron/generate-regens",       "schedule": "0 20 * * 2" },
+    { "path": "/api/cron/auction-cleanup",       "schedule": "*/15 * * * *" }
+  ]
+}

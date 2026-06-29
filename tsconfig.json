@@ -39,6 +39,9 @@
   "exclude": [
     "node_modules",
     "_ref",
-    "tool-results"
+    "tool-results",
+    "examples",
+    "skills",
+    "scripts"
   ]
 }
