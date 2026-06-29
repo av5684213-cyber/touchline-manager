@@ -412,26 +412,26 @@ function StatsTab({
 
       {/* Sezon sezon listesi — kompakt tek satır */}
       <div className="space-y-0.5">
-        {/* Başlık satırı */}
-        <div className="flex items-center gap-1 text-[7px] uppercase text-muted-foreground font-bold px-1.5">
-          <span className="shrink-0 w-10">Sezon</span>
-          <span className="shrink-0 w-5 text-center">Lig</span>
+        {/* Başlık satırı — sola yaslı, sıkışık */}
+        <div className="flex items-center gap-0.5 text-[7px] uppercase text-muted-foreground font-bold px-1">
+          <span className="shrink-0 w-9">Sezon</span>
+          <span className="shrink-0 w-4 text-center">L</span>
           <span className="flex-1 min-w-0">Kulüp</span>
-          <span className="shrink-0 w-5 text-right">M</span>
+          <span className="shrink-0 w-4 text-right">M</span>
           {!isGK ? (
             <>
-              <span className="shrink-0 w-5 text-right">G</span>
-              <span className="shrink-0 w-5 text-right">A</span>
+              <span className="shrink-0 w-4 text-right">G</span>
+              <span className="shrink-0 w-4 text-right">A</span>
             </>
           ) : (
             <>
-              <span className="shrink-0 w-8 text-right">Dk</span>
-              <span className="shrink-0 w-5 text-right">Krt</span>
+              <span className="shrink-0 w-7 text-right">Dk</span>
+              <span className="shrink-0 w-4 text-right">Kr</span>
             </>
           )}
-          <span className="shrink-0 w-4 text-right">S</span>
-          <span className="shrink-0 w-4 text-right">K</span>
-          <span className="shrink-0 w-7 text-right">Puan</span>
+          <span className="shrink-0 w-3 text-right">S</span>
+          <span className="shrink-0 w-3 text-right">K</span>
+          <span className="shrink-0 w-6 text-right">Puan</span>
         </div>
         {history.map((s, idx) => (
           <SeasonRow key={`${s.season}-${idx}`} season={s} isGK={isGK} />
@@ -515,29 +515,29 @@ function SeasonRow({ season, isGK }: { season: SeasonStat; isGK: boolean }) {
 
   // Tek satır — kompakt
   return (
-    <div className="tm-card px-1.5 py-1 flex items-center gap-1 text-[9px]">
+    <div className="tm-card px-1 py-1 flex items-center gap-0.5 text-[9px]">
       {/* Sezon */}
-      <span className="font-bold tabular-nums shrink-0 w-10">{season.season}</span>
+      <span className="font-bold tabular-nums shrink-0 w-9">{season.season}</span>
       {/* Lig kodu */}
-      <span className={cn("font-bold shrink-0 w-5 text-center", tierColor)}>{tierLabel}</span>
+      <span className={cn("font-bold shrink-0 w-4 text-center", tierColor)}>{tierLabel}</span>
       {/* Kulüp — esnek genişlik */}
       <span className="text-muted-foreground truncate flex-1 min-w-0">{season.club}</span>
       {/* Stats — sabit genişlik */}
-      <span className="text-sky-400 font-bold tabular-nums shrink-0 w-5 text-right">{season.appearances}</span>
+      <span className="text-sky-400 font-bold tabular-nums shrink-0 w-4 text-right">{season.appearances}</span>
       {!isGK ? (
         <>
-          <span className="text-emerald-400 font-bold tabular-nums shrink-0 w-5 text-right">{season.goals}</span>
-          <span className="text-amber-400 font-bold tabular-nums shrink-0 w-5 text-right">{season.assists}</span>
+          <span className="text-emerald-400 font-bold tabular-nums shrink-0 w-4 text-right">{season.goals}</span>
+          <span className="text-amber-400 font-bold tabular-nums shrink-0 w-4 text-right">{season.assists}</span>
         </>
       ) : (
         <>
-          <span className="text-purple-400 font-bold tabular-nums shrink-0 w-8 text-right">{season.minutesPlayed}</span>
-          <span className="text-orange-400 font-bold tabular-nums shrink-0 w-5 text-right">{season.yellowCards + season.redCards}</span>
+          <span className="text-purple-400 font-bold tabular-nums shrink-0 w-7 text-right">{season.minutesPlayed}</span>
+          <span className="text-orange-400 font-bold tabular-nums shrink-0 w-4 text-right">{season.yellowCards + season.redCards}</span>
         </>
       )}
-      <span className="text-yellow-400 font-bold tabular-nums shrink-0 w-4 text-right">{season.yellowCards}</span>
-      <span className="text-red-400 font-bold tabular-nums shrink-0 w-4 text-right">{season.redCards}</span>
-      <span className={cn("font-bold tabular-nums shrink-0 w-7 text-right", ratingColor)}>{season.avgRating.toFixed(1)}</span>
+      <span className="text-yellow-400 font-bold tabular-nums shrink-0 w-3 text-right">{season.yellowCards}</span>
+      <span className="text-red-400 font-bold tabular-nums shrink-0 w-3 text-right">{season.redCards}</span>
+      <span className={cn("font-bold tabular-nums shrink-0 w-6 text-right", ratingColor)}>{season.avgRating.toFixed(1)}</span>
     </div>
   );
 }
