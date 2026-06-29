@@ -24,7 +24,12 @@ jobs:
     - name: Build Next.js Static Export
       run: |
         npm install
+        sed -i 's/output: "standalone"/output: "export"/' next.config.ts
+        sed -i 's/output: "standalone",/output: "export",/' next.config.ts
+        grep output next.config.ts
         npx next build
+        ls -la out/
+        find out -type f | head -10
       env:
         NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
