@@ -31,118 +31,114 @@ jobs:
         mkdir -p $DIR/res/values
         mkdir -p $DIR/res/mipmap-anydpi-v26
         mkdir -p $DIR/res/mipmap-hdpi
+        mkdir -p $DIR/res/mipmap-mdpi
+        mkdir -p $DIR/res/mipmap-xhdpi
         
-        cat > android-app/settings.gradle << 'EOF'
-        pluginManagement {
-            repositories {
-                google()
-                mavenCentral()
-                gradlePluginPortal()
-            }
-        }
-        dependencyResolutionManagement {
-            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-            repositories {
-                google()
-                mavenCentral()
-            }
-        }
-        rootProject.name = "TouchlineManager"
-        include ':app'
-        EOF
+        printf '%s\n' \
+          'pluginManagement {' \
+          '    repositories {' \
+          '        google()' \
+          '        mavenCentral()' \
+          '        gradlePluginPortal()' \
+          '    }' \
+          '}' \
+          'dependencyResolutionManagement {' \
+          '    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)' \
+          '    repositories {' \
+          '        google()' \
+          '        mavenCentral()' \
+          '    }' \
+          '}' \
+          'rootProject.name = "TouchlineManager"' \
+          'include ":app"' > android-app/settings.gradle
         
-        cat > android-app/build.gradle << 'EOF'
-        plugins {
-            id 'com.android.application' version '8.2.0' apply false
-        }
-        EOF
+        printf '%s\n' \
+          'plugins {' \
+          '    id "com.android.application" version "8.2.0" apply false' \
+          '}' > android-app/build.gradle
         
-        cat > android-app/app/build.gradle << 'EOF'
-        plugins {
-            id 'com.android.application'
-        }
-        android {
-            namespace 'com.touchline.manager'
-            compileSdk 34
-            defaultConfig {
-                applicationId 'com.touchline.manager'
-                minSdk 24
-                targetSdk 34
-                versionCode 1
-                versionName '1.0.0'
-            }
-            buildTypes {
-                release {
-                    minifyEnabled false
-                    signingConfig signingConfigs.debug
-                }
-            }
-        }
-        dependencies {
-            implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
-        }
-        EOF
+        printf '%s\n' \
+          'plugins {' \
+          '    id "com.android.application"' \
+          '}' \
+          'android {' \
+          '    namespace "com.touchline.manager"' \
+          '    compileSdk 34' \
+          '    defaultConfig {' \
+          '        applicationId "com.touchline.manager"' \
+          '        minSdk 24' \
+          '        targetSdk 34' \
+          '        versionCode 1' \
+          '        versionName "1.0.0"' \
+          '    }' \
+          '    buildTypes {' \
+          '        release {' \
+          '            minifyEnabled false' \
+          '            signingConfig signingConfigs.debug' \
+          '        }' \
+          '    }' \
+          '}' \
+          'dependencies {' \
+          "    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'" \
+          '}' > android-app/app/build.gradle
         
-        cat > android-app/gradle.properties << 'EOF'
-        android.useAndroidX=true
-        org.gradle.jvmargs=-Xmx2048m
-        org.gradle.daemon=false
-        EOF
+        printf '%s\n' \
+          'android.useAndroidX=true' \
+          'org.gradle.jvmargs=-Xmx2048m' \
+          'org.gradle.daemon=false' > android-app/gradle.properties
         
-        cat > $DIR/AndroidManifest.xml << 'EOF'
-        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <application
-                android:label="Touchline Manager"
-                android:icon="@mipmap/ic_launcher"
-                android:theme="@android:style/Theme.Translucent.NoTitleBar"
-                android:allowBackup="true">
-                <meta-data android:name="asset_statements" android:resource="@string/asset_statements" />
-                <activity
-                    android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
-                    android:label="Touchline Manager"
-                    android:exported="true">
-                    <meta-data android:name="android.support.customapps.trusted.DEFAULT_URL" android:value="https://preview-z.space-z.ai/" />
-                    <meta-data android:name="android.support.customapps.trusted.STATUS_BAR_COLOR" android:resource="@color/colorPrimary" />
-                    <intent-filter>
-                        <action android:name="android.intent.action.MAIN" />
-                        <category android:name="android.intent.category.LAUNCHER" />
-                    </intent-filter>
-                </activity>
-            </application>
-        </manifest>
-        EOF
+        printf '%s\n' \
+          '<manifest xmlns:android="http://schemas.android.com/apk/res/android">' \
+          '    <application' \
+          '        android:label="Touchline Manager"' \
+          '        android:icon="@mipmap/ic_launcher"' \
+          '        android:theme="@android:style/Theme.Translucent.NoTitleBar"' \
+          '        android:allowBackup="true">' \
+          '        <activity' \
+          '            android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"' \
+          '            android:label="Touchline Manager"' \
+          '            android:exported="true">' \
+          '            <meta-data android:name="android.support.customapps.trusted.DEFAULT_URL" android:value="https://preview-z.space-z.ai/" />' \
+          '            <meta-data android:name="android.support.customapps.trusted.STATUS_BAR_COLOR" android:resource="@color/colorPrimary" />' \
+          '            <intent-filter>' \
+          '                <action android:name="android.intent.action.MAIN" />' \
+          '                <category android:name="android.intent.category.LAUNCHER" />' \
+          '            </intent-filter>' \
+          '        </activity>' \
+          '    </application>' \
+          '</manifest>' > $DIR/AndroidManifest.xml
         
-        cat > $DIR/res/values/strings.xml << 'EOF'
-        <resources>
-            <string name="app_name">Touchline Manager</string>
-            <string name="asset_statements">[{\&quot;relation\&quot;:[\&quot;delegate_permission/common.handle_all_urls\&quot;],\&quot;target\&quot;:{\&quot;namespace\&quot;:\&quot;web\&quot;,\&quot;site\&quot;:\&quot;https://preview-z.space-z.ai/\&quot;}}]</string>
-        </resources>
-        EOF
+        printf '%s\n' \
+          '<resources>' \
+          '    <string name="app_name">Touchline Manager</string>' \
+          '    <string name="asset_statements">https://preview-z.space-z.ai/.well-known/assetlinks.json</string>' \
+          '</resources>' > $DIR/res/values/strings.xml
         
-        cat > $DIR/res/values/colors.xml << 'EOF'
-        <resources>
-            <color name="colorPrimary">#1a3a2a</color>
-        </resources>
-        EOF
+        printf '%s\n' \
+          '<resources>' \
+          '    <color name="colorPrimary">#1a3a2a</color>' \
+          '</resources>' > $DIR/res/values/colors.xml
         
-        cat > $DIR/res/mipmap-anydpi-v26/ic_launcher.xml << 'EOF'
-        <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-            <background android:drawable="@color/colorPrimary"/>
-            <foreground android:drawable="@color/colorPrimary"/>
-        </adaptive-icon>
-        EOF
+        printf '%s\n' \
+          '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">' \
+          '    <background android:drawable="@color/colorPrimary"/>' \
+          '    <foreground android:drawable="@color/colorPrimary"/>' \
+          '</adaptive-icon>' > $DIR/res/mipmap-anydpi-v26/ic_launcher.xml
         
-        # PNG ikon — base64 decode ile
-        echo "iVBORw0KGgoAAAANSUhEUgAAAEgAAABICAYAAABV7bNHAAAAQElEQVR4nO3BAQEAAACCIP+vbkhAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOBmHA0AAdmDj5IAAAAASUVORK5CYII=" | base64 -d > $DIR/res/mipmap-hdpi/ic_launcher.png
+        # Base64 PNG ikon (geçerli 64x64 yeşil)
+        echo "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAC0lEQVR4nO3BAQ0AAADCoPdPbQ43oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOA1N2AAAdmDj5IAAAAASUVORK5CYII=" | base64 -d > $DIR/res/mipmap-mdpi/ic_launcher.png
+        echo "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAC0lEQVR4nO3BAQ0AAADCoPdPbQ43oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOA1N2AAAdmDj5IAAAAASUVORK5CYII=" | base64 -d > $DIR/res/mipmap-hdpi/ic_launcher.png
+        echo "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAC0lEQVR4nO3BAQ0AAADCoPdPbQ43oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOA1N2AAAdmDj5IAAAAASUVORK5CYII=" | base64 -d > $DIR/res/mipmap-xhdpi/ic_launcher.png
         
-        echo "FILES:"
+        echo "=== FILES ==="
         find android-app -type f | sort
 
     - name: Build APK
       run: |
         cd android-app
-        /tmp/gradle-8.7/bin/gradle assembleRelease --no-daemon --no-build-cache 2>&1
-        find . -name "*.apk"
+        /tmp/gradle-8.7/bin/gradle assembleRelease --no-daemon --no-build-cache --stacktrace 2>&1
+        echo "=== APK ==="
+        find . -name "*.apk" -type f
 
     - uses: actions/upload-artifact@v4
       if: success()
