@@ -158,90 +158,91 @@ export function StandingsScreen() {
         )}
       </div>
 
-      {/* Standings / Power ranking table */}
+      {/* Standings / Power ranking table — yatay kaydırmada # ve Takım sabit */}
       <div className="tm-card overflow-hidden">
-        {/* Header row */}
-        <div className="grid grid-cols-[24px_1fr_22px_22px_22px_22px_24px_28px_22px_22px] gap-1 px-2 py-2 text-[9px] font-bold uppercase text-muted-foreground border-b border-border bg-muted/30">
-          <div className="text-center">{t("standings.col.pos")}</div>
-          <div>{t("standings.col.team")}</div>
-          <div className="text-center">{t("standings.col.played")}</div>
-          <div className="text-center">{t("standings.col.won")}</div>
-          <div className="text-center">{t("standings.col.drawn")}</div>
-          <div className="text-center">{t("standings.col.lost")}</div>
-          <div className="text-center">{t("standings.col.gd")}</div>
-          <div className="text-center font-bold text-foreground">{t("standings.col.points")}</div>
-          <div className="text-center" style={{ gridColumn: "span 2" }}>{t("standings.col.form")}</div>
-        </div>
+        <div className="overflow-x-auto tm-thin-scrollbar">
+          {/* Header row */}
+          <div className="grid grid-cols-[24px_1fr_22px_22px_22px_22px_24px_28px_22px_22px] gap-1 px-2 py-2 text-[9px] font-bold uppercase text-muted-foreground border-b border-border bg-muted/30 min-w-[360px]">
+            <div className="text-center sticky left-0 bg-muted/30 z-10">{t("standings.col.pos")}</div>
+            <div className="sticky left-[26px] bg-muted/30 z-10">{t("standings.col.team")}</div>
+            <div className="text-center">{t("standings.col.played")}</div>
+            <div className="text-center">{t("standings.col.won")}</div>
+            <div className="text-center">{t("standings.col.drawn")}</div>
+            <div className="text-center">{t("standings.col.lost")}</div>
+            <div className="text-center">{t("standings.col.gd")}</div>
+            <div className="text-center font-bold text-foreground">{t("standings.col.points")}</div>
+            <div className="text-center" style={{ gridColumn: "span 2" }}>{t("standings.col.form")}</div>
+          </div>
 
-        {/* Rows */}
-        <div className="overflow-y-auto tm-thin-scrollbar max-h-[55vh]">
-          {isMyLeague ? (
-            /* Gerçek puan durumu — kullanıcının ligi */
-            standings.map((row, idx) => {
-              const isMe = row.teamId === team?.id;
-              const zone = getZone(idx);
-              const gd = row.goalsFor - row.goalsAgainst;
-              const teamData = leagueClubs.find((c) => c.id === row.teamId);
-              return (
-                <button
-                  key={row.teamId}
-                  onClick={() => {
-                    haptic("light");
-                    if (teamData) setSelectedTeam(teamData);
-                  }}
-                  className={cn(
-                    "grid grid-cols-[24px_1fr_22px_22px_22px_22px_24px_28px_22px_22px] gap-1 px-2 py-2 text-xs items-center border-l-2 border-b border-border/40 last:border-b-0 w-full text-left hover:bg-accent/50 transition-colors",
-                    ZONE_COLORS[zone],
-                    isMe && "bg-primary/5"
-                  )}
-                >
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10px] font-bold tabular-nums w-4 text-center">{idx + 1}</span>
-                    <span className={cn("w-1 h-3 rounded-full shrink-0", ZONE_DOT[zone])} />
-                  </div>
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <ClubBadge short={row.shortName} primaryColor={row.primaryColor} size={18} />
-                    <span className={cn("truncate text-[11px]", isMe ? "font-bold text-primary" : "font-medium")}>
-                      {row.teamName}
-                    </span>
-                    {isMe && (
-                      <span className="text-[8px] px-1 py-0.5 rounded bg-primary text-primary-foreground font-bold shrink-0">
-                        {t("standings.you")}
+          {/* Rows */}
+          <div className="overflow-y-auto tm-thin-scrollbar max-h-[55vh]">
+            {isMyLeague ? (
+              /* Gerçek puan durumu — kullanıcının ligi */
+              standings.map((row, idx) => {
+                const isMe = row.teamId === team?.id;
+                const zone = getZone(idx);
+                const gd = row.goalsFor - row.goalsAgainst;
+                const teamData = leagueClubs.find((c) => c.id === row.teamId);
+                return (
+                  <button
+                    key={row.teamId}
+                    onClick={() => {
+                      haptic("light");
+                      if (teamData) setSelectedTeam(teamData);
+                    }}
+                    className={cn(
+                      "grid grid-cols-[24px_1fr_22px_22px_22px_22px_24px_28px_22px_22px] gap-1 px-2 py-2 text-xs items-center border-l-2 border-b border-border/40 last:border-b-0 w-full text-left hover:bg-accent/50 transition-colors min-w-[360px]",
+                      ZONE_COLORS[zone],
+                      isMe && "bg-primary/5"
+                    )}
+                  >
+                    <div className="flex items-center gap-1 sticky left-0 bg-background z-10">
+                      <span className="text-[10px] font-bold tabular-nums w-4 text-center">{idx + 1}</span>
+                      <span className={cn("w-1 h-3 rounded-full shrink-0", ZONE_DOT[zone])} />
+                    </div>
+                    <div className="flex items-center gap-1.5 min-w-0 sticky left-[26px] bg-background z-10 pr-2">
+                      <ClubBadge short={row.shortName} primaryColor={row.primaryColor} size={18} />
+                      <span className={cn("truncate text-[11px]", isMe ? "font-bold text-primary" : "font-medium")}>
+                        {row.teamName}
                       </span>
+                      {isMe && (
+                        <span className="text-[8px] px-1 py-0.5 rounded bg-primary text-primary-foreground font-bold shrink-0">
+                          {t("standings.you")}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-center tabular-nums">{row.played}</div>
+                    <div className="text-center tabular-nums text-emerald-700">{row.won}</div>
+                    <div className="text-center tabular-nums text-muted-foreground">{row.drawn}</div>
+                    <div className="text-center tabular-nums text-red-600">{row.lost}</div>
+                    <div className="text-center tabular-nums">{gd > 0 ? `+${gd}` : gd}</div>
+                    <div className="text-center tabular-nums font-bold">{row.points}</div>
+                    <div className="col-span-2 flex items-center justify-center gap-0.5">
+                      {row.form.length === 0 ? (
+                        <span className="text-[9px] text-muted-foreground">—</span>
+                      ) : (
+                        row.form.map((f, i) => <FormDot key={i} result={f} />)
+                      )}
+                    </div>
+                  </button>
+                );
+              })
+            ) : (
+              /* Power ranking — başka liglerin takım güç sıralaması */
+              powerRanking.map((row, idx) => {
+                const teamData = leagueClubs.find((c) => c.id === row.teamId);
+                return (
+                  <button
+                    key={row.teamId}
+                    onClick={() => {
+                      haptic("light");
+                      if (teamData) setSelectedTeam(teamData);
+                    }}
+                    className={cn(
+                      "grid grid-cols-[24px_1fr_22px_22px_22px_22px_24px_28px_22px_22px] gap-1 px-2 py-2 text-xs items-center border-l-2 border-border/40 border-b last:border-b-0 w-full text-left hover:bg-accent/50 transition-colors min-w-[360px]",
+                      "border-l-transparent"
                     )}
-                  </div>
-                  <div className="text-center tabular-nums">{row.played}</div>
-                  <div className="text-center tabular-nums text-emerald-700">{row.won}</div>
-                  <div className="text-center tabular-nums text-muted-foreground">{row.drawn}</div>
-                  <div className="text-center tabular-nums text-red-600">{row.lost}</div>
-                  <div className="text-center tabular-nums">{gd > 0 ? `+${gd}` : gd}</div>
-                  <div className="text-center tabular-nums font-bold">{row.points}</div>
-                  <div className="col-span-2 flex items-center justify-center gap-0.5">
-                    {row.form.length === 0 ? (
-                      <span className="text-[9px] text-muted-foreground">—</span>
-                    ) : (
-                      row.form.map((f, i) => <FormDot key={i} result={f} />)
-                    )}
-                  </div>
-                </button>
-              );
-            })
-          ) : (
-            /* Power ranking — başka liglerin takım güç sıralaması */
-            powerRanking.map((row, idx) => {
-              const teamData = leagueClubs.find((c) => c.id === row.teamId);
-              return (
-                <button
-                  key={row.teamId}
-                  onClick={() => {
-                    haptic("light");
-                    if (teamData) setSelectedTeam(teamData);
-                  }}
-                  className={cn(
-                    "grid grid-cols-[24px_1fr_22px_22px_22px_22px_24px_28px_22px_22px] gap-1 px-2 py-2 text-xs items-center border-l-2 border-border/40 border-b last:border-b-0 w-full text-left hover:bg-accent/50 transition-colors",
-                    "border-l-transparent"
-                  )}
-                >
+                  >
                   <div className="flex items-center gap-1">
                     <span className="text-[10px] font-bold tabular-nums w-4 text-center">{idx + 1}</span>
                   </div>
@@ -262,6 +263,7 @@ export function StandingsScreen() {
               );
             })
           )}
+          </div>
         </div>
       </div>
 

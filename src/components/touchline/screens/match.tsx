@@ -105,8 +105,19 @@ export function MatchScreen() {
   // ===== Scheduler — maçlar TR saatiyle belli saatlerde =====
   const [nowTick, setNowTick] = useState(() => Date.now());
   useEffect(() => {
-    const id = setInterval(() => setNowTick(Date.now()), 1000);
-    return () => clearInterval(id);
+    let id: ReturnType<typeof setInterval>;
+    const start = () => { id = setInterval(() => setNowTick(Date.now()), 1000); };
+    const stop = () => { if (id) clearInterval(id); };
+    const handleVisibility = () => {
+      if (document.hidden) stop();
+      else { setNowTick(Date.now()); start(); }
+    };
+    start();
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, []);
 
   const schedule = useMemo(() => getMatchScheduleStatus(new Date(nowTick)), [nowTick]);

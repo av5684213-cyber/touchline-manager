@@ -27,6 +27,7 @@ import { FriendlyScreen } from "@/components/touchline/screens/friendly";
 import { OtherDrawer } from "@/components/touchline/other-drawer";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useSwipe, useBodyScrollLock } from "@/hooks/touchline";
+import { useKeyboardScrollLock } from "@/hooks/use-keyboard-scroll-lock";
 
 const TAB_ORDER: TabKey[] = [
   "dashboard",
@@ -41,6 +42,7 @@ export default function Home() {
   const [otherOpen, setOtherOpen] = useState(false);
 
   useBodyScrollLock(otherOpen);
+  useKeyboardScrollLock();
 
   const idx = TAB_ORDER.indexOf(tab);
   useSwipe({

@@ -91,14 +91,29 @@ export function FacilitiesScreen() {
   const [ticketInput, setTicketInput] = useState(facilities.ticketPrice);
   const [, force] = useState(0);
 
-  // Aktif inşaat varsa, süre doldu mu kontrol et
+  // Aktif inşaat varsa, süre doldu mu kontrol et — sadece aktif inşaat varken çalışır
+  const hasActiveUpgrade = !!facilities.activeUpgrade;
   useEffect(() => {
-    const id = setInterval(() => {
-      completeUpgradeIfDue();
-      force((n) => n + 1);
-    }, 1000);
-    return () => clearInterval(id);
-  }, [completeUpgradeIfDue]);
+    if (!hasActiveUpgrade) return;
+    let id: ReturnType<typeof setInterval>;
+    const start = () => {
+      id = setInterval(() => {
+        completeUpgradeIfDue();
+        force((n) => n + 1);
+      }, 1000);
+    };
+    const stop = () => { if (id) clearInterval(id); };
+    const handleVisibility = () => {
+      if (document.hidden) stop();
+      else start();
+    };
+    start();
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [completeUpgradeIfDue, hasActiveUpgrade]);
 
   if (!team) return null;
 
