@@ -26,6 +26,10 @@ jobs:
         mkdir -p android-app/app/src/main/res/values
         mkdir -p android-app/app/src/main/res/mipmap-anydpi-v26
         mkdir -p android-app/app/src/main/res/mipmap-hdpi
+        mkdir -p android-app/app/src/main/res/mipmap-mdpi
+        mkdir -p android-app/app/src/main/res/mipmap-xhdpi
+        mkdir -p android-app/app/src/main/res/mipmap-xxhdpi
+        mkdir -p android-app/app/src/main/res/mipmap-xxxhdpi
         cd android-app
         
         echo 'pluginManagement {
@@ -78,8 +82,7 @@ jobs:
         org.gradle.jvmargs=-Xmx2048m
         org.gradle.daemon=false' > gradle.properties
         
-        echo '<?xml version="1.0" encoding="utf-8"?>
-        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+        echo '<manifest xmlns:android="http://schemas.android.com/apk/res/android">
           <application
             android:label="Touchline Manager"
             android:icon="@mipmap/ic_launcher"
@@ -100,36 +103,38 @@ jobs:
           </application>
         </manifest>' > app/src/main/AndroidManifest.xml
         
-        echo '<?xml version="1.0" encoding="utf-8"?>
-        <resources>
+        echo '<resources>
           <string name="app_name">Touchline Manager</string>
           <string name="asset_statements">[{\&quot;relation\&quot;:[\&quot;delegate_permission/common.handle_all_urls\&quot;],\&quot;target\&quot;:{\&quot;namespace\&quot;:\&quot;web\&quot;,\&quot;site\&quot;:\&quot;https://preview-z.space-z.ai/\&quot;}}]</string>
         </resources>' > app/src/main/res/values/strings.xml
         
-        echo '<?xml version="1.0" encoding="utf-8"?>
-        <resources>
+        echo '<resources>
           <color name="colorPrimary">#1a3a2a</color>
         </resources>' > app/src/main/res/values/colors.xml
         
-        echo '<?xml version="1.0" encoding="utf-8"?>
-        <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+        echo '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
           <background android:drawable="@color/colorPrimary"/>
           <foreground android:drawable="@color/colorPrimary"/>
         </adaptive-icon>' > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
         
-        printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\xcf\xc0\x00\x00\x00\x03\x00\x01\x00\x05\xfe\xd4\x00\x00\x00\x00IEND\xaeB\x60\x82' > app/src/main/res/mipmap-hdpi/ic_launcher.png
+        # Doğru PNG ikonlar oluştur — Python ile
+        python3 -c "
+        from PIL import Image
+        sizes = {'mdpi':48, 'hdpi':72, 'xhdpi':96, 'xxhdpi':144, 'xxxhdpi':192}
+        for density, size in sizes.items():
+            img = Image.new('RGBA', (size, size), (26, 58, 42, 255))
+            img.save(f'app/src/main/res/mipmap-{density}/ic_launcher.png')
+        print('Icons created')
+        "
         
-        # Gradle wrapper oluştur
+        # Gradle wrapper
         gradle wrapper --gradle-version 8.7 --no-daemon 2>&1 || true
-        ls -la gradlew 2>/dev/null && echo "gradlew OK" || echo "gradlew YOK"
         
     - name: Build APK
       run: |
         cd android-app
         ./gradlew assembleRelease --no-daemon --no-build-cache 2>&1
-        echo "EXIT: $?"
         find . -name "*.apk" -type f
-        ls -la app/build/outputs/apk/release/ 2>/dev/null || echo "No APK"
         
     - uses: actions/upload-artifact@v4
       if: success()
@@ -143,8 +148,5 @@ jobs:
       if: failure()
       with:
         name: build-output
-        path: |
-          android-app/
-          !android-app/.gradle/
-          !android-app/app/build/
+        path: android-app/
         retention-days: 7
