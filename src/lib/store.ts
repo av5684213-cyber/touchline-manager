@@ -1,7 +1,6 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import {
   FORMATIONS,
   generateAllClubs,
@@ -62,13 +61,41 @@ type Tactics = {
 };
 
 // Transfer state — oyuncu ID'leri string olarak saklanır
+export type MessageItem = {
+  id: string;
+  kind: "transfer_accepted" | "transfer_rejected" | "transfer_negotiated"
+    | "transfer_offer_incoming" | "transfer_offer_response" | "loan_request" | "general";
+  fromTeamName: string;
+  fromTeamShort?: string;
+  fromTeamColor?: string;
+  message: string;
+  at: number;
+  read: boolean;
+  amount?: number;
+  counterOffer?: number;
+  relatedOfferId?: string;
+  playerId?: string;
+};
+
+export type NewsItem = {
+  id: string;
+  category: "headline" | "match" | "transfer" | "rumor" | "injury" | "milestone";
+  headline: string;
+  body: string;
+  timestamp: number;
+  importance: number;
+  read: boolean;
+  relatedTeamId?: string;
+};
+
 type TransferState = {
   freeAgents: TransferListing[];
   freeAgentListings: import("@/lib/mock/transfer").FreeAgentListing[];
   loanListings: import("@/lib/mock/transfer").LoanListing[];
-  watchlist: string[]; // player IDs
+  watchlist: string[];
   incomingOffers: IncomingOffer[];
   myListedPlayers: { playerId: string; askingPrice: number }[];
+  messages: MessageItem[];
 };
 
 // Facilities state — tesis seviyeleri + personel + aktif inşaat
@@ -103,30 +130,22 @@ export type StaffMember = {
 };
 
 type AppState = {
-  // auth
   isAuthed: boolean;
   managerName: string;
   myTeamId: string | null;
-
-  // data
+  seasonMatchday: number;
+  seasonNumber: number;
   clubs: Team[];
   fixtures: FixtureRow[];
-
-  // tactics
+  news: NewsItem[];
   tactics: Tactics;
-
-  // transfer
   transfer: TransferState;
-
-  // training
   training: TrainingState;
-
-  // facilities
   facilities: FacilitiesState;
 
   // actions
   loginDemo: (name?: string) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   setFormation: (key: string) => void;
   setSlider: (key: keyof Tactics["sliders"], value: number) => void;
   swapLineupSlot: (slotIndex: number, playerId: string) => void;
@@ -161,6 +180,22 @@ type AppState = {
   endSeason: () => { success: boolean; summary?: SeasonSummary };
   advanceMatchday: () => void;
   recordMatchResult: (homeId: string, awayId: string, homeScore: number, awayScore: number) => void;
+  // message actions
+  markMessageRead: (msgId: string) => void;
+  markAllMessagesRead: () => void;
+  clearMessage: (msgId: string) => void;
+  respondToIncomingMessage: (msgId: string, response: "accept" | "reject") => void;
+  completeTransfer: (offerId: string) => { success: boolean; reason?: string };
+  acceptCounterOffer: (offerId: string) => { success: boolean; reason?: string };
+  rejectCounterOffer: (offerId: string) => void;
+  // news actions
+  markNewsRead: (newsId: string) => void;
+  markAllNewsRead: () => void;
+  generateNews: () => void;
+  // cloud
+  loadMultiplayerState: (userId: string) => Promise<{ success: boolean; reason?: string }>;
+  saveToCloud: (userId: string) => Promise<void>;
+  saveTacticsToCloud: (userId: string) => Promise<void>;
 };
 
 export type SeasonSummary = {
@@ -214,13 +249,15 @@ function defaultTacticsFor(team: Team): Tactics {
 }
 
 export const useAppStore = create<AppState>()(
-  persist(
     (set, get) => ({
       isAuthed: false,
       managerName: "",
       myTeamId: null,
+      seasonMatchday: 14,
+      seasonNumber: 1,
       clubs: [],
       fixtures: [],
+      news: [],
       tactics: {
         active: { ...DEFAULT_TACTIC },
         lineup: Array(11).fill(null),
@@ -242,6 +279,7 @@ export const useAppStore = create<AppState>()(
         watchlist: [],
         incomingOffers: [],
         myListedPlayers: [],
+        messages: [],
       },
       training: getDefaultTrainingState(),
       facilities: {
@@ -281,6 +319,7 @@ export const useAppStore = create<AppState>()(
             watchlist: transfer.watchlist ?? [],
             incomingOffers: transfer.incomingOffers.length > 0 ? transfer.incomingOffers : generateIncomingOffers(team.players),
             myListedPlayers: transfer.myListedPlayers ?? [],
+            messages: transfer.messages ?? [],
           };
         }
 
@@ -295,7 +334,13 @@ export const useAppStore = create<AppState>()(
         });
       },
 
-      logout: () => set({ isAuthed: false, myTeamId: null, managerName: "" }),
+      logout: async () => {
+        try {
+          const { supabase } = await import("@/lib/supabase/client");
+          await supabase().auth.signOut();
+        } catch {}
+        set({ isAuthed: false, myTeamId: null, managerName: "" });
+      },
 
       setFormation: (key) => {
         const formation = FORMATIONS.find((f) => f.key === key);
@@ -1016,80 +1061,215 @@ export const useAppStore = create<AppState>()(
         });
         set({ fixtures: updatedFixtures });
       },
-    }),
-    {
-      name: "tm.app.v1",
-      // Sadece auth + seçimleri sakla; büyük data her seferinde rebuild edilsin
-      partialize: (s) => ({
-        isAuthed: s.isAuthed,
-        managerName: s.managerName,
-        myTeamId: s.myTeamId,
-        tactics: s.tactics,
-        transfer: s.transfer,
-        training: s.training,
-        facilities: s.facilities,
-      }),
-      // Hydration sonrası clubs/fixtures'ı yeniden üret
-      onRehydrateStorage: () => (state) => {
-        if (!state) return;
-        if (state.clubs.length === 0) {
-          state.clubs = buildInitialClubs();
-        }
-        if (state.fixtures.length === 0) {
-          state.fixtures = buildInitialFixtures(state.clubs);
-        }
-        // Eski localStorage verilerinde tactics.active yoksa ekle
-        if (!state.tactics.active) {
-          state.tactics.active = { ...DEFAULT_TACTIC };
-        }
-        if (!state.tactics.slotRoles) {
-          state.tactics.slotRoles = {};
-        }
-        if (!state.tactics.activeInstructions) {
-          state.tactics.activeInstructions = {};
-        }
-        // Eski transfer verilerinde yeni alanlar yoksa üret
-        if (!state.transfer) {
-          state.transfer = {
-            freeAgents: [],
-            freeAgentListings: [],
-            loanListings: [],
-            watchlist: [],
-            incomingOffers: [],
-            myListedPlayers: [],
-          };
-        }
-        if (!state.transfer.freeAgentListings || state.transfer.freeAgentListings.length === 0) {
-          state.transfer.freeAgentListings = generateFreeAgentListings(15);
-        }
-        if (!state.transfer.loanListings || state.transfer.loanListings.length === 0) {
-          state.transfer.loanListings = generateLoanListings(state.clubs, 10);
-        }
-        if (!state.transfer.freeAgents || state.transfer.freeAgents.length === 0) {
-          state.transfer.freeAgents = generateFreeAgents(30);
-        }
-        // myTeam varsa taktikleri güncelle (lineup eski kalmış olabilir)
-        if (state.myTeamId) {
-          const team = state.clubs.find((c) => c.id === state.myTeamId);
+
+      // ===== Message actions =====
+      markMessageRead: (msgId) => {
+        const { transfer } = get();
+        set({ transfer: { ...transfer, messages: transfer.messages.map((m) => m.id === msgId ? { ...m, read: true } : m) } });
+      },
+      markAllMessagesRead: () => {
+        const { transfer } = get();
+        set({ transfer: { ...transfer, messages: transfer.messages.map((m) => ({ ...m, read: true })) } });
+      },
+      clearMessage: (msgId) => {
+        const { transfer } = get();
+        set({ transfer: { ...transfer, messages: transfer.messages.filter((m) => m.id !== msgId) } });
+      },
+      respondToIncomingMessage: (msgId, response) => {
+        const { transfer, clubs, myTeamId } = get();
+        const msg = transfer.messages.find((m) => m.id === msgId);
+        if (!msg || msg.kind !== "transfer_offer_incoming") return;
+        if (response === "accept" && msg.playerId && msg.amount) {
+          const team = clubs.find((c) => c.id === myTeamId);
           if (team) {
-            const formation =
-              FORMATIONS.find((f) => f.key === state.tactics.formationKey) ??
-              FORMATIONS[0];
-            // Sadece lineup boşsa veya tutarsızsa yeniden doldur
-            const valid = state.tactics.lineup.every(
-              (p, i) =>
-                p === null ||
-                team.players.some((tp) => tp.id === p.id) ||
-                i >= formation.slots.length
-            );
-            if (!valid || state.tactics.lineup.length !== formation.slots.length) {
-              state.tactics.lineup = autoFillLineup(team, formation);
-            }
+            team.budget += msg.amount;
+            team.players = team.players.filter((p) => p.id !== msg.playerId);
+            set({
+              clubs: [...clubs],
+              transfer: { ...transfer, myListedPlayers: transfer.myListedPlayers.filter((l) => l.playerId !== msg.playerId), messages: transfer.messages.map((m) => m.id === msgId ? { ...m, read: true } : m) },
+            });
+            return;
           }
         }
+        set({ transfer: { ...transfer, messages: transfer.messages.map((m) => m.id === msgId ? { ...m, read: true } : m) } });
       },
-    }
-  )
+      completeTransfer: (offerId) => {
+        const { transfer, clubs, myTeamId } = get();
+        const team = clubs.find((c) => c.id === myTeamId);
+        if (!team) return { success: false, reason: "no-team" };
+        const msg = transfer.messages.find((m) => m.relatedOfferId === offerId);
+        if (!msg || !msg.amount) return { success: false, reason: "no-offer" };
+        if (team.budget < msg.amount) return { success: false, reason: "budget" };
+        team.budget -= msg.amount;
+        set({ clubs: [...clubs], transfer: { ...transfer, messages: transfer.messages.filter((m) => m.id !== msg.id) } });
+        return { success: true };
+      },
+      acceptCounterOffer: (offerId) => {
+        const { transfer, clubs, myTeamId } = get();
+        const team = clubs.find((c) => c.id === myTeamId);
+        if (!team) return { success: false, reason: "no-team" };
+        const msg = transfer.messages.find((m) => m.relatedOfferId === offerId);
+        if (!msg || !msg.counterOffer) return { success: false, reason: "no-offer" };
+        if (team.budget < msg.counterOffer) return { success: false, reason: "budget" };
+        team.budget -= msg.counterOffer;
+        set({ clubs: [...clubs], transfer: { ...transfer, messages: transfer.messages.filter((m) => m.id !== msg.id) } });
+        return { success: true };
+      },
+      rejectCounterOffer: (offerId) => {
+        const { transfer } = get();
+        const msg = transfer.messages.find((m) => m.relatedOfferId === offerId);
+        if (!msg) return;
+        set({ transfer: { ...transfer, messages: transfer.messages.filter((m) => m.id !== msg.id) } });
+      },
+
+      // ===== News actions =====
+      markNewsRead: (newsId) => {
+        const { news } = get();
+        set({ news: news.map((n) => n.id === newsId ? { ...n, read: true } : n) });
+      },
+      markAllNewsRead: () => {
+        const { news } = get();
+        set({ news: news.map((n) => ({ ...n, read: true })) });
+      },
+      generateNews: () => {
+        const { clubs, myTeamId, news } = get();
+        const team = clubs.find((c) => c.id === myTeamId);
+        if (!team) return;
+        const now = Date.now();
+        const newItems: NewsItem[] = [];
+        const recentFixture = get().fixtures.filter((f) => f.played && (f.homeId === myTeamId || f.awayId === myTeamId)).slice(-1)[0];
+        if (recentFixture) {
+          const isHome = recentFixture.homeId === myTeamId;
+          const myScore = isHome ? recentFixture.homeScore : recentFixture.awayScore;
+          const oppScore = isHome ? recentFixture.awayScore : recentFixture.homeScore;
+          const opp = clubs.find((c) => c.id === (isHome ? recentFixture.awayId : recentFixture.homeId));
+          const won = (myScore ?? 0) > (oppScore ?? 0);
+          const drew = (myScore ?? 0) === (oppScore ?? 0);
+          newItems.push({
+            id: `n_${now}_m`, category: "match",
+            headline: won ? `${team.name} ${opp?.name ?? "rakibini"} ${myScore}-${oppScore} mağlup etti!` : drew ? `${team.name} ${opp?.name ?? "rakibiyle"} ${myScore}-${oppScore} berabere kaldı` : `${team.name}, ${opp?.name ?? "rakibine"} ${myScore}-${oppScore} mağlup oldu`,
+            body: won ? `${team.name} kritik maçtan 3 puanla ayrıldı.` : drew ? `${team.name} beraberlikle yetindi.` : `${team.name} hayal kırıklığı yarattı.`,
+            timestamp: now, importance: won ? 4 : drew ? 2 : 3, read: false, relatedTeamId: team.id,
+          });
+        }
+        if (newItems.length > 0) set({ news: [...newItems, ...news].slice(0, 50) });
+      },
+
+      // ===== Cloud actions =====
+      loadMultiplayerState: async (userId) => {
+        try {
+          const { supabase } = await import("@/lib/supabase/client");
+          const { POSITION_GROUP } = await import("@/lib/mock/data");
+          const { data: myTeam, error: teamErr } = await supabase().from("teams").select("*").eq("manager_user_id", userId).maybeSingle();
+          if (teamErr) return { success: false, reason: teamErr.message };
+          if (!myTeam) return { success: true };
+
+          const { data: userTactics } = await supabase().from("active_tactics").select("tactic_data, lineup_data, slot_roles, active_instructions").eq("profile_id", userId).maybeSingle();
+          const { data: deptTeams, error: deptErr } = await supabase().from("teams").select("*").eq("department_id", myTeam.department_id);
+          if (deptErr) return { success: false, reason: deptErr.message };
+          const teamIds = deptTeams.map((t: any) => t.id);
+          const { data: allPlayers, error: playerErr } = await supabase().from("players").select("*").in("team_id", teamIds);
+          if (playerErr) return { success: false, reason: playerErr.message };
+          const { data: fixtures, error: fxErr } = await supabase().from("fixtures").select("*").in("home_team_id", teamIds).order("matchday");
+          if (fxErr) return { success: false, reason: fxErr.message };
+
+          const { data: appStateData } = await supabase().from("app_state").select("state").eq("user_id", userId).maybeSingle();
+          const savedState = appStateData?.state as any;
+
+          const clubs = deptTeams.map((t: any) => {
+            const players = (allPlayers ?? []).filter((p: any) => p.team_id === t.id).map((p: any) => ({
+              id: p.id, firstName: p.first_name, lastName: p.last_name, name: p.name,
+              position: POSITION_GROUP[p.specific_position as keyof typeof POSITION_GROUP] ?? "MID",
+              specificPosition: p.specific_position, secondaryPositions: p.secondary_positions ?? [],
+              age: p.age, potential: p.potential, hidden_potential: p.hidden_potential, rating: p.rating,
+              formRating: 6.5, nationality: p.nationality, nation: p.nation, foot: p.preferred_foot,
+              preferred_foot: p.preferred_foot, height: p.height, weight: p.weight,
+              market_value: p.market_value, marketValue: p.market_value, salary: p.salary, weeklyWage: p.salary,
+              defending: p.defending, passing: p.passing, shooting: p.shooting, speed: p.speed, power: p.power,
+              vision: p.vision, control: p.control, stamina: p.stamina, heading: p.heading, goalkeeping: p.goalkeeping,
+              finishing: p.finishing, dribbling: p.dribbling, firstTouch: p.first_touch, crossing: p.crossing,
+              marking: p.marking, tackling: p.tackling, technique: p.technique, longShots: p.long_shots, offTheBall: p.off_the_ball,
+              aggression: p.aggression, bravery: p.bravery, workRate: p.work_rate, decisions: p.decisions,
+              determination: p.determination, concentration: p.concentration, leadership: p.leadership,
+              anticipation: p.anticipation, flair: p.flair, positioning: p.positioning, composure: p.composure, teamwork: p.teamwork,
+              agility: p.agility, balance: p.balance, strength: p.strength, acceleration: p.acceleration,
+              jumping: p.jumping, leftFoot: p.left_foot, rightFoot: p.right_foot,
+              stats: { pace: p.speed, shooting: p.shooting, passing: p.passing, defending: p.defending, physical: p.power, dribbling: p.dribbling },
+              archetype: p.archetype ?? undefined, playStyle: p.play_style ?? undefined,
+              traits: p.traits ?? [], negTraits: p.neg_traits ?? [], personalityTraits: p.personality_traits ?? [],
+              cond: p.cond, condition: p.cond, form: p.form, morale: p.morale, confidence: p.confidence, chemistry: p.chemistry,
+              goals: p.goals ?? 0, assists: p.assists ?? 0, saves: p.saves ?? 0, appearances: p.appearances ?? 0,
+              match_ratings: p.match_ratings ?? [], last_match_rating: p.last_match_rating,
+              is_injured: p.is_injured ?? false, injury: p.injury,
+              suspended_until: p.suspended_until, is_for_sale: p.is_for_sale, sale_price: p.sale_price,
+              is_free_agent: p.is_free_agent, photo_url: p.photo_url,
+            }));
+            return {
+              id: t.id, name: t.name, shortName: t.short_name, primaryColor: t.primary_color, secondaryColor: t.secondary_color,
+              leagueTier: t.league_tier === "super_lig" ? 1 : t.league_tier === "1_lig" ? 2 : t.league_tier === "2_lig" ? 3 : 4,
+              department: t.department_id, players, budget: t.budget, stadiumCapacity: t.stadium_capacity,
+              stadiumName: t.stadium_name, is_bot: t.is_bot, manager_user_id: t.manager_user_id,
+            };
+          });
+
+          const fixtureRows = (fixtures ?? []).map((f: any) => ({
+            id: f.id, matchday: f.matchday, homeId: f.home_team_id, awayId: f.away_team_id,
+            homeScore: f.home_score, awayScore: f.away_score, played: f.status === "finished" || f.played_at != null,
+          }));
+
+          set({
+            isAuthed: true, managerName: myTeam.name, myTeamId: myTeam.id, clubs, fixtures: fixtureRows,
+            facilities: savedState?.facilities ?? { levels: { stadium: 0, pitch: 0, academy: 0, gym: 0, medical: 0, analysis: 0 }, staff: [], activeUpgrade: null, ticketPrice: 60 },
+            training: savedState?.training ?? getDefaultTrainingState(),
+            news: savedState?.news ?? [],
+            tactics: userTactics ? {
+              active: userTactics.tactic_data ?? { ...DEFAULT_TACTIC },
+              lineup: userTactics.lineup_data ?? Array(11).fill(null),
+              slotRoles: userTactics.slot_roles ?? {}, activeInstructions: userTactics.active_instructions ?? {},
+              formationKey: userTactics.tactic_data?.formation ?? "4-4-2",
+              sliders: { attackingPressure: userTactics.tactic_data?.aggression ?? 50, defensiveLine: userTactics.tactic_data?.lineHeight ?? 50, tempo: userTactics.tactic_data?.passingIntensity ?? 50, wingPlay: userTactics.tactic_data?.width ?? 50 },
+              roles: {},
+            } : get().tactics,
+            seasonMatchday: 1, seasonNumber: 1,
+          });
+          return { success: true };
+        } catch (err: any) {
+          console.error("[loadMultiplayer] exception:", err);
+          return { success: false, reason: err?.message ?? "unknown" };
+        }
+      },
+
+      saveToCloud: async (userId) => {
+        try {
+          const { supabase } = await import("@/lib/supabase/client");
+          let uid = userId;
+          if (!uid) { const { data: sess } = await supabase().auth.getSession(); uid = sess.session?.user?.id ?? null; }
+          if (!uid) return;
+          const s = get();
+          await supabase().from("active_tactics").upsert({
+            profile_id: uid, tactic_data: s.tactics.active, lineup_data: s.tactics.lineup,
+            slot_roles: s.tactics.slotRoles, active_instructions: s.tactics.activeInstructions,
+          }, { onConflict: "profile_id" });
+          await supabase().from("app_state").upsert({
+            user_id: uid, state: { facilities: s.facilities, training: s.training, news: s.news },
+          }, { onConflict: "user_id" });
+        } catch {}
+      },
+
+      saveTacticsToCloud: async (userId) => {
+        try {
+          const { supabase } = await import("@/lib/supabase/client");
+          let uid = userId;
+          if (!uid) { const { data: sess } = await supabase().auth.getSession(); uid = sess.session?.user?.id ?? null; }
+          if (!uid) return;
+          const s = get();
+          await supabase().from("active_tactics").upsert({
+            profile_id: uid, tactic_data: s.tactics.active, lineup_data: s.tactics.lineup,
+            slot_roles: s.tactics.slotRoles, active_instructions: s.tactics.activeInstructions,
+          }, { onConflict: "profile_id" });
+        } catch {}
+      },
+    })
 );
 
 // Helpers (selectors)
