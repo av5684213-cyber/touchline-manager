@@ -46,12 +46,17 @@ export default function RootLayout({
   return (
     <html lang="tr" suppressHydrationWarning>
       <head>
-        <link rel="manifest" href="/manifest.json" />
+        {/* Göreli yollar — APK içinde file:// scheme ile çalışır */}
+        <link rel="manifest" href="manifest.json" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Touchline Manager" />
-        <link rel="apple-touch-icon" href="/icon-192.png" />
-        <script src="/sw-register.js" defer />
+        <link rel="apple-touch-icon" href="icon-192.png" />
+        <link rel="icon" type="image/png" href="favicon-32.png" />
+        {/* Service worker sadece web deploy'ta çalışır, APK'da zararsız */}
+        {typeof window !== "undefined" && window.location.protocol.startsWith("http") && (
+          <script src="sw-register.js" defer />
+        )}
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <LocaleProvider>

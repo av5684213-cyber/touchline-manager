@@ -2,14 +2,22 @@ package com.touchline.manager;
 
 import android.app.Activity;
 import android.graphics.Color;
+import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Window;
 import android.view.WindowManager;
+import android.webkit.SslErrorHandler;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 
 public class MainActivity extends Activity {
     private WebView webView;
@@ -36,12 +44,18 @@ public class MainActivity extends Activity {
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(true);
         settings.setDatabaseEnabled(true);
-        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        // Önbelleği aşırı kullan — tüm assetler zaten APK içinde, internet gerekmez
+        settings.setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
         settings.setJavaScriptCanOpenWindowsAutomatically(false);
         settings.setSupportMultipleWindows(false);
+        settings.setSupportZoom(false);
+        settings.setBuiltInZoomControls(false);
         settings.setLoadWithOverviewMode(true);
         settings.setUseWideViewPort(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
+        // External kaynak yüklemeyi tamamen kapat
+        settings.setBlockNetworkLoads(false); // Supabase için açık kalmalı
+        settings.setBlockNetworkImage(false);
 
         // Dark mode: do not force-darken web content
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -51,20 +65,35 @@ public class MainActivity extends Activity {
         webView.setWebChromeClient(new WebChromeClient());
         webView.setWebViewClient(new WebViewClient() {
             @Override
-            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                String url = request.getUrl().toString();
                 // Internal file:// URLs load in WebView
-                if (url.startsWith("file://") || url.startsWith("about:")) {
+                if (url.startsWith("file://") || url.startsWith("about:") || url.startsWith("data:")) {
                     return false;
                 }
-                // External URLs blocked - fully embedded app, no redirects
+                // External URLs blocked — fully embedded app, NO redirects, NO browser open
                 return true;
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                if (url.startsWith("file://") || url.startsWith("about:") || url.startsWith("data:")) {
+                    return false;
+                }
+                return true;
+            }
+
+            // SSL hatalarını görmezden gel (offline mode için)
+            @Override
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                handler.cancel();
             }
         });
 
         // Dark background before CSS loads
         webView.setBackgroundColor(Color.parseColor("#0d0d1a"));
 
-        // Load embedded app from assets - NO external URL, NO redirect
+        // Load embedded app from assets — NO external URL, NO redirect
         webView.loadUrl("file:///android_asset/web/index.html");
     }
 
