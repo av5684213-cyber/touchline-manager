@@ -24,7 +24,10 @@ import {
   FORMATION_KEYS,
   POSITION_GROUP,
   type Player as PlayerT,
+  type Team,
 } from "@/lib/mock/data";
+import { simulateEnhancedMatch } from "@/lib/match/engine";
+import { DEFAULT_TACTIC } from "@/lib/tactics/types";
 import type {
   EnhancedMatchEvent as MatchEvent,
 } from "@/lib/match/engine";
@@ -52,6 +55,34 @@ import { ClubBadge, PositionPill, RatingBadge } from "../ui-bits";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 import { PreMatchScreen } from "../pre-match-screen";
+
+// Arka plan simülasyonu — canlı UI göstermeden sadece sonucu hesapla ve kaydet
+function silentlySimulateMatch(home: Team, away: Team) {
+  try {
+    const storeState = useAppStore.getState();
+    const userTactic = storeState.tactics.active ?? DEFAULT_TACTIC;
+    const isHome = home.id === storeState.myTeamId;
+    const homeTactic = isHome ? userTactic : { ...DEFAULT_TACTIC, formation: "4-4-2" };
+    const awayTactic = isHome ? { ...DEFAULT_TACTIC, formation: "4-4-2" } : userTactic;
+
+    // Basit ilk 11 seçimi (en yüksek OVR'li 11)
+    const pickXI = (players: PlayerT[]) =>
+      [...players].sort((a, b) => b.rating - a.rating).slice(0, 11);
+
+    const result = simulateEnhancedMatch(
+      pickXI(home.players) as any,
+      pickXI(away.players) as any,
+      homeTactic as any,
+      awayTactic as any,
+      { homeTeamName: home.name, awayTeamName: away.name } as any
+    );
+
+    // Fikstüre sonucu yaz
+    storeState.recordMatchResult(home.id, away.id, result.homeScore, result.awayScore);
+  } catch (e) {
+    console.error("[silentSim] failed:", e);
+  }
+}
 
 export function MatchScreen() {
   const { t, locale } = useI18n();
@@ -128,56 +159,44 @@ export function MatchScreen() {
   // Bu pencere daha önce otomatik simüle edildi mi? (kullanıcı izlemedi)
   const currentAutoSimmed = currentMatchId ? isMatchAutoSimmed(currentMatchId) : false;
 
-  // Maç penceresi bittiğinde (inWindow: false'a döndü) ve kullanıcı izlemediyse:
-  // bir önceki pencereyi otomatik simüle et.
-  // Basit yaklaşımla: schedule.inWindow false iken ve bir önceki pencere auto-simlenmemişse,
-  // engine.state.status idle ise otomatik çalıştır ve sonucu kaydet.
+  // NOT: Otomatik maç başlatma KALDIRILDI.
+  // Maçlar SADECE planlanan saatlerde (12:00 ve 18:00 TR, hafta içi) başlar.
+  // Kullanıcı sekmede olsa bile pencere dışında "sıradaki maç" bekler.
+  // Kaçırılan maçlar arka planda sessizce simüle edilir (sonuç kaydedilir, canlı UI gösterilmez).
   useEffect(() => {
     if (!team || !opponent) return;
-    // Yalnızca idle durumda çalış — live/paused/finished ise dokunma
     if (engine.state.status !== "idle") return;
-    // Maç penceresi dışındayız
-    if (schedule.inWindow) return;
-    // Bir önceki pencereyi bul — şu anki saatten hemen önceki maç saati
+    if (schedule.inWindow) return; // pencere içindeysek bekle
+
+    // Bir önceki pencereyi bul
     const trMs = nowTick + 3 * 60 * 60 * 1000;
     const trDate = new Date(trMs);
     const trHour = trDate.getUTCHours();
-    const trMinute = trDate.getUTCMinutes();
     const allHours = [12, 18];
     let prevHour = -1;
     let prevDayOffset = 0;
     for (let i = allHours.length - 1; i >= 0; i--) {
-      const h = allHours[i];
-      if (h < trHour || (h === trHour && trMinute >= 60)) {
-        prevHour = h;
-        break;
-      }
+      if (allHours[i] < trHour) { prevHour = allHours[i]; break; }
     }
-    if (prevHour === -1) {
-      // Bugünün hiçbiri geçmemişse, dünün son penceresi (18:00)
-      prevHour = 18;
-      prevDayOffset = -1;
-    }
-    // Bir önceki pencerenin olduğu gün hafta içi miydi?
-    const prevDay = new Date(trMs + prevDayOffset * 24 * 60 * 60 * 1000).getUTCDay();
-    const prevWeekday = prevDay >= 1 && prevDay <= 5;
-    if (!prevWeekday) return; // hafta sonu penceresi — otomatik sim yok
+    if (prevHour === -1) { prevHour = 18; prevDayOffset = -1; }
+
+    const prevDay = new Date(trMs + prevDayOffset * 86400000).getUTCDay();
+    if (prevDay < 1 || prevDay > 5) return;
 
     const trTodayStart = new Date(new Date(trMs).toISOString().slice(0, 10) + "T00:00:00Z").getTime();
-    const prevWindowEnd = trTodayStart
-      + prevDayOffset * 24 * 60 * 60 * 1000
-      + prevHour * 60 * 60 * 1000
-      + 60 * 60 * 1000  // pencere sonu
-      - 3 * 60 * 60 * 1000;
+    const prevWindowEnd = trTodayStart + prevDayOffset * 86400000 + prevHour * 3600000 + 3600000 - 10800000;
 
-    // Şu an pencere sonundan sonraysa ve pencere auto-simlenmediyse
     if (nowTick > prevWindowEnd) {
-      const trDayKey = new Date(prevWindowEnd + 3 * 60 * 60 * 1000 - 60 * 60 * 1000).toISOString().slice(0, 10);
+      const trDayKey = new Date(prevWindowEnd + 10800000 - 3600000).toISOString().slice(0, 10);
       const prevMatchId = `${trDayKey}_${prevHour}`;
       if (!isMatchAutoSimmed(prevMatchId) && !isMatchWatched(prevMatchId)) {
-        // Otomatik simülasyon — maçı arka planda çalıştır, sonucu kaydet
+        // ARKA PLAN SİMÜLASYONU — canlı UI gösterme, sadece sonucu kaydet
         markMatchAutoSimmed(prevMatchId);
-        engine.start();
+        // engine.start() ÇAĞIRMA — bu canlı UI başlatır
+        // Sadece sonucu sessizce hesapla ve fikstüre yaz
+        if (homeTeam && awayTeam) {
+          silentlySimulateMatch(homeTeam, awayTeam);
+        }
       }
     }
   }, [nowTick, schedule.inWindow, team, opponent, engine]);
@@ -289,6 +308,35 @@ export function MatchScreen() {
               className="tm-tap px-4 inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold"
             >
               <Settings size={16} /> {t("match.tactics")}
+            </button>
+          </div>
+        )}
+
+        {/* DEVRE ARASI — 30 saniyelik mola + taktik değiştirme */}
+        {engine.state.status === "halftime" && (
+          <div className="tm-card p-4 text-center space-y-3">
+            <div className="flex items-center justify-center gap-2 text-amber-400">
+              <Clock size={20} />
+              <span className="text-lg font-bold">DEVRE ARASI</span>
+            </div>
+            <div className="text-4xl font-bold tabular-nums text-amber-300">
+              00:{String(engine.state.halftimeSecondsLeft ?? 30).padStart(2, "0")}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              İkinci yarı {engine.state.halftimeSecondsLeft ?? 30} saniye sonra başlayacak
+            </div>
+            <div className="flex items-center justify-center gap-4 text-sm">
+              <span className="font-bold">{homeTeam.shortName}</span>
+              <span className="text-2xl font-bold tabular-nums text-amber-300">
+                {engine.state.homeScore} - {engine.state.awayScore}
+              </span>
+              <span className="font-bold">{awayTeam.shortName}</span>
+            </div>
+            <button
+              onClick={() => { haptic("light"); setDrawerOpen(true); }}
+              className="tm-tap w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-bold"
+            >
+              <Settings size={16} /> Taktik Değiştir (Devre Arası)
             </button>
           </div>
         )}

@@ -156,7 +156,7 @@ function computeInstructionModifiers(
 // ama TypeScript ayrı tipler olarak görür. Cast yapacağız.
 type AnyPlayer = MatchEnginePlayer & Player;
 
-export type MatchStatus = "idle" | "live" | "paused" | "finished";
+export type MatchStatus = "idle" | "live" | "paused" | "halftime" | "finished";
 
 export type LiveMatchState = {
   status: MatchStatus;
@@ -179,6 +179,7 @@ export type LiveMatchState = {
     { goals: number; assists: number; yellow: number; red: number }
   >;
   subsUsed: { home: number; away: number };
+  halftimeSecondsLeft?: number; // devre arası geri sayım (30 sn)
 };
 
 export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
@@ -473,6 +474,16 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
       const result = fullResultRef.current;
       if (!result) return;
       const allEvents = sortedEvents(result.events);
+
+      // DEVRE ARASI: 45. dakikaya gelince 30 saniyelik pause
+      const nextEvent = allEvents[eventCursorRef.current];
+      if (nextEvent && nextEvent.minute > 45 && snapshot.minute <= 45) {
+        // Devre arası başlat — 30 saniye geri sayım
+        setSnapshot((s) => ({ ...s, status: "halftime", halftimeSecondsLeft: 30 }));
+        clearInterval(id);
+        return;
+      }
+
       if (eventCursorRef.current >= allEvents.length) {
         // Tüm event'ler gösterildi — bitir + kondisyon/form güncelle + fikstür güncelle
         setSnapshot((s) => ({ ...s, status: "finished" }));
@@ -491,7 +502,22 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
       syncToCursor();
     }, TICK_MS);
     return () => clearInterval(id);
-  }, [snapshot.status, sortedEvents, syncToCursor, applyPostMatchEffects]);
+  }, [snapshot.status, snapshot.minute, sortedEvents, syncToCursor, applyPostMatchEffects]);
+
+  // DEVRE ARASI geri sayım — 30 saniye sonra ikinci yarıya başla
+  useEffect(() => {
+    if (snapshot.status !== "halftime") return;
+    const id = setInterval(() => {
+      setSnapshot((s) => {
+        if (s.halftimeSecondsLeft && s.halftimeSecondsLeft > 1) {
+          return { ...s, halftimeSecondsLeft: s.halftimeSecondsLeft - 1 };
+        }
+        // Devre arası bitti — ikinci yarıya başla
+        return { ...s, status: "live", halftimeSecondsLeft: undefined };
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [snapshot.status]);
 
   // Taktik değişikliği — motor zaten simüle edildi, sadece event ekle
   const applyTactics = useCallback((_side: "home" | "away", _newTactics: unknown) => {
