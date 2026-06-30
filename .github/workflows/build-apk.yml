@@ -31,7 +31,10 @@ jobs:
         # API route'ları kaldır (static export desteklemiyor)
         rm -rf src/app/api src/app/download
         grep output next.config.ts
-        npx next build
+        # Webpack kullan (Turbopack static export'ta PostCSS hatası veriyor)
+        # Tüm log'u yakala — hata olursa diagnosis için
+        set -o pipefail
+        npx next build --webpack 2>&1 | tee /tmp/nextjs-build.log
         echo "=== Static export ==="
         ls -la out/
         du -sh out/
@@ -40,6 +43,14 @@ jobs:
         NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         NODE_ENV: production
+
+    - name: Upload Next.js build log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: nextjs-build-log
+        path: /tmp/nextjs-build.log
+        retention-days: 7
 
     - name: Copy static export into Android assets
       run: |
