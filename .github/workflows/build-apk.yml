@@ -21,9 +21,16 @@ jobs:
     - run: yes | sdkmanager --licenses || true
     - run: sdkmanager "build-tools;34.0.0" "platforms;android-34"
 
+    - name: Install dependencies
+      run: |
+        # Node 24 + React 19 + Next 16 peer dep冲突 fix
+        npm install --legacy-peer-deps 2>&1 | tee /tmp/npm-install.log
+        echo "=== npm install exit: ${PIPESTATUS[0]} ==="
+      env:
+        NODE_ENV: development
+
     - name: Build Next.js Static Export
       run: |
-        npm install
         # next.config.ts'e output: "export" ekle (yoksa)
         if ! grep -q 'output:' next.config.ts; then
           sed -i 's/const nextConfig: NextConfig = {/const nextConfig: NextConfig = {\n  output: "export",/' next.config.ts
@@ -32,23 +39,20 @@ jobs:
         rm -rf src/app/api src/app/download
         echo "=== next.config.ts ==="
         cat next.config.ts
-        
-        # Next.js 16'da Turbopack default. Webpack'e zorlamak için:
-        # 1) --webpack flag (Next 16 destekliyorsa)
-        # 2) NEXT_BUILD_USE_TURBOPACK=0 env var
-        # Her ikisini de deneyelim. tee her zaman çalışsın diye || true
-        
+
+        # Next.js 16'da Turbopack default. Webpack'e zorla.
         echo "=== Building with webpack ==="
-        NEXT_BUILD_USE_TURBOPACK=0 npx next build 2>&1 | tee /tmp/nextjs-build.log || true
-        
-        # Build başarılı mı kontrol et
-        if [ ! -d "out" ]; then
-          echo "ERROR: out/ directory not found. Build likely failed."
-          echo "=== Last 100 lines of build log ==="
-          tail -100 /tmp/nextjs-build.log
+        NEXT_BUILD_USE_TURBOPACK=0 npx next build 2>&1 | tee /tmp/nextjs-build.log
+        BUILD_EXIT=${PIPESTATUS[0]}
+        echo "=== build exit: $BUILD_EXIT ==="
+
+        if [ ! -d "out" ] || [ "$BUILD_EXIT" != "0" ]; then
+          echo "ERROR: Build failed or out/ missing"
+          echo "=== Last 200 lines of build log ==="
+          tail -200 /tmp/nextjs-build.log
           exit 1
         fi
-        
+
         echo "=== Static export ==="
         ls -la out/
         du -sh out/
@@ -58,12 +62,14 @@ jobs:
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         NODE_ENV: production
 
-    - name: Upload Next.js build log (always)
+    - name: Upload build logs (always)
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: nextjs-build-log
-        path: /tmp/nextjs-build.log
+        name: build-logs
+        path: |
+          /tmp/npm-install.log
+          /tmp/nextjs-build.log
         retention-days: 7
 
     - name: Copy static export into Android assets
