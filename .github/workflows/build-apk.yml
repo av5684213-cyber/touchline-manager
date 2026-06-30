@@ -31,7 +31,7 @@ jobs:
         # API route'ları kaldır (static export desteklemiyor)
         rm -rf src/app/api src/app/download
         grep output next.config.ts
-        # Production build — küçük bundle için
+        # Production build
         npx next build
         echo "=== Static export ==="
         ls -la out/
@@ -50,7 +50,7 @@ jobs:
         unzip -qo gradle.zip
         /tmp/gradle-8.7/bin/gradle --version
 
-    - name: Create WebView APK with embedded app
+    - name: Create Android project structure
       run: |
         DIR=android-app/app/src/main
         mkdir -p $DIR/res/values
@@ -68,39 +68,233 @@ jobs:
         find $DIR/assets/web -type f | wc -l
         du -sh $DIR/assets/web
         
-        printf 'pluginManagement {\n    repositories {\n        google()\n        mavenCentral()\n        gradlePluginPortal()\n    }\n}\ndependencyResolutionManagement {\n    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)\n    repositories {\n        google()\n        mavenCentral()\n    }\n}\nrootProject.name = "TouchlineManager"\ninclude ":app"\n' > android-app/settings.gradle
-        
-        printf 'plugins {\n    id "com.android.application" version "8.2.0" apply false\n}\n' > android-app/build.gradle
-        
-        printf 'plugins {\n    id "com.android.application"\n}\nandroid {\n    namespace "com.touchline.manager"\n    compileSdk 34\n    defaultConfig {\n        applicationId "com.touchline.manager"\n        minSdk 24\n        targetSdk 34\n        versionCode 1\n        versionName "1.0.0"\n    }\n    buildTypes {\n        release {\n            minifyEnabled false\n            shrinkResources false\n            signingConfig signingConfigs.debug\n        }\n    }\n}\n' > android-app/app/build.gradle
-        
-        printf 'android.useAndroidX=true\norg.gradle.jvmargs=-Xmx2048m\norg.gradle.daemon=false\nandroid.bundle.enableUncompressedNativeLibs=false\n' > android-app/gradle.properties
-        
-        printf '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <application\n        android:label="Touchline Manager"\n        android:icon="@mipmap/ic_launcher"\n        android:theme="@android:style/Theme.NoTitleBar.Fullscreen"\n        android:allowBackup="true"\n        android:usesCleartextTraffic="true"\n        android:hardwareAccelerated="true">\n        <activity\n            android:name=".MainActivity"\n            android:label="Touchline Manager"\n            android:exported="true"\n            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout"\n            android:windowSoftInputMode="adjustResize">\n            <intent-filter>\n                <action android:name="android.intent.action.MAIN" />\n                <category android:name="android.intent.category.LAUNCHER" />\n            </intent-filter>\n        </activity>\n    </application>\n</manifest>\n' > $DIR/AndroidManifest.xml
-        
-        printf '<resources>\n    <string name="app_name">Touchline Manager</string>\n</resources>\n' > $DIR/res/values/strings.xml
-        
-        printf '<resources>\n    <color name="colorPrimary">#1a3a2a</color>\n    <color name="colorBackground">#0d0d1a</color>\n</resources>\n' > $DIR/res/values/colors.xml
-        
-        # WebView — tam gömülü, file:// scheme ile assets'ten yükle
-        # Dark mode, localStorage, vibration, back button desteği
-        printf 'package com.touchline.manager;\n\nimport android.app.Activity;\nimport android.graphics.Color;\nimport android.os.Build;\nimport android.os.Bundle;\nimport android.view.View;\nimport android.view.Window;\nimport android.view.WindowManager;\nimport android.webkit.WebChromeClient;\nimport android.webkit.WebSettings;\nimport android.webkit.WebView;\nimport android.webkit.WebViewClient;\n\npublic class MainActivity extends Activity {\n    private WebView webView;\n\n    @Override\n    protected void onCreate(Bundle savedInstanceState) {\n        super.onCreate(savedInstanceState);\n        \n        // Edge-to-edge, status bar dark\n        Window window = getWindow();\n        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);\n        window.setStatusBarColor(Color.parseColor("#0d0d1a"));\n        window.setNavigationBarColor(Color.parseColor("#0d0d1a"));\n        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {\n            window.setDecorFitsSystemWindows(true);\n        }\n        \n        webView = new WebView(this);\n        setContentView(webView);\n        \n        WebSettings settings = webView.getSettings();\n        settings.setJavaScriptEnabled(true);\n        settings.setDomStorageEnabled(true);\n        settings.setAllowFileAccess(true);\n        settings.setAllowContentAccess(true);\n        settings.setDatabaseEnabled(true);\n        settings.setCacheMode(WebSettings.LOAD_DEFAULT);\n        settings.setJavaScriptCanOpenWindowsAutomatically(false);\n        settings.setSupportMultipleWindows(false);\n        settings.setLoadWithOverviewMode(true);\n        settings.setUseWideViewPort(true);\n        settings.setMediaPlaybackRequiresUserGesture(false);\n        // Dark mode: web content follow system\n        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {\n            settings.setForceDark(WebSettings.FORCE_DARK_OFF);\n        }\n        \n        // Vibration API for haptics\n        webView.setWebChromeClient(new WebChromeClient());\n        webView.setWebViewClient(new WebViewClient() {\n            @Override\n            public boolean shouldOverrideUrlLoading(WebView view, String url) {\n                // Internal file:// URLs always load in WebView\n                if (url.startsWith("file://") || url.startsWith("about:")) {\n                    return false;\n                }\n                // External URLs: don\\'t open (fully embedded app, no redirects)\n                return true;\n            }\n        });\n        \n        // White background fallback (before CSS loads)\n        webView.setBackgroundColor(Color.parseColor("#0d0d1a"));\n        \n        // Load embedded app from assets — NO external URL, NO redirect\n        webView.loadUrl("file:///android_asset/web/index.html");\n    }\n\n    @Override\n    public void onBackPressed() {\n        if (webView != null && webView.canGoBack()) {\n            webView.goBack();\n        } else {\n            super.onBackPressed();\n        }\n    }\n    \n    @Override\n    protected void onPause() {\n        super.onPause();\n        if (webView != null) webView.onPause();\n    }\n    \n    @Override\n    protected void onResume() {\n        super.onResume();\n        if (webView != null) webView.onResume();\n    }\n    \n    @Override\n    protected void onDestroy() {\n        if (webView != null) {\n            webView.destroy();\n            webView = null;\n        }\n        super.onDestroy();\n    }\n}\n' > $DIR/java/com/touchline/manager/MainActivity.java
-        
-        # PNG ikonu repodan kopyala (farklı yoğunluklar için)
+        # PNG ikonu repodan kopyala (tüm yoğunluklar için)
         cp android-icon.png $DIR/res/mipmap-xxxhdpi/ic_launcher.png
         cp android-icon.png $DIR/res/mipmap-xxhdpi/ic_launcher.png
         cp android-icon.png $DIR/res/mipmap-xhdpi/ic_launcher.png
         cp android-icon.png $DIR/res/mipmap-hdpi/ic_launcher.png
         cp android-icon.png $DIR/res/mipmap-mdpi/ic_launcher.png
-        
+
+    - name: Write Gradle config files
+      run: |
+        cat > android-app/settings.gradle << 'GRADLE_EOF'
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = "TouchlineManager"
+include ":app"
+GRADLE_EOF
+
+        cat > android-app/build.gradle << 'GRADLE_EOF'
+plugins {
+    id "com.android.application" version "8.2.0" apply false
+}
+GRADLE_EOF
+
+        cat > android-app/app/build.gradle << 'GRADLE_EOF'
+plugins {
+    id "com.android.application"
+}
+android {
+    namespace "com.touchline.manager"
+    compileSdk 34
+    defaultConfig {
+        applicationId "com.touchline.manager"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            signingConfig signingConfigs.debug
+        }
+    }
+}
+GRADLE_EOF
+
+        cat > android-app/gradle.properties << 'GRADLE_EOF'
+android.useAndroidX=true
+org.gradle.jvmargs=-Xmx2048m
+org.gradle.daemon=false
+android.bundle.enableUncompressedNativeLibs=false
+GRADLE_EOF
+
+    - name: Write Android manifest and resources
+      run: |
+        DIR=android-app/app/src/main
+        cat > $DIR/AndroidManifest.xml << 'XML_EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <application
+        android:label="Touchline Manager"
+        android:icon="@mipmap/ic_launcher"
+        android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+        android:allowBackup="true"
+        android:usesCleartextTraffic="true"
+        android:hardwareAccelerated="true">
+        <activity
+            android:name=".MainActivity"
+            android:label="Touchline Manager"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
+XML_EOF
+
+        cat > $DIR/res/values/strings.xml << 'XML_EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Touchline Manager</string>
+</resources>
+XML_EOF
+
+        cat > $DIR/res/values/colors.xml << 'XML_EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#1a3a2a</color>
+    <color name="colorBackground">#0d0d1a</color>
+</resources>
+XML_EOF
+
+    - name: Write MainActivity.java
+      run: |
+        DIR=android-app/app/src/main
+        cat > $DIR/java/com/touchline/manager/MainActivity.java << 'JAVA_EOF'
+package com.touchline.manager;
+
+import android.app.Activity;
+import android.graphics.Color;
+import android.os.Build;
+import android.os.Bundle;
+import android.view.Window;
+import android.view.WindowManager;
+import android.webkit.WebChromeClient;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+
+public class MainActivity extends Activity {
+    private WebView webView;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        // Dark status bar and navigation bar
+        Window window = getWindow();
+        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        window.setStatusBarColor(Color.parseColor("#0d0d1a"));
+        window.setNavigationBarColor(Color.parseColor("#0d0d1a"));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(true);
+        }
+
+        webView = new WebView(this);
+        setContentView(webView);
+
+        WebSettings settings = webView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(true);
+        settings.setDatabaseEnabled(true);
+        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        settings.setJavaScriptCanOpenWindowsAutomatically(false);
+        settings.setSupportMultipleWindows(false);
+        settings.setLoadWithOverviewMode(true);
+        settings.setUseWideViewPort(true);
+        settings.setMediaPlaybackRequiresUserGesture(false);
+
+        // Dark mode: do not force-darken web content
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            settings.setForceDark(WebSettings.FORCE_DARK_OFF);
+        }
+
+        webView.setWebChromeClient(new WebChromeClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                // Internal file:// URLs load in WebView
+                if (url.startsWith("file://") || url.startsWith("about:")) {
+                    return false;
+                }
+                // External URLs blocked - fully embedded app, no redirects
+                return true;
+            }
+        });
+
+        // Dark background before CSS loads
+        webView.setBackgroundColor(Color.parseColor("#0d0d1a"));
+
+        // Load embedded app from assets - NO external URL, NO redirect
+        webView.loadUrl("file:///android_asset/web/index.html");
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (webView != null && webView.canGoBack()) {
+            webView.goBack();
+        } else {
+            super.onBackPressed();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (webView != null) webView.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (webView != null) webView.onResume();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (webView != null) {
+            webView.destroy();
+            webView = null;
+        }
+        super.onDestroy();
+    }
+}
+JAVA_EOF
+
         echo "=== Project structure ==="
         find android-app -type f | wc -l
         du -sh android-app/
+        echo "=== Java file size ==="
+        wc -l $DIR/java/com/touchline/manager/MainActivity.java
 
     - name: Build APK
       run: |
         cd android-app
-        /tmp/gradle-8.7/bin/gradle assembleRelease --no-daemon --no-build-cache 2>&1 | tail -30
+        /tmp/gradle-8.7/bin/gradle assembleRelease --no-daemon --no-build-cache --stacktrace 2>&1 | tail -50
         echo "=== APK files ==="
         find . -name "*.apk" -type f
         ls -la app/build/outputs/apk/release/*.apk 2>/dev/null
@@ -118,7 +312,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       if: failure()
       with:
-        name: build-fail
+        name: build-fail-debug
         path: |
           android-app/
           out/
