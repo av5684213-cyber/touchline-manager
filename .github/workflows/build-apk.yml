@@ -30,11 +30,25 @@ jobs:
         fi
         # API route'ları kaldır (static export desteklemiyor)
         rm -rf src/app/api src/app/download
-        grep output next.config.ts
-        # Webpack kullan (Turbopack static export'ta PostCSS hatası veriyor)
-        # Tüm log'u yakala — hata olursa diagnosis için
-        set -o pipefail
-        npx next build --webpack 2>&1 | tee /tmp/nextjs-build.log
+        echo "=== next.config.ts ==="
+        cat next.config.ts
+        
+        # Next.js 16'da Turbopack default. Webpack'e zorlamak için:
+        # 1) --webpack flag (Next 16 destekliyorsa)
+        # 2) NEXT_BUILD_USE_TURBOPACK=0 env var
+        # Her ikisini de deneyelim. tee her zaman çalışsın diye || true
+        
+        echo "=== Building with webpack ==="
+        NEXT_BUILD_USE_TURBOPACK=0 npx next build 2>&1 | tee /tmp/nextjs-build.log || true
+        
+        # Build başarılı mı kontrol et
+        if [ ! -d "out" ]; then
+          echo "ERROR: out/ directory not found. Build likely failed."
+          echo "=== Last 100 lines of build log ==="
+          tail -100 /tmp/nextjs-build.log
+          exit 1
+        fi
+        
         echo "=== Static export ==="
         ls -la out/
         du -sh out/
@@ -44,8 +58,8 @@ jobs:
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         NODE_ENV: production
 
-    - name: Upload Next.js build log on failure
-      if: failure()
+    - name: Upload Next.js build log (always)
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: nextjs-build-log
