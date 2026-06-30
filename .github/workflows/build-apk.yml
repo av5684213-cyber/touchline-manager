@@ -9,82 +9,82 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-    - uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
-    - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v3
 
-    - run: yes | sdkmanager --licenses || true
-    - run: sdkmanager "build-tools;34.0.0" "platforms;android-34"
+      - run: yes | sdkmanager --licenses || true
+      - run: sdkmanager "build-tools;34.0.0" "platforms;android-34"
 
-    # ===== STEP 1: Install =====
-    - name: 1. npm install
-      run: npm install --legacy-peer-deps
+      # ===== 1. NPM INSTALL =====
+      - name: 1. Install Node deps
+        run: npm install --legacy-peer-deps
 
-    # ===== STEP 2: Build Next.js =====
-    - name: 2. Build Next.js static export
-      run: |
-        # output: export ekle
-        sed -i 's/const nextConfig: NextConfig = {/const nextConfig: NextConfig = { output: "export",/' next.config.ts
-        # API route'ları kaldır (static export desteklemiyor)
-        rm -rf src/app/api src/app/download
-        # Build
-        npx next build
-        # Sonuç
-        echo "=== out/ contents ==="
-        ls -la out/
-        du -sh out/
+      # ===== 2. NEXT.JS BUILD =====
+      - name: 2. Build Next.js static export
+        run: |
+          # output: "export" ekle
+          sed -i 's/const nextConfig: NextConfig = {/const nextConfig: NextConfig = { output: "export",/' next.config.ts
+          # API route'ları sil (static export desteklemiyor)
+          rm -rf src/app/api src/app/download
+          # Build
+          npx next build
+          # Kontrol
+          echo "--- out/ ---"
+          ls -la out/
+          du -sh out/
 
-    # ===== STEP 3: Copy to Android assets =====
-    - name: 3. Copy export to Android assets
-      run: |
-        rm -rf android-app/app/src/main/assets/web
-        mkdir -p android-app/app/src/main/assets/web
-        cp -r out/* android-app/app/src/main/assets/web/
-        find android-app/app/src/main/assets/web -name "*.apk" -delete
-        echo "=== assets/web size ==="
-        du -sh android-app/app/src/main/assets/web
-        find android-app/app/src/main/assets/web -type f | wc -l
+      # ===== 3. COPY TO ANDROID ASSETS =====
+      - name: 3. Copy export to Android assets
+        run: |
+          rm -rf android-app/app/src/main/assets/web
+          mkdir -p android-app/app/src/main/assets/web
+          cp -r out/* android-app/app/src/main/assets/web/
+          # APK kalıntısı varsa sil
+          find android-app/app/src/main/assets/web -name "*.apk" -delete
+          echo "--- assets/web ---"
+          du -sh android-app/app/src/main/assets/web
+          find android-app/app/src/main/assets/web -type f | wc -l
 
-    # ===== STEP 4: Gradle =====
-    - name: 4. Install Gradle
-      run: |
-        cd /tmp
-        curl -sL https://services.gradle.org/distributions/gradle-8.7-bin.zip -o gradle.zip
-        unzip -qo gradle.zip
+      # ===== 4. GRADLE SETUP =====
+      - name: 4. Install Gradle 8.7
+        run: |
+          cd /tmp
+          curl -sL https://services.gradle.org/distributions/gradle-8.7-bin.zip -o gradle.zip
+          unzip -qo gradle.zip
 
-    # ===== STEP 5: Build APK =====
-    - name: 5. Build APK
-      run: |
-        cd android-app
-        /tmp/gradle-8.7/bin/gradle assembleRelease --no-daemon --stacktrace
-        echo "=== APK ==="
-        ls -la app/build/outputs/apk/release/
-        du -sh app/build/outputs/apk/release/*.apk
+      # ===== 5. APK BUILD =====
+      - name: 5. Build APK
+        run: |
+          cd android-app
+          /tmp/gradle-8.7/bin/gradle assembleRelease --no-daemon --stacktrace
+          echo "--- APK ---"
+          ls -la app/build/outputs/apk/release/
+          du -sh app/build/outputs/apk/release/*.apk
 
-    # ===== UPLOAD APK =====
-    - uses: actions/upload-artifact@v4
-      if: success()
-      with:
-        name: touchline-manager-apk
-        path: android-app/app/build/outputs/apk/release/*.apk
-        retention-days: 30
+      # ===== SUCCESS: UPLOAD APK =====
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: touchline-manager-apk
+          path: android-app/app/build/outputs/apk/release/*.apk
+          retention-days: 30
 
-    # ===== UPLOAD LOGS ON FAILURE =====
-    - uses: actions/upload-artifact@v4
-      if: failure()
-      with:
-        name: debug-logs
-        path: |
-          out/
-          android-app/app/src/main/assets/web/
-        retention-days: 7
+      # ===== FAILURE: DEBUG =====
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: debug-output
+          path: |
+            out/
+            android-app/app/src/main/assets/web/
+          retention-days: 7
