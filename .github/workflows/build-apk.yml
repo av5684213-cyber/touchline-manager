@@ -9,226 +9,169 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: '22'
-    - uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
-    - uses: android-actions/setup-android@v3
-    - run: yes | sdkmanager --licenses || true
-    - run: sdkmanager "build-tools;34.0.0" "platforms;android-34"
+      - uses: actions/checkout@v4
 
-    - name: Build Next.js Static Export
-      run: |
-        npm install --legacy-peer-deps
-        # output: "export" ekle (yoksa)
-        if ! grep -q 'output:' next.config.ts; then
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+      - run: yes | sdkmanager --licenses || true
+      - run: sdkmanager "build-tools;34.0.0" "platforms;android-34"
+
+      - name: 1. Install deps
+        run: npm install --legacy-peer-deps
+
+      - name: 2. Build Next.js export
+        run: |
           sed -i 's/const nextConfig: NextConfig = {/const nextConfig: NextConfig = { output: "export",/' next.config.ts
-        fi
-        # API route'ları sil
-        rm -rf src/app/api src/app/download
-        grep output next.config.ts
-        npx next build
-        ls -la out/
-        du -sh out/
-        find out -type f | wc -l
-      env:
-        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          rm -rf src/app/api src/app/download
+          npx next build
+          du -sh out/
 
-    - name: Install Gradle
-      run: |
-        cd /tmp
-        curl -sL https://services.gradle.org/distributions/gradle-8.7-bin.zip -o gradle.zip
-        unzip -qo gradle.zip
-        /tmp/gradle-8.7/bin/gradle --version
+      - name: 3. Create Android project
+        run: |
+          rm -rf android-app
+          DIR=android-app/app/src/main
+          mkdir -p $DIR/res/values $DIR/res/mipmap-hdpi $DIR/java/com/touchline/manager $DIR/assets/web
 
-    - name: Create WebView APK with embedded app
-      run: |
-        # ÖNCE: repo'daki android-app klasörünü tamamen sil
-        rm -rf android-app
-        
-        DIR=android-app/app/src/main
-        mkdir -p $DIR/res/values
-        mkdir -p $DIR/res/mipmap-hdpi
-        mkdir -p $DIR/java/com/touchline/manager
-        mkdir -p $DIR/assets/web
+          cp -r out/* $DIR/assets/web/
+          find $DIR/assets/web -name "*.apk" -delete
 
-        # Static export çıktısını assets'e kopyala
-        cp -r out/* $DIR/assets/web/
-        # APK kalıntısı varsa sil
-        find $DIR/assets/web -name "*.apk" -delete
-        echo "=== Assets ==="
-        find $DIR/assets/web -type f | wc -l
-        du -sh $DIR/assets/web
+          cat > android-app/settings.gradle << 'G'
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
+          rootProject.name = "TouchlineManager"
+          include ':app'
+          G
 
-        # settings.gradle
-        cat > android-app/settings.gradle << 'G'
-        pluginManagement {
-            repositories {
-                google()
-                mavenCentral()
-                gradlePluginPortal()
-            }
-        }
-        dependencyResolutionManagement {
-            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-            repositories {
-                google()
-                mavenCentral()
-            }
-        }
-        rootProject.name = "TouchlineManager"
-        include ':app'
-        G
+          cat > android-app/build.gradle << 'G'
+          plugins { id 'com.android.application' version '8.2.0' apply false }
+          G
 
-        # build.gradle (root)
-        cat > android-app/build.gradle << 'G'
-        plugins {
-            id 'com.android.application' version '8.2.0' apply false
-        }
-        G
+          cat > android-app/app/build.gradle << 'G'
+          plugins { id 'com.android.application' }
+          android {
+              namespace 'com.touchline.manager'
+              compileSdk 34
+              defaultConfig { applicationId 'com.touchline.manager'; minSdk 24; targetSdk 34; versionCode 1; versionName '1.0.0' }
+              buildTypes { release { minifyEnabled false; signingConfig signingConfigs.debug } }
+          }
+          G
 
-        # app/build.gradle
-        mkdir -p android-app/app
-        cat > android-app/app/build.gradle << 'G'
-        plugins {
-            id 'com.android.application'
-        }
-        android {
-            namespace 'com.touchline.manager'
-            compileSdk 34
-            defaultConfig {
-                applicationId 'com.touchline.manager'
-                minSdk 24
-                targetSdk 34
-                versionCode 1
-                versionName '1.0.0'
-            }
-            buildTypes {
-                release {
-                    minifyEnabled false
-                    signingConfig signingConfigs.debug
-                }
-            }
-        }
-        G
+          cat > android-app/gradle.properties << 'G'
+          android.useAndroidX=true
+          org.gradle.jvmargs=-Xmx2048m
+          org.gradle.daemon=false
+          G
 
-        # gradle.properties
-        cat > android-app/gradle.properties << 'G'
-        android.useAndroidX=true
-        org.gradle.jvmargs=-Xmx2048m
-        org.gradle.daemon=false
-        G
+          cat > $DIR/AndroidManifest.xml << 'X'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <application android:label="Touchline Manager" android:icon="@mipmap/ic_launcher" android:theme="@android:style/Theme.NoTitleBar.Fullscreen" android:allowBackup="true" android:usesCleartextTraffic="true">
+                  <activity android:name=".MainActivity" android:label="Touchline Manager" android:exported="true" android:configChanges="orientation|screenSize">
+                      <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          X
 
-        # AndroidManifest.xml
-        cat > $DIR/AndroidManifest.xml << 'X'
-        <?xml version="1.0" encoding="utf-8"?>
-        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <uses-permission android:name="android.permission.INTERNET" />
-            <application
-                android:label="Touchline Manager"
-                android:icon="@mipmap/ic_launcher"
-                android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
-                android:allowBackup="true"
-                android:usesCleartextTraffic="true">
-                <activity
-                    android:name=".MainActivity"
-                    android:label="Touchline Manager"
-                    android:exported="true"
-                    android:configChanges="orientation|screenSize">
-                    <intent-filter>
-                        <action android:name="android.intent.action.MAIN" />
-                        <category android:name="android.intent.category.LAUNCHER" />
-                    </intent-filter>
-                </activity>
-            </application>
-        </manifest>
-        X
+          cat > $DIR/res/values/strings.xml << 'X'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources><string name="app_name">Touchline Manager</string></resources>
+          X
 
-        # strings.xml
-        cat > $DIR/res/values/strings.xml << 'X'
-        <?xml version="1.0" encoding="utf-8"?>
-        <resources>
-            <string name="app_name">Touchline Manager</string>
-        </resources>
-        X
+          cat > $DIR/res/values/colors.xml << 'X'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources><color name="colorPrimary">#1a3a2a</color></resources>
+          X
 
-        # colors.xml
-        cat > $DIR/res/values/colors.xml << 'X'
-        <?xml version="1.0" encoding="utf-8"?>
-        <resources>
-            <color name="colorPrimary">#1a3a2a</color>
-        </resources>
-        X
+          cat > $DIR/java/com/touchline/manager/MainActivity.java << 'JAVA'
+          package com.touchline.manager;
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          public class MainActivity extends Activity {
+              private WebView webView;
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  webView = new WebView(this);
+                  setContentView(webView);
+                  webView.getSettings().setJavaScriptEnabled(true);
+                  webView.getSettings().setDomStorageEnabled(true);
+                  webView.getSettings().setAllowFileAccess(true);
+                  webView.getSettings().setDatabaseEnabled(true);
+                  webView.setWebViewClient(new WebViewClient());
+                  webView.loadUrl("file:///android_asset/web/index.html");
+              }
+              @Override
+              public void onBackPressed() {
+                  if (webView.canGoBack()) { webView.goBack(); } else { super.onBackPressed(); }
+              }
+          }
+          JAVA
 
-        # MainActivity.java — WebView, file:// ile assets'ten yükle
-        cat > $DIR/java/com/touchline/manager/MainActivity.java << 'JAVA'
-        package com.touchline.manager;
+          cp android-icon.png $DIR/res/mipmap-hdpi/ic_launcher.png
 
-        import android.app.Activity;
-        import android.os.Bundle;
-        import android.webkit.WebView;
-        import android.webkit.WebViewClient;
+      - name: 4. Install Gradle
+        run: |
+          cd /tmp
+          curl -sL https://services.gradle.org/distributions/gradle-8.7-bin.zip -o gradle.zip
+          unzip -qo gradle.zip
 
-        public class MainActivity extends Activity {
-            private WebView webView;
+      - name: 5. Build base APK
+        run: |
+          cd android-app
+          /tmp/gradle-8.7/bin/gradle assembleRelease --no-daemon
+          ls -la app/build/outputs/apk/release/app-release.apk
 
-            @Override
-            protected void onCreate(Bundle savedInstanceState) {
-                super.onCreate(savedInstanceState);
-                webView = new WebView(this);
-                setContentView(webView);
-                webView.getSettings().setJavaScriptEnabled(true);
-                webView.getSettings().setDomStorageEnabled(true);
-                webView.getSettings().setAllowFileAccess(true);
-                webView.getSettings().setDatabaseEnabled(true);
-                webView.setWebViewClient(new WebViewClient());
-                webView.loadUrl("file:///android_asset/web/index.html");
-            }
+      - name: 6. Inject _next assets + re-sign
+        run: |
+          APK=android-app/app/build/outputs/apk/release/app-release.apk
+          BUILD_TOOLS=$ANDROID_HOME/build-tools/34.0.0
 
-            @Override
-            public void onBackPressed() {
-                if (webView.canGoBack()) {
-                    webView.goBack();
-                } else {
-                    super.onBackPressed();
-                }
-            }
-        }
-        JAVA
+          # Remove signature
+          zip -d $APK "META-INF/*"
 
-        # PNG ikonu repodan kopyala
-        cp android-icon.png $DIR/res/mipmap-hdpi/ic_launcher.png
+          # AAPT2 skips _next/ folder — add manually at correct path
+          STAGING=/tmp/apk-staging
+          rm -rf $STAGING && mkdir -p $STAGING/assets/web
+          cp -r out/_next $STAGING/assets/web/_next
+          cd $STAGING && zip -r $APK assets/web/_next/
 
-        echo "=== Project structure ==="
-        find android-app -type f | wc -l
-        du -sh android-app/
+          # Generate debug keystore
+          keytool -genkey -v -keystore /tmp/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
 
-    - name: Build APK
-      run: |
-        cd android-app
-        /tmp/gradle-8.7/bin/gradle assembleRelease --no-daemon --no-build-cache 2>&1
-        find . -name "*.apk" -type f
-        ls -la app/build/outputs/apk/release/*.apk 2>/dev/null
-        du -sh app/build/outputs/apk/release/*.apk 2>/dev/null
+          # Align + sign
+          $BUILD_TOOLS/zipalign -v 4 $APK /tmp/app-aligned.apk
+          $BUILD_TOOLS/apksigner sign --ks /tmp/debug.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out $HOME/touchline-manager.apk /tmp/app-aligned.apk
 
-    - uses: actions/upload-artifact@v4
-      if: success()
-      with:
-        name: touchline-manager-apk
-        path: android-app/app/build/outputs/apk/release/*.apk
-        if-no-files-found: warn
-        retention-days: 30
+          echo "=== Final APK ==="
+          ls -la $HOME/touchline-manager.apk
+          du -sh $HOME/touchline-manager.apk
+          unzip -l $HOME/touchline-manager.apk | grep "_next" | wc -l
+          echo "_next files packaged"
 
-    - uses: actions/upload-artifact@v4
-      if: failure()
-      with:
-        name: build-fail
-        path: |
-          out/
-          android-app/
-        retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: touchline-manager-apk
+          path: ~/touchline-manager.apk
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: debug
+          path: |
+            out/
+            android-app/
+          retention-days: 7
