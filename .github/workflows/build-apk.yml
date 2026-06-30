@@ -26,6 +26,8 @@ jobs:
 
       - name: 1. Install deps
         run: npm install --legacy-peer-deps
+        env:
+          NODE_OPTIONS: "--max-old-space-size=2048"
 
       - name: 2. Build Next.js export
         run: |
@@ -33,6 +35,8 @@ jobs:
           rm -rf src/app/api src/app/download
           npx next build
           du -sh out/
+        env:
+          NODE_OPTIONS: "--max-old-space-size=2048"
 
       - name: 3. Create Android project
         run: |
@@ -66,8 +70,10 @@ jobs:
 
           cat > android-app/gradle.properties << 'G'
           android.useAndroidX=true
-          org.gradle.jvmargs=-Xmx2048m
+          org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError
           org.gradle.daemon=false
+          org.gradle.workers.max=2
+          org.gradle.caching=false
           G
 
           cat > $DIR/AndroidManifest.xml << 'X'
@@ -130,12 +136,12 @@ jobs:
       - name: 5. Build base APK
         run: |
           cd android-app
-          /tmp/gradle-8.7/bin/gradle assembleRelease --no-daemon
-          ls -la app/build/outputs/apk/release/app-release.apk
+          /tmp/gradle-8.7/bin/gradle assembleDebug --no-daemon --no-build-cache --stacktrace
+          ls -la app/build/outputs/apk/debug/app-debug.apk
 
       - name: 6. Inject _next assets + re-sign
         run: |
-          APK=android-app/app/build/outputs/apk/release/app-release.apk
+          APK=android-app/app/build/outputs/apk/debug/app-debug.apk
           BUILD_TOOLS=$ANDROID_HOME/build-tools/34.0.0
 
           # Remove signature
