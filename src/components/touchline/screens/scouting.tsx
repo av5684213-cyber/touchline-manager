@@ -7,6 +7,7 @@ import { useAppStore, useMyTeam } from "@/lib/store";
 import { generateFreeAgents, type TransferListing } from "@/lib/mock/transfer";
 import { POSITION_GROUP, type PositionGroup } from "@/lib/mock/data";
 import { PlayerAvatar, PositionPill, RatingBadge } from "../ui-bits";
+import { PlayerProfileModal } from "../player-profile-modal";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
@@ -37,6 +38,7 @@ export function ScoutingScreen() {
   const [results, setResults] = useState<TransferListing[]>([]);
   const [searching, setSearching] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [profilePlayer, setProfilePlayer] = useState<any>(null);
 
   // Filtreler
   const [nameFilter, setNameFilter] = useState("");
@@ -298,7 +300,11 @@ export function ScoutingScreen() {
             const isHidden = listing.player.hidden_potential > listing.player.rating + 10;
             const isWatched = transfer.watchlist.includes(listing.player.id);
             return (
-              <div key={listing.player.id} className="tm-card p-2.5 flex items-center gap-2.5">
+              <div
+                key={listing.player.id}
+                onClick={() => { haptic("light"); setProfilePlayer(listing.player); }}
+                className="tm-tap tm-card p-2.5 flex items-center gap-2.5 cursor-pointer hover:bg-accent/50 transition-colors"
+              >
                 <PlayerAvatar
                   initials={`${listing.player.firstName[0]}${listing.player.lastName[0]}`}
                   size={32}
@@ -323,7 +329,7 @@ export function ScoutingScreen() {
                 </div>
                 <RatingBadge value={listing.player.formRating} />
                 <button
-                  onClick={() => { haptic("light"); toggleWatchlist(listing.player.id); }}
+                  onClick={(e) => { e.stopPropagation(); haptic("light"); toggleWatchlist(listing.player.id); }}
                   className={cn(
                     "tm-tap p-1.5 rounded-full",
                     isWatched ? "text-red-400" : "text-muted-foreground"
@@ -336,6 +342,15 @@ export function ScoutingScreen() {
           })}
         </div>
       </div>
+
+      {/* Oyuncu profil modalı */}
+      {profilePlayer && team && (
+        <PlayerProfileModal
+          player={profilePlayer}
+          teamColor={team.primaryColor}
+          onClose={() => setProfilePlayer(null)}
+        />
+      )}
     </div>
   );
 }
