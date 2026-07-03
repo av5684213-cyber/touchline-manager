@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { LocaleProvider } from "@/lib/i18n/locale-provider";
+import { ServiceWorkerRegistrar } from "@/components/service-worker-registrar";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -12,7 +13,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Touchline Manager",
-  description: "Touchline Manager — mobil futbol menajerliği oyunu",
+  description: "Futbol kulübü yönetim oyunu - Online multiplayer",
   applicationName: "Touchline Manager",
   authors: [{ name: "Touchline" }],
   manifest: "/manifest.json",
@@ -23,11 +24,16 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/icons/icon-72.png", sizes: "72x72", type: "image/png" },
+      { url: "/icons/icon-96.png", sizes: "96x96", type: "image/png" },
+      { url: "/icons/icon-128.png", sizes: "128x128", type: "image/png" },
+      { url: "/icons/icon-144.png", sizes: "144x144", type: "image/png" },
+      { url: "/icons/icon-152.png", sizes: "152x152", type: "image/png" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-384.png", sizes: "384x384", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
-    apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
   },
 };
 
@@ -46,22 +52,18 @@ export default function RootLayout({
   return (
     <html lang="tr" suppressHydrationWarning>
       <head>
-        {/* Göreli yollar — APK içinde file:// scheme ile çalışır */}
-        <link rel="manifest" href="manifest.json" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Touchline Manager" />
-        <link rel="apple-touch-icon" href="icon-192.png" />
-        <link rel="icon" type="image/png" href="favicon-32.png" />
-        {/* Service worker sadece web deploy'ta çalışır, APK'da zararsız */}
-        {typeof window !== "undefined" && window.location.protocol.startsWith("http") && (
-          <script src="sw-register.js" defer />
-        )}
+        <meta name="mobile-web-app-capable" content="yes" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <link rel="apple-touch-startup-image" href="/icons/icon-512.png" />
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <LocaleProvider>
           {children}
           <Toaster />
+          <ServiceWorkerRegistrar />
         </LocaleProvider>
       </body>
     </html>

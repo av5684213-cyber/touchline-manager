@@ -1,43 +1,54 @@
-// Touchline Manager Service Worker
-// Cache static assets for offline use
-const CACHE_NAME = "touchline-v1";
-const STATIC_ASSETS = ["/", "/manifest.json", "/icon-192.png", "/icon-512.png"];
+const CACHE_NAME = 'touchline-v1';
+const OFFLINE_URL = '/offline';
 
-self.addEventListener("install", (event) => {
+const STATIC_ASSETS = [
+  '/',
+  '/offline',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/manifest.json',
+];
+
+self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS).catch(() => {}))
+    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
   );
   self.skipWaiting();
 });
 
-self.addEventListener("activate", (event) => {
+self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
     )
   );
   self.clients.claim();
 });
 
-self.addEventListener("fetch", (event) => {
-  const req = event.request;
-  // Sadece GET isteklerini cache'le
-  if (req.method !== "GET") return;
-  // Supabase API isteklerini cache'leme
-  const url = new URL(req.url);
-  if (url.hostname.includes("supabase")) return;
+self.addEventListener('fetch', (event) => {
+  if (event.request.url.includes('/api/')) return;
 
-  // Network-first strategy: önce network, hata olursa cache
   event.respondWith(
-    fetch(req)
-      .then((res) => {
-        // Başarılı response'u cache'le (sadece same-origin)
-        if (res.ok && url.origin === self.location.origin) {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(req, clone)).catch(() => {});
-        }
-        return res;
-      })
-      .catch(() => caches.match(req).then((cached) => cached || caches.match("/")))
+    fetch(event.request)
+      .catch(() => caches.match(event.request)
+        .then(cached => cached || caches.match('/offline'))
+      )
   );
+});
+
+self.addEventListener('push', (event) => {
+  const data = event.data?.json() ?? {};
+  event.waitUntil(
+    self.registration.showNotification(data.title ?? 'Touchline Manager', {
+      body: data.body ?? '',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-96.png',
+      data: { url: data.url ?? '/' },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(clients.openWindow(event.notification.data.url));
 });
