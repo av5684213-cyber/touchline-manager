@@ -77,11 +77,6 @@ export function saveGameState(userId: string, immediate: boolean = false) {
         seasonMatchday: state.seasonMatchday,
         seasonNumber: state.seasonNumber,
         news: state.news,
-        notifications: state.notifications,
-        cupBracket: state.cupBracket,
-        cupChampion: state.cupChampion,
-        cupSeason: state.cupSeason,
-        youthPlayers: state.youthPlayers,
         clubs: state.clubs,
         fixtures: state.fixtures,
         tactics: state.tactics,
@@ -133,10 +128,7 @@ export function initCloudSave(userId: string) {
         state.training !== prevState.training ||
         state.facilities !== prevState.facilities ||
         state.seasonMatchday !== prevState.seasonMatchday ||
-        state.news !== prevState.news ||
-        state.notifications !== prevState.notifications ||
-        state.cupBracket !== prevState.cupBracket ||
-        state.youthPlayers !== prevState.youthPlayers
+        state.news !== prevState.news
       ) {
         saveGameState(userId);
       }

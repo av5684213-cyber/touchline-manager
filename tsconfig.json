@@ -42,6 +42,7 @@
     "tool-results",
     "examples",
     "skills",
-    "scripts"
+    "scripts",
+    "supabase"
   ]
 }

@@ -14,6 +14,7 @@ export {
   simulateEnhancedMatch,
   runUnifiedMatch,
   matchEngine,
+  applyRoleBonuses,
 } from "./enhancedMatchEngine";
 
 export type {

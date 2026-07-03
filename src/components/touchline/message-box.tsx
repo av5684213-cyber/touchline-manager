@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Bell, Check, Mail, Trash2, X } from "lucide-react";
 import { useAppStore, useMyTeam } from "@/lib/store";
-import type { TransferMessage } from "@/lib/mock/transfer";
+import type { MessageItem } from "@/lib/store";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
@@ -142,7 +142,7 @@ export function MessagePanel() {
                       <button
                         onClick={() => {
                           haptic("success");
-                          const offer = transfer.outgoingOffers.find((o) => o.id === m.relatedOfferId);
+                          const offer = transfer.incomingOffers.find((o) => o.id === m.relatedOfferId);
                           if (offer) {
                             const res = useAppStore.getState().completeTransfer(offer.id);
                             if (!res.success) {
@@ -243,7 +243,7 @@ export function MessagePanel() {
 }
 
 // ===== Mesaj tipine göre stil =====
-function getKindStyle(kind: TransferMessage["kind"]): { bg: string; text: string; label: string } {
+function getKindStyle(kind: MessageItem["kind"]): { bg: string; text: string; label: string } {
   switch (kind) {
     case "transfer_accepted":
       return { bg: "bg-emerald-500/15", text: "text-emerald-400", label: "Teklif Kabul" };
