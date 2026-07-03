@@ -16,6 +16,7 @@ import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { getInflationMultiplier, formatInflationLabel } from "@/lib/fm/inflation";
 import { AchievementsCard, checkAchievements, AchievementToast, type Achievement } from "@/components/touchline/achievements";
+import { MatchReplayModal } from "../match-replay-modal";
 import type { SeasonSummary } from "@/lib/store";
 import type { Player as PlayerT } from "@/lib/mock/data";
 import { SeasonEndModal } from "../season-end-modal";
@@ -81,6 +82,7 @@ export function DashboardScreen() {
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [profilePlayer, setProfilePlayer] = useState<PlayerT | null>(null);
   const [newAchievements, setNewAchievements] = useState<Achievement[]>([]);
+  const [dashboardReplay, setDashboardReplay] = useState<any>(null);
 
   // Geri sayım her dakika güncelle
   useEffect(() => {
@@ -168,6 +170,9 @@ export function DashboardScreen() {
 
       {/* Enflasyon göstergesi */}
       <InflationIndicator />
+
+      {/* Hoşgeldin kartı */}
+      <WelcomeBanner teamName={team.name} />
 
       {/* Galibiyet serisi göstergesi */}
       <StreakIndicator fixtures={fixtures} teamId={team?.id ?? ""} />
@@ -262,7 +267,13 @@ export function DashboardScreen() {
                 >
                   {opp?.name ?? "—"}
                 </button>
-                <ResultBadge outcome={outcome} score={`${us}-${them}`} />
+                <button
+                  onClick={() => { haptic("light"); setDashboardReplay(f); }}
+                  className="tm-tap shrink-0"
+                  title="Maçı izle"
+                >
+                  <ResultBadge outcome={outcome} score={`${us}-${them}`} />
+                </button>
               </div>
             );
           })}
@@ -416,6 +427,23 @@ export function DashboardScreen() {
           onClose={() => setProfilePlayer(null)}
         />
       )}
+
+      {/* Dashboard maç izleme modal'ı */}
+      {dashboardReplay && (() => {
+        const home = clubs.find((c) => c.id === dashboardReplay.homeId);
+        const away = clubs.find((c) => c.id === dashboardReplay.awayId);
+        if (!home || !away) return null;
+        return (
+          <MatchReplayModal
+            homeTeam={home}
+            awayTeam={away}
+            homeScore={dashboardReplay.homeScore ?? 0}
+            awayScore={dashboardReplay.awayScore ?? 0}
+            matchday={dashboardReplay.matchday}
+            onClose={() => setDashboardReplay(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -734,6 +762,51 @@ function StreakIndicator({ fixtures, teamId }: { fixtures: any[]; teamId: string
             {r === "W" ? "G" : r === "L" ? "M" : "B"}
           </span>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ===== Bilgi rozeti (i ikonu) =====
+function InfoBadge({ text }: { text: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span className="relative inline-flex">
+      <button
+        onClick={(e) => { e.stopPropagation(); setShow(!show); }}
+        className="tm-tap w-3.5 h-3.5 rounded-full bg-muted text-muted-foreground text-[8px] font-bold flex items-center justify-center"
+      >
+        i
+      </button>
+      {show && (
+        <span
+          className="absolute top-5 left-1/2 -translate-x-1/2 z-50 w-40 p-2 rounded-lg bg-popover border border-border text-[9px] text-foreground shadow-lg"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {text}
+          <button onClick={() => setShow(false)} className="block mt-1 text-[8px] text-muted-foreground">kapat</button>
+        </span>
+      )}
+    </span>
+  );
+}
+
+// ===== Tanıtıcı hoşgeldin kartı =====
+function WelcomeBanner({ teamName }: { teamName: string }) {
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+  return (
+    <div className="tm-card p-3 bg-gradient-to-r from-emerald-500/10 to-sky-500/10 border-emerald-500/20">
+      <div className="flex items-start gap-2">
+        <span className="text-2xl">⚽</span>
+        <div className="flex-1">
+          <div className="text-xs font-bold mb-1">Hoş geldin, {teamName} menajeri!</div>
+          <div className="text-[10px] text-muted-foreground leading-relaxed">
+            Hafta içi 12:00 ve 18:00'de maçlar oynanır. Taktik kur, antrenman yap, transfer gerçekleştir ve lige hükmet!
+            Skorlara tıklayarak maçları tekrar izleyebilirsin.
+          </div>
+        </div>
+        <button onClick={() => setDismissed(true)} className="tm-tap text-muted-foreground text-xs">✕</button>
       </div>
     </div>
   );
