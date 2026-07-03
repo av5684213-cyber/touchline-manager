@@ -6,6 +6,7 @@ import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { SEASON_INFO, myRecentMatches, type FixtureRow } from "@/lib/mock/season";
 import { ClubBadge } from "../ui-bits";
+import { MatchReplayModal } from "../match-replay-modal";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 
@@ -17,6 +18,7 @@ export function FixtureScreen() {
   const { clubs, fixtures } = useAppStore();
   const [filter, setFilter] = useState<FilterKey>("all");
   const [expandedMd, setExpandedMd] = useState<number | null>(null);
+  const [replayMatch, setReplayMatch] = useState<{ homeId: string; awayId: string; homeScore: number; awayScore: number; matchday: number } | null>(null);
 
   // Kullanıcının takım ID'sine göre tüm fikstürünü bul
   const myFixtures = useMemo(() => {
@@ -217,14 +219,26 @@ export function FixtureScreen() {
               {/* Score or Play button */}
               {f.played ? (
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className={cn(
-                    "text-sm font-bold tabular-nums",
-                    outcome === "W" ? "text-emerald-400"
-                    : outcome === "L" ? "text-red-400"
-                    : "text-amber-400"
-                  )}>
+                  <button
+                    onClick={() => {
+                      haptic("light");
+                      setReplayMatch({
+                        homeId: f.homeId,
+                        awayId: f.awayId,
+                        homeScore: f.homeScore ?? 0,
+                        awayScore: f.awayScore ?? 0,
+                        matchday: f.matchday,
+                      });
+                    }}
+                    className={cn(
+                      "tm-tap text-sm font-bold tabular-nums px-1.5 py-0.5 rounded hover:bg-accent/50 transition-colors",
+                      outcome === "W" ? "text-emerald-400"
+                      : outcome === "L" ? "text-red-400"
+                      : "text-amber-400"
+                    )}
+                  >
                     {us} - {them}
-                  </span>
+                  </button>
                   <button
                     onClick={() => { haptic("light"); setExpandedMd(expandedMd === f.matchday ? null : f.matchday); }}
                     className="tm-tap p-1 text-muted-foreground"
@@ -248,6 +262,23 @@ export function FixtureScreen() {
           );
         })}
       </div>
+
+      {/* Maç tekrar izleme modal'ı */}
+      {replayMatch && (() => {
+        const home = clubs.find((c) => c.id === replayMatch.homeId);
+        const away = clubs.find((c) => c.id === replayMatch.awayId);
+        if (!home || !away) return null;
+        return (
+          <MatchReplayModal
+            homeTeam={home}
+            awayTeam={away}
+            homeScore={replayMatch.homeScore}
+            awayScore={replayMatch.awayScore}
+            matchday={replayMatch.matchday}
+            onClose={() => setReplayMatch(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

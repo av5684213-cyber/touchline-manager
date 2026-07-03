@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { MessageSquare, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
+import { useAppStore } from "@/lib/store";
 import { POSITION_GROUP, type Player, type PositionGroup, type Team } from "@/lib/mock/data";
 import { ClubBadge, PlayerAvatar, PositionPill, RatingBadge } from "./ui-bits";
 import { PlayerProfileModal } from "./player-profile-modal";
+import { MatchReplayModal } from "./match-replay-modal";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
@@ -44,6 +46,16 @@ export function TeamDetailModal({
   const { t, locale } = useI18n();
   const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
   const [posFilter, setPosFilter] = useState<"ALL" | "GK" | "DEF" | "MID" | "FWD">("ALL");
+  const [detailTab, setDetailTab] = useState<"players" | "matches">("players");
+  const [replayMatch, setReplayMatch] = useState<{ homeId: string; awayId: string; homeScore: number; awayScore: number; matchday: number } | null>(null);
+  const { clubs, fixtures } = useAppStore();
+
+  // Bu takımın fikstürü
+  const teamFixtures = useMemo(() => {
+    return fixtures
+      .filter((f) => f.homeId === team.id || f.awayId === team.id)
+      .sort((a, b) => a.matchday - b.matchday);
+  }, [fixtures, team.id]);
 
   const filteredPlayers = posFilter === "ALL"
     ? team.players
@@ -100,6 +112,31 @@ export function TeamDetailModal({
           </div>
         )}
 
+        {/* Tab navigation: Oyuncular / Maçlar */}
+        <div className="flex border-b border-border">
+          <button
+            onClick={() => { haptic("light"); setDetailTab("players"); }}
+            className={cn(
+              "tm-tap flex-1 py-2 text-xs font-bold",
+              detailTab === "players" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"
+            )}
+          >
+            Oyuncular ({team.players.length})
+          </button>
+          <button
+            onClick={() => { haptic("light"); setDetailTab("matches"); }}
+            className={cn(
+              "tm-tap flex-1 py-2 text-xs font-bold",
+              detailTab === "matches" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"
+            )}
+          >
+            Maçlar ({teamFixtures.filter((f) => f.played).length}/{teamFixtures.length})
+          </button>
+        </div>
+
+        {/* Oyuncular tab */}
+        {detailTab === "players" && (
+          <>
         {/* Position filter */}
         <div className="flex gap-1 p-2 border-b border-border overflow-x-auto tm-no-scrollbar">
           {(["ALL", "GK", "DEF", "MID", "FWD"] as const).map((g) => (
@@ -158,6 +195,67 @@ export function TeamDetailModal({
             })}
           </div>
         </div>
+          </>
+        )}
+
+        {/* Maçlar tab — takımın tüm fikstürü, skorlar tıklanabilir */}
+        {detailTab === "matches" && (
+          <div className="flex-1 overflow-y-auto tm-thin-scrollbar p-2 space-y-1.5">
+            {teamFixtures.map((f) => {
+              const isHome = f.homeId === team.id;
+              const oppId = isHome ? f.awayId : f.homeId;
+              const opp = clubs.find((c) => c.id === oppId);
+              if (!opp) return null;
+              const us = isHome ? f.homeScore : f.awayScore;
+              const them = isHome ? f.awayScore : f.homeScore;
+              const outcome = f.played
+                ? (us ?? 0) > (them ?? 0) ? "W" : (us ?? 0) < (them ?? 0) ? "L" : "D"
+                : null;
+              return (
+                <div key={f.id} className="tm-card p-2.5 flex items-center gap-2.5">
+                  <div className="w-8 text-center shrink-0">
+                    <div className="text-[8px] uppercase text-muted-foreground">Hafta</div>
+                    <div className="text-xs font-bold tabular-nums">{f.matchday}</div>
+                  </div>
+                  <span className={cn(
+                    "text-[9px] px-1 py-0.5 rounded font-bold shrink-0 w-7 text-center",
+                    isHome ? "bg-emerald-500/20 text-emerald-300" : "bg-sky-500/20 text-sky-300"
+                  )}>
+                    {isHome ? "Ev" : "Dep"}
+                  </span>
+                  <ClubBadge short={opp.shortName} primaryColor={opp.primaryColor} size={20} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[11px] font-semibold truncate">{opp.name}</div>
+                  </div>
+                  {f.played ? (
+                    <button
+                      onClick={() => {
+                        haptic("light");
+                        setReplayMatch({
+                          homeId: f.homeId,
+                          awayId: f.awayId,
+                          homeScore: f.homeScore ?? 0,
+                          awayScore: f.awayScore ?? 0,
+                          matchday: f.matchday,
+                        });
+                      }}
+                      className={cn(
+                        "tm-tap text-sm font-bold tabular-nums px-1.5 py-0.5 rounded hover:bg-accent/50 transition-colors",
+                        outcome === "W" ? "text-emerald-400"
+                        : outcome === "L" ? "text-red-400"
+                        : "text-amber-400"
+                      )}
+                    >
+                      {us} - {them}
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground">—</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Player profile modal (nested) */}
@@ -168,6 +266,23 @@ export function TeamDetailModal({
           onClose={() => setProfilePlayer(null)}
         />
       )}
+
+      {/* Maç tekrar izleme modal'ı (nested) */}
+      {replayMatch && (() => {
+        const home = clubs.find((c) => c.id === replayMatch.homeId);
+        const away = clubs.find((c) => c.id === replayMatch.awayId);
+        if (!home || !away) return null;
+        return (
+          <MatchReplayModal
+            homeTeam={home}
+            awayTeam={away}
+            homeScore={replayMatch.homeScore}
+            awayScore={replayMatch.awayScore}
+            matchday={replayMatch.matchday}
+            onClose={() => setReplayMatch(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

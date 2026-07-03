@@ -34,6 +34,7 @@ export function PlayerProfileModal({
   const [tab, setTab] = useState<Tab>("overview");
   const [photo, setPhoto] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [arkModal, setArkModal] = useState<string | null>(null);
 
   const isGK = player.specificPosition === "GK";
 
@@ -163,6 +164,7 @@ export function PlayerProfileModal({
               physical={physical}
               locale={locale}
               t={t}
+              onArketipClick={(ark) => setArkModal(ark)}
             />
           )}
           {tab === "stats" && <StatsTab player={player} t={t} locale={locale} />}
@@ -171,6 +173,15 @@ export function PlayerProfileModal({
           )}
         </div>
       </div>
+
+      {/* Arketip açıklama modal'ı */}
+      {arkModal && (
+        <ArkInfoModal
+          arketip={arkModal}
+          position={player.specificPosition}
+          onClose={() => setArkModal(null)}
+        />
+      )}
     </div>
   );
 }
@@ -186,6 +197,7 @@ function OverviewTab({
   physical,
   locale,
   t,
+  onArketipClick,
 }: {
   player: Player;
   teamColor: string;
@@ -197,6 +209,7 @@ function OverviewTab({
   physical: { label: string; value: number | undefined }[];
   locale: "tr" | "en";
   t: (key: string, params?: Record<string, string | number>) => string;
+  onArketipClick?: (ark: string) => void;
 }) {
   return (
     <div className="space-y-3">
@@ -240,12 +253,16 @@ function OverviewTab({
               <span className="text-[10px] text-muted-foreground">· {player.height}cm</span>
             )}
           </div>
-          {/* Arketip + playStyle */}
+          {/* Arketip + playStyle — tıklanabilir */}
           {player.archetype && (
             <div className="mt-1.5">
-              <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-500/20 text-purple-300">
+              <button
+                onClick={() => { haptic("light"); onArketipClick?.(player.archetype!); }}
+                className="tm-tap inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-colors"
+              >
                 {player.archetype}
-              </span>
+                <span className="text-[7px] opacity-60">ⓘ</span>
+              </button>
             </div>
           )}
           {player.playStyle && (
@@ -1257,6 +1274,375 @@ function StatRadar({ player, compact = false }: { player: Player; compact?: bool
         {points.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={2} fill="#10b981" stroke="#fff" strokeWidth={0.8} />)}
         {points.map((p, i) => <text key={i} x={p.lx} y={p.ly} textAnchor="middle" dominantBaseline="middle" className="fill-current text-muted-foreground" style={{ fontSize, fontWeight: 600 }}>{p.label}</text>)}
       </svg>
+    </div>
+  );
+}
+
+// ===== Arketip Açıklama Tablosu =====
+const ARKETIP_DESCRIPTIONS: Record<string, {
+  desc: string;
+  strengths: string[];
+  weaknesses: string[];
+  bestPos: string;
+  playStyle: string;
+}> = {
+  // Kaleci
+  "Refleks Canavarı": {
+    desc: "Müthiş refleksleri ile yakın mesafeli şutları kurtarır. Ceza sahası içinde rakip forvetlerin korkulu rüyasıdır.",
+    strengths: ["Refleks", "Birebir", "Kısa mesafe kurtarış"],
+    weaknesses: ["Topla ayak oyunu", "Uzun pas"],
+    bestPos: "Kaleci",
+    playStyle: "Defansif takımlar için ideal",
+  },
+  "Güvenli Eller": {
+    desc: "Topu tutmayı seven, sert şutları kontrol edebilen kaleci. Hava topu mücadelesinde üstündür.",
+    strengths: ["Top tutma", "Hava topu", "Pozisyon alma"],
+    weaknesses: ["Refleks", "Hızlı çıkış"],
+    bestPos: "Kaleci",
+    playStyle: "Klasik kaleci",
+  },
+  "Süpürücü Kaleci": {
+    desc: "Ceza sahası dışına çıkarak savunma arkasını kapatır. Modern oyunun kalecisi, pas oyununa katkı sağlar.",
+    strengths: ["Topla ayak", "Çıkış", "Pas dağıtımı"],
+    weaknesses: ["Geleneksel kurtarış"],
+    bestPos: "Kaleci",
+    playStyle: "Yüksek savunma çizgisi ile",
+  },
+  "Penaltı Uzmanı": {
+    desc: "Penaltılarda rakip oyuncuyu okuma konusunda ustalaşmış. Kritik anlarda fark yaratır.",
+    strengths: ["Penaltı kurtarış", "Konsantrasyon"],
+    weaknesses: ["Açık oyun"],
+    bestPos: "Kaleci",
+    playStyle: "Kupa maçları için",
+  },
+  "Büyük Maç Kalecisi": {
+    desc: "Baskılı maçlarda performansını artıran, kritik kurtarışlar yapan deneyimli kaleci.",
+    strengths: ["Baskı altında performans", "Liderlik", "Konsantrasyon"],
+    weaknesses: ["Sıradan maçlar"],
+    bestPos: "Kaleci",
+    playStyle: "Derbi ve kupa maçları için",
+  },
+  // Stoper
+  "Duvar": {
+    desc: "Fiziksel gücü ve hava topu hakimiyeti ile rakip forvetleri durduran klasik stoper.",
+    strengths: ["Fiziksel güç", "Hava topu", "Top çalma"],
+    weaknesses: ["Hız", "Pas oyunu"],
+    bestPos: "Stoper",
+    playStyle: "Catenaccio / Defansif",
+  },
+  "Lider Stoper": {
+    desc: "Savunmayı organize eden, arkada kalan son adam. Takımına güven verir.",
+    strengths: ["Pozisyon alma", "Liderlik", "Karar verme"],
+    weaknesses: ["Hız"],
+    bestPos: "Stoper",
+    playStyle: "Her sistemde",
+  },
+  "Top Çıkan Stoper": {
+    desc: "Savunmadan topu taşıyarak hücuma katkı sağlayan modern stoper.",
+    strengths: ["Topla çıkış", "Pas", "Hız"],
+    weaknesses: ["Defansif pozisyon"],
+    bestPos: "Stoper",
+    playStyle: "Tiki-Taka / Gegenpressing",
+  },
+  "Hava Hakimi": {
+    desc: "Hava topu mücadelesinde rakipsiz. Hem savunmada hem hücumda kafa golleri atan stoper.",
+    strengths: ["Hava topu", "Fiziksel", "Kafa golü"],
+    weaknesses: ["Yerden oyun", "Hız"],
+    bestPos: "Stoper",
+    playStyle: "Duran top taktikleri ile",
+  },
+  "Baskı Ustası": {
+    desc: "Yüksek baskı yapan, rakibi hataya zorlayan agresif stoper.",
+    strengths: ["Baskı", "Agresiflik", "Top çalma"],
+    weaknesses: ["Pozisyon disiplini"],
+    bestPos: "Stoper",
+    playStyle: "Gegenpressing",
+  },
+  "Kale Gibi": {
+    desc: "Adı gibi — kale gibi duran, nadiren hata yapan güvenilir stoper.",
+    strengths: ["Tutarlılık", "Konsantrasyon", "Pozisyon"],
+    weaknesses: ["Yaratıcılık"],
+    bestPos: "Stoper",
+    playStyle: "Catenaccio",
+  },
+  // Bek
+  "Kanat Beki": {
+    desc: "Hem savunma hem hücum yapan, kanattan yüklenen çabalı bek.",
+    strengths: ["Dayanıklılık", "Hız", "Kanat desteği"],
+    weaknesses: ["Defansif pozisyon"],
+    bestPos: "Sağ/Sol Bek",
+    playStyle: "Wing Play / Kanat oyunu",
+  },
+  "Hücumcu Bek": {
+    desc: "Hücuma çıkmayı seven, asist üreten ofansif bek. Defansif katkısı sınırlı.",
+    strengths: ["Hücum", "Orta", "Asist"],
+    weaknesses: ["Defans"],
+    bestPos: "Sağ/Sol Bek",
+    playStyle: "Hücumcu takımlar",
+  },
+  "Defansif Bek": {
+    desc: "Öncelikle savunma yapan, kanadı kapatan güvenilir bek.",
+    strengths: ["Defans", "Pozisyon", "Markaj"],
+    weaknesses: ["Hücum katkısı"],
+    bestPos: "Sağ/Sol Bek",
+    playStyle: "Defansif sistemler",
+  },
+  "Ters Bek": {
+    desc: "Zayıf ayağını kullanan, içeri kesen modern bek. Kanattan forvet area'sına girer.",
+    strengths: ["İçeri kesme", "Zayıf ayak", "Şut"],
+    weaknesses: ["Klasik orta"],
+    bestPos: "Sağ/Sol Bek",
+    playStyle: "Tiki-Taka / Modern",
+  },
+  "Ofansif Bek": {
+    desc: "Sürekli hücum eden, kanadı işgal eden bek. Hücumda etkili, savunmada riskli.",
+    strengths: ["Hız", "Hücum", "Orta"],
+    weaknesses: ["Savunma dönüşü"],
+    bestPos: "Sağ/Sol Bek",
+    playStyle: "Wing Play",
+  },
+  // Orta saha
+  "Yıkıcı": {
+    desc: "Rakip hücumları bozan, top çalan defansif orta saha. Ekran arkasında çalışır.",
+    strengths: ["Top çalma", "Pozisyon", "Defans"],
+    weaknesses: ["Yaratıcılık", "Pas"],
+    bestPos: "Defansif Orta Saha",
+    playStyle: "Catenaccio / Defansif",
+  },
+  "Regista": {
+    desc: "Derinlerden oyunu yöneten, pas dağıtan playmaker. Modern regista.",
+    strengths: ["Pas", "Vizyon", "Oyun okuma"],
+    weaknesses: ["Fiziksel", "Defans"],
+    bestPos: "Defansif Orta Saha",
+    playStyle: "Tiki-Taka",
+  },
+  "Ekran Oyuncusu": {
+    desc: "Savunma önünde ekran görevi gören, rakip baskıyı kıran orta saha.",
+    strengths: ["Top koruma", "Pas", "Pozisyon"],
+    weaknesses: ["Hız", "Hücum"],
+    bestPos: "Defansif Orta Saha",
+    playStyle: "Possession / Tiki-Taka",
+  },
+  "Duvar Orta Saha": {
+    desc: "Defansif duvar özelliği gösteren, fiziksel orta saha. Topu iyi korur.",
+    strengths: ["Fiziksel", "Top koruma", "Dayanıklılık"],
+    weaknesses: ["Teknik", "Pas"],
+    bestPos: "Defansif Orta Saha",
+    playStyle: "Fiziksel takımlar",
+  },
+  "Motor": {
+    desc: "Box-to-box koşan, hem savunma hem hücum yapan çabalı orta saha.",
+    strengths: ["Dayanıklılık", "Çalışkanlık", "Tüm saha"],
+    weaknesses: ["Yaratıcılık"],
+    bestPos: "Merkez Orta Saha",
+    playStyle: "Gegenpressing / Pressing",
+  },
+  "Truva Atı": {
+    desc: "Görünmez ama etkili — sessizce işini yapan, kritik anlarda ortaya çıkan orta saha.",
+    strengths: ["Pozisyon", "Konsantrasyon", "Kritik anlar"],
+    weaknesses: ["İstikrar"],
+    bestPos: "Merkez Orta Saha",
+    playStyle: "Counter-Attack",
+  },
+  "Pas Ustası": {
+    desc: "Pas isabeti ve dağıtımı ile oyunu yöneten teknik orta saha.",
+    strengths: ["Pas", "Teknik", "Vizyon"],
+    weaknesses: ["Fiziksel", "Defans"],
+    bestPos: "Merkez Orta Saha",
+    playStyle: "Tiki-Taka",
+  },
+  "Box-to-Box": {
+    desc: "Sahanın başından sonuna koşan, hem gol hem asist üreten modern orta saha.",
+    strengths: ["Dayanıklılık", "Hücum", "Defans"],
+    weaknesses: ["Pozisyon disiplini"],
+    bestPos: "Merkez Orta Saha",
+    playStyle: "Gegenpressing",
+  },
+  "Tempo Kontrolcüsü": {
+    desc: "Oyunun temposunu ayarlayan, ne zaman hızlanıp ne zaman yavaşlayacağını bilen.",
+    strengths: ["Oyun yönetimi", "Pas", "Karar"],
+    weaknesses: ["Fiziksel"],
+    bestPos: "Merkez Orta Saha",
+    playStyle: "Possession",
+  },
+  "Playmaker": {
+    desc: "Yaratıcı pasları ve asistleri ile hücumu yönlendiren hücum orta saha.",
+    strengths: ["Yaratıcılık", "Asist", "Vizyon"],
+    weaknesses: ["Defans"],
+    bestPos: "Hücum Orta Saha",
+    playStyle: "Tiki-Taka / Yaratıcı",
+  },
+  "Numara 10": {
+    desc: "Klasik 10 numara — forvet arkasında oynayan, yaratıcı ve golcü.",
+    strengths: ["Yaratıcılık", "Gol", "Asist"],
+    weaknesses: ["Defans"],
+    bestPos: "Hücum Orta Saha",
+    playStyle: "Klasik 10 numara sistemi",
+  },
+  "Yaratıcı": {
+    desc: "Farklı şeyler deneyen, beklenmedik paslar atan yaratıcı oyuncu.",
+    strengths: ["Yaratıcılık", "Teknik", "Flair"],
+    weaknesses: ["Disiplin"],
+    bestPos: "Hücum Orta Saha",
+    playStyle: "Serbest rol",
+  },
+  "Oyun Kurucu": {
+    desc: "Takımın hücum oyununu kuran, pas ağının merkezinde olan oyuncu.",
+    strengths: ["Pas", "Vizyon", "Oyun okuma"],
+    weaknesses: ["Hız"],
+    bestPos: "Hücum Orta Saha",
+    playStyle: "Possession",
+  },
+  // Kanat
+  "Hızlı Kanat": {
+    desc: "Hızıyla kanattan rakip savunmayı aşan, çalım atabilen kanat oyuncusu.",
+    strengths: ["Hız", "Çalım", "Kanal aşma"],
+    weaknesses: ["Defans"],
+    bestPos: "Kanat",
+    playStyle: "Counter-Attack",
+  },
+  "İçeri Dönen": {
+    desc: "Kanattan içeri keserek şut atan, golcü kanat. Zayıf ayağını kullanır.",
+    strengths: ["İçeri kesme", "Şut", "Gol"],
+    weaknesses: ["Klasik orta"],
+    bestPos: "Kanat",
+    playStyle: "Modern kanat oyunu",
+  },
+  "Dripling Ustası": {
+    desc: "Çalım atma konusunda usta, rakip savunmayı birebir aşan kanat.",
+    strengths: ["Dripling", "Çalım", "Teknik"],
+    weaknesses: ["Defans", "Pas"],
+    bestPos: "Kanat",
+    playStyle: "Bireysel yetenek gerektiren",
+  },
+  "Kanat": {
+    desc: "Klasik kanat — orta açan, kanattan yüklenen, hücumu genişleten oyuncu.",
+    strengths: ["Orta", "Hız", "Kanal"],
+    weaknesses: ["İçeri oyun"],
+    bestPos: "Kanat",
+    playStyle: "Wing Play",
+  },
+  // Forvet
+  "Gol Makinesi": {
+    desc: "Gol atmaktan başka şey düşünmeyen, ceza sahasında öldürücü forvet.",
+    strengths: ["Bitiricilik", "Gol", "Pozisyon"],
+    weaknesses: ["Defansa yardım"],
+    bestPos: "Forvet",
+    playStyle: "Hücumcu sistemler",
+  },
+  "Bitirici": {
+    desc: "Yarım fırsatı gol çeviren, soğukkanlı bitirici.",
+    strengths: ["Bitiricilik", "Soğukkanlılık", "Gol"],
+    weaknesses: ["Oyun kurma"],
+    bestPos: "Forvet",
+    playStyle: "Counter-Attack",
+  },
+  "Hedef Adam": {
+    desc: "Fiziksel gücü ve hava topu ile topu tutan, takımın hücum referansı olan forvet.",
+    strengths: ["Fiziksel", "Hava topu", "Top tutma"],
+    weaknesses: ["Hız", "Teknik"],
+    bestPos: "Forvet",
+    playStyle: "Wing Play / Direkt",
+  },
+  "Fırsatçı": {
+    desc: "Doğru yerde doğru zamanda olan, seken topları gol çeviren forvet.",
+    strengths: ["Pozisyon", "Fırsat değerlendirme", "Gol"],
+    weaknesses: ["Oyun kurma"],
+    bestPos: "Forvet",
+    playStyle: "Reaktif",
+  },
+  "Hızlı Forvet": {
+    desc: "Hızıyla rakip savunma arkasına koşan, kontra atakların yıldızı.",
+    strengths: ["Hız", "Hızlanma", "Kontra"],
+    weaknesses: ["Fiziksel mücadele"],
+    bestPos: "Forvet",
+    playStyle: "Counter-Attack",
+  },
+  "İkinci Forvet": {
+    desc: "Forvet arkasında oynayan, hem gol atan hem asist veren yaratıcı forvet.",
+    strengths: ["Yaratıcılık", "Asist", "Gol"],
+    weaknesses: ["Fiziksel"],
+    bestPos: "İkinci Forvet",
+    playStyle: "Yaratıcı sistemler",
+  },
+  "Yaratıcı Forvet": {
+    desc: "Gol atmaktan çok oyun kuran, asist üreten yaratıcı forvet.",
+    strengths: ["Yaratıcılık", "Asist", "Teknik"],
+    weaknesses: ["Bitiricilik"],
+    bestPos: "İkinci Forvet",
+    playStyle: "Possession / Tiki-Taka",
+  },
+};
+
+// Arketip bilgi modal'ı
+function ArkInfoModal({
+  arketip,
+  position,
+  onClose,
+}: {
+  arketip: string;
+  position: string;
+  onClose: () => void;
+}) {
+  const info = ARKETIP_DESCRIPTIONS[arketip];
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/80" onClick={onClose} />
+      <div className="relative w-full max-w-[340px] bg-card rounded-xl border border-border p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-1 rounded text-xs font-bold bg-purple-500/20 text-purple-300">
+              {arketip}
+            </span>
+            <span className="text-[10px] text-muted-foreground">{position}</span>
+          </div>
+          <button onClick={onClose} className="tm-tap p-1 text-muted-foreground">
+            <X size={16} />
+          </button>
+        </div>
+
+        {info ? (
+          <>
+            <p className="text-xs leading-relaxed text-foreground/90">{info.desc}</p>
+
+            <div>
+              <div className="text-[10px] text-emerald-400 font-bold uppercase mb-1">Güçlü Yönler</div>
+              <div className="flex flex-wrap gap-1">
+                {info.strengths.map((s) => (
+                  <span key={s} className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-semibold">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-red-400 font-bold uppercase mb-1">Zayıf Yönler</div>
+              <div className="flex flex-wrap gap-1">
+                {info.weaknesses.map((s) => (
+                  <span key={s} className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 font-semibold">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-border">
+              <div>
+                <div className="text-[8px] text-muted-foreground uppercase">En İyi Mevki</div>
+                <div className="text-[10px] font-bold">{info.bestPos}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-[8px] text-muted-foreground uppercase">Uyumlu Oyun Stili</div>
+                <div className="text-[10px] font-bold text-sky-300">{info.playStyle}</div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground">Bu arketip için detaylı bilgi bulunmuyor.</p>
+        )}
+      </div>
     </div>
   );
 }

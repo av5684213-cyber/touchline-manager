@@ -346,7 +346,7 @@ export function TacticsScreen() {
           })}
         </div>
 
-        {/* Slot role picker (seçili slot için) — liste biçiminde */}
+        {/* Slot role picker (seçili slot için) — liste biçiminde, faydalarıyla */}
         {roleSlot !== null && (
           <div className="p-2 border-t border-border">
             <div className="flex items-center justify-between mb-1.5">
@@ -360,7 +360,7 @@ export function TacticsScreen() {
                 ✕
               </button>
             </div>
-            <div className="max-h-[200px] overflow-y-auto tm-thin-scrollbar space-y-1">
+            <div className="max-h-[260px] overflow-y-auto tm-thin-scrollbar space-y-1">
               <button
                 onClick={() => { haptic("light"); setSlotRole(roleSlot, ""); }}
                 className={cn(
@@ -373,24 +373,60 @@ export function TacticsScreen() {
                 <span className="text-base">🚫</span>
                 <span>{t("tactics.no_role")}</span>
               </button>
-              {getCompatibleRoles(slots[roleSlot]).map((r) => (
-                <button
-                  key={r.id}
-                  onClick={() => { haptic("light"); setSlotRole(roleSlot, r.id); }}
-                  className={cn(
-                    "tm-tap w-full px-2.5 py-2 rounded text-[11px] font-semibold border text-left flex items-center gap-2",
-                    tactics.slotRoles[roleSlot] === r.id
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card border-border hover:bg-accent/50"
-                  )}
-                >
-                  <span className="text-base">{r.icon}</span>
-                  <span className="flex-1">{r.name}</span>
-                  {tactics.slotRoles[roleSlot] === r.id && (
-                    <span className="text-[9px]">✓</span>
-                  )}
-                </button>
-              ))}
+              {getCompatibleRoles(slots[roleSlot]).map((r) => {
+                const isSel = tactics.slotRoles[roleSlot] === r.id;
+                // Rol faydaları (id bazlı)
+                const benefit = ROLE_BENEFITS[r.id] ?? { att: 50, def: 50, style: [], desc: "" };
+                const att = benefit.att;
+                const def = benefit.def;
+                const attLabel = att >= 70 ? "Yüksek" : att >= 40 ? "Orta" : "Düşük";
+                const defLabel = def >= 70 ? "Yüksek" : def >= 40 ? "Orta" : "Düşük";
+                const attColor = att >= 70 ? "text-emerald-400" : att >= 40 ? "text-amber-400" : "text-red-400";
+                const defColor = def >= 70 ? "text-emerald-400" : def >= 40 ? "text-amber-400" : "text-red-400";
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => { haptic("light"); setSlotRole(roleSlot, r.id); }}
+                    className={cn(
+                      "tm-tap w-full px-2.5 py-2 rounded text-[11px] font-semibold border text-left",
+                      isSel
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-card border-border hover:bg-accent/50"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">{r.icon}</span>
+                      <span className="flex-1">{r.name}</span>
+                      {isSel && <span className="text-[9px]">✓</span>}
+                    </div>
+                    {/* Maç motoru faydaları */}
+                    <div className={cn("mt-1.5 flex flex-wrap gap-1.5", isSel ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                      <span className="text-[8px] flex items-center gap-0.5">
+                        <span>⚔️</span>
+                        <span className={cn("font-bold", !isSel && attColor)}>{attLabel}</span>
+                        <span className="opacity-60">hücum</span>
+                      </span>
+                      <span className="text-[8px] flex items-center gap-0.5">
+                        <span>🛡️</span>
+                        <span className={cn("font-bold", !isSel && defColor)}>{defLabel}</span>
+                        <span className="opacity-60">savunma</span>
+                      </span>
+                      {benefit.style.map((s) => (
+                        <span key={s.name} className={cn("text-[8px] flex items-center gap-0.5", s.val > 0 ? "" : "opacity-50")}>
+                          <span>{s.val > 0 ? "+" : ""}{s.val}%</span>
+                          <span className="opacity-60">{s.name}</span>
+                        </span>
+                      ))}
+                    </div>
+                    {/* Kısa açıklama */}
+                    {benefit.desc && (
+                      <div className={cn("mt-1 text-[9px] leading-tight", isSel ? "text-primary-foreground/70" : "text-muted-foreground/80")}>
+                        {benefit.desc}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -1259,3 +1295,99 @@ function PlayerHeader({
     </div>
   );
 }
+
+// ===== Rol maç motoru faydaları =====
+type RoleBenefit = {
+  att: number;      // 0-100 hücum katkısı
+  def: number;      // 0-100 savunma katkısı
+  style: { name: string; val: number }[];  // oyun stili uyumları
+  desc: string;     // kısa açıklama
+};
+
+const ROLE_BENEFITS: Record<string, RoleBenefit> = {
+  sweeper_keeper: {
+    att: 15, def: 70,
+    style: [{ name: "Tiki-Taka", val: 70 }, { name: "Gegenpressing", val: 50 }],
+    desc: "Ceza sahası dışına çıkarak savunma arkasını kapatır. Pas oyununa katkı sağlar.",
+  },
+  shot_stopper: {
+    att: 5, def: 85,
+    style: [{ name: "Catenaccio", val: 60 }],
+    desc: "Müthiş refleksleri ile şutları kurtarır. Klasik kaleci.",
+  },
+  ball_playing_defender: {
+    att: 35, def: 70,
+    style: [{ name: "Tiki-Taka", val: 70 }, { name: "Gegenpressing", val: 50 }],
+    desc: "Savunmadan topu taşıyarak hücuma katkı sağlar.",
+  },
+  no_nonsense_cb: {
+    att: 10, def: 85,
+    style: [{ name: "Catenaccio", val: 70 }],
+    desc: "Topu uzaklaştıran, risksiz savunma yapan stoper.",
+  },
+  offside_trap_cb: {
+    att: 20, def: 75,
+    style: [{ name: "Gegenpressing", val: 60 }],
+    desc: "Ofsayt tuzağı kurarak rakip forveti yakalar.",
+  },
+  wing_back: {
+    att: 60, def: 50,
+    style: [{ name: "Wing Play", val: 70 }],
+    desc: "Hem savunma hem hücum yapan çabalı bek.",
+  },
+  inverted_fullback: {
+    att: 45, def: 60,
+    style: [{ name: "Tiki-Taka", val: 60 }],
+    desc: "İçeri kesen, pas oyununa katılan modern bek.",
+  },
+  libero: {
+    att: 40, def: 65,
+    style: [{ name: "Counter-Attack", val: 50 }],
+    desc: "Savunmadan çıkıp hücuma katılan serbest stoper.",
+  },
+  deep_lying_playmaker: {
+    att: 55, def: 45,
+    style: [{ name: "Tiki-Taka", val: 80 }, { name: "Possession", val: 70 }],
+    desc: "Derinlerden oyunu yöneten, pas dağıtan playmaker.",
+  },
+  box_to_box: {
+    att: 60, def: 55,
+    style: [{ name: "Gegenpressing", val: 70 }],
+    desc: "Sahanın başından sonuna koşan, iki yönlü orta saha.",
+  },
+  mezzala: {
+    att: 65, def: 35,
+    style: [{ name: "Tiki-Taka", val: 60 }],
+    desc: "Yarı kanat — kanata açılan yaratıcı orta saha.",
+  },
+  defensive_midfielder: {
+    att: 20, def: 80,
+    style: [{ name: "Catenaccio", val: 70 }],
+    desc: "Savunma önünde ekran görevi gören defansif orta saha.",
+  },
+  advanced_playmaker: {
+    att: 75, def: 25,
+    style: [{ name: "Tiki-Taka", val: 70 }, { name: "Possession", val: 60 }],
+    desc: "Hücumu yönlendiren, asist üreten yaratıcı oyuncu.",
+  },
+  half_winger: {
+    att: 60, def: 35,
+    style: [{ name: "Wing Play", val: 60 }],
+    desc: "Orta sahadan kanata açılan, hücumu genişleten oyuncu.",
+  },
+  carrilero: {
+    att: 45, def: 50,
+    style: [{ name: "Possession", val: 50 }],
+    desc: "Sığ orta saha — kanat ve merkez arasında köprü.",
+  },
+  target_man: {
+    att: 70, def: 15,
+    style: [{ name: "Wing Play", val: 70 }],
+    desc: "Fiziksel gücü ve hava topu ile topu tutan forvet.",
+  },
+  poacher: {
+    att: 80, def: 5,
+    style: [{ name: "Counter-Attack", val: 60 }],
+    desc: "Ceza sahasında gol atan, fırsatçı forvet.",
+  },
+};
