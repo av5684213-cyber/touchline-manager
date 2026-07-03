@@ -12,6 +12,7 @@ import {
   GraduationCap,
   Award,
   BarChart3,
+  Wallet,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { haptic } from "@/hooks/touchline";
@@ -41,11 +42,11 @@ export const MAIN_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: s
   { key: "tactics", icon: ClipboardList, labelKey: "nav.tactics" },
   { key: "match", icon: Trophy, labelKey: "nav.match" },
   { key: "transfer", icon: ArrowLeftRight, labelKey: "nav.transfer" },
+  { key: "finance", icon: Wallet, labelKey: "nav.finance" },
 ];
 
 export const OTHER_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: string }[] = [
   { key: "youth", icon: GraduationCap, labelKey: "nav.youth" },
-  { key: "finance", icon: LayoutDashboard, labelKey: "nav.finance" },
   { key: "awards", icon: Award, labelKey: "nav.awards" },
   { key: "reports", icon: BarChart3, labelKey: "nav.reports" },
 ];
@@ -100,30 +101,6 @@ export function BottomNav({
           </button>
         );
       })}
-      <button
-        role="tab"
-        aria-label={t("nav.other")}
-        aria-selected={otherActive}
-        onClick={() => {
-          haptic("light");
-          onOpenOther();
-        }}
-        className={cn(
-          "tm-tap flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors",
-          otherActive
-            ? "text-primary"
-            : "text-muted-foreground hover:text-foreground"
-        )}
-      >
-        <Grid2x2 size={20} strokeWidth={otherActive ? 2.4 : 2} />
-        <span className="truncate max-w-full px-1">{t("nav.other")}</span>
-        <span
-          className={cn(
-            "h-0.5 w-6 rounded-full transition-all",
-            otherActive ? "bg-primary opacity-100" : "opacity-0"
-          )}
-        />
-      </button>
     </nav>
   );
 }

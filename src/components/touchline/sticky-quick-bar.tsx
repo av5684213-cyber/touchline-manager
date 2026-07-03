@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Search, Grid2x2, Trophy, Users, Medal } from "lucide-react";
+import { CalendarDays, Search, Grid2x2, Trophy, Users, Medal, GraduationCap, Award, BarChart3 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { haptic } from "@/hooks/touchline";
 import type { TabKey } from "./bottom-nav";
@@ -25,15 +25,21 @@ type TopTabKey =
   | "fixture"
   | "friendly"
   | "facilities"
-  | "cup";
+  | "cup"
+  | "youth"
+  | "awards"
+  | "reports";
 
 const TOP_TABS: { key: TopTabKey; icon: typeof Trophy; label: string }[] = [
   { key: "standings", icon: Trophy, label: "Puan Durumu" },
   { key: "scouting", icon: Search, label: "Scout" },
   { key: "fixture", icon: CalendarDays, label: "Fikstür" },
-  { key: "friendly", icon: Users, label: "Hazırlık Maçı" },
   { key: "facilities", icon: Grid2x2, label: "Yerleşke" },
+  { key: "youth", icon: GraduationCap, label: "Altyapı" },
   { key: "cup", icon: Medal, label: "Kupa" },
+  { key: "awards", icon: Award, label: "Ödüller" },
+  { key: "reports", icon: BarChart3, label: "Raporlar" },
+  { key: "friendly", icon: Users, label: "Hazırlık" },
 ];
 
 export function StickyQuickBar({
