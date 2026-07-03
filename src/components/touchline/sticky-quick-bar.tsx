@@ -32,7 +32,7 @@ export function StickyQuickBar({
 }) {
   return (
     <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border">
-      <div className="flex items-end gap-0.5 px-1 py-1 overflow-x-auto tm-no-scrollbar tm-safe-top">
+      <div className="flex items-center justify-center gap-1 px-2 py-1.5 overflow-x-auto tm-no-scrollbar tm-safe-top">
         {TOP_TABS.map((tab) => {
           const TabIcon = tab.icon;
           const isActive = tab.key === activeTab;

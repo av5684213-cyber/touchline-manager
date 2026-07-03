@@ -333,10 +333,10 @@ export function FacilitiesScreen() {
                   haptic("light");
                   setStaffModal(type);
                 }}
-                disabled={isFull || !!activeUpgrade}
+                disabled={isFull}
                 className={cn(
                   "tm-tap p-3 rounded-md border text-left",
-                  isFull || activeUpgrade
+                  isFull
                     ? "bg-muted border-border opacity-60 cursor-not-allowed"
                     : "bg-card border-border hover:bg-accent"
                 )}
