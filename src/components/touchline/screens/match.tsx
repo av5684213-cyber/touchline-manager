@@ -389,6 +389,8 @@ export function MatchScreen() {
             }
             emptyText={t("match.events.empty")}
             locale={locale}
+            homeTeam={homeTeam}
+            awayTeam={awayTeam}
           />
         ) : (
           <PostMatch
@@ -688,10 +690,14 @@ function EventFeed({
   events,
   emptyText,
   locale,
+  homeTeam,
+  awayTeam,
 }: {
   events: MatchEvent[];
   emptyText: string;
   locale: "tr" | "en";
+  homeTeam?: any;
+  awayTeam?: any;
 }) {
   const { t } = useI18n();
   return (
@@ -707,24 +713,55 @@ function EventFeed({
           </div>
         )}
         {events.map((ev, i) => (
-          <EventRow key={`${ev.minute}-${i}-${ev.type}`} ev={ev} locale={locale} />
+          <EventRow key={`${ev.minute}-${i}-${ev.type}`} ev={ev} locale={locale} homeTeam={homeTeam} awayTeam={awayTeam} />
         ))}
       </div>
     </div>
   );
 }
 
-function EventRow({ ev, locale }: { ev: MatchEvent; locale: "tr" | "en" }) {
+// Event tipine göre Türkçe spiker metni
+function getEventText(ev: MatchEvent, homeTeam: any, awayTeam: any): string {
+  const playerName = ev.playerName || ev.playerId || "";
+  const teamName = ev.team === "home" ? homeTeam?.shortName : ev.team === "away" ? awayTeam?.shortName : "";
+  const base = ev.description && ev.description !== ev.type ? ev.description : "";
+
+  const texts: Record<string, string> = {
+    goal: base || `GOL! ${playerName} ağları sarstı! ${teamName} öne geçiyor!`,
+    yellow_card: base || `${playerName} sarı kart gördü. Hakem uyardı.`,
+    red_card: base || `${playerName} kırmızı kart! ${teamName} 10 kişi kaldı!`,
+    injury: base || `${playerName} sakatlandı, sağlık ekibi içeri girdi.`,
+    substitution: base || `Oyuncu değişikliği: ${playerName} oyuna girdi.`,
+    foul: base || `Faul! ${playerName} rakibini indirdi.`,
+    corner: base || `Korner! ${teamName} köşe vuruşu kullanacak.`,
+    shot_saved: base || `Kaleci müthiş kurtarış! ${playerName} şutunu çıkardı.`,
+    shot_wide: base || `${playerName} topu auta attı, yakındı!`,
+    shot_post: base || `Direkten döndü! ${playerName} çok yaklaştı!`,
+    penalty: base || `Penaltı! ${teamName} için 11 metre!`,
+    offside: base || `Ofsayt! ${playerName} zamanlama hatası yaptı.`,
+    free_kick: base || `Serbest vuruş! ${teamName} tehlikeli bölgede.`,
+    save: base || `Kaleci bir again kurtardı! ${playerName} şutunu engelledi.`,
+    tackle: base || `Mükemmel müdahale! ${playerName} topu kazandı.`,
+    interception: base || `Top kesişti! ${playerName} savunmaya destek oldu.`,
+    chance: base || `${playerName} fırsat yarattı! Tehlikeli atak!`,
+    var_review: base || `VAR incelemesi! Hakem monitöre gidiyor.`,
+    goal_overturned: base || `Gol iptal edildi! VAR kararı.`,
+  };
+  return texts[ev.type] || base || `${playerName} — ${ev.type}`;
+}
+
+function EventRow({ ev, locale, homeTeam, awayTeam }: { ev: MatchEvent; locale: "tr" | "en"; homeTeam?: any; awayTeam?: any }) {
   const side = (ev.team as string) ?? "neutral";
   const sideColor = side === "home" ? "border-l-emerald-500" :
     side === "away" ? "border-l-sky-500" : "border-l-amber-500";
+  const text = getEventText(ev, homeTeam, awayTeam);
   return (
     <div className={cn("flex items-start gap-2.5 px-3 py-2 border-l-2 border-b border-border/50 last:border-b-0", sideColor)}>
       <span className="text-[11px] font-bold tabular-nums text-muted-foreground w-8 shrink-0 mt-0.5">
         {ev.minute > 90 ? `90+${ev.minute - 90}'` : `${ev.minute}'`}
       </span>
       <EventIcon type={ev.type} />
-      <span className="text-xs flex-1">{ev.description}</span>
+      <span className="text-xs flex-1 leading-snug">{text}</span>
     </div>
   );
 }
@@ -1295,7 +1332,7 @@ function PostMatch({
                       style={{ background: side === "home" ? homeTeam.primaryColor : side === "away" ? awayTeam.primaryColor : "#666", color: "#fff" }}>
                       {teamName}
                     </span>
-                    <span className="flex-1 truncate">{ev.description}</span>
+                    <span className="flex-1 truncate">{ev.description || `${ev.playerName || ""} gol attı`}</span>
                   </div>
                 );
               })}
@@ -1315,7 +1352,7 @@ function PostMatch({
                 <div key={i} className="flex items-center gap-2 text-[10px]">
                   <span className="font-bold tabular-nums w-6">{ev.minute}'</span>
                   <span>{ev.type === "yellow_card" ? "🟨" : "🟥"}</span>
-                  <span className="flex-1 truncate">{ev.description}</span>
+                  <span className="flex-1 truncate">{ev.description || `${ev.playerName || ""} ${ev.type === "yellow_card" ? "sarı" : "kırmızı"} kart gördü`}</span>
                 </div>
               ))}
           </div>

@@ -239,37 +239,31 @@ export function DashboardScreen() {
             const outcome: "win" | "draw" | "loss" =
               (us ?? 0) > (them ?? 0) ? "win" : (us ?? 0) < (them ?? 0) ? "loss" : "draw";
             return (
-              <div key={f.id} className="flex items-center gap-2 p-3">
-                <div className="text-[10px] w-6 text-center font-bold text-muted-foreground">
+              <div key={f.id} className="flex items-center gap-2 p-2.5">
+                <div className="text-[9px] w-5 text-center font-bold text-muted-foreground shrink-0">
                   {f.matchday}
                 </div>
                 <span
                   className={cn(
-                    "text-[10px] px-1.5 py-0.5 rounded font-semibold",
+                    "text-[8px] px-1 py-0.5 rounded font-bold shrink-0",
                     isHome ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
                   )}
                 >
-                  {isHome ? t("dash.home").charAt(0) : t("dash.away").charAt(0)}
+                  {isHome ? "Ev" : "Dep"}
                 </span>
-                <ClubBadge short={team.shortName} primaryColor={team.primaryColor} size={24} />
-                <span className="text-[10px] text-muted-foreground">{t("dash.vs")}</span>
+                <span className="text-[10px] font-semibold truncate shrink-0 max-w-[70px]">{team.name}</span>
+                <span className="text-[9px] text-muted-foreground shrink-0">vs</span>
                 {opp && (
                   <button
                     onClick={() => { haptic("light"); setSelectedTeamId(opp.id); }}
-                    className="tm-tap shrink-0"
+                    className="text-[10px] font-semibold truncate hover:text-primary shrink-0 max-w-[70px]"
                   >
-                    <ClubBadge short={opp.shortName} primaryColor={opp.primaryColor} size={24} />
+                    {opp.name}
                   </button>
                 )}
                 <button
-                  onClick={() => { if (opp) { haptic("light"); setSelectedTeamId(opp.id); } }}
-                  className="flex-1 truncate text-xs font-medium text-left hover:text-primary"
-                >
-                  {opp?.name ?? "—"}
-                </button>
-                <button
                   onClick={() => { haptic("light"); setDashboardReplay(f); }}
-                  className="tm-tap shrink-0"
+                  className="tm-tap shrink-0 ml-auto"
                   title="Maçı izle"
                 >
                   <ResultBadge outcome={outcome} score={`${us}-${them}`} />

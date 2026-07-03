@@ -156,6 +156,7 @@ export type Player = {
   assists: number;
   saves: number;
   appearances: number;
+  motmAwards?: number; // Maçın Adamı ödül sayısı
   match_ratings?: number[];
   last_match_rating?: number;
 

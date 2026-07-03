@@ -321,7 +321,7 @@ function OverviewTab({
         <StatTile label="Maç" value={player.appearances} />
         <StatTile label="Gol" value={player.goals} />
         <StatTile label="Asist" value={player.assists} />
-        <StatTile label="Değer" value={formatEuro(player.marketValue, locale)} small />
+        <StatTile label="MoM" value={player.motmAwards ?? 0} />
       </div>
 
       {/* Güncel sezon kartı — sezon istatistikleri + gol türü dağılımı */}

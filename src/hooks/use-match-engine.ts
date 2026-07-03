@@ -490,6 +490,19 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
 
     const updatedTeam = { ...team, players: updatedPlayers };
     const updatedClubs = clubs.map((c) => (c.id === teamId ? updatedTeam : c));
+
+    // MOTM ödul sayısını artır
+    if (result.manOfTheMatch) {
+      const motmClub = updatedClubs.find((c) => c.players.some((p) => p.id === result.manOfTheMatch));
+      if (motmClub) {
+        motmClub.players = motmClub.players.map((p) =>
+          p.id === result.manOfTheMatch
+            ? { ...p, motmAwards: (p.motmAwards ?? 0) + 1 }
+            : p
+        );
+      }
+    }
+
     useAppStore.setState({ clubs: updatedClubs });
   }, []);
 

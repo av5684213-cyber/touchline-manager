@@ -214,12 +214,35 @@ export function MatchReplayModal({
               <div className="space-y-1">
                 {sortedEvents.slice(0, 30).map((e, i) => {
                   const isHome = e.team === "home" || e.side === "home";
-                  const icon = e.type === "goal" ? "⚽" : e.type === "yellow" ? "🟨" : e.type === "red" ? "🟥" : e.type === "sub" ? "🔄" : e.type === "injury" ? "🤕" : "📋";
+                  const icon = e.type === "goal" ? "⚽" : e.type === "yellow" ? "🟨" : e.type === "red" ? "🟥" : e.type === "sub" ? "🔄" : e.type === "injury" ? "🤕" : e.type === "chance" ? "🔥" : e.type === "foul" ? "⚙️" : e.type === "shot_wide" ? "❌" : e.type === "shot_post" ? "🎯" : e.type === "shot_saved" ? "🧤" : e.type === "corner" ? "🚩" : e.type === "offside" ? "🚩" : e.type === "penalty" ? "⚡" : e.type === "free_kick" ? "🎯" : "📋";
+                  const teamShort = isHome ? homeTeam.shortName : e.team === "away" || e.side === "away" ? awayTeam.shortName : "";
+                  const playerName = (e as any).player || (e as any).playerName || "";
+                  const labels: Record<string, string> = {
+                    goal: `GOL! ${playerName}`,
+                    yellow_card: `${playerName} sarı kart`,
+                    red_card: `${playerName} kırmızı kart`,
+                    injury: `${playerName} sakatlandı`,
+                    substitution: `${playerName} oyuna girdi`,
+                    foul: `Faul — ${playerName}`,
+                    corner: `Korner — ${teamShort}`,
+                    shot_saved: `Kurtarış — ${playerName}`,
+                    shot_wide: `Iska — ${playerName}`,
+                    shot_post: `Direk! — ${playerName}`,
+                    penalty: `Penaltı — ${teamShort}`,
+                    offside: `Ofsayt — ${playerName}`,
+                    free_kick: `Serbest vuruş — ${teamShort}`,
+                    chance: `Fırsat — ${playerName}`,
+                    tackle: `Müdahale — ${playerName}`,
+                    interception: `Top kesişti — ${playerName}`,
+                    var_review: `VAR incelemesi`,
+                    goal_overturned: `Gol iptal!`,
+                  };
+                  const text = labels[e.type] || (e as any).description || playerName || e.type;
                   return (
                     <div key={i} className={cn("flex items-center gap-1.5 text-[9px]", !isHome && "flex-row-reverse text-right")}>
                       <span className="font-bold tabular-nums text-muted-foreground w-7">{e.minute}'</span>
                       <span>{icon}</span>
-                      <span className="text-muted-foreground flex-1 truncate">{e.player || e.type}</span>
+                      <span className="text-muted-foreground flex-1 truncate">{text}</span>
                     </div>
                   );
                 })}
