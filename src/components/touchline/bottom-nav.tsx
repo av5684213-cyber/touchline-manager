@@ -61,12 +61,11 @@ export function BottomNav({
   onOpenOther: () => void;
 }) {
   const { t } = useI18n();
-  // 'Diğer' drawer'ındaki sekmelerden biri aktifse, 'Diğer' butonu vurgulu
   const otherActive = OTHER_TABS.some((tab) => tab.key === active);
 
   return (
     <nav
-      className="tm-bottom-nav grid grid-cols-5 gap-0"
+      className="tm-bottom-nav grid grid-cols-6 gap-0"
       role="tablist"
       aria-label="tabs"
     >
@@ -101,6 +100,30 @@ export function BottomNav({
           </button>
         );
       })}
+      <button
+        role="tab"
+        aria-label={t("nav.other")}
+        aria-selected={otherActive}
+        onClick={() => {
+          haptic("light");
+          onOpenOther();
+        }}
+        className={cn(
+          "tm-tap flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors",
+          otherActive
+            ? "text-primary"
+            : "text-muted-foreground hover:text-foreground"
+        )}
+      >
+        <Grid2x2 size={20} strokeWidth={otherActive ? 2.4 : 2} />
+        <span className="truncate max-w-full px-1">{t("nav.other")}</span>
+        <span
+          className={cn(
+            "h-0.5 w-6 rounded-full transition-all",
+            otherActive ? "bg-primary opacity-100" : "opacity-0"
+          )}
+        />
+      </button>
     </nav>
   );
 }
