@@ -312,7 +312,7 @@ export function MatchScreen() {
           </div>
         )}
 
-        {/* DEVRE ARASI — 30 saniyelik mola + taktik değiştirme */}
+        {/* DEVRE ARASI — 30 saniyelik mola + taktik + oyuncu değiştirme */}
         {engine.state.status === "halftime" && (
           <div className="tm-card p-4 text-center space-y-3">
             <div className="flex items-center justify-center gap-2 text-amber-400">
@@ -332,11 +332,20 @@ export function MatchScreen() {
               </span>
               <span className="font-bold">{awayTeam.shortName}</span>
             </div>
+
+            {/* Oyuncu değişikliği — devre arası */}
+            <HalftimeSubs
+              team={team!}
+              homeTeam={homeTeam}
+              engine={engine}
+              mySide={mySide}
+            />
+
             <button
               onClick={() => { haptic("light"); setDrawerOpen(true); }}
               className="tm-tap w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-bold"
             >
-              <Settings size={16} /> Taktik Değiştir (Devre Arası)
+              <Settings size={16} /> Taktik Değiştir
             </button>
           </div>
         )}
@@ -363,6 +372,11 @@ export function MatchScreen() {
               />
             </div>
           </div>
+        )}
+
+        {/* Live commentary banner — son event'in yorumu */}
+        {engine.state.status !== "idle" && engine.state.events.length > 0 && (
+          <LiveCommentaryBanner events={engine.replay.active ? engine.replay.events : engine.state.events} />
         )}
 
         {/* Live event feed */}
@@ -739,6 +753,147 @@ function EventIcon({ type }: { type: MatchEvent["type"] }) {
   };
   const { emoji } = map[type] ?? { emoji: "•", cls: "" };
   return <span className="text-sm shrink-0">{emoji}</span>;
+}
+
+// ---- Halftime Substitution UI ----
+function HalftimeSubs({ team, homeTeam, engine, mySide }: {
+  team: any;
+  homeTeam: any;
+  engine: any;
+  mySide: "home" | "away" | "neutral";
+}) {
+  const [selectOut, setSelectOut] = useState<string | null>(null);
+  const [subsDone, setSubsDone] = useState(0);
+  const maxSubs = 3;
+
+  // İlk 11 ve yedekleri ayır
+  const startingXI = team.players.slice(0, 11);
+  const subs = team.players.slice(11, 18);
+
+  const handleSub = (outId: string, inId: string) => {
+    if (subsDone >= maxSubs) return;
+    haptic("success");
+
+    // Store'da oyuncu değişikliği yap
+    const state = useAppStore.getState();
+    const clubs = [...state.clubs];
+    const myClub = clubs.find((c) => c.id === team.id);
+    if (!myClub) return;
+
+    const outIdx = myClub.players.findIndex((p) => p.id === outId);
+    const inIdx = myClub.players.findIndex((p) => p.id === inId);
+    if (outIdx === -1 || inIdx === -1) return;
+
+    // Swap pozisyonları
+    const newPlayers = [...myClub.players];
+    [newPlayers[outIdx], newPlayers[inIdx]] = [newPlayers[inIdx], newPlayers[outIdx]];
+    myClub.players = newPlayers;
+    useAppStore.setState({ clubs });
+
+    setSubsDone(subsDone + 1);
+    setSelectOut(null);
+  };
+
+  return (
+    <div className="bg-muted/30 rounded-lg p-2 space-y-2 text-left">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase text-muted-foreground">🔄 Oyuncu Değişikliği</span>
+        <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded", subsDone >= maxSubs ? "bg-red-500/20 text-red-300" : "bg-emerald-500/20 text-emerald-300")}>
+          {subsDone}/{maxSubs}
+        </span>
+      </div>
+
+      {subsDone < maxSubs && (
+        <>
+          {!selectOut ? (
+            <div className="space-y-1">
+              <div className="text-[9px] text-muted-foreground mb-1">Çıkacak oyuncuyu seç:</div>
+              {startingXI.map((p: any) => (
+                <button
+                  key={p.id}
+                  onClick={() => { haptic("light"); setSelectOut(p.id); }}
+                  className={cn(
+                    "tm-tap w-full flex items-center gap-2 p-1.5 rounded text-left transition-colors",
+                    p.cond < 30 ? "bg-red-500/10 border border-red-500/30" : "bg-card border border-border hover:bg-accent/50"
+                  )}
+                >
+                  <span className="text-[9px] font-bold w-6 shrink-0">{p.specificPosition}</span>
+                  <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
+                  <span className={cn("text-[8px] tabular-nums", p.cond < 30 ? "text-red-400" : "text-muted-foreground")}>
+                    {p.cond}❤
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[9px] text-muted-foreground">Girecek oyuncuyu seç:</span>
+                <button onClick={() => setSelectOut(null)} className="text-[9px] text-muted-foreground">← Geri</button>
+              </div>
+              {subs.map((p: any) => (
+                <button
+                  key={p.id}
+                  onClick={() => handleSub(selectOut, p.id)}
+                  className="tm-tap w-full flex items-center gap-2 p-1.5 rounded text-left bg-card border border-border hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-colors"
+                >
+                  <span className="text-[9px] font-bold w-6 shrink-0">{p.specificPosition}</span>
+                  <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
+                  <span className="text-[8px] text-amber-400 font-bold">{p.rating} OVR</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {subsDone >= maxSubs && (
+        <div className="text-center text-[10px] text-muted-foreground py-1">
+          ✓ 3 değişiklik hakkın bitti
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---- Live Commentary Banner ----
+function LiveCommentaryBanner({ events }: { events: MatchEvent[] }) {
+  if (events.length === 0) return null;
+  const latest = events[0]; // en yeni event üstte
+
+  // Event tipine göre renk ve ikon
+  const config: Record<string, { bg: string; text: string; icon: string; intensity: string }> = {
+    goal: { bg: "bg-emerald-500/15 border-emerald-500/40", text: "text-emerald-300", icon: "⚽", intensity: "animate-pulse" },
+    yellow_card: { bg: "bg-amber-500/15 border-amber-500/40", text: "text-amber-300", icon: "🟨", intensity: "" },
+    red_card: { bg: "bg-red-500/15 border-red-500/40", text: "text-red-300", icon: "🟥", intensity: "" },
+    injury: { bg: "bg-orange-500/15 border-orange-500/40", text: "text-orange-300", icon: "🤕", intensity: "" },
+    substitution: { bg: "bg-sky-500/15 border-sky-500/40", text: "text-sky-300", icon: "🔄", intensity: "" },
+    penalty: { bg: "bg-purple-500/15 border-purple-500/40", text: "text-purple-300", icon: "⚡", intensity: "" },
+    var_review: { bg: "bg-indigo-500/15 border-indigo-500/40", text: "text-indigo-300", icon: "📺", intensity: "" },
+    chance: { bg: "bg-amber-500/10 border-amber-500/30", text: "text-amber-200", icon: "🔥", intensity: "" },
+  };
+
+  const cfg = config[latest.type] ?? { bg: "bg-muted/30 border-border", text: "text-foreground", icon: "📋", intensity: "" };
+  const minute = latest.minute > 90 ? `90+${latest.minute - 90}'` : `${latest.minute}'`;
+
+  return (
+    <div className={cn("tm-card p-2.5 border-l-4 transition-all", cfg.bg, cfg.intensity)}>
+      <div className="flex items-start gap-2">
+        <span className="text-lg shrink-0">{cfg.icon}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <span className="text-[9px] font-bold tabular-nums text-muted-foreground">{minute}</span>
+            <span className={cn("text-[8px] font-bold uppercase tracking-wide", cfg.text)}>
+              {latest.type === "goal" ? "GOL!" : latest.type === "red_card" ? "KIRMIZI KART" : latest.type === "yellow_card" ? "SARI KART" : latest.type === "injury" ? "SAKATLIK" : latest.type === "substitution" ? "DEĞİŞİKLİK" : latest.type === "penalty" ? "PENALTI" : latest.type === "var_review" ? "VAR İNCELEMESİ" : latest.type === "chance" ? "FIRSAT" : "OLAY"}
+            </span>
+          </div>
+          <p className={cn("text-[11px] leading-snug font-medium", cfg.text)}>
+            {latest.description || `${latest.playerName ?? ""} — ${latest.type}`}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ---- Stats bar ----

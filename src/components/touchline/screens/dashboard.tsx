@@ -15,6 +15,7 @@ import {
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { getInflationMultiplier, formatInflationLabel } from "@/lib/fm/inflation";
+import { AchievementsCard, checkAchievements, AchievementToast, type Achievement } from "@/components/touchline/achievements";
 import type { SeasonSummary } from "@/lib/store";
 import type { Player as PlayerT } from "@/lib/mock/data";
 import { SeasonEndModal } from "../season-end-modal";
@@ -79,6 +80,7 @@ export function DashboardScreen() {
   const [seasonSummary, setSeasonSummary] = useState<SeasonSummary | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [profilePlayer, setProfilePlayer] = useState<PlayerT | null>(null);
+  const [newAchievements, setNewAchievements] = useState<Achievement[]>([]);
 
   // Geri sayım her dakika güncelle
   useEffect(() => {
@@ -175,6 +177,12 @@ export function DashboardScreen() {
 
       {/* Günlük Görevler */}
       <DailyTasks />
+
+      {/* Rozetler */}
+      <AchievementsCard />
+
+      {/* Achievement Toast */}
+      <AchievementToast achievements={newAchievements} onClose={() => setNewAchievements([])} />
 
       {/* 2x2 stat cards */}
       <div className="grid grid-cols-2 gap-3">
