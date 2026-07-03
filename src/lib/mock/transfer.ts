@@ -7,6 +7,7 @@ import {
   type Player,
   type PlayerStats,
   type Position,
+  generatePlayer,
 } from "@/lib/mock/data";
 
 /**
@@ -225,59 +226,13 @@ export function generateFreeAgents(count = 30): TransferListing[] {
           : group === "MID"
           ? { min: 63, max: 80 }
           : { min: 64, max: 81 };
-      const ovr = rand(ovrRange.min, ovrRange.max);
-      const isForeign = Math.random() < 0.6;
-      const first = isForeign ? pick(FIRST_NAMES_FOREIGN) : pick(FIRST_NAMES_TR);
-      const last = pick(LAST_NAMES_TR);
-      const age = rand(18, 34);
-      const stats = generateStats(pos, ovr);
-      const nationality = isForeign
-        ? pick(NATIONALITIES.filter((n) => n.code !== "TR"))
-        : NATIONALITIES[0];
 
-      // Piyasa değeri: OVR × yaş katsayısı × 100K (basit değerleme)
-      const ageMult = age <= 21 ? 1.4 : age <= 26 ? 1.2 : age <= 30 ? 0.9 : 0.5;
-      const marketValue = Math.round(ovr * 100_000 * ageMult);
-      const askingPrice = Math.round(marketValue * (1 + rand(-10, 20) / 100)); // talep ±%10-20
+      // generatePlayer() çağır — tüm attribute'lar, traits, archetype, seasonHistory dahil
+      const player = generatePlayer(pos, ovrRange);
 
-      const player: Player = {
-        id: nextId("fa"),
-        firstName: first,
-        lastName: last,
-        name: `${first} ${last}`,
-        position: POSITION_GROUP[pos],
-        specificPosition: pos,
-        age,
-        potential: ovr + rand(0, 15),
-        hidden_potential: ovr + rand(0, 20),
-        rating: ovr,
-        formRating: Math.round((ovr / 10) * 10) / 10,
-        nationality: isForeign ? "foreign" : "TR",
-        nation: nationality.name,
-        foot: Math.random() < 0.7 ? "Right" : Math.random() < 0.5 ? "Left" : "Both",
-        preferred_foot: Math.random() < 0.7 ? "Right" : Math.random() < 0.5 ? "Left" : "Both",
-        market_value: marketValue,
-        marketValue,
-        salary: ovr * rand(1000, 2500),
-        weeklyWage: ovr * rand(1000, 2500),
-        defending: stats.defending,
-        passing: stats.passing,
-        shooting: stats.shooting,
-        speed: stats.pace,
-        power: stats.physical,
-        stats,
-        cond: rand(70, 100),
-        condition: rand(70, 100),
-        form: rand(60, 90),
-        morale: rand(50, 80),
-        confidence: rand(50, 85),
-        traits: [],
-        goals: rand(0, 12),
-        assists: rand(0, 8),
-        saves: pos === "GK" ? rand(10, 50) : 0,
-        appearances: rand(0, 25),
-        archetype: pick(ARCHETYPES[pos]),
-      };
+      // Serbest ajan specific ayarlar
+      const marketValue = player.marketValue;
+      const askingPrice = Math.round(marketValue * (1 + rand(-10, 20) / 100));
 
       listings.push({
         player,
@@ -288,7 +243,6 @@ export function generateFreeAgents(count = 30): TransferListing[] {
     }
   }
 
-  // Fiyat artan sırala
   return listings.sort((a, b) => b.player.rating - a.player.rating);
 }
 
