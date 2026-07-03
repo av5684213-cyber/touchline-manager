@@ -167,6 +167,12 @@ export function DashboardScreen() {
       {/* Enflasyon göstergesi */}
       <InflationIndicator />
 
+      {/* Sezon Hedefleri */}
+      <SeasonGoals team={team} myStat={myStat} standings={standings} />
+
+      {/* Günlük Görevler */}
+      <DailyTasks />
+
       {/* 2x2 stat cards */}
       <div className="grid grid-cols-2 gap-3">
         <StatCard
@@ -471,6 +477,160 @@ function InflationIndicator() {
           ×{mult.toFixed(2)}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ===== Sezon Hedefleri =====
+function SeasonGoals({ team, myStat, standings }: { team: any; myStat: any; standings: any[] }) {
+  const pos = standings.findIndex((s) => s.teamId === team?.id);
+  const tier = team?.leagueTier ?? 2;
+  const matchday = SEASON_INFO.matchday;
+  const totalMatchdays = SEASON_INFO.totalMatchdays;
+
+  // Hedefler lig tier'ına göre belirlenir
+  const goals = [
+    {
+      icon: "🏆",
+      label: "Lig Sıralaması",
+      target: tier === 1 ? "İlk 4" : tier === 2 ? "İlk 2 (Yükselme)" : "İlk 2 (Yükselme)",
+      current: pos >= 0 ? `${pos + 1}. sırada` : "—",
+      status: pos >= 0 && pos < 2 ? "done" : pos >= 0 && pos < 4 ? "close" : "far",
+    },
+    {
+      icon: "⚽",
+      label: "Gol Krallığı",
+      target: "Ligde en çok gol",
+      current: `${myStat?.goalsFor ?? 0} gol`,
+      status: "progress",
+    },
+    {
+      icon: "💰",
+      label: "Bütçe Yönetimi",
+      target: `${formatEuro(team?.budget ?? 0, "tr")} bütçe`,
+      current: formatEuro(team?.budget ?? 0, "tr"),
+      status: (team?.budget ?? 0) > 0 ? "done" : "far",
+    },
+    {
+      icon: "📊",
+      label: "Sezon İlerlemesi",
+      target: `${totalMatchdays} hafta`,
+      current: `${matchday}/${totalMatchdays} hafta`,
+      status: matchday >= totalMatchdays ? "done" : "progress",
+    },
+  ];
+
+  const statusColor: Record<string, string> = {
+    done: "text-emerald-400",
+    close: "text-amber-400",
+    far: "text-red-400",
+    progress: "text-sky-400",
+  };
+  const statusIcon: Record<string, string> = {
+    done: "✓",
+    close: "↗",
+    far: "✗",
+    progress: "→",
+  };
+
+  return (
+    <div className="tm-card p-3">
+      <div className="text-[10px] text-muted-foreground uppercase tracking-wide font-bold mb-2">Sezon Hedefleri</div>
+      <div className="space-y-1.5">
+        {goals.map((g, i) => (
+          <div key={i} className="flex items-center gap-2 text-[11px]">
+            <span className="text-base shrink-0">{g.icon}</span>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold truncate">{g.label}</div>
+              <div className="text-[9px] text-muted-foreground">{g.target}</div>
+            </div>
+            <div className="text-right shrink-0">
+              <div className={cn("font-bold text-[10px]", statusColor[g.status])}>
+                {statusIcon[g.status]} {g.current}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ===== Günlük Görevler =====
+function DailyTasks() {
+  const today = new Date().toISOString().slice(0, 10);
+  const store = useAppStore();
+  const team = useMyTeam();
+
+  // Görev durumunu localStorage'dan basit takip
+  const [tasks, setTasks] = useState(() => {
+    if (typeof window === "undefined") return [];
+    const key = `tm_tasks_${today}`;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    // Yeni gün — görevleri sıfırla
+    const fresh = [
+      { id: "train", icon: "🏋️", label: "1 antrenman yap", reward: "+5 moral", done: false },
+      { id: "tactics", icon: "📋", label: "Taktik düzenle", reward: "+3 kondisyon", done: false },
+      { id: "transfer", icon: "💰", label: "Transfer/teklif yap", reward: "+10K €", done: false },
+      { id: "match", icon: "⚽", label: "Maçını izle", reward: "+5 form", done: false },
+    ];
+    localStorage.setItem(key, JSON.stringify(fresh));
+    return fresh;
+  });
+
+  const toggleTask = (id: string) => {
+    const updated = tasks.map((t: any) => t.id === id ? { ...t, done: !t.done } : t);
+    setTasks(updated);
+    localStorage.setItem(`tm_tasks_${today}`, JSON.stringify(updated));
+    haptic("success");
+  };
+
+  const completedCount = tasks.filter((t: any) => t.done).length;
+  const allDone = completedCount === tasks.length;
+
+  return (
+    <div className="tm-card p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[10px] text-muted-foreground uppercase tracking-wide font-bold">Günlük Görevler</div>
+        <div className={cn(
+          "text-[10px] font-bold px-1.5 py-0.5 rounded",
+          allDone ? "bg-emerald-500/20 text-emerald-300" : "bg-muted text-muted-foreground"
+        )}>
+          {completedCount}/{tasks.length}
+        </div>
+      </div>
+      <div className="space-y-1">
+        {tasks.map((task: any) => (
+          <button
+            key={task.id}
+            onClick={() => toggleTask(task.id)}
+            className={cn(
+              "tm-tap w-full flex items-center gap-2 p-1.5 rounded text-left transition-colors",
+              task.done ? "bg-emerald-500/10" : "hover:bg-accent/50"
+            )}
+          >
+            <span className={cn(
+              "w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center",
+              task.done ? "bg-emerald-500 border-emerald-500" : "border-border"
+            )}>
+              {task.done && <span className="text-[8px] text-white">✓</span>}
+            </span>
+            <span className="text-base shrink-0">{task.icon}</span>
+            <span className={cn("flex-1 text-[11px] font-medium", task.done && "line-through text-muted-foreground")}>
+              {task.label}
+            </span>
+            <span className="text-[9px] text-amber-400 font-bold shrink-0">{task.reward}</span>
+          </button>
+        ))}
+      </div>
+      {allDone && (
+        <div className="mt-2 pt-2 border-t border-border text-center text-[10px] font-bold text-emerald-400">
+          🎉 Tüm görevler tamam! Yarın yenilenecek.
+        </div>
+      )}
     </div>
   );
 }
