@@ -48,7 +48,6 @@ export const MAIN_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: s
 export const OTHER_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: string }[] = [
   { key: "youth", icon: GraduationCap, labelKey: "nav.youth" },
   { key: "awards", icon: Award, labelKey: "nav.awards" },
-  { key: "reports", icon: BarChart3, labelKey: "nav.reports" },
 ];
 
 export function BottomNav({

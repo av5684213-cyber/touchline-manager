@@ -84,7 +84,6 @@ export default function Home() {
           {tab === "finance" && <FinanceScreen />}
           {tab === "awards" && <AwardsScreen />}
           {tab === "cup" && <CupScreen />}
-          {tab === "reports" && <WeeklyReportScreen />}
           {tab === "friendly" && <FriendlyScreen />}
         </main>
         <BottomNav

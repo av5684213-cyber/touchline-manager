@@ -63,7 +63,7 @@ export function StickyQuickBar({
                   : "bg-muted/40 text-muted-foreground hover:bg-muted"
               )}
             >
-              <Icon size={13} />
+              <Icon size={15} strokeWidth={isActive ? 2.5 : 2} />
               {tab.label}
             </button>
           );

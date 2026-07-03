@@ -120,6 +120,24 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
         </p>
       </div>
 
+      {/* İki ana buton */}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() => { haptic("light"); /* Sıraya gir — matchmaking */ }}
+          className="tm-tap flex flex-col items-center gap-1 p-3 rounded-lg bg-emerald-600 text-white text-xs font-bold active:scale-[0.98] transition-transform"
+        >
+          <Users size={20} />
+          Hazırlık Maçı Sırasına Gir
+        </button>
+        <button
+          onClick={() => { haptic("light"); /* Aşağıdaki rakip seçim listesi */ }}
+          className="tm-tap flex flex-col items-center gap-1 p-3 rounded-lg bg-sky-600 text-white text-xs font-bold active:scale-[0.98] transition-transform"
+        >
+          <Search size={20} />
+          Hazırlık Maçı Teklifi Ver
+        </button>
+      </div>
+
       {/* Search */}
       <div className="relative">
         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
