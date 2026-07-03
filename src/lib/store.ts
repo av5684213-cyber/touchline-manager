@@ -1245,7 +1245,7 @@ export const useAppStore = create<AppState>()(
       },
 
       recordMatchResult: (homeId, awayId, homeScore, awayScore) => {
-        const { fixtures } = get();
+        const { fixtures, clubs, myTeamId, news } = get();
         const currentMd = SEASON_INFO.matchday;
         const updatedFixtures = fixtures.map((f) => {
           if (f.matchday === currentMd && f.homeId === homeId && f.awayId === awayId && !f.played) {
@@ -1253,7 +1253,54 @@ export const useAppStore = create<AppState>()(
           }
           return f;
         });
-        set({ fixtures: updatedFixtures });
+
+        // Dinamik haber üret — kullanıcının takımı maçı oynadıysa
+        const newNews: NewsItem[] = [];
+        if (myTeamId && (homeId === myTeamId || awayId === myTeamId)) {
+          const homeTeam = clubs.find((c) => c.id === homeId);
+          const awayTeam = clubs.find((c) => c.id === awayId);
+          const isHome = homeId === myTeamId;
+          const myScore = isHome ? homeScore : awayScore;
+          const oppScore = isHome ? awayScore : homeScore;
+          const oppName = isHome ? awayTeam?.name : homeTeam?.name;
+          const result = myScore > oppScore ? "galibiyet" : myScore < oppScore ? "mağlubiyet" : "beraberlik";
+
+          const headlineMap = { galibiyet: "Maç Sonucu: Galibiyet! 🎉", mağlubiyet: "Maç Sonucu: Mağlubiyet", beraberlik: "Maç Sonucu: Beraberlik" };
+          const bodyMap = {
+            galibiyet: `${myScore}-${oppScore} ${oppName} karşısında galip geldiniz! Takım morali yükseldi.`,
+            mağlubiyet: `${myScore}-${oppScore} ${oppName} karşısında mağlup oldunuz. Takım morali düştü.`,
+            beraberlik: `${myScore}-${oppScore} ${oppName} ile berabere kaldınız.`,
+          };
+
+          newNews.push({
+            id: `news_match_${currentMd}_${Date.now()}`,
+            category: "match",
+            headline: headlineMap[result],
+            body: bodyMap[result],
+            timestamp: Date.now(),
+            importance: result === "galibiyet" ? 2 : 1,
+            read: false,
+          });
+
+          // Gol krallığı haberi — 2+ gol atan oyuncu
+          const myTeam = clubs.find((c) => c.id === myTeamId);
+          if (myTeam) {
+            const topScorer = [...myTeam.players].sort((a, b) => b.goals - a.goals)[0];
+            if (topScorer && topScorer.goals >= 5 && topScorer.goals % 5 === 0) {
+              newNews.push({
+                id: `news_milestone_${topScorer.id}_${Date.now()}`,
+                category: "milestone",
+                headline: "Milestone! ⚽",
+                body: `${topScorer.firstName} ${topScorer.lastName} sezonun ${topScorer.goals}. golünü attı!`,
+                timestamp: Date.now(),
+                importance: 2,
+                read: false,
+              });
+            }
+          }
+        }
+
+        set({ fixtures: updatedFixtures, news: [...newNews, ...news] });
       },
 
       // ===== Message actions =====

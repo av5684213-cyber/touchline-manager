@@ -414,6 +414,32 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
     const team = clubs.find((c) => c.id === teamId);
     if (!team) return;
 
+    // Son 5 maçtan galibiyet serisi hesapla
+    const fixtures = store.fixtures
+      .filter((f) => f.played && (f.homeId === teamId || f.awayId === teamId))
+      .sort((a, b) => b.matchday - a.matchday)
+      .slice(0, 5);
+    let streakBonus = 0;
+    if (fixtures.length >= 2) {
+      const results = fixtures.map((f) => {
+        const isHome = f.homeId === teamId;
+        const us = isHome ? f.homeScore : f.awayScore;
+        const them = isHome ? f.awayScore : f.homeScore;
+        return (us ?? 0) > (them ?? 0) ? "W" : (us ?? 0) < (them ?? 0) ? "L" : "D";
+      });
+      // Mevcut seri
+      let streak = 0;
+      const lastResult = results[0];
+      for (const r of results) {
+        if (r === lastResult) streak++;
+        else break;
+      }
+      // 3+ galibiyet serisi: +2 ekstra moral
+      if (lastResult === "W" && streak >= 3) streakBonus = 2;
+      // 3+ mağlubiyet serisi: -2 ekstra moral cezası
+      if (lastResult === "L" && streak >= 3) streakBonus = -2;
+    }
+
     // Oyuncu ID → rating
     const ratingMap = new Map<string, number>();
     [...result.homePlayerRatings, ...result.awayPlayerRatings].forEach((r) => {
@@ -437,7 +463,7 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
       const isHome = result.homePlayerRatings.some((r) => r.playerId === p.id);
       const won = isHome ? result.homeScore > result.awayScore : result.awayScore > result.homeScore;
       const lost = isHome ? result.homeScore < result.awayScore : result.awayScore < result.homeScore;
-      const moraleChange = won ? 3 : lost ? -3 : 0;
+      const moraleChange = won ? 3 + streakBonus : lost ? -3 + streakBonus : 0;
 
       const newCond = Math.max(20, Math.min(100, p.cond - condDrain));
       const newForm = Math.max(30, Math.min(100, p.form + formChange));

@@ -167,6 +167,9 @@ export function DashboardScreen() {
       {/* Enflasyon göstergesi */}
       <InflationIndicator />
 
+      {/* Galibiyet serisi göstergesi */}
+      <StreakIndicator fixtures={fixtures} teamId={team?.id ?? ""} />
+
       {/* Sezon Hedefleri */}
       <SeasonGoals team={team} myStat={myStat} standings={standings} />
 
@@ -582,10 +585,42 @@ function DailyTasks() {
   });
 
   const toggleTask = (id: string) => {
-    const updated = tasks.map((t: any) => t.id === id ? { ...t, done: !t.done } : t);
+    const task = tasks.find((t: any) => t.id === id);
+    if (!task || task.done) {
+      // Geri alma
+      const updated = tasks.map((t: any) => t.id === id ? { ...t, done: !t.done } : t);
+      setTasks(updated);
+      localStorage.setItem(`tm_tasks_${today}`, JSON.stringify(updated));
+      return;
+    }
+
+    // Ödül uygula
+    haptic("success");
+    if (team && store) {
+      const state = useAppStore.getState();
+      const clubs = [...state.clubs];
+      const myClub = clubs.find((c) => c.id === team.id);
+      if (myClub) {
+        if (id === "train") {
+          // +5 moral tüm oyunculara
+          myClub.players = myClub.players.map((p) => ({ ...p, morale: Math.min(100, p.morale + 5) }));
+        } else if (id === "tactics") {
+          // +3 kondisyon tüm oyunculara
+          myClub.players = myClub.players.map((p) => ({ ...p, cond: Math.min(100, p.cond + 3), condition: Math.min(100, (p.condition ?? p.cond) + 3) }));
+        } else if (id === "transfer") {
+          // +10K € bütçeye
+          myClub.budget += 10_000;
+        } else if (id === "match") {
+          // +5 form tüm oyunculara
+          myClub.players = myClub.players.map((p) => ({ ...p, form: Math.min(100, p.form + 5) }));
+        }
+        useAppStore.setState({ clubs });
+      }
+    }
+
+    const updated = tasks.map((t: any) => t.id === id ? { ...t, done: true } : t);
     setTasks(updated);
     localStorage.setItem(`tm_tasks_${today}`, JSON.stringify(updated));
-    haptic("success");
   };
 
   const completedCount = tasks.filter((t: any) => t.done).length;
@@ -631,6 +666,67 @@ function DailyTasks() {
           🎉 Tüm görevler tamam! Yarın yenilenecek.
         </div>
       )}
+    </div>
+  );
+}
+
+// ===== Galibiyet Serisi Göstergesi =====
+function StreakIndicator({ fixtures, teamId }: { fixtures: any[]; teamId: string }) {
+  const recent = fixtures
+    .filter((f) => f.played && (f.homeId === teamId || f.awayId === teamId))
+    .sort((a, b) => b.matchday - a.matchday)
+    .slice(0, 5);
+
+  if (recent.length === 0) return null;
+
+  const results = recent.map((f) => {
+    const isHome = f.homeId === teamId;
+    const us = isHome ? f.homeScore : f.awayScore;
+    const them = isHome ? f.awayScore : f.homeScore;
+    return (us ?? 0) > (them ?? 0) ? "W" : (us ?? 0) < (them ?? 0) ? "L" : "D";
+  }).reverse();
+
+  // Mevcut seri
+  let streak = 0;
+  let streakType = results[results.length - 1] ?? "D";
+  for (let i = results.length - 1; i >= 0; i--) {
+    if (results[i] === streakType) streak++;
+    else break;
+  }
+
+  const isWinStreak = streakType === "W";
+  const isLoseStreak = streakType === "L";
+
+  if (streak < 2) return null;
+
+  return (
+    <div className={cn(
+      "tm-card p-2.5 flex items-center gap-3",
+      isWinStreak && "bg-emerald-500/10 border-emerald-500/30",
+      isLoseStreak && "bg-red-500/10 border-red-500/30",
+    )}>
+      <span className="text-2xl">{isWinStreak ? "🔥" : isLoseStreak ? "❄️" : "➖"}</span>
+      <div className="flex-1">
+        <div className={cn(
+          "text-sm font-bold",
+          isWinStreak ? "text-emerald-400" : isLoseStreak ? "text-red-400" : "text-amber-400"
+        )}>
+          {isWinStreak ? `${streak} maçlık galibiyet serisi!` : isLoseStreak ? `${streak} maçlık mağlubiyet serisi` : `${streak} beraberlik`}
+        </div>
+        <div className="text-[9px] text-muted-foreground">
+          {isWinStreak && streak >= 3 ? "Takım morali yüksek! 📈" : isLoseStreak && streak >= 3 ? "Takım morali düşük ⚠️" : "Son 5 maç"}
+        </div>
+      </div>
+      <div className="flex gap-0.5">
+        {results.map((r, i) => (
+          <span key={i} className={cn(
+            "inline-flex items-center justify-center w-5 h-5 rounded text-[9px] font-bold",
+            r === "W" ? "bg-emerald-500 text-white" : r === "L" ? "bg-red-500 text-white" : "bg-amber-400 text-amber-900"
+          )}>
+            {r === "W" ? "G" : r === "L" ? "M" : "B"}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
