@@ -301,6 +301,47 @@ export function TacticsScreen() {
           )}
         </div>
         <div className="tm-pitch relative mx-2 my-2 rounded-xl" style={{ aspectRatio: "2 / 3" }}>
+          {/* SVG saha çizgileri */}
+          <div className="tm-pitch-lines">
+            <svg viewBox="0 0 100 150" preserveAspectRatio="none">
+              <g fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="0.5">
+                {/* Saha kenar çizgisi */}
+                <rect x="2" y="2" width="96" height="146" rx="1" />
+                {/* Orta çizgi */}
+                <line x1="2" y1="75" x2="98" y2="75" />
+                {/* Orta daire */}
+                <circle cx="50" cy="75" r="12" />
+                {/* Orta nokta */}
+                <circle cx="50" cy="75" r="0.6" fill="rgba(255,255,255,0.5)" />
+                {/* Alt ceza alanı (kaleci tarafı) */}
+                <rect x="20" y="2" width="60" height="20" />
+                {/* Alt kale alanı */}
+                <rect x="35" y="2" width="30" height="8" />
+                {/* Alt penaltı noktası */}
+                <circle cx="50" cy="17" r="0.6" fill="rgba(255,255,255,0.5)" />
+                {/* Alt kale yayı */}
+                <path d="M 38 22 A 12 12 0 0 0 62 22" />
+                {/* Üst ceza alanı (forvet tarafı) */}
+                <rect x="20" y="128" width="60" height="20" />
+                {/* Üst kale alanı */}
+                <rect x="35" y="140" width="30" height="8" />
+                {/* Üst penaltı noktası */}
+                <circle cx="50" cy="133" r="0.6" fill="rgba(255,255,255,0.5)" />
+                {/* Üst kale yayı */}
+                <path d="M 38 128 A 12 12 0 0 1 62 128" />
+                {/* Alt kale */}
+                <line x1="42" y1="2" x2="58" y2="2" strokeWidth="1" />
+                {/* Üst kale */}
+                <line x1="42" y1="148" x2="58" y2="148" strokeWidth="1" />
+                {/* Köşe yayları */}
+                <path d="M 2 5 A 3 3 0 0 1 5 2" />
+                <path d="M 95 2 A 3 3 0 0 1 98 5" />
+                <path d="M 2 145 A 3 3 0 0 0 5 148" />
+                <path d="M 95 148 A 3 3 0 0 0 98 145" />
+              </g>
+            </svg>
+          </div>
+          {/* Oyuncular */}
           {pitchCoords.map((coord, i) => {
             const p = tactics.lineup[i];
             const slotPos = slots[i];

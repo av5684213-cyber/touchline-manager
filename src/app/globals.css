@@ -184,39 +184,17 @@
   border-radius: 8px;
   box-shadow: inset 0 0 30px rgba(0,0,0,0.4);
 }
-/* Saha çizgileri — orta çizgi, ceza alanları, kaleler */
-.tm-pitch::before {
-  content: "";
+
+/* SVG saha çizgileri için overlay */
+.tm-pitch-lines {
   position: absolute;
   inset: 0;
-  background-image:
-    /* Orta çizgi (yatay) */
-    linear-gradient(0deg, transparent 49.7%, var(--pitch-line) 49.7%, var(--pitch-line) 50.3%, transparent 50.3%),
-    /* Alt ceza alanı (kaleci tarafı) */
-    linear-gradient(0deg, var(--pitch-line) 12%, transparent 12%),
-    /* Üst ceza alanı (forvet tarafı) */
-    linear-gradient(180deg, var(--pitch-line) 12%, transparent 12%),
-    /* Alt kale (kaleci tarafı küçük alan) */
-    linear-gradient(0deg, var(--pitch-line) 4%, transparent 4%),
-    /* Üst kale (forvet tarafı küçük alan) */
-    linear-gradient(180deg, var(--pitch-line) 4%, transparent 4%);
-  background-size: 100% 100%, 100% 30%, 100% 30%, 100% 12%, 100% 12%;
-  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
-  background-position: center, bottom, top, bottom, top;
-  opacity: 0.25;
   pointer-events: none;
+  z-index: 1;
 }
-/* Orta daire + kale penaltı noktaları */
-.tm-pitch::after {
-  content: "";
-  position: absolute;
-  top: 50%; left: 50%;
-  width: 35%; height: 22%;
-  transform: translate(-50%, -50%);
-  border: 1.5px solid var(--pitch-line);
-  border-radius: 50%;
-  opacity: 0.35;
-  pointer-events: none;
+.tm-pitch-lines svg {
+  width: 100%;
+  height: 100%;
 }
 
 /* Card */
