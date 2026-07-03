@@ -346,36 +346,49 @@ export function TacticsScreen() {
           })}
         </div>
 
-        {/* Slot role picker (seçili slot için) */}
+        {/* Slot role picker (seçili slot için) — liste biçiminde */}
         {roleSlot !== null && (
           <div className="p-2 border-t border-border">
-            <div className="text-[10px] text-muted-foreground mb-1.5">
-              {t("tactics.slot_role")} — {slots[roleSlot]}
-            </div>
-            <div className="flex gap-1 overflow-x-auto tm-no-scrollbar">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="text-[10px] text-muted-foreground">
+                {t("tactics.slot_role")} — {slots[roleSlot]}
+              </div>
               <button
-                onClick={() => setSlotRole(roleSlot, "")}
+                onClick={() => setRoleSlot(null)}
+                className="tm-tap text-[10px] text-muted-foreground hover:text-foreground"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="max-h-[200px] overflow-y-auto tm-thin-scrollbar space-y-1">
+              <button
+                onClick={() => { haptic("light"); setSlotRole(roleSlot, ""); }}
                 className={cn(
-                  "tm-tap px-2 py-1 rounded text-[10px] font-semibold border whitespace-nowrap",
+                  "tm-tap w-full px-2.5 py-2 rounded text-[11px] font-semibold border text-left flex items-center gap-2",
                   !tactics.slotRoles[roleSlot]
                     ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-card border-border"
+                    : "bg-card border-border hover:bg-accent/50"
                 )}
               >
-                {t("tactics.no_role")}
+                <span className="text-base">🚫</span>
+                <span>{t("tactics.no_role")}</span>
               </button>
               {getCompatibleRoles(slots[roleSlot]).map((r) => (
                 <button
                   key={r.id}
-                  onClick={() => setSlotRole(roleSlot, r.id)}
+                  onClick={() => { haptic("light"); setSlotRole(roleSlot, r.id); }}
                   className={cn(
-                    "tm-tap px-2 py-1 rounded text-[10px] font-semibold border whitespace-nowrap",
+                    "tm-tap w-full px-2.5 py-2 rounded text-[11px] font-semibold border text-left flex items-center gap-2",
                     tactics.slotRoles[roleSlot] === r.id
                       ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card border-border"
+                      : "bg-card border-border hover:bg-accent/50"
                   )}
                 >
-                  {r.icon} {r.name}
+                  <span className="text-base">{r.icon}</span>
+                  <span className="flex-1">{r.name}</span>
+                  {tactics.slotRoles[roleSlot] === r.id && (
+                    <span className="text-[9px]">✓</span>
+                  )}
                 </button>
               ))}
             </div>
