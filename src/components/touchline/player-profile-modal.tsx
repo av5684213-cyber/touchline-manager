@@ -1071,15 +1071,23 @@ function ActionsTab({
   t: (key: string, params?: Record<string, string | number>) => string;
   locale: "tr" | "en";
 }) {
-  const { listPlayerForSale, transfer } = useAppStore();
+  const { listPlayerForSale, transfer, makeTransferOffer, makeLoanOffer } = useAppStore();
   const myTeam = useMyTeam();
   const [listPrice, setListPrice] = useState(player.marketValue);
   const [loanFee, setLoanFee] = useState(Math.round(player.marketValue * 0.05));
   const [loanWeeks, setLoanWeeks] = useState(8);
   const [feedback, setFeedback] = useState<string | null>(null);
 
+  // Transfer teklifi state (başka takımın oyuncusu için)
+  const [offerFee, setOfferFee] = useState(player.marketValue);
+  const [offerWage, setOfferWage] = useState(player.weeklyWage);
+  const [offerYears, setOfferYears] = useState(3);
+
+  // Kiralama teklifi state (başka takımın oyuncusu için)
+  const [loanOfferFee, setLoanOfferFee] = useState(Math.round(player.marketValue * 0.1));
+  const [loanOfferWeeks, setLoanOfferWeeks] = useState(12);
+
   const isListed = transfer.myListedPlayers.some((l) => l.playerId === player.id);
-  // Oyuncu kullanıcının takımında mı?
   const isMyPlayer = myTeam?.players.some((p) => p.id === player.id) ?? false;
 
   const handleList = () => {
@@ -1095,6 +1103,64 @@ function ActionsTab({
     setTimeout(() => setFeedback(null), 2500);
   };
 
+  // Transfer teklifi gönder (başka takımın oyuncusuna)
+  const handleTransferOffer = () => {
+    haptic("medium");
+    const res = makeTransferOffer(player.id, offerFee, offerWage, offerYears);
+    if (!res.success) {
+      haptic("error");
+      if (res.reason === "budget") {
+        setFeedback("✗ Yetersiz bütçe! Transfer ücreti + %8 ek maliyet gerekiyor.");
+      } else if (res.reason === "not-found") {
+        setFeedback("✗ Oyuncu bulunamadı veya serbest ajan.");
+      } else {
+        setFeedback("✗ Transfer teklifi gönderilemedi.");
+      }
+    } else if (res.response === "accepted") {
+      haptic("success");
+      setFeedback(`✓ ${player.firstName} ${player.lastName} transfer edildi! ${formatEuro(offerFee, locale)}`);
+      onClose();
+    } else if (res.response === "countered") {
+      haptic("medium");
+      setFeedback(`↩ Karşı teklif: ${formatEuro(res.counterFee ?? 0, locale)}. Haberler sekmesini kontrol et.`);
+      setOfferFee(res.counterFee ?? offerFee);
+    } else {
+      haptic("error");
+      setFeedback("✗ Teklif reddedildi. Piyasa değerinin en az %70'ini teklif et.");
+    }
+    setTimeout(() => setFeedback(null), 4000);
+  };
+
+  // Kiralama teklifi gönder (başka takımın oyuncusuna)
+  const handleLoanOffer = () => {
+    haptic("medium");
+    const res = makeLoanOffer(player.id, loanOfferFee, loanOfferWeeks);
+    if (!res.success) {
+      haptic("error");
+      if (res.reason === "budget") {
+        setFeedback("✗ Yetersiz bütçe!");
+      } else {
+        setFeedback("✗ Kiralama teklifi gönderilemedi.");
+      }
+    } else if (res.response === "accepted") {
+      haptic("success");
+      setFeedback(`✓ ${player.firstName} ${player.lastName} ${loanOfferWeeks} haftalığına kiralandı!`);
+      onClose();
+    } else {
+      haptic("error");
+      setFeedback("✗ Kiralama teklifi reddedildi. Daha yüksek ücret teklif et.");
+    }
+    setTimeout(() => setFeedback(null), 4000);
+  };
+
+  // Transfer penceresi açık mı?
+  const transferWindowOpen = (() => {
+    try {
+      const { isTransferWindowOpen } = require("@/lib/mock/season");
+      return isTransferWindowOpen();
+    } catch { return true; }
+  })();
+
   return (
     <div className="space-y-3">
       {/* Player mini header */}
@@ -1109,110 +1175,284 @@ function ActionsTab({
         <RatingBadge value={player.formRating} />
       </div>
 
-      {!isMyPlayer ? (
-        <div className="tm-card p-4 text-center">
-          <div className="text-xs text-muted-foreground">
-            Bu oyuncu senin takımında değil. Sadece kendi oyuncularını transfer listesine veya kiralık listesine koyabilirsin.
-          </div>
-        </div>
-      ) : (
-      <>
-      {/* Normal transfer — satışa listele */}
-      <div className="tm-card p-3">
-        <div className="flex items-center gap-2 mb-2">
-          <Banknote size={14} className="text-emerald-400" />
-          <span className="text-xs font-bold">Transfer (Satış)</span>
-        </div>
-        <div className="text-[10px] text-muted-foreground mb-2">
-          Oyuncuyu transfer listesine koy. Bot kulüpler teklif gönderecek.
-        </div>
-        <div className="mb-2">
-          <div className="text-[10px] text-muted-foreground mb-1">Satılık Fiyat</div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setListPrice(Math.max(0, listPrice - 50000))}
-              className="tm-tap w-7 h-7 rounded-md border border-border text-sm font-bold"
-            >−</button>
-            <input
-              type="number"
-              value={listPrice}
-              onChange={(e) => setListPrice(Number(e.target.value))}
-              className="flex-1 bg-card border border-border rounded-md px-2 py-1 text-xs font-bold tabular-nums text-center"
-            />
-            <button
-              onClick={() => setListPrice(listPrice + 50000)}
-              className="tm-tap w-7 h-7 rounded-md border border-border text-sm font-bold"
-            >+</button>
-          </div>
-        </div>
-        <button
-          onClick={handleList}
-          disabled={isListed}
-          className={cn(
-            "tm-tap w-full py-2 rounded-md text-xs font-bold",
-            isListed ? "bg-muted text-muted-foreground" : "bg-emerald-600 text-white"
-          )}
-        >
-          {isListed ? "✓ Listede" : "Transfer Listesine Koy"}
-        </button>
-      </div>
-
-      {/* Kiralık transfer */}
-      <div className="tm-card p-3">
-        <div className="flex items-center gap-2 mb-2">
-          <ArrowLeftRight size={14} className="text-sky-400" />
-          <span className="text-xs font-bold">Kiralık Transfer</span>
-        </div>
-        <div className="text-[10px] text-muted-foreground mb-2">
-          Oyuncuyu belirli süreliğine başka kulübe kirala.
-        </div>
-        <div className="mb-2">
-          <div className="text-[10px] text-muted-foreground mb-1">Günlük Kira Ücreti (€)</div>
-          <input
-            type="number"
-            value={loanFee}
-            onChange={(e) => setLoanFee(Number(e.target.value))}
-            className="w-full bg-card border border-border rounded-md px-2 py-1 text-xs font-bold tabular-nums"
-          />
-          {/* Quick percent buttons */}
-          <div className="flex gap-1 mt-1">
-            {[10, 15, 20, 30].map((pct) => (
-              <button
-                key={pct}
-                onClick={() => setLoanFee(Math.round(player.marketValue * pct / 1000))}
-                className="tm-tap flex-1 py-0.5 rounded text-[9px] font-semibold border border-border"
-              >
-                %{pct}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="mb-2">
-          <div className="text-[10px] text-muted-foreground mb-1">Süre (Hafta): {loanWeeks}</div>
-          <input
-            type="range"
-            min={1}
-            max={34}
-            value={loanWeeks}
-            onChange={(e) => setLoanWeeks(Number(e.target.value))}
-            className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-muted accent-primary tm-tap"
-          />
-        </div>
-        <button
-          onClick={handleLoan}
-          className="tm-tap w-full py-2 rounded-md text-xs font-bold bg-sky-600 text-white"
-        >
-          Kiralık Pazarına Gönder
-        </button>
-      </div>
-
-      {feedback && (
-        <div className="tm-card p-2.5 text-center text-xs font-bold bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-          {feedback}
+      {/* Transfer penceresi uyarısı */}
+      {!transferWindowOpen && (
+        <div className="tm-card p-2.5 text-center text-[11px] font-bold bg-red-500/10 text-red-400 border-red-500/30">
+          🔒 Transfer penceresi kapalı. Teklif gönderemezsiniz.
         </div>
       )}
 
-      </>
+      {!isMyPlayer ? (
+        <>
+          {/* ===== BAŞKA TAKIMIN OYUNCUSU — TRANSFER TEKLİFİ ===== */}
+          <div className="tm-card p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Banknote size={14} className="text-emerald-400" />
+              <span className="text-xs font-bold">Transfer Teklifi</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground mb-2">
+              Bu oyuncu için satın alma teklifi gönder. Bot kulüp teklifinizi değerlendirecek.
+            </div>
+
+            {/* Transfer ücreti */}
+            <div className="mb-2">
+              <div className="text-[10px] text-muted-foreground mb-1">Transfer Ücreti (€)</div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setOfferFee(Math.max(0, offerFee - 50000))}
+                  className="tm-tap w-7 h-7 rounded-md border border-border text-sm font-bold"
+                >−</button>
+                <input
+                  type="number"
+                  value={offerFee}
+                  onChange={(e) => setOfferFee(Number(e.target.value))}
+                  className="flex-1 bg-card border border-border rounded-md px-2 py-1 text-xs font-bold tabular-nums text-center"
+                />
+                <button
+                  onClick={() => setOfferFee(offerFee + 50000)}
+                  className="tm-tap w-7 h-7 rounded-md border border-border text-sm font-bold"
+                >+</button>
+              </div>
+              {/* Hızlı yüzde butonları */}
+              <div className="flex gap-1 mt-1">
+                {[70, 85, 100, 120].map((pct) => (
+                  <button
+                    key={pct}
+                    onClick={() => setOfferFee(Math.round(player.marketValue * pct / 100))}
+                    className="tm-tap flex-1 py-0.5 rounded text-[9px] font-semibold border border-border"
+                  >
+                    %{pct}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Haftalık maaş */}
+            <div className="mb-2">
+              <div className="text-[10px] text-muted-foreground mb-1">Haftalık Maaş (€)</div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setOfferWage(Math.max(0, offerWage - 5000))}
+                  className="tm-tap w-7 h-7 rounded-md border border-border text-sm font-bold"
+                >−</button>
+                <input
+                  type="number"
+                  value={offerWage}
+                  onChange={(e) => setOfferWage(Number(e.target.value))}
+                  className="flex-1 bg-card border border-border rounded-md px-2 py-1 text-xs font-bold tabular-nums text-center"
+                />
+                <button
+                  onClick={() => setOfferWage(offerWage + 5000)}
+                  className="tm-tap w-7 h-7 rounded-md border border-border text-sm font-bold"
+                >+</button>
+              </div>
+            </div>
+
+            {/* Sözleşme süresi */}
+            <div className="mb-2">
+              <div className="text-[10px] text-muted-foreground mb-1">Sözleşme Süresi: {offerYears} yıl</div>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((y) => (
+                  <button
+                    key={y}
+                    onClick={() => setOfferYears(y)}
+                    className={cn(
+                      "tm-tap flex-1 py-1 rounded text-[10px] font-bold border",
+                      offerYears === y ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border"
+                    )}
+                  >
+                    {y} yıl
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Toplam maliyet özeti */}
+            <div className="mb-2 p-2 bg-muted/30 rounded text-[10px] space-y-0.5">
+              <div className="flex justify-between"><span className="text-muted-foreground">Transfer ücreti</span><span className="font-bold tabular-nums">{formatEuro(offerFee, locale)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Agent (%5)</span><span className="tabular-nums">{formatEuro(Math.round(offerFee * 0.05), locale)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">İmza (%3)</span><span className="tabular-nums">{formatEuro(Math.round(offerFee * 0.03), locale)}</span></div>
+              <div className="flex justify-between font-bold border-t border-border pt-0.5"><span>Toplam</span><span className="tabular-nums text-emerald-400">{formatEuro(offerFee + Math.round(offerFee * 0.05) + Math.round(offerFee * 0.03), locale)}</span></div>
+            </div>
+
+            <button
+              onClick={handleTransferOffer}
+              disabled={!transferWindowOpen}
+              className={cn(
+                "tm-tap w-full py-2 rounded-md text-xs font-bold",
+                transferWindowOpen ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"
+              )}
+            >
+              Teklif Gönder
+            </button>
+          </div>
+
+          {/* ===== KİRALAMA TEKLİFİ ===== */}
+          <div className="tm-card p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <ArrowLeftRight size={14} className="text-sky-400" />
+              <span className="text-xs font-bold">Kiralama Teklifi</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground mb-2">
+              Oyuncuyu belirli süreliğine kirala. Kira süresi boyunca kadonda oynar.
+            </div>
+
+            {/* Kira ücreti */}
+            <div className="mb-2">
+              <div className="text-[10px] text-muted-foreground mb-1">Toplam Kira Ücreti (€)</div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setLoanOfferFee(Math.max(0, loanOfferFee - 25000))}
+                  className="tm-tap w-7 h-7 rounded-md border border-border text-sm font-bold"
+                >−</button>
+                <input
+                  type="number"
+                  value={loanOfferFee}
+                  onChange={(e) => setLoanOfferFee(Number(e.target.value))}
+                  className="flex-1 bg-card border border-border rounded-md px-2 py-1 text-xs font-bold tabular-nums text-center"
+                />
+                <button
+                  onClick={() => setLoanOfferFee(loanOfferFee + 25000)}
+                  className="tm-tap w-7 h-7 rounded-md border border-border text-sm font-bold"
+                >+</button>
+              </div>
+            </div>
+
+            {/* Kira süresi */}
+            <div className="mb-2">
+              <div className="text-[10px] text-muted-foreground mb-1">Süre: {loanOfferWeeks} hafta</div>
+              <input
+                type="range"
+                min={4}
+                max={34}
+                value={loanOfferWeeks}
+                onChange={(e) => setLoanOfferWeeks(Number(e.target.value))}
+                className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-muted accent-primary tm-tap"
+              />
+            </div>
+
+            {/* Tahmini min ücret bilgisi */}
+            <div className="mb-2 p-2 bg-muted/30 rounded text-[10px]">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Tahmini min. kira ücreti</span>
+                <span className="font-bold tabular-nums">{formatEuro(Math.round(player.marketValue * 0.02 * loanOfferWeeks), locale)}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleLoanOffer}
+              disabled={!transferWindowOpen}
+              className={cn(
+                "tm-tap w-full py-2 rounded-md text-xs font-bold",
+                transferWindowOpen ? "bg-sky-600 text-white" : "bg-muted text-muted-foreground"
+              )}
+            >
+              Kiralama Teklifi Gönder
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* ===== KENDİ OYUNCUM — SATIŞA/KİRALIĞA ÇIKAR ===== */}
+          {/* Normal transfer — satışa listele */}
+          <div className="tm-card p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Banknote size={14} className="text-emerald-400" />
+              <span className="text-xs font-bold">Transfer (Satış)</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground mb-2">
+              Oyuncuyu transfer listesine koy. Bot kulüpler teklif gönderecek.
+            </div>
+            <div className="mb-2">
+              <div className="text-[10px] text-muted-foreground mb-1">Satılık Fiyat</div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setListPrice(Math.max(0, listPrice - 50000))}
+                  className="tm-tap w-7 h-7 rounded-md border border-border text-sm font-bold"
+                >−</button>
+                <input
+                  type="number"
+                  value={listPrice}
+                  onChange={(e) => setListPrice(Number(e.target.value))}
+                  className="flex-1 bg-card border border-border rounded-md px-2 py-1 text-xs font-bold tabular-nums text-center"
+                />
+                <button
+                  onClick={() => setListPrice(listPrice + 50000)}
+                  className="tm-tap w-7 h-7 rounded-md border border-border text-sm font-bold"
+                >+</button>
+              </div>
+            </div>
+            <button
+              onClick={handleList}
+              disabled={isListed}
+              className={cn(
+                "tm-tap w-full py-2 rounded-md text-xs font-bold",
+                isListed ? "bg-muted text-muted-foreground" : "bg-emerald-600 text-white"
+              )}
+            >
+              {isListed ? "✓ Listede" : "Transfer Listesine Koy"}
+            </button>
+          </div>
+
+          {/* Kiralık transfer */}
+          <div className="tm-card p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <ArrowLeftRight size={14} className="text-sky-400" />
+              <span className="text-xs font-bold">Kiralık Transfer</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground mb-2">
+              Oyuncuyu belirli süreliğine başka kulübe kirala.
+            </div>
+            <div className="mb-2">
+              <div className="text-[10px] text-muted-foreground mb-1">Günlük Kira Ücreti (€)</div>
+              <input
+                type="number"
+                value={loanFee}
+                onChange={(e) => setLoanFee(Number(e.target.value))}
+                className="w-full bg-card border border-border rounded-md px-2 py-1 text-xs font-bold tabular-nums"
+              />
+              <div className="flex gap-1 mt-1">
+                {[10, 15, 20, 30].map((pct) => (
+                  <button
+                    key={pct}
+                    onClick={() => setLoanFee(Math.round(player.marketValue * pct / 1000))}
+                    className="tm-tap flex-1 py-0.5 rounded text-[9px] font-semibold border border-border"
+                  >
+                    %{pct}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mb-2">
+              <div className="text-[10px] text-muted-foreground mb-1">Süre (Hafta): {loanWeeks}</div>
+              <input
+                type="range"
+                min={1}
+                max={34}
+                value={loanWeeks}
+                onChange={(e) => setLoanWeeks(Number(e.target.value))}
+                className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-muted accent-primary tm-tap"
+              />
+            </div>
+            <button
+              onClick={handleLoan}
+              className="tm-tap w-full py-2 rounded-md text-xs font-bold bg-sky-600 text-white"
+            >
+              Kiralık Pazarına Gönder
+            </button>
+          </div>
+        </>
+      )}
+
+      {feedback && (
+        <div className={cn(
+          "tm-card p-2.5 text-center text-xs font-bold",
+          feedback.startsWith("✓") ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+          : feedback.startsWith("↩") ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
+          : "bg-red-500/20 text-red-300 border-red-500/30"
+        )}>
+          {feedback}
+        </div>
       )}
 
       {/* Quick stats summary */}

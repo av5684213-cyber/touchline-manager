@@ -64,7 +64,7 @@ type Tactics = {
 export type MessageItem = {
   id: string;
   kind: "transfer_accepted" | "transfer_rejected" | "transfer_negotiated"
-    | "transfer_offer_incoming" | "transfer_offer_response" | "loan_request" | "general";
+    | "transfer_offer_incoming" | "transfer_offer_response" | "loan_request" | "general" | "transfer";
   fromTeamName: string;
   fromTeamShort?: string;
   fromTeamColor?: string;
@@ -159,6 +159,10 @@ type AppState = {
   toggleWatchlist: (playerId: string) => void;
   buyPlayer: (playerId: string, fee: number, wage: number, contractYears: number) =>
     { success: boolean; reason?: string };
+  makeTransferOffer: (playerId: string, fee: number, wage: number, contractYears: number) =>
+    { success: boolean; reason?: string; response?: "accepted" | "rejected" | "countered"; counterFee?: number };
+  makeLoanOffer: (playerId: string, loanFee: number, weeks: number) =>
+    { success: boolean; reason?: string; response?: "accepted" | "rejected" };
   acceptOffer: (offerId: string) => { success: boolean; salePrice?: number };
   rejectOffer: (offerId: string) => void;
   listPlayerForSale: (playerId: string, askingPrice: number) => void;
@@ -212,6 +216,13 @@ export type SeasonSummary = {
   retiredPlayers: string[];
   newRegens: number;
 };
+
+// Kısa Euro formatı — haber mesajları için
+function formatEuroShort(amount: number): string {
+  if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M €`;
+  if (amount >= 1_000) return `${(amount / 1_000).toFixed(0)}K €`;
+  return `${amount} €`;
+}
 
 function buildInitialClubs(): Team[] {
   // Kullanıcı rastgele bir lig/departmana atanacak
@@ -505,6 +516,174 @@ export const useAppStore = create<AppState>()(
         });
 
         return { success: true };
+      },
+
+      makeTransferOffer: (playerId, fee, wage, contractYears) => {
+        const { clubs, myTeamId, news } = get();
+        const myTeam = clubs.find((c) => c.id === myTeamId);
+        if (!myTeam) return { success: false, reason: "no-team" };
+
+        // Toplam maliyet: transfer ücreti + %5 agent + %3 imza
+        const total = fee + Math.round(fee * 0.05) + Math.round(fee * 0.03);
+        if (myTeam.budget < total) {
+          return { success: false, reason: "budget" };
+        }
+
+        // Oyuncunun sahibi olan takımı bul (kullanıcının takımı hariç)
+        let sellerTeam: Team | undefined;
+        let player: any;
+        for (const c of clubs) {
+          if (c.id === myTeamId) continue;
+          const p = c.players.find((p) => p.id === playerId);
+          if (p) { sellerTeam = c; player = p; break; }
+        }
+        if (!sellerTeam || !player) {
+          return { success: false, reason: "not-found" };
+        }
+
+        const marketValue = player.marketValue ?? player.market_value ?? 0;
+
+        // Bot takımın karar verme mantığı
+        // fee >= %100 → kabul
+        // fee >= %85 → kabul
+        // fee >= %70 → karşı teklif (marketValue * 0.95)
+        // fee < %70 → reddet
+        const ratio = marketValue > 0 ? fee / marketValue : 1;
+        let response: "accepted" | "rejected" | "countered" = "rejected";
+        let counterFee = 0;
+
+        if (ratio >= 0.85) {
+          response = "accepted";
+        } else if (ratio >= 0.70) {
+          response = "countered";
+          counterFee = Math.round(marketValue * 0.95);
+        } else {
+          response = "rejected";
+        }
+
+        if (response === "accepted") {
+          // Transferi gerçekleştir
+          myTeam.budget -= total;
+          sellerTeam.budget += fee;
+          // Oyuncuyu satıcıdan al, alıcıya ekle
+          sellerTeam.players = sellerTeam.players.filter((p) => p.id !== playerId);
+          myTeam.players = [...myTeam.players, player];
+          // Maaş güncelle
+          player.weeklyWage = wage;
+          player.salary = wage;
+
+          // Haber ekle
+          const newNews: NewsItem = {
+            id: `news_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            category: "transfer",
+            headline: "Transfer Kabul Edildi",
+            body: `${player.firstName} ${player.lastName} ${sellerTeam.name} takımından ${formatEuroShort(fee)} karşılığında transfer edildi.`,
+            timestamp: Date.now(),
+            importance: 2,
+            read: false,
+          };
+
+          set({
+            clubs: [...clubs],
+            news: [newNews, ...news],
+          });
+
+          return { success: true, response: "accepted" };
+        } else if (response === "countered") {
+          // Karşı teklif mesajı ekle
+          const newNews: NewsItem = {
+            id: `news_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            category: "transfer",
+            headline: "Karşı Teklif",
+            body: `${sellerTeam.name}, ${player.firstName} ${player.lastName} için ${formatEuroShort(fee)} teklifinizi reddetti. Karşı teklif: ${formatEuroShort(counterFee)}.`,
+            timestamp: Date.now(),
+            importance: 1,
+            read: false,
+          };
+
+          set({ news: [newNews, ...news] });
+          return { success: true, response: "countered", counterFee };
+        } else {
+          // Reddedildi
+          const newNews: NewsItem = {
+            id: `news_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            category: "transfer",
+            headline: "Teklif Reddedildi",
+            body: `${sellerTeam.name}, ${player.firstName} ${player.lastName} için ${formatEuroShort(fee)} teklifinizi reddetti. Teklif çok düşük.`,
+            timestamp: Date.now(),
+            importance: 1,
+            read: false,
+          };
+
+          set({ news: [newNews, ...news] });
+          return { success: true, response: "rejected" };
+        }
+      },
+
+      makeLoanOffer: (playerId, loanFee, weeks) => {
+        const { clubs, myTeamId, news } = get();
+        const myTeam = clubs.find((c) => c.id === myTeamId);
+        if (!myTeam) return { success: false, reason: "no-team" };
+
+        // Kira maliyeti = loanFee (toplam)
+        if (myTeam.budget < loanFee) {
+          return { success: false, reason: "budget" };
+        }
+
+        // Oyuncunun sahibi olan takımı bul
+        let sellerTeam: Team | undefined;
+        let player: any;
+        for (const c of clubs) {
+          if (c.id === myTeamId) continue;
+          const p = c.players.find((p) => p.id === playerId);
+          if (p) { sellerTeam = c; player = p; break; }
+        }
+        if (!sellerTeam || !player) {
+          return { success: false, reason: "not-found" };
+        }
+
+        const marketValue = player.marketValue ?? player.market_value ?? 0;
+        // Bot kiralama kararı: min ücret = marketValue * 0.02 * hafta
+        const minLoanFee = Math.round(marketValue * 0.02 * weeks);
+
+        if (loanFee >= minLoanFee) {
+          // Kabul edildi — oyuncuyu kiralık ver
+          myTeam.budget -= loanFee;
+          sellerTeam.budget += loanFee;
+          // Oyuncu geçici olarak kadroya ekle (kiralık)
+          myTeam.players = [...myTeam.players, { ...player, is_free_agent: false, _loaned: true, _loanWeeks: weeks }];
+          // Satıcıda kalsın ama oynayamaz (basitleştirilmiş: satıcıdan çıkarmıyoruz, sadece kopyalıyoruz)
+
+          const newNews: NewsItem = {
+            id: `news_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            category: "transfer",
+            headline: "Kiralama Kabul Edildi",
+            body: `${player.firstName} ${player.lastName} ${sellerTeam.name} takımından ${weeks} haftalığına kiralandı. Ücret: ${formatEuroShort(loanFee)}.`,
+            timestamp: Date.now(),
+            importance: 2,
+            read: false,
+          };
+
+          set({
+            clubs: [...clubs],
+            news: [newNews, ...news],
+          });
+
+          return { success: true, response: "accepted" };
+        } else {
+          const newNews: NewsItem = {
+            id: `news_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            category: "transfer",
+            headline: "Kiralama Reddedildi",
+            body: `${sellerTeam.name}, ${player.firstName} ${player.lastName} için kiralama teklifinizi reddetti. Teklif çok düşük.`,
+            timestamp: Date.now(),
+            importance: 1,
+            read: false,
+          };
+
+          set({ news: [newNews, ...news] });
+          return { success: true, response: "rejected" };
+        }
       },
 
       acceptOffer: (offerId) => {
