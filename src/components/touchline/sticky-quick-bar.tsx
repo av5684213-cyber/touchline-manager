@@ -31,8 +31,8 @@ export function StickyQuickBar({
   onChange: (k: TabKey) => void;
 }) {
   return (
-    <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border">
-      <div className="flex items-center justify-center gap-1 px-2 py-1.5 overflow-x-auto tm-no-scrollbar tm-safe-top">
+    <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border tm-safe-top">
+      <div className="grid grid-cols-6 gap-0">
         {TOP_TABS.map((tab) => {
           const TabIcon = tab.icon;
           const isActive = tab.key === activeTab;
@@ -44,14 +44,20 @@ export function StickyQuickBar({
                 onChange(tab.key as TabKey);
               }}
               className={cn(
-                "tm-tap flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-[9px] font-semibold whitespace-nowrap transition-colors min-w-[52px]",
+                "tm-tap flex flex-col items-center justify-center gap-0.5 py-1.5 text-[9px] font-semibold transition-colors",
                 isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted/50"
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
               <TabIcon size={18} strokeWidth={isActive ? 2.5 : 2} className="shrink-0" />
-              <span className="truncate max-w-full">{tab.label}</span>
+              <span className="truncate">{tab.label}</span>
+              <span
+                className={cn(
+                  "h-0.5 w-6 rounded-full transition-all",
+                  isActive ? "bg-primary opacity-100" : "opacity-0"
+                )}
+              />
             </button>
           );
         })}
