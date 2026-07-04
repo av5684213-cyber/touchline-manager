@@ -262,46 +262,88 @@ export function MatchReplayModal({
             </div>
           )}
 
+          {/* Maç öncesi spiker */}
+          {watching && visibleCount === 0 && (
+            <div className="tm-card p-3 bg-amber-500/10 border-amber-500/30">
+              <div className="text-[10px] font-bold text-amber-300 mb-1">🎙️ Maç Başlıyor!</div>
+              <p className="text-[10px] leading-relaxed text-muted-foreground">
+                {homeTeam.name} sahasında {awayTeam.name} konuk ediyor. Stadyum dopdolu! Hakem düdüğü çaldı, maç başladı!
+              </p>
+            </div>
+          )}
+
+          {/* Devre arası */}
+          {watching && shownEvents.some((e) => e.minute > 45) && !shownEvents.some((e, idx) => idx >= visibleCount - 1 && e.minute <= 45) && shownEvents.some((e) => e.minute <= 45) && shownEvents.filter((e) => e.minute > 45).length > 0 && visibleCount === shownEvents.filter((e) => e.minute <= 45).length && (
+            <div className="tm-card p-3 bg-sky-500/10 border-sky-500/30">
+              <div className="text-[10px] font-bold text-sky-300 mb-1">⏸️ Devre Arası</div>
+              <p className="text-[10px] leading-relaxed text-muted-foreground">
+                İlk yarı sona erdi. {homeTeam.name} {currentScore.home} - {currentScore.away} {awayTeam.name}. {currentScore.home > currentScore.away ? "Ev sahibi üstün." : currentScore.home < currentScore.away ? "Deplasman önde." : "Beraberlik."}
+              </p>
+            </div>
+          )}
+
           {/* Olay zaman çizelgesi — izlerken yavaş yavaş akar */}
           {shownEvents.length > 0 && (
             <div className="tm-card p-3">
               <div className="text-[10px] text-muted-foreground uppercase font-bold mb-2">Maç Akışı</div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {shownEvents.map((e, i) => {
                   const isHome = e.team === "home" || e.side === "home";
-                  const icon = e.type === "goal" ? "⚽" : e.type === "yellow" ? "🟨" : e.type === "red" ? "🟥" : e.type === "sub" ? "🔄" : e.type === "injury" ? "🤕" : e.type === "chance" ? "🔥" : e.type === "foul" ? "⚙️" : e.type === "shot_wide" ? "❌" : e.type === "shot_post" ? "🎯" : e.type === "shot_saved" ? "🧤" : e.type === "corner" ? "🚩" : e.type === "offside" ? "🚩" : e.type === "penalty" ? "⚡" : e.type === "free_kick" ? "🎯" : "📋";
-                  const teamShort = isHome ? homeTeam.shortName : e.team === "away" || e.side === "away" ? awayTeam.shortName : "";
+                  const teamShort = isHome ? homeTeam.shortName : (e.team === "away" || e.side === "away") ? awayTeam.shortName : "";
+                  const teamName = isHome ? homeTeam.name : (e.team === "away" || e.side === "away") ? awayTeam.name : "";
                   const playerName = (e as any).player || (e as any).playerName || "";
-                  const labels: Record<string, string> = {
-                    goal: `GOL! ${playerName}`,
-                    yellow_card: `${playerName} sarı kart`,
-                    red_card: `${playerName} kırmızı kart`,
-                    injury: `${playerName} sakatlandı`,
-                    substitution: `${playerName} oyuna girdi`,
-                    foul: `Faul — ${playerName}`,
-                    corner: `Korner — ${teamShort}`,
-                    shot_saved: `Kurtarış — ${playerName}`,
-                    shot_wide: `Iska — ${playerName}`,
-                    shot_post: `Direk! — ${playerName}`,
-                    penalty: `Penaltı — ${teamShort}`,
-                    offside: `Ofsayt — ${playerName}`,
-                    free_kick: `Serbest vuruş — ${teamShort}`,
-                    chance: `Fırsat — ${playerName}`,
-                    tackle: `Müdahale — ${playerName}`,
-                    interception: `Top kesişti — ${playerName}`,
-                    var_review: `VAR incelemesi`,
-                    goal_overturned: `Gol iptal!`,
-                  };
-                  const text = labels[e.type] || (e as any).description || playerName || e.type;
+
+                  // Detaylı spiker metni — her tip için zengin açıklama
+                  const commentary = getDetailedCommentary(e, playerName, teamShort, teamName, isHome);
+                  const icon = getEventIcon(e.type);
+                  const isGoal = e.type === "goal";
+                  const isCard = e.type === "yellow_card" || e.type === "yellow" || e.type === "red_card" || e.type === "red";
+                  const isInjury = e.type === "injury";
+
                   return (
-                    <div key={i} className={cn("flex items-center gap-1.5 text-[9px]", !isHome && "flex-row-reverse text-right")}>
-                      <span className="font-bold tabular-nums text-muted-foreground w-7">{e.minute}'</span>
-                      <span>{icon}</span>
-                      <span className="text-muted-foreground flex-1 truncate">{text}</span>
+                    <div key={i} className={cn(
+                      "flex items-start gap-2 p-1.5 rounded text-[10px] leading-snug transition-all",
+                      isGoal && "bg-emerald-500/10 border-l-2 border-emerald-500",
+                      isCard && "bg-amber-500/5 border-l-2 border-amber-500",
+                      isInjury && "bg-orange-500/5 border-l-2 border-orange-500",
+                      !isGoal && !isCard && !isInjury && "border-l-2 border-transparent"
+                    )}>
+                      <span className="font-bold tabular-nums text-muted-foreground w-7 shrink-0 mt-0.5">{e.minute > 90 ? `90+${e.minute - 90}'` : `${e.minute}'`}</span>
+                      <span className="text-sm shrink-0">{icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <span className={cn(
+                          "font-semibold",
+                          isGoal && "text-emerald-300",
+                          isCard && "text-amber-300",
+                          isInjury && "text-orange-300",
+                          !isGoal && !isCard && !isInjury && "text-muted-foreground"
+                        )}>{commentary.title}</span>
+                        <p className="text-[9px] text-muted-foreground/70 mt-0.5 leading-tight">{commentary.detail}</p>
+                      </div>
+                      {teamShort && (
+                        <span className={cn("text-[8px] px-1 py-0.5 rounded font-bold shrink-0", isHome ? "bg-emerald-500/20 text-emerald-300" : "bg-sky-500/20 text-sky-300")}>{teamShort}</span>
+                      )}
                     </div>
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* Maç sonu spiker */}
+          {watching && visibleCount >= sortedEvents.length && sortedEvents.length > 0 && (
+            <div className="tm-card p-3 bg-emerald-500/10 border-emerald-500/30">
+              <div className="text-[10px] font-bold text-emerald-300 mb-1">🏁 Maç Sona Erdi</div>
+              <p className="text-[10px] leading-relaxed text-muted-foreground">
+                {(() => {
+                  const diff = finalScore.home - finalScore.away;
+                  if (diff > 2) return `${homeTeam.name} sahasında ${awayTeam.name} karşısında üstün bir performans sergiledi! ${finalScore.home}-${finalScore.away} skorla sahadan galip ayrıldılar.`;
+                  if (diff === 1) return `Çekişmeli maçta ${homeTeam.name} sahasında ${awayTeam.name}'i ${finalScore.home}-${finalScore.away} mağlup etti. Fark tek golde kaldı.`;
+                  if (diff === 0) return `Beraberlik her iki takım için de adil bir sonuçtu. ${finalScore.home}-${finalScore.away} ile maç sona erdi.`;
+                  if (diff === -1) return `${awayTeam.name} deplasmandan ${finalScore.home}-${finalScore.away} galibiyetle döndü! ${homeTeam.name} sahasında şaşırttı.`;
+                  return `${awayTeam.name} deplasmanda ${homeTeam.name}'i ${finalScore.away}-${finalScore.home} gibi net bir skorla mağlup etti. Ev sahibi için zor bir gün.`;
+                })()}
+              </p>
             </div>
           )}
 
@@ -314,4 +356,226 @@ export function MatchReplayModal({
       </div>
     </div>
   );
+}
+
+// ===== Detaylı spiker metni üretici =====
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function getEventIcon(type: string): string {
+  const map: Record<string, string> = {
+    goal: "⚽",
+    yellow_card: "🟨",
+    yellow: "🟨",
+    red_card: "🟥",
+    red: "🟥",
+    injury: "🤕",
+    substitution: "🔄",
+    sub: "🔄",
+    foul: "⚠️",
+    corner: "🚩",
+    shot_saved: "🧤",
+    shot_wide: "❌",
+    shot_post: "🎯",
+    penalty: "⚡",
+    offside: "🚩",
+    free_kick: "🎯",
+    chance: "🔥",
+    tackle: "🛡️",
+    interception: "✋",
+    var_review: "📺",
+    goal_overturned: "❌",
+  };
+  return map[type] ?? "📋";
+}
+
+function getDetailedCommentary(
+  e: any,
+  playerName: string,
+  teamShort: string,
+  teamName: string,
+  isHome: boolean
+): { title: string; detail: string } {
+  const side = isHome ? "Ev sahibi" : "Deplasman";
+  const sideShort = isHome ? "Ev" : "Dep";
+
+  switch (e.type) {
+    case "goal":
+      return {
+        title: pick([
+          `GOL! ${playerName} ağları sarstı!`,
+          `GOOOL! ${playerName} topu ağlara gönderdi!`,
+          `Muhteşem gol! ${playerName} kaleyi buldu!`,
+          `${playerName} ceza sahasında soğukkanlı! GOL!`,
+        ]),
+        detail: pick([
+          `${teamName} öne geçti! Stadyum çalkalanıyor!`,
+          `${side} takımı gole yaklaşmıştı, fırsatı değerlendirdi!`,
+          `Kalecinin yapacak bir şeyi yoktu, çok yerinde bir vuruş.`,
+          `Taraftarlar ayakta! ${teamShort} için kritik bir gol!`,
+        ]),
+      };
+    case "yellow_card":
+    case "yellow":
+      return {
+        title: `${playerName} sarı kart gördü`,
+        detail: pick([
+          `Hakem sert müdahale sonrası kartını çıkardı. ${side} oyuncusu uyarıldı.`,
+          `Taktiksel faul diyebiliriz. ${playerName}risk aldı ve kartını aldı.`,
+          `Hakem oyunu sıkı tutuyor. Bu kart ${teamShort} için riskli.`,
+        ]),
+      };
+    case "red_card":
+    case "red":
+      return {
+        title: `KIRMIZI KART! ${playerName} gönderildi!`,
+        detail: pick([
+          `${teamShort} 10 kişi kaldı! Maçın kaderi değişebilir.`,
+          `Hakem tereddüt etmedi. ${playerName} doğrudan kırmızı kart.`,
+          `${side} takımı için büyük darbe! Kalan dakikalar zor geçecek.`,
+        ]),
+      };
+    case "injury":
+      return {
+        title: `${playerName} sakatlandı`,
+        detail: pick([
+          `Sağlık ekibi sahaya girdi. Durum ciddi görünüyor.`,
+          `${playerName} yerde kaldı. Değişiklik gerekebilir.`,
+          `Üzücü bir sakatlık. ${teamShort} forveti oyuna devam edemeyebilir.`,
+        ]),
+      };
+    case "substitution":
+    case "sub":
+      return {
+        title: `Oyuncu değişikliği: ${playerName}`,
+        detail: pick([
+          `${side} takımı taze kan istiyor. ${teamShort} oyunun kaderini değiştirmek istiyor.`,
+          `Teknik direktör hamlesini yaptı. ${playerName} oyuna dahil oluyor.`,
+          `Yorgun bacaklar çıkıyor, dinamik oyuncu giriyor.`,
+        ]),
+      };
+    case "foul":
+      return {
+        title: `Faul — ${playerName}`,
+        detail: pick([
+          `Orta saha bölgesinde faul. Oyun kısa süre durdu.`,
+          `${playerName} rakibini yere indirdi. Hakem düdük çaldı.`,
+          `Savunma faulü. ${teamShort} serbest vuruşla başlayacak.`,
+        ]),
+      };
+    case "corner":
+      return {
+        title: `Korner — ${teamShort}`,
+        detail: pick([
+          `${side} takımı köşe vuruşu kazandı. Tehlikeli bölge!`,
+          `Kaleci topu kornere çeldi. ${teamShort} atağa kalkıyor.`,
+          `Korner başlıyor. Ceza sahası doluyor!`,
+        ]),
+      };
+    case "shot_saved":
+      return {
+        title: `Kaleci kurtardı! — ${playerName}`,
+        detail: pick([
+          `Şut çok güzeldi ama kaleci biraz daha iyiydi. Müthiş kurtarış!`,
+          `${playerName} şutunu çıkardı. Bu pozisyon gol olabilirdi!`,
+          `Kaleci uçtu ve topu kornere gönderdi. Maçın kurtarışı!`,
+        ]),
+      };
+    case "shot_wide":
+      return {
+        title: `Iska geçti — ${playerName}`,
+        detail: pick([
+          `${playerName} topu auta gönderdi. Yakındı ama gol değildi.`,
+          `Şut yan ağlarda. ${playerName}'in vuruşu biraz düzgün değildi.`,
+          `İyi pozisyon ama son vuruş eksikti. Aut.`,
+        ]),
+      };
+    case "shot_post":
+      return {
+        title: `DİREKTEN DÖNDÜ! — ${playerName}`,
+        detail: pick([
+          `İnanılmaz! Direk ${teamShort} için yıkıldı! Çok yaklaşmıştı!`,
+          `${playerName} direği deldi ama gol olmadı. Şanssız!`,
+          `Direk diyecek — bu pozisyonda gol beklenirdi.`,
+        ]),
+      };
+    case "penalty":
+      return {
+        title: `PENALTI! — ${teamShort}`,
+        detail: pick([
+          `Hakem penaltı noktasını gösterdi! ${side} takımı için altın fırsat!`,
+          `Ceza sahasında elle oynama! Penaltı kararı tartışmasız.`,
+          `${teamShort} 11 metreden gol arıyor. Stadyum tutuluyor!`,
+        ]),
+      };
+    case "offside":
+      return {
+        title: `Ofsayt — ${playerName}`,
+        detail: pick([
+          `Bayrak havada! ${playerName} bir adım erken başladı.`,
+          `Savunma hattı çok iyi. Ofsayt tuzağı çalıştı.`,
+          `Gol çizgisinde çok erken. Hakem bayrağını kaldırdı.`,
+        ]),
+      };
+    case "free_kick":
+      return {
+        title: `Serbest vuruş — ${teamShort}`,
+        detail: pick([
+          `Tehlikeli bölgeden serbest vuruş. ${teamShort} için fırsat!`,
+          `${side} takımı duvar örgüsü kuruyor. Geri sayım başladı.`,
+          `Serbest vuruş ${teamShort} için. Kaleci hazır.`,
+        ]),
+      };
+    case "chance":
+      return {
+        title: `Fırsat! — ${playerName}`,
+        detail: pick([
+          `${playerName} tehlikeli bir atak başlattı! Savunma geriliyor.`,
+          `${side} takımı kaleye yaklaşıyor. Bu pozisyon gol olabilir!`,
+          `${teamShort} hızlı hücum! ${playerName} topu taşıyor.`,
+        ]),
+      };
+    case "tackle":
+      return {
+        title: `Müdahale — ${playerName}`,
+        detail: pick([
+          `Mükemmel bir müdahale! Topu kazandı ve atağı kesti.`,
+          `${playerName} temiz bir tackle yaptı. Savunma direnci.`,
+          `Sert ama düzgün müdahale. Oyun devam ediyor.`,
+        ]),
+      };
+    case "interception":
+      return {
+        title: `Top kesişti — ${playerName}`,
+        detail: pick([
+          `${playerName} pas arasına girdi. ${teamShort} topu kazandı.`,
+          `Savunma dikkatli! Pas kesildi, tehlike önlendi.`,
+          `${side} takımı topu kaptı. Hızlı hücum başlayabilir.`,
+        ]),
+      };
+    case "var_review":
+      return {
+        title: `VAR incelemesi`,
+        detail: pick([
+          `Hakem monitöre gidiyor. Stadyum bekliyor...`,
+          `VAR çağrısı! Olası penaltı/kart durumu inceleniyor.`,
+          `Kontroller yapılıyor. Karar bekleniyor.`,
+        ]),
+      };
+    case "goal_overturned":
+      return {
+        title: `Gol iptal edildi!`,
+        detail: pick([
+          `VAR incelemesi sonrası gol iptal! Ofsayt tespit edildi.`,
+          `İnceleme bitti — gol geçersiz sayıldı. Şanssızlık.`,
+          `Hakem kararı verdi: gol yok! ${teamShort} hayal kırıklığı.`,
+        ]),
+      };
+    default:
+      return {
+        title: (e as any).description || playerName || e.type,
+        detail: "",
+      };
+  }
 }
