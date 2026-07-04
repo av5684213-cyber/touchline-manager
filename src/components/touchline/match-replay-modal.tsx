@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { X, Trophy, Clock } from "lucide-react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { X, Trophy, Clock, Play } from "lucide-react";
 import type { Team } from "@/lib/mock/data";
 import { simulateEnhancedMatch } from "@/lib/match/engine";
 import { DEFAULT_TACTIC } from "@/lib/tactics/types";
@@ -49,11 +49,13 @@ export function MatchReplayModal({
   matchday?: number;
   onClose: () => void;
 }) {
-  const [simulated, setSimulated] = useState(false);
+  const [watching, setWatching] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(0);
+  const [currentScore, setCurrentScore] = useState({ home: 0, away: 0 });
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   // Maçı simüle et (sadece bir kez)
   const result = useMemo<MatchResult | null>(() => {
-    if (simulated) return null;
     try {
       const homeXI = [...homeTeam.players].sort((a, b) => b.rating - a.rating).slice(0, 11);
       const awayXI = [...awayTeam.players].sort((a, b) => b.rating - a.rating).slice(0, 11);
@@ -80,19 +82,51 @@ export function MatchReplayModal({
     } catch (e) {
       return null;
     }
-  }, [homeTeam, awayTeam, homeScore, awayScore, simulated]);
+  }, [homeTeam, awayTeam, homeScore, awayScore]);
 
   const displayScore = result ?? { homeScore: homeScore ?? 0, awayScore: awayScore ?? 0, events: [], stats: { possession: [50, 50], shotsOnTarget: [0, 0], corners: [0, 0], fouls: [0, 0] }, playerRatings: {} };
-
-  // Event'leri dakikaya göre grupla
   const sortedEvents = [...displayScore.events].sort((a, b) => a.minute - b.minute);
-  const goals = sortedEvents.filter((e) => e.type === "goal");
-  const cards = sortedEvents.filter((e) => e.type === "yellow" || e.type === "red");
 
   // MOTM bul
   const motm = displayScore.motmPlayerId
     ? [...homeTeam.players, ...awayTeam.players].find((p) => p.id === displayScore.motmPlayerId)
     : null;
+
+  // "Özeti İzle" — yavaş yavaş olayları göster
+  useEffect(() => {
+    if (!watching || sortedEvents.length === 0) return;
+    setVisibleCount(0);
+    setCurrentScore({ home: 0, away: 0 });
+    let idx = 0;
+    const interval = setInterval(() => {
+      if (idx >= sortedEvents.length) {
+        clearInterval(interval);
+        setCurrentScore({ home: displayScore.homeScore, away: displayScore.awayScore });
+        return;
+      }
+      const ev = sortedEvents[idx];
+      // Gol varsa skoru güncelle
+      if (ev.type === "goal") {
+        const isHome = ev.team === "home" || ev.side === "home";
+        setCurrentScore((prev) => ({
+          home: isHome ? prev.home + 1 : prev.home,
+          away: !isHome ? prev.away + 1 : prev.away,
+        }));
+      }
+      setVisibleCount(idx + 1);
+      idx++;
+      // Auto-scroll
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
+    }, 800); // 800ms per event
+    return () => clearInterval(interval);
+  }, [watching]);
+
+  const finalScore = watching ? currentScore : { home: displayScore.homeScore, away: displayScore.awayScore };
+  const shownEvents = watching ? sortedEvents.slice(0, visibleCount) : sortedEvents;
+  const goals = shownEvents.filter((e) => e.type === "goal");
+  const cards = shownEvents.filter((e) => e.type === "yellow_card" || e.type === "red_card" || e.type === "yellow" || e.type === "red");
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center">
@@ -112,8 +146,8 @@ export function MatchReplayModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto tm-thin-scrollbar p-3 space-y-3">
-          {/* Skor kartı */}
+        <div className="flex-1 overflow-y-auto tm-thin-scrollbar p-3 space-y-3" ref={scrollRef}>
+          {/* Skor kartı — izlerken canlı güncellenir */}
           <div className="tm-card p-4 text-center">
             <div className="flex items-center justify-center gap-4">
               <div className="flex-1 text-right">
@@ -121,14 +155,35 @@ export function MatchReplayModal({
                 <div className="text-[10px] text-muted-foreground">Ev</div>
               </div>
               <div className="text-4xl font-bold tabular-nums text-amber-300">
-                {displayScore.homeScore} - {displayScore.awayScore}
+                {finalScore.home} - {finalScore.away}
               </div>
               <div className="flex-1 text-left">
                 <div className="text-sm font-bold truncate">{awayTeam.name}</div>
                 <div className="text-[10px] text-muted-foreground">Dep</div>
               </div>
             </div>
-            {motm && (
+
+            {/* Özeti İzle butonu */}
+            {!watching && sortedEvents.length > 0 && (
+              <button
+                onClick={() => { haptic("medium"); setWatching(true); }}
+                className="mt-3 w-full py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-bold flex items-center justify-center gap-2"
+              >
+                <Play size={16} /> Özeti İzle
+              </button>
+            )}
+            {watching && visibleCount < sortedEvents.length && (
+              <div className="mt-3 flex items-center justify-center gap-2 text-[10px] text-amber-400">
+                <span className="animate-pulse">▶</span> Maç akıyor... ({visibleCount}/{sortedEvents.length})
+              </div>
+            )}
+            {watching && visibleCount >= sortedEvents.length && (
+              <div className="mt-3 flex items-center justify-center gap-2 text-[10px] text-emerald-400 font-bold">
+                ✓ Maç sona erdi
+              </div>
+            )}
+
+            {motm && (!watching || visibleCount >= sortedEvents.length) && (
               <div className="mt-3 pt-3 border-t border-border">
                 <div className="text-[9px] text-muted-foreground uppercase">Maçın Oyuncusu</div>
                 <div className="text-xs font-bold text-amber-300">
@@ -207,12 +262,12 @@ export function MatchReplayModal({
             </div>
           )}
 
-          {/* Olay zaman çizelgesi */}
-          {sortedEvents.length > 0 && (
+          {/* Olay zaman çizelgesi — izlerken yavaş yavaş akar */}
+          {shownEvents.length > 0 && (
             <div className="tm-card p-3">
               <div className="text-[10px] text-muted-foreground uppercase font-bold mb-2">Maç Akışı</div>
               <div className="space-y-1">
-                {sortedEvents.slice(0, 30).map((e, i) => {
+                {shownEvents.map((e, i) => {
                   const isHome = e.team === "home" || e.side === "home";
                   const icon = e.type === "goal" ? "⚽" : e.type === "yellow" ? "🟨" : e.type === "red" ? "🟥" : e.type === "sub" ? "🔄" : e.type === "injury" ? "🤕" : e.type === "chance" ? "🔥" : e.type === "foul" ? "⚙️" : e.type === "shot_wide" ? "❌" : e.type === "shot_post" ? "🎯" : e.type === "shot_saved" ? "🧤" : e.type === "corner" ? "🚩" : e.type === "offside" ? "🚩" : e.type === "penalty" ? "⚡" : e.type === "free_kick" ? "🎯" : "📋";
                   const teamShort = isHome ? homeTeam.shortName : e.team === "away" || e.side === "away" ? awayTeam.shortName : "";
