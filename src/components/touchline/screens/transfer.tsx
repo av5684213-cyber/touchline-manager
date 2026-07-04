@@ -203,7 +203,7 @@ export function TransferScreen() {
                   className="tm-tap shrink-0"
                   aria-label="Profil"
                 >
-                  <PlayerAvatar initials={`${p.firstName[0]}${p.lastName[0]}`} size={36} />
+                  <PlayerAvatar initials={p.specificPosition} size={36} />
                 </button>
                 <button
                   onClick={() => setProfilePlayer(p)}
@@ -223,7 +223,7 @@ export function TransferScreen() {
                   </div>
                 </button>
                 <div className="flex flex-col items-end gap-1">
-                  <RatingBadge value={p.formRating} />
+                  <RatingBadge value={p.rating} />
                   <div className="text-[9px] text-muted-foreground">{formatEuro(listing.wageDemand)}/hafta</div>
                 </div>
                 <button
@@ -268,7 +268,7 @@ export function TransferScreen() {
                   className="tm-tap shrink-0"
                   aria-label="Profil"
                 >
-                  <PlayerAvatar initials={`${p.firstName[0]}${p.lastName[0]}`} size={36} />
+                  <PlayerAvatar initials={p.specificPosition} size={36} />
                 </button>
                 <button
                   onClick={() => setProfilePlayer(p)}
@@ -298,8 +298,8 @@ export function TransferScreen() {
                   </div>
                 </button>
                 <div className="flex flex-col items-end gap-1">
-                  <RatingBadge value={p.formRating} />
-                  <span className="text-[9px] text-muted-foreground">{p.rating} OVR</span>
+                  <RatingBadge value={p.rating} />
+                  <span className="text-[9px] text-muted-foreground">{formatEuro(listing.dailyFee)}/gün</span>
                 </div>
                 <button
                   onClick={() => {
