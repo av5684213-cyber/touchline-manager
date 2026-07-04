@@ -330,20 +330,61 @@ export function MatchReplayModal({
             </div>
           )}
 
-          {/* Maç sonu spiker */}
+          {/* Maç sonu spiker — zengin hikaye anlatımı */}
           {watching && visibleCount >= sortedEvents.length && sortedEvents.length > 0 && (
-            <div className="tm-card p-3 bg-emerald-500/10 border-emerald-500/30">
-              <div className="text-[10px] font-bold text-emerald-300 mb-1">🏁 Maç Sona Erdi</div>
-              <p className="text-[10px] leading-relaxed text-muted-foreground">
-                {(() => {
-                  const diff = finalScore.home - finalScore.away;
-                  if (diff > 2) return `${homeTeam.name} sahasında ${awayTeam.name} karşısında üstün bir performans sergiledi! ${finalScore.home}-${finalScore.away} skorla sahadan galip ayrıldılar.`;
-                  if (diff === 1) return `Çekişmeli maçta ${homeTeam.name} sahasında ${awayTeam.name}'i ${finalScore.home}-${finalScore.away} mağlup etti. Fark tek golde kaldı.`;
-                  if (diff === 0) return `Beraberlik her iki takım için de adil bir sonuçtu. ${finalScore.home}-${finalScore.away} ile maç sona erdi.`;
-                  if (diff === -1) return `${awayTeam.name} deplasmandan ${finalScore.home}-${finalScore.away} galibiyetle döndü! ${homeTeam.name} sahasında şaşırttı.`;
-                  return `${awayTeam.name} deplasmanda ${homeTeam.name}'i ${finalScore.away}-${finalScore.home} gibi net bir skorla mağlup etti. Ev sahibi için zor bir gün.`;
-                })()}
-              </p>
+            <div className="space-y-2">
+              {/* Maç sonu özet */}
+              <div className="tm-card p-3 bg-emerald-500/10 border-emerald-500/30">
+                <div className="text-[10px] font-bold text-emerald-300 mb-1.5">🏁 Maç Sona Erdi</div>
+                <p className="text-[10px] leading-relaxed text-muted-foreground">
+                  {getMatchSummary(finalScore.home, finalScore.away, homeTeam.name, awayTeam.name, sortedEvents)}
+                </p>
+              </div>
+
+              {/* Maçın Adamı açıklaması */}
+              {motm && (
+                <div className="tm-card p-3 bg-amber-500/10 border-amber-500/30">
+                  <div className="text-[10px] font-bold text-amber-300 mb-1.5">⭐ Maçın Adamı</div>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full text-[10px] font-bold text-white shrink-0"
+                      style={{ background: homeTeam.players.some((p) => p.id === motm.id) ? homeTeam.primaryColor : awayTeam.primaryColor }}>
+                      {motm.specificPosition}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-bold truncate">{motm.firstName} {motm.lastName}</div>
+                      <div className="text-[9px] text-muted-foreground">{motm.specificPosition} · {homeTeam.players.some((p) => p.id === motm.id) ? homeTeam.name : awayTeam.name}</div>
+                    </div>
+                    <div className="text-lg font-bold tabular-nums text-amber-300">{(displayScore as any).playerRatings?.[motm.id]?.toFixed(1) ?? "8.0"}</div>
+                  </div>
+                  <p className="text-[10px] leading-relaxed text-muted-foreground/80">
+                    {getMotmCommentary(motm.firstName, motm.lastName, motm.specificPosition, finalScore.home, finalScore.away, sortedEvents, homeTeam.players.some((p) => p.id === motm.id))}
+                  </p>
+                </div>
+              )}
+
+              {/* İstatistik özeti */}
+              <div className="tm-card p-3">
+                <div className="text-[10px] text-muted-foreground uppercase font-bold mb-2">📊 Maç Notları</div>
+                <div className="space-y-1 text-[10px] text-muted-foreground">
+                  {(() => {
+                    const totalGoals = sortedEvents.filter((e) => e.type === "goal").length;
+                    const totalCards = sortedEvents.filter((e) => ["yellow_card", "yellow", "red_card", "red"].includes(e.type)).length;
+                    const totalChances = sortedEvents.filter((e) => e.type === "chance").length;
+                    const totalSaves = sortedEvents.filter((e) => e.type === "shot_saved" || e.type === "save").length;
+                    const totalFouls = sortedEvents.filter((e) => e.type === "foul").length;
+                    const notes: string[] = [];
+                    if (totalGoals >= 4) notes.push(`⚡ ${totalGoals} gollü bir maç! Taraftarlar bol eğlenceli bir maç izledi.`);
+                    else if (totalGoals === 0) notes.push("🛡️ Kaleci günündeydi — gol yok, defans ağır bastı.");
+                    else if (totalGoals <= 1) notes.push("🔒 Az gollü maç, defansif taktikler ağır bastı.");
+                    if (totalCards >= 4) notes.push(`🟨 ${totalCards} kart gördü — sert ve gergin bir maçtı.`);
+                    if (totalChances >= 5) notes.push(`🔥 ${totalChances} gol pozisyonu — bol fırsat var ama verim düşük.`);
+                    if (totalSaves >= 3) notes.push(`🧤 Kaleciler parladı — ${totalSaves} kritik kurtarış.`);
+                    if (totalFouls >= 6) notes.push(`⚠️ ${totalFouls} faul — oyun sık sık kesildi.`);
+                    if (notes.length === 0) notes.push("Dengeli ve tempolu bir maçti. İki takım da mücadele etti.");
+                    return notes.map((n, i) => <div key={i}>{n}</div>);
+                  })()}
+                </div>
+              </div>
             </div>
           )}
 
@@ -578,4 +619,124 @@ function getDetailedCommentary(
         detail: "",
       };
   }
+}
+
+// ===== Maç sonu özeti — zengin hikaye anlatımı =====
+function getMatchSummary(
+  home: number, away: number,
+  homeName: string, awayName: string,
+  events: any[]
+): string {
+  const diff = home - away;
+  const totalGoals = events.filter((e) => e.type === "goal").length;
+  const totalCards = events.filter((e) => ["yellow_card", "yellow", "red_card", "red"].includes(e.type)).length;
+  const winner = diff > 0 ? homeName : diff < 0 ? awayName : null;
+  const loser = diff > 0 ? awayName : diff < 0 ? homeName : null;
+  const winnerSide = diff > 0 ? "ev sahibi" : diff < 0 ? "deplasman" : "";
+
+  // Çok çeşitli maç sonu özetleri
+  if (diff > 3) {
+    return pick([
+      `${homeName} sahasında ${awayName}'i ${home}-${away} gibi ezici bir skorla mağlup etti! Ev sahibi adeta sahayı işgal etti, rakibine nefes aldırmadı. Bu galibiyet taraftarı coşturdu, lig iddiasını güçlendirdi. ${loser} için unutulması zor bir gece olacak.`,
+      `Fark ${home}-${away}! ${homeName} sahasında adeta bir gösteri sergiledi. ${awayName} savunması çaresiz kaldı, her hücum golle sonuçlandı. ${winner} bu formu sürdürürse ligde durdurulamaz gibi görünüyor.`,
+      `${home}-${away}! Stadyum gök gürültüsüyle inliyor. ${homeName} bu akşam futbolun tüm kurallarını koydu. ${awayName} teknik direktörü kenarda ne yapacağını şaşırmış halde. Bu kadar net bir üstünlük her gün görülmüyor.`,
+    ]);
+  }
+  if (diff === 2 || diff === 3) {
+    return pick([
+      `${homeName} sahasında ${awayName}'i ${home}-${away} yendi. İlk yarıdan itibaren oyunun hakimiydi, gol fırsatlarını değerlendirmesini bildi. ${loser} mücadele etti ama bu akşam yetersizdi. ${winner} üç puanı fazlasıyla hak etti.`,
+      `${home}-${away} sona eren maçta ${winner} ${winnerSide} avantajını iyi kullandı. İkinci yarıda tempoyu düşürmeden baskıyı sürdürdü ve farkı korudu. ${loser} için deplasmanda zor bir akşamdı.`,
+      `Net bir ${home}-${away}. ${homeName} sahasında ${awayName}'e haddini bildirdi. İlk yarısı dengeli geçen maçın ikinci yarısında ev sahibi farkı koydu. ${winner} bu galibiyetle moral depoladı.`,
+    ]);
+  }
+  if (diff === 1) {
+    return pick([
+      `Çekişmeli bir maçtı! ${homeName} sahasında ${awayName}'i ${home}-${away} mağlup etti. Fark tek golde kaldı ama ${winner} sahadan galip ayrılmayı başardı. ${loser} son dakikalarda eşitliği aradı ama bulamadı. Tribünler nefesini tuttu.`,
+      `${home}-${away}! Kırılma anı tek goldü. ${winner} fırsatı değerlendirdi ve skoru korudu. ${loser} çok denedi, pozisyonlar buldu ama son vuruşta şans yüzüne gülmedi. Bu kadar dar bir fark her zaman çekişmeli bir maçın göstergesi.`,
+      `Maç boyunca iki takım da üstünlük kurmak için mücadele etti. ${homeName} sahasında ${awayName}'e ${home}-${away} üstünlük kurdu. Tek golle ayrılmak her zaman risklidir ama bu akşam ${winner} dayandı.`,
+    ]);
+  }
+  if (diff === 0) {
+    return pick([
+      `${home}-${away} beraberlik! İki takım da sahada varını yoğunu ortaya koydu ama kazanan çıkmadı. Beraberlik maçın gidişatına göre adil bir sonuç oldu. ${homeName} sahasında puan kaybetti, ${awayName} deplasmanda en azından yenilmedi.`,
+      `Maç ${home}-${away} bitti. İlk yarıda ${homeName} üstün görünüyordu ama ${awayName} ikinci yarıda döndü. Beraberlik her iki tarafa da yetti. İki takım da bir gol daha atabilirdi ama kaleciler bu akşam parladı.`,
+      `İki takımın da kazanabileceği bir maç ${home}-${away} beraberlikle sona erdi. Kimse risk almak istemedi, defansif oyun ağırlık kazandı. Bu bir puan her iki takım için de düşündürücü olabilir.`,
+    ]);
+  }
+  if (diff === -1) {
+    return pick([
+      `${awayName} deplasmandan ${home}-${away} galibiyetle döndü! ${homeName} sahasında şaşırtıldı. Deplasman takımı soğukkanlıydı, fırsatı kaçırmadı. Ev sahibi tribünleri hayal kırıklığına uğradı.`,
+      `${home}-${away}! ${awayName} deplasmanda ${homeName}'i devirdi. Tek gol yetti. ${homeName} baskı kurdu ama gol yolu bulamadı. ${winner} için değerli bir deplasman galibiyeti, ${loser} için ise evinde yas.`,
+      `Sürpriz deplasman galibiyeti! ${awayName}, ${homeName}'in sahasından ${home}-${away} galip ayrıldı. Ev sahibi ilk yarısı baskın geçirmesine rağmen ikinci yarıda yıkıldı. ${winner} kontra ataklarla rakibi cezalandırdı.`,
+    ]);
+  }
+  if (diff < -1) {
+    return pick([
+      `${awayName} deplasmanda ${homeName}'i ${away}-${home} gibi net bir skorla mağlup etti! ${homeName} sahasında perişan oldu. ${winner} için harika bir deplasman performansı, ${loser} için kabus gibi bir akşam.`,
+      `Deplasmanda ${away}-${home}! ${awayName} ${homeName}'in sahasında şov yaptı. Savunma düzenli, hücum verimli, orta saha dominant. ${loser} hiçbir bölümde rakibine yaklaşamadı. Bu galibiyet ${winner}'in iddiasını güçlendiriyor.`,
+      `${homeName} sahasında ${awayName}'e ${away}-${home} mağlup oldu. Ev sahibi için utanç verici bir sonuç. Taraftarlar futbolcuları yuhaladı. ${winner} ise deplasmanda adeta yürüyüş yaptı. Bu skoru kimse tahmin edemezdi.`,
+    ]);
+  }
+  return `Maç ${home}-${away} sona erdi.`;
+}
+
+// ===== Maçın Adamı açıklaması =====
+function getMotmCommentary(
+  firstName: string, lastName: string,
+  position: string,
+  homeScore: number, awayScore: number,
+  events: any[],
+  isHome: boolean
+): string {
+  const fullName = `${firstName} ${lastName}`;
+  const playerGoals = events.filter((e) => e.type === "goal" && ((e as any).player === fullName || (e as any).playerName === fullName)).length;
+  const isGK = position === "GK";
+  const isDef = ["CB", "LB", "RB", "LWB", "RWB"].includes(position);
+  const isMid = ["CDM", "CM", "CAM", "LM", "RM"].includes(position);
+  const isFwd = ["ST", "CF", "LW", "RW"].includes(position);
+
+  if (isGK) {
+    const saves = events.filter((e) => e.type === "shot_saved" || e.type === "save").length;
+    return pick([
+      `${fullName} kalede adeta duvar ördü! ${saves > 0 ? `${saves} kritik kurtarışa imza attı` : "tüm şutları uzaklaştırdı"}. Rakip forvetler onun karşısında çaresiz kaldı. ${homeScore === awayScore ? "Beraberliği büyük ölçüde ona borçlular." : "Takımının galibiyetinin mimarlarından biri oydu."}`,
+      `Bu akşam kaleci ${fullName} show yaptı. Çıkışları timing'i, reflakesi her şeyi yerli yerindeydi. ${homeScore < awayScore ? "Mağlup olsalar bile o puan kurtaran bir performans sergiledi." : "Takımına güven aşılayan bir performans oldu."}`,
+      `${fullName} bu akşam sahaya yalnız çıkmadı, sanki arkasında bir duvar vardı. Her pozisyonda doğru yerde, doğru zamanda. Maçın adamı seçimi tartışmasız.`,
+    ]);
+  }
+  if (playerGoals >= 2) {
+    return pick([
+      `${fullName} bu akşam sahanın yıldızıydı! ${playerGoals} gol atarak takımını sırtladı. ${playerGoals === 3 ? "Hat-trick yaptı, taraftarlar onun adını haykırıyor!" : "Çok gollü bir performans sergiledi."} Bu performansı sürdürürse ligin en çok konuşulan ismi olacak.`,
+      `${playerGoals} gol! ${fullName} ceza sahasında bir avcı gibi dolaştı. Her pozisyonu golle çevirdi, soğukkanlılığı dikkate değer. Rakip savunma onu durdurmak için elinden geleni yaptı ama başaramadı.`,
+      `Multigollü performans! ${fullName} bu akşam tek başına maçı bitirdi. ${playerGoals} gol atarak takımını zafere taşıdı. Bu akşamki performansı sezonun en iyilerinden biri olabilir.`,
+    ]);
+  }
+  if (playerGoals === 1) {
+    return pick([
+      `${fullName} bu akşam hem gol attı hem de takımına liderlik etti. ${position} mevkiinde mücadelesi, hava topu kazanımı ve oyun zekâsıyla fark yarattı. Golü sadece buzdağının görünen kısmıydı.`,
+      `Gol atan isim ${fullName} ama katkısı sadece golle sınırlı değildi. Savunmada yardımcı oldu, hücumda topu taşıdı, taktik disiplini bozmadı. Tam takım oyuncusu performansı.`,
+      `${fullName} golünü attı ama asıl etkisi oyunun tüm alanlarında hissedildi. ${position} olarak hem savunmaya hem hücuma katkı verdi. Bu tür oyuncular her takımda altın değerinde.`,
+    ]);
+  }
+  if (isDef) {
+    return pick([
+      `${fullName} savunmada kaya gibi durdu! Rakip forvetler onun bölgesinden geçemedi. Top çalmaları, müdahale zamanlaması ve hava toplarındaki üstünlüğüyle takımının güvenliğini sağladı.`,
+      `Defansif performansla maçın adamı! ${fullName} bu akşam neredeyse hiç hata yapmadı. Ofsayt tuzağı kurdu, kontra atakları kesti, sağlam savunma örgütledi. ${homeScore === awayScore ? "Beraberliği büyük ölçüde ona borçlular." : "Takımının sıfır çekmesinde pay sahibi."}`,
+      `${fullName} savunmanın değişmez ismiydi. Top kayıplarını affetmedi, her tehlikeli pası kesti. Forvetlere hava topu bile bırakmadı. Bu akşam savunma sanatını sergiledi.`,
+    ]);
+  }
+  if (isMid) {
+    return pick([
+      `${fullName} orta sahanın patronuydu! Top dağıtımı, oyun görüşü, pas isabeti... Her şeyi kusursuzdu. Takımının hücumlarını o organize etti, savunmaya da destek verdi. Tam bir box-to-box performans.`,
+      `Orta saha motoru ${fullName} bu akşam durmak bilmedi. Koştu, mücadele etti, paslarıyla oyunu yönlendirdi. ${position === "CAM" ? "Yaratıcı paslarıyla sayısız fırsat yarattı." : position === "CDM" ? "Savunma önünde duvar gibi durdu." : "Hem defansa hem hücuma katkı verdi."}`,
+      `${fullName}'in bu akşamki performansı orta saha ustalığının textbook örneğiydi. Pas ağının merkezindeydi, her topa ilk o ulaştı. Rakip orta sahayı etkisiz kıldı. Maçın adamı tam hak etti.`,
+    ]);
+  }
+  if (isFwd) {
+    return pick([
+      `${fullName} forvet hattında rakip savunmanın kabusuydu. Topu ayağında tuttu, boş alan yarattı, takım arkadaşlarını oyuna dahil etti. ${playerGoals === 0 ? "Gol atamadı ama katkısı sayıyla ölçülemez." : "Golü de cabası."}`,
+      `Forvet olarak ${fullName} bu akşam her şeyi yaptı. Pres yaptı, top kazandı, kanatları açtı. ${playerGoals === 0 ? "Gol yok ama asist ve yaratıcılık boldu." : "Golle de katkı verdi."} Rakip savunma onu durdurmak için 2-3 oyuncu kullandı, bu da diğer alanlarda boşluk yarattı.`,
+      `${fullName} forvet hattında yalnız başına bir ordu gibi savaştı. Hava topları, çalım atışları, top tutma... Her şey tam kıvamındaydı. ${playerGoals === 0 ? "Skora yansımasa bile en etkili isimdi." : "Gol atarak şovu tamamladı."}`,
+    ]);
+  }
+  return `${fullName} bu akşam takımının en etkili isimlerinden biriydi. ${position} mevkiinde mücadelesi ve oyun zekâsıyla öne çıktı. Maçın adamı seçimi tam hak edildi.`;
 }
