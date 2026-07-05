@@ -197,7 +197,7 @@ export function TransferScreen() {
             const p = listing.player;
             const isWatched = transfer.watchlist.includes(p.id);
             return (
-              <div key={p.id} className="p-3 flex items-center gap-3">
+              <div key={p.id} className="py-1.5 px-3 flex items-center gap-2.5">
                 <button
                   onClick={() => setProfilePlayer(p)}
                   className="tm-tap shrink-0"
@@ -262,7 +262,7 @@ export function TransferScreen() {
           {(transfer.loanListings ?? []).map((listing, idx) => {
             const p = listing.player;
             return (
-              <div key={`${p.id}-${idx}`} className="p-3 flex items-center gap-3">
+              <div key={`${p.id}-${idx}`} className="py-1.5 px-3 flex items-center gap-2.5">
                 <button
                   onClick={() => setProfilePlayer(p)}
                   className="tm-tap shrink-0"
@@ -472,7 +472,7 @@ function PlayerCard({
   const isAboveValue = askingPrice > player.marketValue;
 
   return (
-    <div className="p-3 flex items-center gap-3">
+    <div className="py-1.5 px-3 flex items-center gap-2.5">
       <button
         onClick={onOpenProfile}
         className="tm-tap shrink-0"

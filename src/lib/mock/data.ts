@@ -220,7 +220,16 @@ export type Player = {
     duelsWon: number;
     errors: number;
     minutesPlayed: number;
+    // Gol türü dağılımı
+    goalsRight: number;
+    goalsLeft: number;
+    goalsHead: number;
+    goalsPenalty: number;
+    goalsFreekick: number;
   };
+
+  // ── Sakatlık geçmişi ───────────────────────────────────
+  injury_history?: { date: string; duration_days: number; type: string }[];
 
   // ── Transfer/durum ─────────────────────────────────────
   is_for_sale?: boolean;

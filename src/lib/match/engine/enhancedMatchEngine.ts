@@ -5,7 +5,7 @@
 // Turkish commentary, detailed statistics, and player rating calculation.
 // =============================================================================
 
-import type { Player, ActiveTactic, MatchResult, GameTactics } from './types';
+import type { Player, ActiveTactic, MatchResult, GameTactics, GoalType } from './types';
 import { generateInjury as generateInjuryFromManager } from './injuryManager';
 import { kaptanMi } from './sharedUtils';
 import {
@@ -108,6 +108,7 @@ export interface MatchEvent {
   x: number; // 0-100 pitch coordinate
   y: number; // 0-100 pitch coordinate
   ratingImpact: number; // +/- impact on player rating
+  goalType?: string; // Gol türü: 'header', 'penalty', 'freekick', 'long_shot', 'plase', vb.
 }
 
 // ─── Match Statistics ───────────────────────────────────────────────────────
@@ -2195,6 +2196,12 @@ export function simulateEnhancedMatch(
         if (Math.random() < GOAL_TYPE.longShotChance && getAttr(selectedPlayer.player, 'longShots', 50) > GOAL_TYPE.longShotThreshold) goalDetail = 'longShot';
         if (minute >= GOAL_TYPE.lateGoalMinute) goalDetail = 'lateGoal';
 
+        // P0#1 FIX: Gol türünü GoalType'a map'le ve event'e yaz
+        const goalTypeMap: Record<string, GoalType> = {
+          normal: 'plase', solo: 'solo' as any, header: 'header', longShot: 'long_shot',
+          penalty: 'penalty', freeKick: 'freekick', counter: 'sprint_finish', lateGoal: 'postup_turn',
+        };
+
         const goalEvent = createEvent(
           minute,
           'goal',
@@ -2203,6 +2210,7 @@ export function simulateEnhancedMatch(
           assister,
           RATING_IMPACT.goal
         );
+        goalEvent.goalType = goalTypeMap[goalDetail] ?? 'plase';
         goalEvent.description = generateGoalCommentary(
           selectedPlayer,
           assister,

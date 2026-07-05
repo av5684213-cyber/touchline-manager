@@ -462,6 +462,7 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
       passes: number; passesCompleted: number; tackles: number; interceptions: number;
       dribbles: number; dribblesCompleted: number; yellowCards: number; redCards: number;
       fouls: number; minutesPlayed: number;
+      goalsRight: number; goalsLeft: number; goalsHead: number; goalsPenalty: number; goalsFreekick: number;
     }>();
 
     for (const ev of result.events) {
@@ -474,16 +475,24 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
           passes: 0, passesCompleted: 0, tackles: 0, interceptions: 0,
           dribbles: 0, dribblesCompleted: 0, yellowCards: 0, redCards: 0,
           fouls: 0, minutesPlayed: 90,
+          goalsRight: 0, goalsLeft: 0, goalsHead: 0, goalsPenalty: 0, goalsFreekick: 0,
         });
       }
       const s = matchStatsMap.get(pid)!;
       switch (eType) {
         case "goal": case "GOAL": case "PENALTY_GOAL":
           s.goals += 1; s.shotsOnTarget += 1; s.shots += 1;
+          // Gol türünü topla
+          const gt = (ev as any).goalType as string | undefined;
+          if (gt === "header") s.goalsHead += 1;
+          else if (gt === "penalty") s.goalsPenalty += 1;
+          else if (gt === "freekick") s.goalsFreekick += 1;
+          else if (gt === "long_shot" || gt === "sprint_finish" || gt === "postup_turn") s.goalsRight += 1;
+          else s.goalsRight += 1; // varsayılan: sağ ayak
           const assistPid = (ev as any).assistPlayerId || (ev as any).assist_player_id;
           if (assistPid) {
             if (!matchStatsMap.has(assistPid)) {
-              matchStatsMap.set(assistPid, { goals: 0, assists: 0, saves: 0, shots: 0, shotsOnTarget: 0, passes: 0, passesCompleted: 0, tackles: 0, interceptions: 0, dribbles: 0, dribblesCompleted: 0, yellowCards: 0, redCards: 0, fouls: 0, minutesPlayed: 90 });
+              matchStatsMap.set(assistPid, { goals: 0, assists: 0, saves: 0, shots: 0, shotsOnTarget: 0, passes: 0, passesCompleted: 0, tackles: 0, interceptions: 0, dribbles: 0, dribblesCompleted: 0, yellowCards: 0, redCards: 0, fouls: 0, minutesPlayed: 90, goalsRight: 0, goalsLeft: 0, goalsHead: 0, goalsPenalty: 0, goalsFreekick: 0 });
             }
             matchStatsMap.get(assistPid)!.assists += 1;
           }
@@ -523,9 +532,20 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
       const newMorale = Math.max(20, Math.min(100, p.morale + moraleChange));
 
       const isInjured = injuredIds.has(p.id);
+      const injuryDuration = Math.floor(Math.random() * 14) + 3;
+      const injurySeverity = Math.floor(Math.random() * 5) + 1;
       const injury = isInjured
-        ? { type: "light" as const, remaining_days: Math.floor(Math.random() * 14) + 3, severity: Math.floor(Math.random() * 5) + 1 }
+        ? { type: "light" as const, remaining_days: injuryDuration, severity: injurySeverity }
         : p.injury;
+
+      // P0#1 FIX: Sakatlık geçmişine kayıt ekle
+      const updatedInjuryHistory = isInjured
+        ? [...(p.injury_history ?? []), {
+            date: new Date().toISOString().slice(0, 10),
+            duration_days: injuryDuration,
+            type: ["Hamstring", "Diz", "Bilek", "Kasık", "Sırt", "Omuz"][Math.floor(Math.random() * 6)],
+          }]
+        : p.injury_history;
 
       // P0#1 FIX: Maç stats'larını topla ve sezonluk accumulator'lara yaz
       const matchStats = matchStatsMap.get(p.id);
@@ -560,6 +580,12 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
         yellowCards: (oldStats.yellowCards ?? 0) + matchStats.yellowCards,
         redCards: (oldStats.redCards ?? 0) + matchStats.redCards,
         minutesPlayed: (oldStats.minutesPlayed ?? 0) + matchStats.minutesPlayed,
+        // Gol türü dağılımı
+        goalsRight: (oldStats.goalsRight ?? 0) + (matchStats.goalsRight ?? 0),
+        goalsLeft: (oldStats.goalsLeft ?? 0) + (matchStats.goalsLeft ?? 0),
+        goalsHead: (oldStats.goalsHead ?? 0) + (matchStats.goalsHead ?? 0),
+        goalsPenalty: (oldStats.goalsPenalty ?? 0) + (matchStats.goalsPenalty ?? 0),
+        goalsFreekick: (oldStats.goalsFreekick ?? 0) + (matchStats.goalsFreekick ?? 0),
       } : oldStats;
 
       return {
@@ -576,6 +602,7 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
         form_streak_count: newFormStreakCount,
         is_injured: isInjured,
         injury,
+        injury_history: updatedInjuryHistory,
         // P0#1 FIX: Sezonluk stats accumulator — gol/asist/saves/maç sayısı
         goals: (p.goals ?? 0) + (matchStats?.goals ?? 0),
         assists: (p.assists ?? 0) + (matchStats?.assists ?? 0),

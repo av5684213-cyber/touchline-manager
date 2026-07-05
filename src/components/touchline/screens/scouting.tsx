@@ -138,7 +138,7 @@ export function ScoutingScreen() {
                 onClick={() => { if (!locked) { haptic("light"); setScoutLevel(s.level); } }}
                 disabled={locked}
                 className={cn(
-                  "tm-tap w-full flex items-center gap-2.5 p-2.5 rounded-md border text-left",
+                  "tm-tap w-full flex items-center gap-2.5 py-1.5 px-2.5 rounded-md border text-left",
                   scoutLevel === s.level ? "bg-primary/10 border-primary" : "bg-card border-border",
                   locked && "opacity-40"
                 )}
@@ -303,7 +303,7 @@ export function ScoutingScreen() {
               <div
                 key={listing.player.id}
                 onClick={() => { haptic("light"); setProfilePlayer(listing.player); }}
-                className="tm-tap tm-card p-2.5 flex items-center gap-2.5 cursor-pointer hover:bg-accent/50 transition-colors"
+                className="tm-tap tm-card py-1.5 px-2.5 flex items-center gap-2 cursor-pointer hover:bg-accent/50 transition-colors"
               >
                 <PlayerAvatar
                   initials={listing.player.specificPosition ?? "—"}

@@ -114,7 +114,7 @@ export function TopScorersScreen() {
           const p = entry.player;
           const trend = idx < 3 ? "up" : idx > 10 ? "down" : "same";
           return (
-            <div key={p.id} className={cn("tm-card p-2.5 flex items-center gap-2.5",
+            <div key={p.id} className={cn("tm-card py-1.5 px-2.5 flex items-center gap-2",
               isMyPlayer && "border-primary bg-primary/5", rank === 1 && "border-amber-500/40 bg-amber-500/5")}>
               <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
                 rank === 1 ? "bg-amber-500 text-black" : rank === 2 ? "bg-slate-400 text-black" :
