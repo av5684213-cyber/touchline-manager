@@ -129,6 +129,23 @@ export type StaffMember = {
   weeklyWage: number;
 };
 
+// Kupa sistemi — store'da tutulur
+type CupMatch = {
+  round: number; // 2=çeyrek, 3=yarı, 4=final
+  homeId: string;
+  awayId: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  played: boolean;
+};
+
+type CupState = {
+  matches: CupMatch[];
+  currentRound: number;
+  champion?: string;
+  eliminated: boolean; // kullanıcı elendi mi
+};
+
 type AppState = {
   isAuthed: boolean;
   managerName: string;
@@ -142,6 +159,8 @@ type AppState = {
   transfer: TransferState;
   training: TrainingState;
   facilities: FacilitiesState;
+  // Kupa sistemi — store'da tutulur, component state değil
+  cup: CupState;
 
   // actions
   loginDemo: (name?: string) => void;
@@ -180,6 +199,8 @@ type AppState = {
   hireStaff: (type: StaffMember["type"], stars: number) => { success: boolean; reason?: string };
   fireStaff: (staffId: string) => void;
   setTicketPrice: (price: number) => void;
+  // cup actions
+  playCupRound: () => { success: boolean; myResult?: string; champion?: string };
   // season actions
   endSeason: () => { success: boolean; summary?: SeasonSummary };
   advanceMatchday: () => void;
@@ -300,6 +321,13 @@ export const useAppStore = create<AppState>()(
         ticketPrice: 60,
       },
 
+      cup: {
+        matches: [],
+        currentRound: 0,
+        champion: undefined,
+        eliminated: false,
+      },
+
       loginDemo: (name) => {
         // Already-initialized clubs varsa yeniden üretme
         let clubs = get().clubs;
@@ -334,6 +362,23 @@ export const useAppStore = create<AppState>()(
           };
         }
 
+        // Kupa fikstürünü üret — ilk 8 takım, çeyrek final
+        const top8 = [...clubs].sort((a, b) =>
+          b.players.reduce((s, p) => s + p.rating, 0) -
+          a.players.reduce((s, p) => s + p.rating, 0)
+        ).slice(0, 8);
+        const cupMatches: CupMatch[] = [];
+        for (let i = 0; i < 4; i++) {
+          cupMatches.push({
+            round: 2,
+            homeId: top8[i * 2].id,
+            awayId: top8[i * 2 + 1].id,
+            homeScore: null,
+            awayScore: null,
+            played: false,
+          });
+        }
+
         set({
           isAuthed: true,
           managerName: name || "Menajer",
@@ -342,6 +387,12 @@ export const useAppStore = create<AppState>()(
           fixtures,
           tactics,
           transfer,
+          cup: {
+            matches: cupMatches,
+            currentRound: 2,
+            champion: undefined,
+            eliminated: false,
+          },
         });
       },
 
@@ -1060,6 +1111,94 @@ export const useAppStore = create<AppState>()(
         set({ facilities: { ...facilities, ticketPrice: Math.max(0, Math.min(150, price)) } });
       },
 
+      // ===== Cup actions =====
+      playCupRound: () => {
+        const { cup, clubs, myTeamId } = get();
+        if (cup.champion) return { success: false };
+
+        const currentMatches = cup.matches.filter(m => m.round === cup.currentRound && !m.played);
+        if (currentMatches.length === 0) return { success: false };
+
+        // Maçları simüle et
+        const simulateCupMatch = (homeId: string, awayId: string): { hs: number; as: number } => {
+          const home = clubs.find(c => c.id === homeId);
+          const away = clubs.find(c => c.id === awayId);
+          if (!home || !away) return { hs: 0, as: 0 };
+          const homeStr = home.players.slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+          const awayStr = away.players.slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+          const diff = homeStr - awayStr;
+          const homeAdv = diff > 5 ? 0.3 : diff < -5 ? -0.3 : 0;
+          let hs = Math.max(0, Math.floor(Math.random() * 4 + homeAdv * 2));
+          let as = Math.max(0, Math.floor(Math.random() * 3 - homeAdv * 2));
+          if (hs === as) hs += 1; // beraberlik olmasın
+          return { hs, as };
+        };
+
+        const updatedMatches = cup.matches.map(m => {
+          if (m.round !== cup.currentRound || m.played) return m;
+          const { hs, as: asNum } = simulateCupMatch(m.homeId, m.awayId);
+          return { ...m, homeScore: hs, awayScore: asNum, played: true };
+        });
+
+        // Kullanıcının sonucu
+        let myResult: string | undefined;
+        const myMatch = currentMatches.find(m => m.homeId === myTeamId || m.awayId === myTeamId);
+        let eliminated = cup.eliminated;
+        if (myMatch) {
+          const played = updatedMatches.find(m => m.homeId === myMatch.homeId && m.awayId === myMatch.awayId && m.round === myMatch.round);
+          if (played && played.homeScore !== null) {
+            const isHome = played.homeId === myTeamId;
+            const myScore = isHome ? played.homeScore : played.awayScore;
+            const oppScore = isHome ? played.awayScore : played.homeScore;
+            if ((myScore ?? 0) > (oppScore ?? 0)) {
+              myResult = `🎉 Tur atladınız! ${myScore}-${oppScore}`;
+            } else {
+              myResult = `😢 Kupadan elendiniz. ${myScore}-${oppScore}`;
+              eliminated = true;
+            }
+          }
+        }
+
+        // Kazananları belirle
+        const winners = updatedMatches
+          .filter(m => m.round === cup.currentRound && m.played)
+          .map(m => ((m.homeScore ?? 0) > (m.awayScore ?? 0)) ? m.homeId : m.awayId);
+
+        const nextRound = cup.currentRound + 1;
+        let nextMatches: CupMatch[] = [];
+        if (winners.length >= 2) {
+          for (let i = 0; i < winners.length; i += 2) {
+            if (winners[i + 1]) {
+              nextMatches.push({ round: nextRound, homeId: winners[i], awayId: winners[i + 1], homeScore: null, awayScore: null, played: false });
+            }
+          }
+        }
+
+        // Şampiyon
+        let champion: string | undefined;
+        const allClubs = [...clubs];
+        if (winners.length === 1 && nextMatches.length === 0) {
+          champion = winners[0];
+          if (champion === myTeamId) {
+            const reward = 1_000_000;
+            const t2 = allClubs.find(c => c.id === myTeamId);
+            if (t2) t2.budget += reward;
+          }
+        }
+
+        set({
+          clubs: allClubs,
+          cup: {
+            matches: [...updatedMatches, ...nextMatches],
+            currentRound: nextMatches.length > 0 ? nextRound : cup.currentRound,
+            champion,
+            eliminated,
+          },
+        });
+
+        return { success: true, myResult, champion };
+      },
+
       // ===== Season actions =====
       advanceMatchday: () => {
         const { fixtures, clubs, myTeamId, transfer } = get();
@@ -1369,12 +1508,35 @@ export const useAppStore = create<AppState>()(
         const updatedTeam = updatedClubs.find((c) => c.id === myTeamId);
         const newTactics = updatedTeam ? defaultTacticsFor(updatedTeam) : get().tactics;
 
+        // Yeni sezon kupa fikstürünü üret
+        const newTop8 = [...updatedClubs].sort((a, b) =>
+          b.players.reduce((s, p) => s + p.rating, 0) -
+          a.players.reduce((s, p) => s + p.rating, 0)
+        ).slice(0, 8);
+        const newCupMatches: CupMatch[] = [];
+        for (let i = 0; i < 4; i++) {
+          newCupMatches.push({
+            round: 2,
+            homeId: newTop8[i * 2].id,
+            awayId: newTop8[i * 2 + 1].id,
+            homeScore: null,
+            awayScore: null,
+            played: false,
+          });
+        }
+
         set({
           clubs: updatedClubs,
           fixtures: newFixtures,
           tactics: newTactics,
           seasonNumber: newSeasonNumber,
           seasonMatchday: 1,
+          cup: {
+            matches: newCupMatches,
+            currentRound: 2,
+            champion: undefined,
+            eliminated: false,
+          },
         });
 
         const summary: SeasonSummary = {
