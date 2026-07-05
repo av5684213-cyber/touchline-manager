@@ -55,7 +55,8 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
   const engine = useMatchEngine(
     team ?? (clubs[0] as any),
     opponent ?? (clubs[1] as any),
-    locale
+    locale,
+    true // P0#2 FIX: Hazırlık maçı — fikstüre yazma
   );
 
   if (!team) {

@@ -182,7 +182,7 @@ export type LiveMatchState = {
   halftimeSecondsLeft?: number; // devre arası geri sayım (30 sn)
 };
 
-export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
+export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFriendly: boolean = false) {
   // Tam simülasyon sonucu (start çağrılınca doluyor)
   const fullResultRef = useRef<EnhancedMatchResult | null>(null);
   // Kaçıncı event'e kadar gösterdiğimiz
@@ -624,13 +624,15 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
         // Tüm event'ler gösterildi — bitir + kondisyon/form güncelle + fikstür güncelle
         setSnapshot((s) => ({ ...s, status: "finished" }));
         applyPostMatchEffects(result);
-        // Fikstüre sonucu yaz
-        useAppStore.getState().recordMatchResult(
-          home.id,
-          away.id,
-          result.homeScore,
-          result.awayScore
-        );
+        // P0#2 FIX: Sadece lig maçıysa fikstüre sonucu yaz — hazırlık maçı yazmasın
+        if (!isFriendly) {
+          useAppStore.getState().recordMatchResult(
+            home.id,
+            away.id,
+            result.homeScore,
+            result.awayScore
+          );
+        }
         clearInterval(id);
         return;
       }
