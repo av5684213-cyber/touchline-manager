@@ -16,6 +16,11 @@ android {
             assets.srcDirs = ['src/main/assets']
         }
     }
+    aaptOptions {
+        // Varsayılan pattern _* ile başlayan klasörleri (Next.js _next/) atlıyor!
+        // Sadece gerçekten gereksiz dosyaları hariç tut.
+        ignoreAssetsPattern ".svn:.git:.ds_store:*.scc:.*:CVS:thumbs.db:picasa.ini:*.bak"
+    }
     buildTypes {
         release {
             minifyEnabled false

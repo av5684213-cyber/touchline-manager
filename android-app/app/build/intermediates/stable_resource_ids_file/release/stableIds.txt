@@ -1,0 +1,4 @@
+com.touchline.manager:mipmap/ic_launcher = 0x7f020000
+com.touchline.manager:string/app_name = 0x7f030000
+com.touchline.manager:color/colorPrimary = 0x7f010001
+com.touchline.manager:color/colorBackground = 0x7f010000
