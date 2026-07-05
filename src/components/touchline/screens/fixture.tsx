@@ -279,6 +279,88 @@ export function FixtureScreen() {
           />
         );
       })()}
+
+      {/* Kupa maçları bölümü — store.cup'tan gelir */}
+      <CupFixturesSection />
+    </div>
+  );
+}
+
+// Kupa fikstür bölümü — store.cup.matches'tan okur
+function CupFixturesSection() {
+  const { t } = useI18n();
+  const { clubs, cup } = useAppStore();
+  const team = useMyTeam();
+  if (!team) return null;
+
+  const getTeam = (id: string) => clubs.find((c) => c.id === id);
+  const myCupMatches = cup.matches.filter(m => m.homeId === team.id || m.awayId === team.id);
+
+  if (myCupMatches.length === 0 && !cup.champion) return null;
+
+  const ROUND_NAMES: Record<number, string> = {
+    2: "Çeyrek Final",
+    3: "Yarı Final",
+    4: "Final",
+  };
+
+  return (
+    <div className="space-y-2 mt-4">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-bold text-amber-400">🏆 Kupa Maçları</span>
+        {cup.champion && (
+          <span className="text-[10px] text-amber-300 font-bold">
+            Şampiyon: {getTeam(cup.champion)?.shortName ?? "—"}
+          </span>
+        )}
+      </div>
+      <div className="space-y-1">
+        {myCupMatches.length === 0 && !cup.champion && (
+          <div className="tm-card p-3 text-center text-[10px] text-muted-foreground">
+            Kupada maçınız yok.
+          </div>
+        )}
+        {myCupMatches.map((m, i) => {
+          const isHome = m.homeId === team.id;
+          const opp = getTeam(isHome ? m.awayId : m.homeId);
+          const us = isHome ? m.homeScore : m.awayScore;
+          const them = isHome ? m.awayScore : m.homeScore;
+          const outcome = m.played ? ((us ?? 0) > (them ?? 0) ? "G" : (us ?? 0) < (them ?? 0) ? "M" : "B") : null;
+          return (
+            <div key={i} className={cn("tm-card py-1.5 px-2.5 flex items-center gap-2", m.round === cup.currentRound && !m.played && "border-amber-500/40")}>
+              <span className="text-[8px] text-amber-400 font-bold uppercase shrink-0 w-12">
+                {ROUND_NAMES[m.round] ?? `Tur ${m.round}`}
+              </span>
+              <span className="text-[10px] text-muted-foreground shrink-0">
+                {isHome ? "EV" : "DEP"}
+              </span>
+              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                <ClubBadge short={isHome ? team.shortName : opp?.shortName ?? "—"}
+                  primaryColor={isHome ? team.primaryColor : opp?.primaryColor ?? "#666"} size={18} />
+                <span className="text-[10px] font-semibold truncate">
+                  {isHome ? team.name : opp?.name ?? "—"}
+                </span>
+              </div>
+              <span className="text-[10px] text-muted-foreground font-bold">vs</span>
+              <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+                <span className="text-[10px] font-semibold truncate text-right">
+                  {isHome ? opp?.name ?? "—" : team.name}
+                </span>
+                <ClubBadge short={isHome ? opp?.shortName ?? "—" : team.shortName}
+                  primaryColor={isHome ? opp?.primaryColor ?? "#666" : team.primaryColor} size={18} />
+              </div>
+              {m.played ? (
+                <span className={cn("text-[10px] font-bold tabular-nums shrink-0 w-8 text-center",
+                  outcome === "G" ? "text-emerald-400" : outcome === "M" ? "text-red-400" : "text-amber-400")}>
+                  {us}-{them}
+                </span>
+              ) : (
+                <span className="text-[9px] text-muted-foreground shrink-0 w-8 text-center">—</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
