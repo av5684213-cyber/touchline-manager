@@ -1133,6 +1133,24 @@ export const useAppStore = create<AppState>()(
         // Matchday'i ilerlet
         SEASON_INFO.matchday = Math.min(SEASON_INFO.totalMatchdays, currentMd + 1);
 
+        // BUG-004 FIX: Otomatik antrenman — kullanıcı manuel tıklamak zorunda kalmasın
+        // Her hafta hafif bir antrenman seansı çalıştır (multiplier=0.7, daha az kondisyon düşüşü)
+        try {
+          const trainingState = get().training;
+          const facilitiesState = get().facilities;
+          if (myTeam && trainingState.assignments.length > 0) {
+            const facilityLevel = facilitiesState.levels.pitch;
+            const results = runTrainingSession(myTeam.players, trainingState, facilityLevel, 0.7);
+            const updatedPlayers = applyResultsToSquad(myTeam.players, results);
+            const teamIdx = updatedClubs.findIndex((c) => c.id === myTeamId);
+            if (teamIdx >= 0) {
+              updatedClubs[teamIdx] = { ...updatedClubs[teamIdx], players: updatedPlayers };
+            }
+          }
+        } catch (e) {
+          console.warn("[advanceMatchday] auto-training failed:", e);
+        }
+
         set({ fixtures: updatedFixtures, clubs: updatedClubs, transfer: updatedTransfer });
       },
 

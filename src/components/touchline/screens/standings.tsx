@@ -15,33 +15,26 @@ import type { FormResult } from "@/lib/mock/season";
 // Lig başına 18 takım; 3. Lig (tier 4) 5 departman
 const TIER_DEPTS: Record<LeagueTier, number> = { 1: 1, 2: 1, 3: 1, 4: 5 };
 
-// 18 takım için: 0-1 şampiyonluk, 2-3 kupa, 16-17 düşme (her ligde 2'şer)
-// Bu oyunda Avrupa kupası yok — tier 1'de ilk 2 şampiyonluk, 2-3 kupa, son 2 düşme
-function getZone(idx: number, tier: number = 2): "promotion" | "playoff" | "relegation" | "middle" {
+// 18 takım: idx 0-2 → üst lige çıkma, idx 15-17 → düşme
+// Backend (store.ts) ile tam senkron: myFinalIdx < 3 → promote, >= 15 → relegate
+function getZone(idx: number, tier: number = 2): "promotion" | "relegation" | "middle" {
   if (tier === 1) {
-    // Süper Lig: ilk 2 şampiyonluk, 2-3 kupa, son 2 düşme
-    if (idx <= 1) return "promotion";
-    if (idx <= 3) return "playoff";
-    if (idx >= 16) return "relegation";
+    if (idx >= 15) return "relegation";
     return "middle";
   }
-  // Diğer ligler: ilk 2直接promotion, 2-3 playoff, son 2 düşme
-  if (idx <= 1) return "promotion";
-  if (idx <= 3) return "playoff";
-  if (idx >= 16) return "relegation";
+  if (idx <= 2) return "promotion";
+  if (idx >= 15) return "relegation";
   return "middle";
 }
 
 const ZONE_COLORS: Record<string, string> = {
   promotion: "border-l-emerald-500",
-  playoff: "border-l-amber-500",
   relegation: "border-l-red-500",
   middle: "border-l-transparent",
 };
 
 const ZONE_DOT: Record<string, string> = {
   promotion: "bg-emerald-500",
-  playoff: "bg-amber-500",
   relegation: "bg-red-500",
   middle: "bg-transparent",
 };
@@ -282,9 +275,8 @@ export function StandingsScreen() {
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-2">
             {t("standings.legend")}
           </div>
-          <div className="grid grid-cols-3 gap-2 text-[10px]">
+          <div className="grid grid-cols-2 gap-2 text-[10px]">
             <LegendItem color="bg-emerald-500" label={t("standings.zone.promotion")} />
-            <LegendItem color="bg-amber-500" label={t("standings.zone.playoff")} />
             <LegendItem color="bg-red-500" label={t("standings.zone.relegation")} />
           </div>
         </div>
