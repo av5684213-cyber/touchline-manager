@@ -21,6 +21,7 @@ import { FacilitiesScreen } from "@/components/touchline/screens/facilities";
 import { FinanceScreen } from "@/components/touchline/screens/finance";
 import { AwardsScreen } from "@/components/touchline/screens/awards";
 import { CupScreen } from "@/components/touchline/screens/cup";
+import { TopScorersScreen } from "@/components/touchline/screens/top-scorers";
 import { WeeklyReportScreen } from "@/components/touchline/screens/weekly-report";
 import { ComingSoonScreen } from "@/components/touchline/screens/coming-soon";
 import { FriendlyScreen } from "@/components/touchline/screens/friendly";
@@ -83,6 +84,7 @@ export default function Home() {
           {tab === "facilities" && <FacilitiesScreen />}
           {tab === "finance" && <FinanceScreen />}
           {tab === "awards" && <AwardsScreen />}
+          {tab === "topscorers" && <TopScorersScreen />}
           {tab === "cup" && <CupScreen />}
           {tab === "friendly" && <FriendlyScreen />}
         </main>
