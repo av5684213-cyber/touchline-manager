@@ -102,6 +102,66 @@ export function DashboardScreen() {
     return myRecentMatches(fixtures, team.id, 4);
   }, [fixtures, team]);
 
+  // P0#5 FIX: Başarımları tetikle — fixtures/clubs değişince kontrol et
+  useEffect(() => {
+    if (!team || !myStat) return;
+    // Son maç sonucunu bul
+    const myRecentMatches = fixtures
+      .filter((f) => f.played && (f.homeId === team.id || f.awayId === team.id))
+      .sort((a, b) => b.matchday - a.matchday);
+    if (myRecentMatches.length === 0) return;
+
+    const lastMatch = myRecentMatches[0];
+    const isHome = lastMatch.homeId === team.id;
+    const myScore = isHome ? lastMatch.homeScore : lastMatch.awayScore;
+    const oppScore = isHome ? lastMatch.awayScore : lastMatch.homeScore;
+    const matchWon = (myScore ?? 0) > (oppScore ?? 0);
+    const goalScored = (myScore ?? 0) > 0;
+
+    // Galibiyet serisi
+    let winStreak = 0;
+    for (const f of myRecentMatches) {
+      const isH = f.homeId === team.id;
+      const us = isH ? f.homeScore : f.awayScore;
+      const them = isH ? f.awayScore : f.homeScore;
+      if ((us ?? 0) > (them ?? 0)) winStreak++;
+      else break;
+    }
+
+    // En çok gol atan oyuncu
+    const topScorer = [...team.players].sort((a, b) => (b.goals ?? 0) - (a.goals ?? 0))[0];
+    const topAssist = [...team.players].sort((a, b) => (b.assists ?? 0) - (a.assists ?? 0))[0];
+
+    // Temiz sayfa serisi (0 gol yeme)
+    let cleanSheetStreak = 0;
+    for (const f of myRecentMatches) {
+      const isH = f.homeId === team.id;
+      const conceded = isH ? f.awayScore : f.homeScore;
+      if (conceded === 0) cleanSheetStreak++;
+      else break;
+    }
+
+    // Transfer sayısı (haberlerden say)
+    const transferNews = useAppStore.getState().news.filter(n => n.category === "transfer").length;
+
+    const newlyUnlocked = checkAchievements({
+      matchWon,
+      goalScored,
+      transferDone: transferNews > 0,
+      topScorerGoals: topScorer?.goals ?? 0,
+      topAssists: topAssist?.assists ?? 0,
+      cleanSheetStreak,
+      winStreak,
+      leaguePosition: myStat.position,
+      budget: team.budget,
+      seasonsPlayed: useAppStore.getState().seasonNumber ?? 1,
+    });
+
+    if (newlyUnlocked.length > 0) {
+      setNewAchievements(newlyUnlocked);
+    }
+  }, [fixtures, clubs, team, myStat]);
+
   // Tüm fikstür oynandı mı?
   const allPlayed = useMemo(() => {
     if (!team) return false;
