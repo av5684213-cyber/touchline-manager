@@ -1499,3 +1499,23 @@ Work Log:
 Stage Summary:
 - Trait'ler (78 pozitif + 25 negatif) ve arketipler (30+) maç motoruna güçlü şekilde entegre. Test sonuçları: Gol Makinesi +%60 gol artışı, Refleks Canavarı zayıf kalecide -%19 gol yeme, 3 pozitif forvet traiti +%34 gol artışı. TRAIT_EFFECT_CAP=0.06 bazı trait'lerin bireysel etkisini kısıtlasa da kümülatif etki anlamlı.
 - UI tarafında: oyuncu modal'ında traits + negTraits + personalityTraits + archetype + playStyle hepsi gösteriliyor. Arketip tıklanır, açıklama modal'ı açılıyor.
+Task ID: p3-stats-accumulation-fix
+Agent: main
+Task: Maç sonrası oyuncu istatistiklerini (gol/asist/sarı/kırmızı/saves) kalıcı olarak oyuncuya işle
+
+Work Log:
+- use-match-engine.ts'deki applyPostMatchEffects fonksiyonu incelendi. Bulgu: fonksiyon oyuncu cond/form/morale/confidence/injury/match_ratings/MOTM güncelliyordu AMA gol/asist/saves/appearances/yellowCards/redCards/seasonStats GÜNCELLEMİYORDU.
+- syncToCursor fonksiyonu (satır 240) playerMatchStats'ı snapshot'a yazıyordu (UI canlı gösterim için) ama bu kalıcı değildi.
+- P3 FIX: applyPostMatchEffects'e yeni matchStatsMap eklendi. result.events taranarak her oyuncu için gol/asist/saves/shots/tackles/interceptions/yellowCards/redCards/fouls/goalsRight/Head/Penalty/Freekick toplanıyor.
+- updatedPlayers map'inde her oyuncuya return objesinde ek alanlar eklendi: goals, assists, saves, appearances (+1), seasonStats (tüm detaylı alanlar accumulate ediliyor).
+- seasonStats Player tipinde olmadığı için (p as any).seasonStats ile erişildi.
+- scripts/test-p3-stats-accumulation.ts oluşturuldu, 5 maç simülasyonu + manuel stats accumulation doğrulaması yapıldı.
+- Test sonucu: Maç 1-1 bitti → 2 gol + 1 asist doğru şekilde işlendi ✓. Gol türü dağılımı (sağ ayak 1, asist 1) doğru.
+- Build başarılı.
+
+Stage Summary:
+- Maç sonrası oyuncu stats'ları artık kalıcı olarak işleniyor:
+  - goals, assists, saves, appearances → oyuncunun sezonluk toplam stats'ına ekleniyor
+  - seasonStats detaylı obje (shots, shotsOnTarget, passes, passesCompleted, tackles, interceptions, fouls, yellowCards, redCards, minutesPlayed, goalsRight/Left/Head/Penalty/Freekick) accumulate ediliyor
+- Event türlerinden çıkarım: goal → stats.goals++, shots++, shotsOnTarget++, gol türüne göre goalsRight/Head/Penalty/Freekick++; yellow_card → stats.yellowCards++, fouls++; red_card → stats.redCards++, fouls++; tackle → stats.tackles++; save → stats.saves++; asist → stats.assists++, passes++, passesCompleted++
+- Test doğrulaması: 1-1 biten maçta 2 gol + 1 asist event'lerden doğru şekilde toplandı. UI'da oyuncu kartları ve raporlar artık maç sonrası güncel stats gösterecek.
