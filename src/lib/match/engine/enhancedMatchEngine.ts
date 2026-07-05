@@ -205,6 +205,10 @@ export interface SimulationOptions {
   // B5: Captain player IDs — used to detect captain and apply leadership effects
   homeCaptainId?: string;
   awayCaptainId?: string;
+  // P0#4 FIX: Player roles (taktik ekranından gelen rol atamaları)
+  // Bu roller oyuncuların attribute'larını boost eder — maç sonucunu etkiler
+  homePlayerRoles?: Record<string, string>;
+  awayPlayerRoles?: Record<string, string>;
 }
 
 // ─── Internal Mutable Player State ──────────────────────────────────────────
@@ -1356,6 +1360,15 @@ export function simulateEnhancedMatch(
   // ── Pozisyon etkinlik cache'ini temizle (yeni maç) ──
   clearEffectivenessCache();
 
+  // P0#4 FIX: Taktik rollerini uygula — oyuncuların attribute'larını role göre boost et
+  // Bu, taktik ekranında atanan rollerin maç sonucunu ETKİLEMESİ sağlar
+  const effectiveHomePlayers = options?.homePlayerRoles
+    ? applyRoleBonuses(homePlayers, options.homePlayerRoles)
+    : homePlayers;
+  const effectiveAwayPlayers = options?.awayPlayerRoles
+    ? applyRoleBonuses(awayPlayers, options.awayPlayerRoles)
+    : awayPlayers;
+
   // ── Pre-match Setup ─────────────────────────────────────────────────────
   const weather = options?.weather ?? (pick(WEATHER_DISTRIBUTION) as Weather);
   const weatherMods = getWeatherModifiers(weather);
@@ -1479,8 +1492,8 @@ export function simulateEnhancedMatch(
     return { captain, moraleBoost, positionGroupBoost };
   }
 
-  const homeMutablePlayers = createMutableState(homePlayers, 'home');
-  const awayMutablePlayers = createMutableState(awayPlayers, 'away');
+  const homeMutablePlayers = createMutableState(effectiveHomePlayers, 'home');
+  const awayMutablePlayers = createMutableState(effectiveAwayPlayers, 'away');
 
   // B5: Detect captains and calculate leadership boosts
   const homeCaptainInfo = detectCaptain(homeMutablePlayers, options?.homeCaptainId);
@@ -1509,8 +1522,8 @@ export function simulateEnhancedMatch(
   const atmosScore = options?.atmosphereScore ?? 50;
   const applyAwayPressure = atmosScore > AWAY_PRESSURE_EFFECT.atmosphereThreshold;
 
-  const homeStrength = calculateTeamStrength(homePlayers, homeTactic);
-  const awayStrength = calculateTeamStrength(awayPlayers, awayTactic, { pressureEffect: applyAwayPressure });
+  const homeStrength = calculateTeamStrength(effectiveHomePlayers, homeTactic);
+  const awayStrength = calculateTeamStrength(effectiveAwayPlayers, awayTactic, { pressureEffect: applyAwayPressure });
 
   // ── Play Style Modifiers ──────────────────────────────────────────────
   // Apply play style effects to team strengths. Play style modifiers affect

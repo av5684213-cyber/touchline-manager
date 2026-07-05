@@ -371,6 +371,8 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
           pitchPassBonus,
           // Tactical instructions (20 talimat → modifier)
           homeTacticModifiers,
+          // P0#4 FIX: Taktik rollerini motora geçir — oyuncu attribute'larını boost eder
+          homePlayerRoles: playerRoles,
         } as any
       );
       fullResultRef.current = result;
@@ -454,6 +456,57 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
       }
     }
 
+    // P0#1 FIX: Event'lerden gol/asist/saves/kart sayılarını topla
+    const matchStatsMap = new Map<string, {
+      goals: number; assists: number; saves: number; shots: number; shotsOnTarget: number;
+      passes: number; passesCompleted: number; tackles: number; interceptions: number;
+      dribbles: number; dribblesCompleted: number; yellowCards: number; redCards: number;
+      fouls: number; minutesPlayed: number;
+    }>();
+
+    for (const ev of result.events) {
+      const pid = (ev as any).playerId || (ev as any).player_id;
+      const eType = (ev as any).type as string;
+      if (!pid) continue;
+      if (!matchStatsMap.has(pid)) {
+        matchStatsMap.set(pid, {
+          goals: 0, assists: 0, saves: 0, shots: 0, shotsOnTarget: 0,
+          passes: 0, passesCompleted: 0, tackles: 0, interceptions: 0,
+          dribbles: 0, dribblesCompleted: 0, yellowCards: 0, redCards: 0,
+          fouls: 0, minutesPlayed: 90,
+        });
+      }
+      const s = matchStatsMap.get(pid)!;
+      switch (eType) {
+        case "goal": case "GOAL": case "PENALTY_GOAL":
+          s.goals += 1; s.shotsOnTarget += 1; s.shots += 1;
+          const assistPid = (ev as any).assistPlayerId || (ev as any).assist_player_id;
+          if (assistPid) {
+            if (!matchStatsMap.has(assistPid)) {
+              matchStatsMap.set(assistPid, { goals: 0, assists: 0, saves: 0, shots: 0, shotsOnTarget: 0, passes: 0, passesCompleted: 0, tackles: 0, interceptions: 0, dribbles: 0, dribblesCompleted: 0, yellowCards: 0, redCards: 0, fouls: 0, minutesPlayed: 90 });
+            }
+            matchStatsMap.get(assistPid)!.assists += 1;
+          }
+          break;
+        case "shot_saved": case "shot_on_target": case "SAVE":
+          s.shotsOnTarget += 1; s.shots += 1; break;
+        case "shot_wide": case "shot_blocked": case "OWN_GOAL":
+          s.shots += 1; break;
+        case "save": s.saves += 1; break;
+        case "yellow_card": case "yellow": case "YELLOW": case "SECOND_YELLOW":
+          s.yellowCards += 1; s.fouls += 1; break;
+        case "red_card": case "red": case "RED":
+          s.redCards += 1; s.fouls += 1; break;
+        case "foul": case "FOUL": s.fouls += 1; break;
+        case "tackle": case "TACKLE": s.tackles += 1; break;
+        case "interception": case "INTERCEPTION": s.interceptions += 1; break;
+        case "dribble_attempt": case "DRIBBLE_ATTEMPT": s.dribbles += 1; break;
+        case "dribble_success": case "DRIBBLE_SUCCESS": s.dribbles += 1; s.dribblesCompleted += 1; break;
+        case "pass": case "PASS": s.passes += 1; break;
+        case "pass_completed": case "PASS_COMPLETED": s.passes += 1; s.passesCompleted += 1; break;
+      }
+    }
+
     const updatedPlayers = team.players.map((p) => {
       const matchRating = ratingMap.get(p.id);
       if (matchRating === undefined) return p;
@@ -474,6 +527,41 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
         ? { type: "light" as const, remaining_days: Math.floor(Math.random() * 14) + 3, severity: Math.floor(Math.random() * 5) + 1 }
         : p.injury;
 
+      // P0#1 FIX: Maç stats'larını topla ve sezonluk accumulator'lara yaz
+      const matchStats = matchStatsMap.get(p.id);
+      const newMatchRatings = [...(p.match_ratings ?? []), matchRating].slice(-10);
+      // formRating: son 5 maçın ortalaması
+      const recentForm = newMatchRatings.slice(-5);
+      const newFormRating = recentForm.length > 0
+        ? Math.round((recentForm.reduce((s, r) => s + r, 0) / recentForm.length) * 10) / 10
+        : p.formRating;
+
+      // Form streak hesapla
+      const hotCount = recentForm.filter(r => r >= 7).length;
+      const coldCount = recentForm.filter(r => r < 5.5).length;
+      let newFormStreak: "hot" | "cold" | "neutral" = "neutral";
+      let newFormStreakCount = 0;
+      if (hotCount >= 4) { newFormStreak = "hot"; newFormStreakCount = hotCount; }
+      else if (coldCount >= 3) { newFormStreak = "cold"; newFormStreakCount = coldCount; }
+
+      // Sezon stats'larını güncelle
+      const oldStats = p.seasonStats;
+      const updatedSeasonStats = oldStats && matchStats ? {
+        ...oldStats,
+        shots: (oldStats.shots ?? 0) + matchStats.shots,
+        shotsOnTarget: (oldStats.shotsOnTarget ?? 0) + matchStats.shotsOnTarget,
+        passes: (oldStats.passes ?? 0) + matchStats.passes,
+        passesCompleted: (oldStats.passesCompleted ?? 0) + matchStats.passesCompleted,
+        tackles: (oldStats.tackles ?? 0) + matchStats.tackles,
+        interceptions: (oldStats.interceptions ?? 0) + matchStats.interceptions,
+        dribblesAttempted: (oldStats.dribblesAttempted ?? 0) + matchStats.dribbles,
+        dribblesCompleted: (oldStats.dribblesCompleted ?? 0) + matchStats.dribblesCompleted,
+        fouls: (oldStats.fouls ?? 0) + matchStats.fouls,
+        yellowCards: (oldStats.yellowCards ?? 0) + matchStats.yellowCards,
+        redCards: (oldStats.redCards ?? 0) + matchStats.redCards,
+        minutesPlayed: (oldStats.minutesPlayed ?? 0) + matchStats.minutesPlayed,
+      } : oldStats;
+
       return {
         ...p,
         cond: newCond,
@@ -482,9 +570,18 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en") {
         morale: newMorale,
         confidence: Math.max(30, Math.min(100, p.confidence + (won ? 2 : lost ? -2 : 0))),
         last_match_rating: matchRating,
-        match_ratings: [...(p.match_ratings ?? []), matchRating].slice(-10),
+        match_ratings: newMatchRatings,
+        formRating: newFormRating,
+        form_streak: newFormStreak,
+        form_streak_count: newFormStreakCount,
         is_injured: isInjured,
         injury,
+        // P0#1 FIX: Sezonluk stats accumulator — gol/asist/saves/maç sayısı
+        goals: (p.goals ?? 0) + (matchStats?.goals ?? 0),
+        assists: (p.assists ?? 0) + (matchStats?.assists ?? 0),
+        saves: (p.saves ?? 0) + (matchStats?.saves ?? 0),
+        appearances: (p.appearances ?? 0) + 1,
+        seasonStats: updatedSeasonStats,
       };
     });
 

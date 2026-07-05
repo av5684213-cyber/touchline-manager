@@ -193,6 +193,35 @@ export type Player = {
   // ── Kariyer sezon geçmişi ──────────────────────────────
   seasonHistory?: SeasonStat[];
 
+  // ── Detaylı sezon istatistikleri (maç sonrası accumule edilir) ──
+  seasonStats?: {
+    shots: number;
+    shotsOnTarget: number;
+    shotsOffTarget?: number;
+    shotsBlocked?: number;
+    passes: number;
+    passesCompleted: number;
+    keyPasses: number;
+    crosses: number;
+    crossesCompleted: number;
+    longBalls: number;
+    longBallsCompleted: number;
+    tackles: number;
+    interceptions: number;
+    clearances: number;
+    fouls: number;
+    fouled: number;
+    yellowCards: number;
+    redCards: number;
+    offsides: number;
+    dribblesAttempted: number;
+    dribblesCompleted: number;
+    duels: number;
+    duelsWon: number;
+    errors: number;
+    minutesPlayed: number;
+  };
+
   // ── Transfer/durum ─────────────────────────────────────
   is_for_sale?: boolean;
   sale_price?: number;
