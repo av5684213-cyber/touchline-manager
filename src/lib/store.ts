@@ -611,14 +611,30 @@ export const useAppStore = create<AppState>()(
             read: false,
           };
 
+          // P0#3 FIX: Mesaj ekle — transfer.messages'a da yaz
+          const newMsg: MessageItem = {
+            id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            kind: "transfer_accepted",
+            fromTeamName: sellerTeam.name,
+            fromTeamShort: sellerTeam.shortName,
+            fromTeamColor: sellerTeam.primaryColor,
+            message: `${player.firstName} ${player.lastName} için ${formatEuroShort(fee)} teklifiniz KABUL EDİLDİ. Oyuncu kadronuza eklendi.`,
+            at: Date.now(),
+            read: false,
+            amount: fee,
+            playerId,
+          };
+
           set({
             clubs: [...clubs],
             news: [newNews, ...news],
+            transfer: { ...transfer, messages: [newMsg, ...transfer.messages] },
           });
 
           return { success: true, response: "accepted" };
         } else if (response === "countered") {
           // Karşı teklif mesajı ekle
+          const offerId = `offer_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
           const newNews: NewsItem = {
             id: `news_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
             category: "transfer",
@@ -629,7 +645,26 @@ export const useAppStore = create<AppState>()(
             read: false,
           };
 
-          set({ news: [newNews, ...news] });
+          // P0#3 FIX: Mesaj ekle — counter teklif mesaj olarak yazılır (kabul/red yapılabilsin)
+          const newMsg: MessageItem = {
+            id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            kind: "transfer_negotiated",
+            fromTeamName: sellerTeam.name,
+            fromTeamShort: sellerTeam.shortName,
+            fromTeamColor: sellerTeam.primaryColor,
+            message: `${sellerTeam.name}, ${player.firstName} ${player.lastName} için ${formatEuroShort(fee)} teklifinizi reddetti. Karşı teklif: ${formatEuroShort(counterFee)}.`,
+            at: Date.now(),
+            read: false,
+            amount: counterFee,
+            counterOffer: counterFee,
+            relatedOfferId: offerId,
+            playerId,
+          };
+
+          set({
+            news: [newNews, ...news],
+            transfer: { ...transfer, messages: [newMsg, ...transfer.messages] },
+          });
           return { success: true, response: "countered", counterFee };
         } else {
           // Reddedildi
@@ -643,7 +678,24 @@ export const useAppStore = create<AppState>()(
             read: false,
           };
 
-          set({ news: [newNews, ...news] });
+          // P0#3 FIX: Mesaj ekle
+          const newMsg: MessageItem = {
+            id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            kind: "transfer_rejected",
+            fromTeamName: sellerTeam.name,
+            fromTeamShort: sellerTeam.shortName,
+            fromTeamColor: sellerTeam.primaryColor,
+            message: `${sellerTeam.name}, ${player.firstName} ${player.lastName} için ${formatEuroShort(fee)} teklifinizi REDDETTİ.`,
+            at: Date.now(),
+            read: false,
+            amount: fee,
+            playerId,
+          };
+
+          set({
+            news: [newNews, ...news],
+            transfer: { ...transfer, messages: [newMsg, ...transfer.messages] },
+          });
           return { success: true, response: "rejected" };
         }
       },
