@@ -105,10 +105,10 @@ export function PlayerProfileModal({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div className="absolute inset-0 bg-black/70" onClick={onClose} aria-label="close" />
+    <div className="fixed inset-0 z-50 flex items-stretch justify-center">
+      <div className="absolute inset-0 bg-black/85" onClick={onClose} aria-label="close" />
 
-      <div className="relative w-full max-w-[390px] bg-background rounded-t-2xl border-t border-border tm-safe-bottom max-h-[95vh] flex flex-col">
+      <div className="relative w-full max-w-[440px] bg-background h-screen flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-border" style={{ background: "var(--primary)" }}>
           <div className="flex items-center gap-2">
@@ -1139,8 +1139,10 @@ function ActionsTab({
       haptic("error");
       if (res.reason === "budget") {
         setFeedback("✗ Yetersiz bütçe!");
+      } else if (res.reason === "free-agent") {
+        setFeedback("✗ Serbest ajanlar kiralanamaz. 'Transfer Teklifi' gönder.");
       } else {
-        setFeedback("✗ Kiralama teklifi gönderilemedi.");
+        setFeedback("✗ Oyuncu bulunamadı.");
       }
     } else if (res.response === "accepted") {
       haptic("success");

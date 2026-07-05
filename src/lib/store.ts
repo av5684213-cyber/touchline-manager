@@ -519,7 +519,7 @@ export const useAppStore = create<AppState>()(
       },
 
       makeTransferOffer: (playerId, fee, wage, contractYears) => {
-        const { clubs, myTeamId, news } = get();
+        const { clubs, myTeamId, news, transfer } = get();
         const myTeam = clubs.find((c) => c.id === myTeamId);
         if (!myTeam) return { success: false, reason: "no-team" };
 
@@ -537,7 +537,35 @@ export const useAppStore = create<AppState>()(
           const p = c.players.find((p) => p.id === playerId);
           if (p) { sellerTeam = c; player = p; break; }
         }
+
+        // Bulunamadıysa — serbest ajan listelerinde ara (BOTH lists)
         if (!sellerTeam || !player) {
+          // transfer.freeAgents (TransferListing)
+          const faListing = transfer.freeAgents.find((l) => l.player.id === playerId);
+          if (faListing) {
+            if (myTeam.budget < fee) return { success: false, reason: "budget" };
+            myTeam.budget -= fee;
+            const newPlayer = { ...faListing.player, weeklyWage: wage, salary: wage };
+            myTeam.players = [...myTeam.players, newPlayer];
+            set({
+              clubs: [...clubs],
+              transfer: { ...transfer, freeAgents: transfer.freeAgents.filter((l) => l.player.id !== playerId) },
+            });
+            return { success: true, response: "accepted" };
+          }
+          // transfer.freeAgentListings (FreeAgentListing)
+          const faListing2 = transfer.freeAgentListings?.find((l) => l.player.id === playerId);
+          if (faListing2) {
+            if (myTeam.budget < fee) return { success: false, reason: "budget" };
+            myTeam.budget -= fee;
+            const newPlayer = { ...faListing2.player, weeklyWage: wage, salary: wage };
+            myTeam.players = [...myTeam.players, newPlayer];
+            set({
+              clubs: [...clubs],
+              transfer: { ...transfer, freeAgentListings: transfer.freeAgentListings?.filter((l) => l.player.id !== playerId) ?? [] },
+            });
+            return { success: true, response: "accepted" };
+          }
           return { success: false, reason: "not-found" };
         }
 
@@ -621,7 +649,7 @@ export const useAppStore = create<AppState>()(
       },
 
       makeLoanOffer: (playerId, loanFee, weeks) => {
-        const { clubs, myTeamId, news } = get();
+        const { clubs, myTeamId, news, transfer } = get();
         const myTeam = clubs.find((c) => c.id === myTeamId);
         if (!myTeam) return { success: false, reason: "no-team" };
 
@@ -639,6 +667,12 @@ export const useAppStore = create<AppState>()(
           if (p) { sellerTeam = c; player = p; break; }
         }
         if (!sellerTeam || !player) {
+          // Serbest ajan kontrolü — onlar kiralanamaz
+          const isFreeAgent = transfer.freeAgents.some(l => l.player.id === playerId)
+            || (transfer.freeAgentListings?.some(l => l.player.id === playerId) ?? false);
+          if (isFreeAgent) {
+            return { success: false, reason: "free-agent" };
+          }
           return { success: false, reason: "not-found" };
         }
 

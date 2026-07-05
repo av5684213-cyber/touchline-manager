@@ -54,24 +54,105 @@ export function MatchReplayModal({
   const [currentScore, setCurrentScore] = useState({ home: 0, away: 0 });
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Maçı simüle et (sadece bir kez)
+  // Maç sonucu — stored score kullan (re-simülasyon YOK)
+  // Sorun: eskiden simulateEnhancedMatch yeniden çağrılıyordu, farklı skor çıkıyordu
+  // Çözüm: homeScore/awayScore prop'ları varsa direkt kullan, event'leri skordan üret
   const result = useMemo<MatchResult | null>(() => {
     try {
       const homeXI = [...homeTeam.players].sort((a, b) => b.rating - a.rating).slice(0, 11);
       const awayXI = [...awayTeam.players].sort((a, b) => b.rating - a.rating).slice(0, 11);
+
+      // Stored score varsa re-simülasyon yapma — event'leri skordan üret
+      if (homeScore != null && awayScore != null) {
+        const events: any[] = [];
+        const playerRatings: Record<string, number> = {};
+
+        const pickScorer = (squad: any[]) => {
+          const attackers = squad.filter(p => ["ST", "CF", "LW", "RW", "LM", "RM", "CAM", "CM"].includes(p.specificPosition));
+          const pool = attackers.length > 0 ? attackers : squad;
+          return pool[Math.floor(Math.random() * pool.length)];
+        };
+
+        for (let i = 0; i < homeScore; i++) {
+          const scorer = pickScorer(homeXI);
+          const minute = Math.floor(Math.random() * 90) + 1;
+          const assistPool = homeXI.filter(p => p.id !== scorer?.id);
+          const assister = assistPool.length > 0 && Math.random() > 0.4
+            ? assistPool[Math.floor(Math.random() * assistPool.length)] : null;
+          events.push({
+            minute, type: "goal", team: "home", side: "home",
+            player: scorer ? `${scorer.firstName} ${scorer.lastName}` : "Bilinmiyor",
+            playerId: scorer?.id, assistPlayerId: assister?.id,
+          });
+          if (scorer) playerRatings[scorer.id] = 7 + Math.random() * 2;
+        }
+
+        for (let i = 0; i < awayScore; i++) {
+          const scorer = pickScorer(awayXI);
+          const minute = Math.floor(Math.random() * 90) + 1;
+          const assistPool = awayXI.filter(p => p.id !== scorer?.id);
+          const assister = assistPool.length > 0 && Math.random() > 0.4
+            ? assistPool[Math.floor(Math.random() * assistPool.length)] : null;
+          events.push({
+            minute, type: "goal", team: "away", side: "away",
+            player: scorer ? `${scorer.firstName} ${scorer.lastName}` : "Bilinmiyor",
+            playerId: scorer?.id, assistPlayerId: assister?.id,
+          });
+          if (scorer) playerRatings[scorer.id] = 7 + Math.random() * 2;
+        }
+
+        // Kart event'leri
+        const cardCount = Math.floor(Math.random() * 3);
+        for (let i = 0; i < cardCount; i++) {
+          const isHome = Math.random() > 0.5;
+          const squad = isHome ? homeXI : awayXI;
+          const player = squad[Math.floor(Math.random() * squad.length)];
+          if (player) {
+            events.push({
+              minute: Math.floor(Math.random() * 90) + 1,
+              type: "yellow_card", team: isHome ? "home" : "away",
+              player: `${player.firstName} ${player.lastName}`, playerId: player.id,
+            });
+          }
+        }
+
+        events.sort((a, b) => a.minute - b.minute);
+
+        // MOTM
+        const homeWon = homeScore > awayScore;
+        const motmPool = homeWon ? homeXI : awayScore > homeScore ? awayXI : [...homeXI, ...awayXI];
+        const motm = motmPool.sort((a, b) => b.rating - a.rating)[0];
+
+        // Stats
+        const homeStr = homeXI.reduce((s, p) => s + p.rating, 0) / 11;
+        const awayStr = awayXI.reduce((s, p) => s + p.rating, 0) / 11;
+        const homePoss = Math.round((homeStr / (homeStr + awayStr)) * 100);
+
+        return {
+          homeScore, awayScore, events,
+          motmPlayerId: motm?.id, playerRatings,
+          homePlayerRatings: [], awayPlayerRatings: [],
+          stats: {
+            possession: [homePoss, 100 - homePoss],
+            shotsOnTarget: [homeScore + Math.floor(Math.random() * 3), awayScore + Math.floor(Math.random() * 3)],
+            corners: [Math.floor(Math.random() * 6), Math.floor(Math.random() * 6)],
+            fouls: [Math.floor(Math.random() * 8) + 2, Math.floor(Math.random() * 8) + 2],
+          },
+        };
+      }
+
+      // Stored score YOK — simüle et (pre-match preview)
       const res = simulateEnhancedMatch(
-        homeXI as any,
-        awayXI as any,
+        homeXI as any, awayXI as any,
         { ...DEFAULT_TACTIC, formation: "4-4-2" } as any,
         { ...DEFAULT_TACTIC, formation: "4-4-2" } as any,
         { homeTeamName: homeTeam.name, awayTeamName: awayTeam.name } as any
       );
       return {
-        homeScore: homeScore ?? res.homeScore,
-        awayScore: awayScore ?? res.awayScore,
+        homeScore: res.homeScore, awayScore: res.awayScore,
         events: (res.events || []).sort((a: any, b: any) => a.minute - b.minute),
-        motmPlayerId: res.manOfTheMatch,
-        playerRatings: {},
+        motmPlayerId: res.manOfTheMatch, playerRatings: {},
+        homePlayerRatings: [], awayPlayerRatings: [],
         stats: {
           possession: [res.homePossession || 50, res.awayPossession || 50],
           shotsOnTarget: [res.homeStats?.shotsOnTarget || 0, res.awayStats?.shotsOnTarget || 0],
@@ -129,10 +210,10 @@ export function MatchReplayModal({
   const cards = shownEvents.filter((e) => e.type === "yellow_card" || e.type === "red_card" || e.type === "yellow" || e.type === "red");
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center">
-      <div className="absolute inset-0 bg-black/80" onClick={onClose} />
+    <div className="fixed inset-0 z-[60] flex items-stretch justify-center">
+      <div className="absolute inset-0 bg-black/90" onClick={onClose} />
 
-      <div className="relative w-full max-w-[390px] bg-background rounded-t-2xl border-t border-border tm-safe-bottom max-h-[90vh] flex flex-col">
+      <div className="relative w-full max-w-[440px] bg-background h-screen flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-border" style={{ background: "var(--primary)" }}>
           <div className="flex items-center gap-2">
