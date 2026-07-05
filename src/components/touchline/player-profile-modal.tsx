@@ -246,6 +246,28 @@ function OverviewTab({
           <div className="text-sm font-bold truncate">{player.firstName} {player.lastName}</div>
           <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
             <PositionPill label={player.specificPosition} group={POSITION_GROUP[player.specificPosition]} />
+            {/* 🎭 Maç Karakteri rozeti */}
+            {player.match_character && (() => {
+              const chars: Record<string, { icon: string; name: string; color: string }> = {
+                stable: { icon: "🔵", name: "İstikrarlı", color: "bg-sky-500/20 text-sky-300 border-sky-500/30" },
+                inconsistent: { icon: "🟡", name: "İstikrarsız", color: "bg-amber-500/20 text-amber-300 border-amber-500/30" },
+                big_match: { icon: "🔥", name: "Büyük Maç", color: "bg-orange-500/20 text-orange-300 border-orange-500/30" },
+                closer: { icon: "⏰", name: "Kapanma", color: "bg-purple-500/20 text-purple-300 border-purple-500/30" },
+                fast_starter: { icon: "🌅", name: "İlk Yarı", color: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30" },
+                clutch: { icon: "🧊", name: "Soğukkanlı", color: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30" },
+                hot_headed: { icon: "😤", name: "Sıcak Kanlı", color: "bg-red-500/20 text-red-300 border-red-500/30" },
+                leader: { icon: "👑", name: "Lider", color: "bg-amber-500/20 text-amber-300 border-amber-500/30" },
+                injury_prone: { icon: "🩹", name: "Sakatlanabilir", color: "bg-rose-500/20 text-rose-300 border-rose-500/30" },
+                super_sub: { icon: "🪑", name: "Yedek Kulübü", color: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30" },
+              };
+              const c = chars[player.match_character];
+              if (!c) return null;
+              return (
+                <span className={`text-[8px] px-1 py-0.5 rounded font-bold border ${c.color}`} title={c.name}>
+                  {c.icon} {c.name}
+                </span>
+              );
+            })()}
             <span className="text-[10px] text-muted-foreground">{player.age}{t("common.year")}</span>
             <span className="text-[10px]">{player.nationality === "TR" ? "🇹🇷" : "🌍"}</span>
             <span className="text-[10px] text-muted-foreground">· {player.foot}</span>

@@ -49,6 +49,33 @@ export const POSITION_GROUP: Record<Position, PositionGroup> = {
 
 export type Foot = "Left" | "Right" | "Both";
 
+// 🎭 Maç Karakteri — her oyuncunun maç içi performans kişiliği
+// Motor bu karaktere göre rating'i modifiye eder
+export type MatchCharacter =
+  | "stable"          // 🔵 İstikrarlı — her maç 6.5-7.5, sürpriz yok
+  | "inconsistent"    // 🟡 İstikrarsız — bir maç 9, diğer 4
+  | "big_match"       // 🔥 Büyük Maç — derbi/kupa'da +1.5
+  | "closer"          // ⏰ Kapanma Ustası — son 15 dk +1.0
+  | "fast_starter"    // 🌅 İlk Yarı Oyuncusu — ilk yarı +1.0, ikinci -0.5
+  | "clutch"          // 🧊 Soğukkanlı — penaltıda %95 gol
+  | "hot_headed"      // 😤 Sıcak Kanlı — +%30 kart riski
+  | "leader"          // 👑 Lider — takım moraline +3
+  | "injury_prone"    // 🩹 Sakatlanabilir — +%50 sakatlık riski
+  | "super_sub";      // 🪑 Yedek Kulübü — yedekten girince +1.0
+
+export const MATCH_CHARACTERS: { id: MatchCharacter; name: string; icon: string; desc: string }[] = [
+  { id: "stable", name: "İstikrarlı", icon: "🔵", desc: "Her maç aynı seviye, sürpriz yok (6.5-7.5)" },
+  { id: "inconsistent", name: "İstikrarsız", icon: "🟡", desc: "Bir maç 9, diğer 4 — kumar" },
+  { id: "big_match", name: "Büyük Maç Oyuncusu", icon: "🔥", desc: "Derbi/kupa maçında +1.5 rating" },
+  { id: "closer", name: "Kapanma Ustası", icon: "⏰", desc: "Son 15 dakikada +1.0 rating" },
+  { id: "fast_starter", name: "İlk Yarı Oyuncusu", icon: "🌅", desc: "İlk yarı +1.0, ikinci yarı -0.5" },
+  { id: "clutch", name: "Soğukkanlı", icon: "🧊", desc: "Penaltıda %95 gol, kriz anında en iyisi" },
+  { id: "hot_headed", name: "Sıcak Kanlı", icon: "😤", desc: "+%30 kart riski, agresif" },
+  { id: "leader", name: "Lider", icon: "👑", desc: "Takım moraline +3, saha içi koç" },
+  { id: "injury_prone", name: "Sakatlanabilir", icon: "🩹", desc: "+%50 sakatlık riski" },
+  { id: "super_sub", name: "Yedek Kulübü", icon: "🪑", desc: "Yedekten girince +1.0, ilk 11'de -0.5" },
+];
+
 // ===== 6 temel stat (UI'da hızlı gösterim için, motor da bunları okur) =====
 export type PlayerStats = {
   pace: number; // = speed
@@ -159,6 +186,9 @@ export type Player = {
   motmAwards?: number; // Maçın Adamı ödül sayısı
   match_ratings?: number[];
   last_match_rating?: number;
+  // 🎭 Maç Karakteri — her oyuncunun maç içi performans kişiliği
+  // Motor bu karaktere göre rating'i modifiye eder
+  match_character?: MatchCharacter;
 
   // ── Kariyer sezon geçmişi ──────────────────────────────
   seasonHistory?: SeasonStat[];
@@ -586,6 +616,21 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
     playStyle: pick(["Gegenpressing", "Tiki-Taka", "Catenaccio", "Counter-Attack", "Wing Play"]),
     archetype: archetypeVal,
     special_role: null,
+    // 🎭 Maç karakteri — her oyuncuya rastgele ata
+    // Ağırlıklı: stable en yaygın, inconsistent ikinci, diğerleri daha az
+    match_character: (() => {
+      const r = Math.random();
+      if (r < 0.35) return "stable" as const;
+      if (r < 0.55) return "inconsistent" as const;
+      if (r < 0.65) return "big_match" as const;
+      if (r < 0.72) return "closer" as const;
+      if (r < 0.78) return "fast_starter" as const;
+      if (r < 0.84) return "clutch" as const;
+      if (r < 0.89) return "hot_headed" as const;
+      if (r < 0.94) return "leader" as const;
+      if (r < 0.97) return "injury_prone" as const;
+      return "super_sub" as const;
+    })(),
 
     goals,
     assists,

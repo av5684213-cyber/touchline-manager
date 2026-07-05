@@ -2723,6 +2723,67 @@ export function simulateEnhancedMatch(
     const avgMental = (state.player.morale + state.player.form + state.player.confidence) / 300;
     rating += (avgMental - 0.5) * PLAYER_RATING_WEIGHTS.mentalModifierStrength;
 
+    // 🎭 MAÇ KARAKTERİ ETKİSİ — her oyuncunun kişiliği rating'i modifiye eder
+    const char = (state.player as any).match_character as string | undefined;
+    if (char) {
+      switch (char) {
+        case "stable":
+          // İstikrarlı — rating'i 6.5-7.5 arasına çek
+          rating = Math.min(7.5, Math.max(6.5, rating));
+          break;
+        case "inconsistent":
+          // İstikrarsız — ±2.0 random
+          rating += (Math.random() - 0.5) * 4.0;
+          break;
+        case "big_match":
+          // Büyük maç — şimdilik +0.8 (derbi tespiti gelebilir)
+          rating += 0.8;
+          break;
+        case "closer":
+          // Kapanma ustası — son 15 dk +1.0
+          if (state.minuteLeft <= 15) rating += 1.0;
+          break;
+        case "fast_starter":
+          // İlk yarı +1.0, ikinci yarı -0.5
+          if (state.minuteLeft > 45) rating -= 0.5;
+          else rating += 1.0;
+          break;
+        case "clutch":
+          // Soğukkanlı — rating'e +0.5 (kriz anında en iyisi)
+          rating += 0.5;
+          break;
+        case "hot_headed":
+          // Sıcak kanlı — rating -0.3 ama daha çok kart
+          rating -= 0.3;
+          break;
+        case "leader":
+          // Lider — kendi rating +0.5, takım moraline etki ayrıca
+          rating += 0.5;
+          break;
+        case "injury_prone":
+          // Sakatlanabilir — rating etkisi yok ama sakatlık riski yüksek
+          break;
+        case "super_sub":
+          // Yedek kulübü — yedekten girince +1.0, ilk 11'de -0.5
+          if (state.minuteEntered > 0) rating += 1.0;
+          else rating -= 0.5;
+          break;
+      }
+    }
+
+    // 📊 OVR FARKI ETKİSİ — yüksek OVR'lı oyuncu daha yüksek rating alır
+    // player.rating (OVR) ile maç rating'i arasındaki bağıntıyı güçlendir
+    const ovrBonus = ((state.player.rating ?? 50) - 50) * 0.03; // 50 OVR = 0, 90 OVR = +1.2
+    rating += ovrBonus;
+
+    // 👤 YAŞ FAKTÖRÜ — prime yaş (24-29) en iyi, genç/yaşlı daha düşük
+    const age = state.player.age ?? 25;
+    if (age >= 24 && age <= 29) rating += 0.3;      // prime: +0.3
+    else if (age < 21) rating -= 0.4;                // çok genç: -0.4
+    else if (age < 24) rating -= 0.1;                // genç: -0.1
+    else if (age > 33) rating -= 0.5;                // yaşlı: -0.5
+    else if (age > 30) rating -= 0.2;                // geç prime: -0.2
+
     rating = clamp(Math.round(rating * 10) / 10, PLAYER_RATING_WEIGHTS.ratingClamp.min as number, PLAYER_RATING_WEIGHTS.ratingClamp.max as number);
 
     return {
