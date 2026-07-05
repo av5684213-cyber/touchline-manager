@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
-import { computeStandings, SEASON_INFO } from "@/lib/mock/season";
+import { computeStandings, generateFixtures, SEASON_INFO } from "@/lib/mock/season";
 import { ClubBadge } from "../ui-bits";
 import { TeamDetailModal } from "../team-detail-modal";
 import { TeamMessageModal } from "../team-message-modal";
@@ -56,32 +56,46 @@ export function StandingsScreen() {
   const isMyLeague = selTier === userTier && selDept === userDept;
 
   // Seçili ligdeki kulüpler — kullanıcı kendi ligi ise store'dan, değilse generate et
+  // Sabit seed ile — her açılışta aynı takımlar görünsün
   const leagueClubs = useMemo<Team[]>(() => {
     if (isMyLeague) return clubs;
+    // Diğer ligler için de generate et ama stable tut
     return generateClubsForLeague(selTier, selDept);
   }, [isMyLeague, clubs, selTier, selDept]);
 
+  // Diğer ligler için de sahte fikstür üret + standings hesapla
+  const otherLeagueFixtures = useMemo(() => {
+    if (isMyLeague) return fixtures;
+    // Diğer lig için sahte fikstür üret — aynı takımlarla round-robin
+    return generateFixtures(leagueClubs);
+  }, [isMyLeague, fixtures, leagueClubs]);
+
+  // Maçları random simüle et (sadece gösterim için)
+  const simulatedFixtures = useMemo(() => {
+    if (isMyLeague) return fixtures;
+    // Diğer ligler için random sonuçlar üret
+    return otherLeagueFixtures.map(f => {
+      if (f.played) return f;
+      const homeTeam = leagueClubs.find(c => c.id === f.homeId);
+      const awayTeam = leagueClubs.find(c => c.id === f.awayId);
+      if (!homeTeam || !awayTeam) return f;
+      const homeStr = homeTeam.players.slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+      const awayStr = awayTeam.players.slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+      const diff = homeStr - awayStr;
+      const homeAdv = diff > 5 ? 0.3 : diff < -5 ? -0.3 : 0;
+      const hs = Math.max(0, Math.floor(Math.random() * 4 + homeAdv * 2));
+      const as = Math.max(0, Math.floor(Math.random() * 3 - homeAdv * 2));
+      return { ...f, homeScore: hs, awayScore: as, played: true };
+    });
+  }, [isMyLeague, fixtures, otherLeagueFixtures, leagueClubs]);
+
   const standings = useMemo(
-    () => isMyLeague ? computeStandings(leagueClubs, fixtures) : [],
-    [leagueClubs, fixtures, isMyLeague]
+    () => computeStandings(leagueClubs, isMyLeague ? fixtures : simulatedFixtures),
+    [leagueClubs, fixtures, simulatedFixtures, isMyLeague]
   );
 
-  // Kullanıcı kendi liginde değilse, takımları OVR'a göre sırala (power ranking)
-  const powerRanking = useMemo(() => {
-    if (isMyLeague) return [];
-    return [...leagueClubs]
-      .map((c) => ({
-        teamId: c.id,
-        teamName: c.name,
-        shortName: c.shortName,
-        primaryColor: c.primaryColor,
-        avgOvr: Math.round(
-          c.players.reduce((s, p) => s + p.rating, 0) / Math.max(1, c.players.length)
-        ),
-        budget: c.budget,
-      }))
-      .sort((a, b) => b.avgOvr - a.avgOvr);
-  }, [leagueClubs, isMyLeague]);
+  // Power ranking artık kullanılmıyor — tüm ligler için standings var
+  const powerRanking: any[] = [];
 
   const myPos = useMemo(
     () => standings.findIndex((s) => s.teamId === (team?.id ?? "")),
@@ -178,9 +192,7 @@ export function StandingsScreen() {
 
           {/* Rows */}
           <div className="overflow-y-auto tm-thin-scrollbar max-h-[55vh]">
-            {isMyLeague ? (
-              /* Gerçek puan durumu — kullanıcının ligi */
-              standings.map((row, idx) => {
+              {standings.map((row, idx) => {
                 const isMe = row.teamId === team?.id;
                 const zone = getZone(idx, selTier);
                 const gd = row.goalsFor - row.goalsAgainst;
@@ -228,43 +240,7 @@ export function StandingsScreen() {
                     </div>
                   </button>
                 );
-              })
-            ) : (
-              /* Power ranking — başka liglerin takım güç sıralaması */
-              powerRanking.map((row, idx) => {
-                const teamData = leagueClubs.find((c) => c.id === row.teamId);
-                return (
-                  <button
-                    key={row.teamId}
-                    onClick={() => {
-                      haptic("light");
-                      if (teamData) setSelectedTeam(teamData);
-                    }}
-                    className={cn(
-                      "grid grid-cols-[24px_1fr_22px_22px_22px_22px_24px_28px_22px_22px] gap-1 px-2 py-2 text-xs items-center border-l-2 border-border/40 border-b last:border-b-0 w-full text-left hover:bg-accent/50 transition-colors min-w-[360px]",
-                      "border-l-transparent"
-                    )}
-                  >
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10px] font-bold tabular-nums w-4 text-center">{idx + 1}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <ClubBadge short={row.shortName} primaryColor={row.primaryColor} size={18} />
-                    <span className="truncate text-[11px] font-medium">{row.teamName}</span>
-                  </div>
-                  <div className="text-center tabular-nums text-muted-foreground">—</div>
-                  <div className="text-center tabular-nums text-muted-foreground">—</div>
-                  <div className="text-center tabular-nums text-muted-foreground">—</div>
-                  <div className="text-center tabular-nums text-muted-foreground">—</div>
-                  <div className="text-center tabular-nums text-muted-foreground">—</div>
-                  <div className="text-center tabular-nums font-bold text-amber-300">{row.avgOvr}</div>
-                  <div className="col-span-2 flex items-center justify-center">
-                    <span className="text-[8px] text-muted-foreground uppercase">OVR</span>
-                  </div>
-                </button>
-              );
-            })
-          )}
+              })}
           </div>
         </div>
       </div>

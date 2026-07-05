@@ -1785,7 +1785,7 @@ export function simulateEnhancedMatch(
   // Maç başlangıcı/yarı devre/maç sonu gibi yorumlar da muaftır
   let eventsThisMinute = 0;
   let lastThrottleMinute = -1;
-  const MAX_EVENTS_PER_MINUTE = 2;
+  const MAX_EVENTS_PER_MINUTE = 4;
   const CRITICAL_EVENT_TYPES: Set<MatchEventType> = new Set([
     'goal', 'red_card', 'yellow_card', 'penalty', 'injury',
     'substitution', 'var_review', 'goal_overturned',

@@ -660,11 +660,23 @@ function getDetailedCommentary(
       };
     case "tackle":
       return {
-        title: `Müdahale — ${playerName}`,
+        title: `Müdahale! — ${playerName}`,
         detail: pick([
           `Mükemmel bir müdahale! Topu kazandı ve atağı kesti.`,
-          `${playerName} temiz bir tackle yaptı. Savunma direnci.`,
-          `Sert ama düzgün müdahale. Oyun devam ediyor.`,
+          `${playerName} son saniyede araya girdi. Temiz müdahale!`,
+          `Sert ama doğru! Top kazanıldı, seyirciler alkışlıyor.`,
+          `${playerName} topu kazandı, hemen hücum başlıyor!`,
+        ]),
+      };
+    case "save":
+    case "SAVE":
+      return {
+        title: `🧤 Kurtarış! — ${playerName}`,
+        detail: pick([
+          `Refleks kurtarış! ${playerName} topu çeldi, seyirciler ayakta!`,
+          `İnanılmaz bir refleks! ${playerName} golü engelledi.`,
+          `Kaleci uçtu! ${playerName} topu iki eli ile kurtardı.`,
+          `${playerName} yine kurtardı! Bu kaleci bugün yenilmez!`,
         ]),
       };
     case "interception":

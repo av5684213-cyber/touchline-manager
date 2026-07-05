@@ -1017,7 +1017,6 @@ export const useAppStore = create<AppState>()(
         const updatedFixtures = fixtures.map((f) => {
           if (f.matchday !== currentMd || f.played) return f;
           if (f.homeId === myTeamId || f.awayId === myTeamId) return f;
-          // Bot maçı — kalite farkına göre skor
           const homeTeam = clubs.find((c) => c.id === f.homeId);
           const awayTeam = clubs.find((c) => c.id === f.awayId);
           if (!homeTeam || !awayTeam) return f;
@@ -1029,6 +1028,52 @@ export const useAppStore = create<AppState>()(
           const as = Math.max(0, Math.floor(Math.random() * 3 - homeAdv * 2));
           return { ...f, homeScore: hs, awayScore: as, played: true };
         });
+
+        // Bot maçlarında oyunculara gol/assist dağıt — Gol Kralı yarışması için
+        const pickScorer = (players: any[]) => {
+          const attackers = players.filter(p => p.specificPosition !== "GK" && !p.is_injured);
+          if (attackers.length === 0) return null;
+          // Forvetler daha çok gol atar
+          const forwards = attackers.filter(p => ["ST", "CF", "LW", "RW", "LM", "RM", "CAM"].includes(p.specificPosition));
+          const pool = forwards.length > 0 && Math.random() > 0.3 ? forwards : attackers;
+          return pool[Math.floor(Math.random() * pool.length)];
+        };
+
+        for (const f of updatedFixtures) {
+          if (f.matchday !== currentMd || !f.played) continue;
+          if (f.homeId === myTeamId || f.awayId === myTeamId) continue;
+          const homeTeam = clubs.find((c) => c.id === f.homeId);
+          const awayTeam = clubs.find((c) => c.id === f.awayId);
+          if (!homeTeam || !awayTeam) continue;
+
+          // Home goals dağıt
+          for (let i = 0; i < (f.homeScore ?? 0); i++) {
+            const scorer = pickScorer(homeTeam.players);
+            if (scorer) {
+              scorer.goals = (scorer.goals ?? 0) + 1;
+              scorer.appearances = (scorer.appearances ?? 0) + 1;
+              // Asistçi
+              const assistPool = homeTeam.players.filter(p => p.id !== scorer?.id && p.specificPosition !== "GK");
+              if (assistPool.length > 0 && Math.random() > 0.4) {
+                const assister = assistPool[Math.floor(Math.random() * assistPool.length)];
+                assister.assists = (assister.assists ?? 0) + 1;
+              }
+            }
+          }
+          // Away goals dağıt
+          for (let i = 0; i < (f.awayScore ?? 0); i++) {
+            const scorer = pickScorer(awayTeam.players);
+            if (scorer) {
+              scorer.goals = (scorer.goals ?? 0) + 1;
+              scorer.appearances = (scorer.appearances ?? 0) + 1;
+              const assistPool = awayTeam.players.filter(p => p.id !== scorer?.id && p.specificPosition !== "GK");
+              if (assistPool.length > 0 && Math.random() > 0.4) {
+                const assister = assistPool[Math.floor(Math.random() * assistPool.length)];
+                assister.assists = (assister.assists ?? 0) + 1;
+              }
+            }
+          }
+        }
 
         // Bot AI — transfer aktivitesi
         const botTeams = clubs.filter((c) => c.id !== myTeamId && c.is_bot);
