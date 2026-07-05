@@ -2092,9 +2092,22 @@ export function simulateEnhancedMatch(
     // Pass simulation (background activity)
     const activeAttackers = getActivePlayers(attackingTeam);
     // P1: tempoMod → pas sayısını etkiler (yüksek tempo = daha çok pas)
+    // NOT: randInt(1,4) küçük olduğu için Math.round negatif modu yutuyor.
+    // Çözüm: probabilistik +1/-1 pas ekleyerek modifikasyon uygula.
     let passCount = randInt(PASS_SIMULATION.minPasses, PASS_SIMULATION.maxPasses);
     if (attackingMods?.tempoMod && attackingMods.tempoMod !== 0) {
-      passCount = Math.max(1, Math.round(passCount * (1 + attackingMods.tempoMod)));
+      const tMod = attackingMods.tempoMod;
+      if (tMod > 0) {
+        // Pozitif tempo: her mod oranında ekstra pas şansı
+        // Örn: tempoMod=0.125 → her tickte %12.5 ihtimalle +1 pas
+        if (Math.random() < tMod) passCount += 1;
+        if (tMod > 0.15 && Math.random() < (tMod - 0.15)) passCount += 1; // büyük tempo için 2. ekstra
+      } else {
+        // Negatif tempo: her |mod| oranında -1 pas şansı (min 1)
+        const absMod = Math.abs(tMod);
+        if (Math.random() < absMod) passCount = Math.max(1, passCount - 1);
+        if (absMod > 0.15 && Math.random() < (absMod - 0.15)) passCount = Math.max(1, passCount - 1);
+      }
     }
     const attackingPS = hasMomentum === 'home' ? homePS : awayPS;
     for (let i = 0; i < passCount; i++) {
