@@ -44,6 +44,16 @@ import {
   TACTIC_MENTALITY_BONUS, TACTIC_MENTALITY_PENALTY, TACTIC_PRESSING_BONUS,
   TACTIC_HIGH_INTENSITY_BONUS, TACTIC_LOW_INTENSITY_PENALTY,
   TACTIC_AGGRESSION_SCALE, TACTIC_AGGRESSION_BASELINE,
+  // P1: Ek taktik sabitleri
+  TACTIC_WIDTH_SCALE, TACTIC_WIDTH_BASELINE,
+  TACTIC_PASSING_INTENSITY_SCALE, TACTIC_PASSING_INTENSITY_BASELINE,
+  TACTIC_LINE_HEIGHT_SCALE, TACTIC_LINE_HEIGHT_BASELINE,
+  TACTIC_PARK_THE_BUS_DEF_BONUS, TACTIC_PARK_THE_BUS_ATT_PENALTY,
+  TACTIC_OFFSIDE_TRAP_BONUS, TACTIC_OFFSIDE_TRAP_RISK,
+  TACTIC_WASTE_TIME_POSSESSION_BONUS, TACTIC_WASTE_TIME_ATT_PENALTY,
+  TACTIC_CROSS_GAME_CROSS_BONUS, TACTIC_LONE_STRIKER_COUNTER_BONUS,
+  TACTIC_SCREEN_KEEPER_GK_BONUS,
+  TACTIC_PASSING_STYLE_MODS,
   WEATHER_MODIFIERS,
   WEATHER_DISTRIBUTION,
   HOME_ADVANTAGE,
@@ -170,6 +180,18 @@ export interface TacticModifiers {
   goalMod: number;       // Gol olasılığı çarpanı (ör: 0.12 = +12% gol şansı)
   conceedMod: number;    // Gol yeme riski çarpanı (ör: 0.05 = +5% gol yeme riski)
   counterMod?: number;   // Kontra atak çarpanı (ör: 0.10 = +10% kontra şansı)
+  // P1: Genişletilmiş taktik çarpanları (taktik sekmesinden gelen ek ayarlar)
+  passAccMod?: number;       // Pas isabeti çarpanı (+/-)
+  longBallMod?: number;      // Uzun pas / direkt oyun çarpanı
+  crossingMod?: number;      // Orta şansı çarpanı
+  possessionMod?: number;    // Top tutma çarpanı
+  offsideSuccessMod?: number;// Ofsayt tuzağı kazanma çarpanı
+  offsideRiskMod?: number;   // Ofsayt tuzağı riski (through ball yeme)
+  gkSaveMod?: number;        // Kaleci kurtarış çarpanı
+  defenseBonusMod?: number;  // Genel savunma gücü çarpanı (parkTheBus vb.)
+  attackPenaltyMod?: number; // Genel hücum cezası çarpanı (parkTheBus vb.)
+  widthMod?: number;         // Genişlik çarpanı (kanat hücumu)
+  tempoMod?: number;         // Tempo çarpanı (pas sıklığı)
 }
 
 export interface SimulationOptions {
@@ -593,8 +615,144 @@ function calculateTeamStrength(players: Player[], tactic: ActiveTactic, options?
 }
 
 // =============================================================================
-// Commentary Generation (Turkish)
+// P1: Extended Tactic Modifiers — Taktik sekmesindeki 10 eksik ayarı motor çevirir
 // =============================================================================
+// Bu fonksiyon bir ActiveTactic alır ve TacticModifiers döner. Mevcut
+// homeTacticModifiers/awayTacticModifiers ile birleştirilir.
+//
+// Entegre edilen ayarlar:
+// 1. width (0-100)            → widthMod + crossingMod
+// 2. passingIntensity (0-100) → tempoMod + longBallMod
+// 3. lineHeight (0-100)       → offsideSuccessMod + offsideRiskMod
+// 4. passingStyle (Karışık/Kısa/Uzun/Direkt) → passAccMod + longBallMod + counterMod
+// 5. screenKeeper (bool)      → gkSaveMod
+// 6. wasteTime (bool)         → possessionMod + (negatif goalMod)
+// 7. parkTheBus (bool)        → defenseBonusMod + (negatif goalMod)
+// 8. crossGame (bool)         → crossingMod (ekstra)
+// 9. loneStrikerCounter (bool)→ counterMod
+// 10. offsideTrap (bool)      → offsideSuccessMod + offsideRiskMod (toggle)
+//
+// NOT: Slider değerleri 50 nötr, 100 maksimum pozitif, 0 maksimum negatif.
+// =============================================================================
+
+function computeExtendedTacticModifiers(tactic: ActiveTactic): TacticModifiers {
+  // Başlangıç: mevcut davranışı bozmamak için nötr
+  const mods: TacticModifiers = {
+    goalMod: 0,
+    conceedMod: 0,
+    counterMod: 0,
+    passAccMod: 0,
+    longBallMod: 0,
+    crossingMod: 0,
+    possessionMod: 0,
+    offsideSuccessMod: 0,
+    offsideRiskMod: 0,
+    gkSaveMod: 0,
+    defenseBonusMod: 0,
+    attackPenaltyMod: 0,
+    widthMod: 0,
+    tempoMod: 0,
+  };
+
+  // 1) WIDTH — genişlik slider'ı
+  // 100 = +%15 kanat hücumu, +%15 orta şansı
+  // 0 = -%15 (dar oyun), daha az orta ama daha kompakt
+  const widthDelta = (tactic.width ?? TACTIC_WIDTH_BASELINE) - TACTIC_WIDTH_BASELINE;
+  mods.widthMod = widthDelta * TACTIC_WIDTH_SCALE;
+  mods.crossingMod = (mods.crossingMod ?? 0) + widthDelta * TACTIC_WIDTH_SCALE;
+
+  // 2) PASSING INTENSITY — pas yoğunluğu slider'ı
+  // 100 = +%12 tempo (daha sık pas), -%6 pas isabeti (riskli)
+  // 0 = -%12 tempo (yavaş), +%6 pas isabeti (güvenli)
+  const piDelta = (tactic.passingIntensity ?? TACTIC_PASSING_INTENSITY_BASELINE) - TACTIC_PASSING_INTENSITY_BASELINE;
+  mods.tempoMod = (mods.tempoMod ?? 0) + piDelta * TACTIC_PASSING_INTENSITY_SCALE;
+  mods.passAccMod = (mods.passAccMod ?? 0) - piDelta * (TACTIC_PASSING_INTENSITY_SCALE * 0.5);
+
+  // 3) LINE HEIGHT — savunma hattı yüksekliği
+  // 100 = yüksek hat → +%15 ofsayt tuzağı kazanma, +%15 through ball yeme riski
+  // 0 = alçak hat → -%15 ofsayt tuzağı, -%15 risk (güvenli)
+  const lhDelta = (tactic.lineHeight ?? TACTIC_LINE_HEIGHT_BASELINE) - TACTIC_LINE_HEIGHT_BASELINE;
+  mods.offsideSuccessMod = (mods.offsideSuccessMod ?? 0) + lhDelta * TACTIC_LINE_HEIGHT_SCALE;
+  mods.offsideRiskMod = (mods.offsideRiskMod ?? 0) + lhDelta * TACTIC_LINE_HEIGHT_SCALE;
+
+  // 4) PASSING STYLE — pas stili (4 opsiyon)
+  const psMods = TACTIC_PASSING_STYLE_MODS[tactic.passingStyle] ?? TACTIC_PASSING_STYLE_MODS['Karışık'];
+  mods.passAccMod = (mods.passAccMod ?? 0) + psMods.passAccMod;
+  mods.longBallMod = (mods.longBallMod ?? 0) + psMods.longBallMod;
+  mods.counterMod = (mods.counterMod ?? 0) + psMods.counterMod;
+
+  // 5) SCREEN KEEPER — kaleci koruması (toggle)
+  // Kalecinin kurtarış şansını artırır, kaleci arkası boşluk riskini azaltır
+  if (tactic.screenKeeper) {
+    mods.gkSaveMod = (mods.gkSaveMod ?? 0) + TACTIC_SCREEN_KEEPER_GK_BONUS;
+  }
+
+  // 6) WASTE TIME — zaman kaybet (toggle)
+  // Topu tutma artar, gol şansı azalır (yavaş tempo), kontra yeme riski azalır
+  if (tactic.wasteTime) {
+    mods.possessionMod = (mods.possessionMod ?? 0) + TACTIC_WASTE_TIME_POSSESSION_BONUS;
+    mods.goalMod = mods.goalMod - TACTIC_WASTE_TIME_ATT_PENALTY;
+    mods.conceedMod = mods.conceedMod - TACTIC_WASTE_TIME_ATT_PENALTY * 0.5; // biraz savunma bonusu
+  }
+
+  // 7) PARK THE BUS — otobüs park et (toggle)
+  // Savunma +%18 güçlenir, hücum -%15 zayıflar
+  if (tactic.parkTheBus) {
+    mods.defenseBonusMod = (mods.defenseBonusMod ?? 0) + TACTIC_PARK_THE_BUS_DEF_BONUS;
+    mods.attackPenaltyMod = (mods.attackPenaltyMod ?? 0) + TACTIC_PARK_THE_BUS_ATT_PENALTY;
+    mods.goalMod = mods.goalMod - TACTIC_PARK_THE_BUS_ATT_PENALTY;
+    mods.conceedMod = mods.conceedMod - TACTIC_PARK_THE_BUS_DEF_BONUS;
+    mods.possessionMod = (mods.possessionMod ?? 0) - 0.05; // top kaybı
+  }
+
+  // 8) CROSS GAME — kanat oyunu (toggle)
+  // Orta şansını önemli ölçüde artırır
+  if (tactic.crossGame) {
+    mods.crossingMod = (mods.crossingMod ?? 0) + TACTIC_CROSS_GAME_CROSS_BONUS;
+    mods.widthMod = (mods.widthMod ?? 0) + 0.05;
+  }
+
+  // 9) LONE STRIKER COUNTER — tek forvetle kontra (toggle)
+  // Kontra gol şansını önemli ölçüde artırır
+  if (tactic.loneStrikerCounter) {
+    mods.counterMod = (mods.counterMod ?? 0) + TACTIC_LONE_STRIKER_COUNTER_BONUS;
+    // Tek forvet olduğu için genel hücum bir miktar düşer
+    mods.goalMod = mods.goalMod - 0.03;
+  }
+
+  // 10) OFFSIDE TRAP — ofsayt tuzağı (toggle)
+  // Ekstra ofsayt kazanma, ama ekstra through ball riski
+  if (tactic.offsideTrap) {
+    mods.offsideSuccessMod = (mods.offsideSuccessMod ?? 0) + TACTIC_OFFSIDE_TRAP_BONUS;
+    mods.offsideRiskMod = (mods.offsideRiskMod ?? 0) + TACTIC_OFFSIDE_TRAP_RISK;
+  }
+
+  return mods;
+}
+
+// Mevcut TacticModifiers'ı genişletilmiş taktik modifier ile birleştir
+function mergeTacticModifiers(
+  base: TacticModifiers | undefined,
+  extended: TacticModifiers
+): TacticModifiers {
+  if (!base) return extended;
+  return {
+    goalMod: (base.goalMod ?? 0) + (extended.goalMod ?? 0),
+    conceedMod: (base.conceedMod ?? 0) + (extended.conceedMod ?? 0),
+    counterMod: (base.counterMod ?? 0) + (extended.counterMod ?? 0),
+    passAccMod: (base.passAccMod ?? 0) + (extended.passAccMod ?? 0),
+    longBallMod: (base.longBallMod ?? 0) + (extended.longBallMod ?? 0),
+    crossingMod: (base.crossingMod ?? 0) + (extended.crossingMod ?? 0),
+    possessionMod: (base.possessionMod ?? 0) + (extended.possessionMod ?? 0),
+    offsideSuccessMod: (base.offsideSuccessMod ?? 0) + (extended.offsideSuccessMod ?? 0),
+    offsideRiskMod: (base.offsideRiskMod ?? 0) + (extended.offsideRiskMod ?? 0),
+    gkSaveMod: (base.gkSaveMod ?? 0) + (extended.gkSaveMod ?? 0),
+    defenseBonusMod: (base.defenseBonusMod ?? 0) + (extended.defenseBonusMod ?? 0),
+    attackPenaltyMod: (base.attackPenaltyMod ?? 0) + (extended.attackPenaltyMod ?? 0),
+    widthMod: (base.widthMod ?? 0) + (extended.widthMod ?? 0),
+    tempoMod: (base.tempoMod ?? 0) + (extended.tempoMod ?? 0),
+  };
+}
 
 const COMMENTARY = {
   goal: {
@@ -1361,13 +1519,27 @@ export function simulateEnhancedMatch(
   // ── Pozisyon etkinlik cache'ini temizle (yeni maç) ──
   clearEffectivenessCache();
 
+  // ── P1: Taktik sekmesindeki tüm ayarları modifier'a çevir ──────────────
+  // 10 eksik ayar (width/passingIntensity/lineHeight/passingStyle/6 toggle)
+  // artık motorun ilgili yerlerinde okunuyor.
+  const extendedHomeMods = computeExtendedTacticModifiers(homeTactic);
+  const extendedAwayMods = computeExtendedTacticModifiers(awayTactic);
+  const mergedHomeMods = mergeTacticModifiers(options?.homeTacticModifiers, extendedHomeMods);
+  const mergedAwayMods = mergeTacticModifiers(options?.awayTacticModifiers, extendedAwayMods);
+  // Yeni options objesi oluştur (orijinali bozmamak için)
+  const effectiveOptions: SimulationOptions = {
+    ...options,
+    homeTacticModifiers: mergedHomeMods,
+    awayTacticModifiers: mergedAwayMods,
+  };
+
   // P0#4 FIX: Taktik rollerini uygula — oyuncuların attribute'larını role göre boost et
   // Bu, taktik ekranında atanan rollerin maç sonucunu ETKİLEMESİ sağlar
-  const effectiveHomePlayers = options?.homePlayerRoles
-    ? applyRoleBonuses(homePlayers, options.homePlayerRoles)
+  const effectiveHomePlayers = effectiveOptions?.homePlayerRoles
+    ? applyRoleBonuses(homePlayers, effectiveOptions.homePlayerRoles)
     : homePlayers;
-  const effectiveAwayPlayers = options?.awayPlayerRoles
-    ? applyRoleBonuses(awayPlayers, options.awayPlayerRoles)
+  const effectiveAwayPlayers = effectiveOptions?.awayPlayerRoles
+    ? applyRoleBonuses(awayPlayers, effectiveOptions.awayPlayerRoles)
     : awayPlayers;
 
   // ── Pre-match Setup ─────────────────────────────────────────────────────
@@ -1898,9 +2070,32 @@ export function simulateEnhancedMatch(
     if (hasMomentum === 'home') homeLiveStats.possessionTicks++;
     else awayLiveStats.possessionTicks++;
 
+    // ── P1: Tactic modifier → possessionMod → momentum'u etkiler ──────────
+    // wasteTime = top tutma artar (evet daha çok pas)
+    // parkTheBus = top kaybı (daha az pas)
+    const attackingMods = hasMomentum === 'home'
+      ? effectiveOptions.homeTacticModifiers
+      : effectiveOptions.awayTacticModifiers;
+    if (attackingMods?.possessionMod && attackingMods.possessionMod !== 0) {
+      // possessionMod pozitifse ekstra possession tick ekle
+      if (attackingMods.possessionMod > 0 && Math.random() < attackingMods.possessionMod) {
+        if (hasMomentum === 'home') homeLiveStats.possessionTicks++;
+        else awayLiveStats.possessionTicks++;
+      }
+      // negatifse %50 ihtimalle tick'i geri al
+      else if (attackingMods.possessionMod < 0 && Math.random() < Math.abs(attackingMods.possessionMod)) {
+        if (hasMomentum === 'home' && homeLiveStats.possessionTicks > 0) homeLiveStats.possessionTicks--;
+        else if (awayLiveStats.possessionTicks > 0) awayLiveStats.possessionTicks--;
+      }
+    }
+
     // Pass simulation (background activity)
     const activeAttackers = getActivePlayers(attackingTeam);
-    const passCount = randInt(PASS_SIMULATION.minPasses, PASS_SIMULATION.maxPasses);
+    // P1: tempoMod → pas sayısını etkiler (yüksek tempo = daha çok pas)
+    let passCount = randInt(PASS_SIMULATION.minPasses, PASS_SIMULATION.maxPasses);
+    if (attackingMods?.tempoMod && attackingMods.tempoMod !== 0) {
+      passCount = Math.max(1, Math.round(passCount * (1 + attackingMods.tempoMod)));
+    }
     const attackingPS = hasMomentum === 'home' ? homePS : awayPS;
     for (let i = 0; i < passCount; i++) {
       const passer = pick(activeAttackers);
@@ -1912,6 +2107,14 @@ export function simulateEnhancedMatch(
       // Play style: long ball bonus reduces short pass accuracy slightly
       if (attackingPS?.longBallBonus && attackingPS.longBallBonus > 0) {
         passSkill *= (1 - attackingPS.longBallBonus * PASS_SIMULATION.longBallShortPassPenalty); // slight penalty for short passes
+      }
+      // P1: passAccMod (passingStyle + passingIntensity'den)
+      if (attackingMods?.passAccMod && attackingMods.passAccMod !== 0) {
+        passSkill *= (1 + attackingMods.passAccMod);
+      }
+      // P1: longBallMod (Direkt/Uzun pas stili) → uzun paslar riskli
+      if (attackingMods?.longBallMod && attackingMods.longBallMod > 0) {
+        passSkill *= (1 - attackingMods.longBallMod * 0.3);
       }
       passer.passes++;
       if (hasMomentum === 'home') homeLiveStats.passes++;
@@ -2113,13 +2316,63 @@ export function simulateEnhancedMatch(
       // Home team attacking → apply home goalMod + away conceedMod
       // Away team attacking → apply away goalMod + home conceedMod
       const isHomeAttacking = hasMomentum === 'home';
-      const attackerMods = isHomeAttacking ? options?.homeTacticModifiers : options?.awayTacticModifiers;
-      const defenderMods = isHomeAttacking ? options?.awayTacticModifiers : options?.homeTacticModifiers;
+      const attackerMods = isHomeAttacking ? effectiveOptions.homeTacticModifiers : effectiveOptions.awayTacticModifiers;
+      const defenderMods = isHomeAttacking ? effectiveOptions.awayTacticModifiers : effectiveOptions.homeTacticModifiers;
       if (attackerMods?.goalMod) {
         goalChance *= (1 + attackerMods.goalMod);
       }
       if (defenderMods?.conceedMod) {
         goalChance *= (1 + defenderMods.conceedMod);
+      }
+      // ── P1: Ek taktik modifier'ları — parkTheBus, loneStrikerCounter, crossGame vb. ──
+      // defenseBonusMod → savunan takımın kaleci kurtarışını artırır
+      if (defenderMods?.defenseBonusMod) {
+        goalChance *= (1 - defenderMods.defenseBonusMod * 0.5);
+      }
+      // attackPenaltyMod → saldıran takımın hücum gücünü düşürür (parkTheBus gibi)
+      if (attackerMods?.attackPenaltyMod) {
+        goalChance *= (1 - attackerMods.attackPenaltyMod);
+      }
+      // gkSaveMod → kalecinin kurtarış şansını artırır (savunan takımın)
+      if (defenderMods?.gkSaveMod) {
+        goalChance *= (1 - defenderMods.gkSaveMod);
+      }
+      // crossingMod → orta oyunundan gol şansı artar (saldıran takım)
+      if (attackerMods?.crossingMod && attackerMods.crossingMod > 0) {
+        // Sadece forvet/kanat oyuncusu saldırıyorsa orta bonusu uygula
+        if (selectedPlayer.player.specificPosition === 'ST' ||
+            selectedPlayer.player.specificPosition === 'LW' ||
+            selectedPlayer.player.specificPosition === 'RW' ||
+            selectedPlayer.player.specificPosition === 'CF') {
+          goalChance *= (1 + attackerMods.crossingMod * 0.3);
+        }
+      }
+      // counterMod → kontra gol şansı artar
+      if (attackerMods?.counterMod && attackerMods.counterMod > 0) {
+        // Kontra bonuşu: savunma sonrası hızlı hücum durumu
+        const counterRoll = Math.random();
+        if (counterRoll < 0.25) { // %25 ihtimalle kontra durumu
+          goalChance *= (1 + attackerMods.counterMod);
+        }
+      }
+      // offsideRiskMod → savunan takım ofsayt tuzağı oynuyorsa, through ball riski
+      if (defenderMods?.offsideRiskMod && defenderMods.offsideRiskMod > 0) {
+        const throughBallRoll = Math.random();
+        if (throughBallRoll < 0.15) { // %15 ihtimalle through ball
+          goalChance *= (1 + defenderMods.offsideRiskMod);
+        }
+      }
+      // offsideSuccessMod → savunan takım ofsayt kazanma (gol şansını düşürür)
+      if (defenderMods?.offsideSuccessMod && defenderMods.offsideSuccessMod > 0) {
+        const offsideRoll = Math.random();
+        if (offsideRoll < 0.10) { // %10 ihtimalle ofsayt kazanırlar
+          goalChance *= (1 - defenderMods.offsideSuccessMod);
+        }
+      }
+      // tempoMod → yüksek tempo = daha fazla hücum şansı (ama daha çok yorgunluk)
+      // Burada: yüksek tempo goalChance'i bir miktar artırır
+      if (attackerMods?.tempoMod && attackerMods.tempoMod > 0) {
+        goalChance *= (1 + attackerMods.tempoMod * 0.3);
       }
 
       // Late game desperation

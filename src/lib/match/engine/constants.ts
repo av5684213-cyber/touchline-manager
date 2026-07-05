@@ -397,6 +397,34 @@ export const TACTIC_LOW_INTENSITY_PENALTY = 0.04; // Low intensity penalty
 export const TACTIC_AGGRESSION_SCALE = 0.0004;    // Aggression scaling factor
 export const TACTIC_AGGRESSION_BASELINE = 50;      // Aggression baseline
 
+// ─── Ek Taktik Modifikatörleri (P1: 10 eksik ayar entegrasyonu) ────────────
+// Slider'lar 0-100 → merkezi 50 referanslı, ±0.20 max etki
+export const TACTIC_WIDTH_SCALE = 0.0030;         // width 100 = +0.30 crossing/wide attack, width 0 = -0.15
+export const TACTIC_WIDTH_BASELINE = 50;
+export const TACTIC_PASSING_INTENSITY_SCALE = 0.0025;  // passingIntensity 100 = +%25 pas hızı, 0 = -%12
+export const TACTIC_PASSING_INTENSITY_BASELINE = 50;
+export const TACTIC_LINE_HEIGHT_SCALE = 0.0030;   // lineHeight 100 = +%30 ofsayt tuzağı + risk; 0 = -%15
+export const TACTIC_LINE_HEIGHT_BASELINE = 50;
+
+// Toggle sabitleri — tek seferlik bonus/ceza
+export const TACTIC_PARK_THE_BUS_DEF_BONUS = 0.18;     // +%18 savunma, -%15 hücum
+export const TACTIC_PARK_THE_BUS_ATT_PENALTY = 0.15;
+export const TACTIC_OFFSIDE_TRAP_BONUS = 0.10;         // +%10 ofsayt kazanma
+export const TACTIC_OFFSIDE_TRAP_RISK = 0.08;          // +%8 yeme riski (through ball)
+export const TACTIC_WASTE_TIME_POSSESSION_BONUS = 0.08; // +%8 top tutma, -%5 gol şansı (yavaş tempo)
+export const TACTIC_WASTE_TIME_ATT_PENALTY = 0.05;
+export const TACTIC_CROSS_GAME_CROSS_BONUS = 0.15;     // +%15 orta şansı
+export const TACTIC_LONE_STRIKER_COUNTER_BONUS = 0.20; // +%20 kontra gol şansı
+export const TACTIC_SCREEN_KEEPER_GK_BONUS = 0.08;     // +%8 kaleci kurtarış
+
+// Passing style modları
+export const TACTIC_PASSING_STYLE_MODS = {
+  'Karışık': { passAccMod: 0.0,  longBallMod: 0.0,  counterMod: 0.0 },
+  'Kısa':    { passAccMod: 0.06, longBallMod: -0.10, counterMod: -0.05 },
+  'Uzun':    { passAccMod: -0.05, longBallMod: 0.15, counterMod: 0.05 },
+  'Direkt':  { passAccMod: -0.03, longBallMod: 0.20, counterMod: 0.10 },
+} as const;
+
 // ─── Hava Durumu Modifikatörleri ───────────────────────────────────────
 export const WEATHER_MODIFIERS: Record<string, { passingMod: number; speedMod: number; shootingMod: number; tacklingMod: number }> = {
   rainy:  { passingMod: 0.95, speedMod: 0.97, shootingMod: 0.96, tacklingMod: 0.98 },

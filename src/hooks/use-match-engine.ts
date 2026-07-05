@@ -77,65 +77,178 @@ function pickRandomRefereeName(): string {
 }
 
 /**
- * activeInstructions'ı motorun beklediği homeTacticModifiers'a çevirir.
- * Her talimatın effects'i toplanır, hücum/savunma/kontra çarpanları hesaplanır.
+ * activeInstructions'ı motorun beklediği TacticModifiers'a çevirir.
+ * Tüm opsiyonlar (Yüksek/Normal/Düşük, Evet/Hayır, Açık/Kapalı) işlenir:
+ *  - 3-lü opsiyonlarda ilk (örn "Yüksek") tam etki, ikinci ("Normal") 0.5x, üçüncü ("Düşük") ters yönde 0.5x
+ *  - 2-li (Evet/Hayır) opsiyonlarda "Evet" tam etki, "Hayır" nötr
+ *  - Evet/Hayır'da "Hayır" seçilince ilgili efekti ters yönde uygula (örn "Mücadeleye Gir → Hayır" = daha az tackle)
  */
 function computeInstructionModifiers(
   activeInstructions: Record<string, string>
-): { goalMod: number; conceedMod: number; counterMod: number } {
+): {
+  goalMod: number;
+  conceedMod: number;
+  counterMod: number;
+  passAccMod: number;
+  longBallMod: number;
+  crossingMod: number;
+  possessionMod: number;
+  offsideSuccessMod: number;
+  offsideRiskMod: number;
+  gkSaveMod: number;
+  defenseBonusMod: number;
+  attackPenaltyMod: number;
+  widthMod: number;
+  tempoMod: number;
+} {
   let goalMod = 0;
   let conceedMod = 0;
   let counterMod = 0;
+  let passAccMod = 0;
+  let longBallMod = 0;
+  let crossingMod = 0;
+  let possessionMod = 0;
+  let offsideSuccessMod = 0;
+  let offsideRiskMod = 0;
+  let gkSaveMod = 0;
+  let defenseBonusMod = 0;
+  let attackPenaltyMod = 0;
+  let widthMod = 0;
+  let tempoMod = 0;
+
+  // Effect key'leri kategoriye ayır
+  const ATTACK_EFFECTS = new Set([
+    "crossing_chance", "wide_attack", "central_attack", "dribbling_success",
+    "long_shot_chance", "shot_volume", "clear_cut_chance", "early_cross_chance",
+    "fast_break", "first_time_shot", "cutback_chance", "crossing_accuracy",
+    "crossing_speed", "heading_opportunity", "goal_from_corner", "near_post_goal",
+    "quick_goal_chance", "patient_buildup",
+  ]);
+  const DEFENSE_EFFECTS = new Set([
+    "defensive_depth", "defensive_shape", "compact_defense", "formation_integrity",
+    "possession_regain", "ball_recovery", "tackle_intensity", "set_piece_defense",
+    "zonal_coverage", "man_marking_tightness", "offside_success",
+  ]);
+  const RISK_EFFECTS = new Set([
+    "defensive_risk", "through_ball_vuln", "interception_risk", "turnover_risk",
+    "foul_risk", "counter_vuln", "defensive_vuln", "crowd_frustration",
+  ]);
+  const COUNTER_EFFECTS = new Set(["counter_attack", "fast_break"]);
+  const POSSESSION_EFFECTS = new Set(["possession_retention", "time_control", "patient_buildup"]);
+  const PASS_ACC_EFFECTS = new Set(["pass_completion"]);
+  const CROSS_EFFECTS = new Set(["crossing_chance", "crossing_accuracy", "crossing_speed", "early_cross_chance"]);
+  const WIDTH_EFFECTS = new Set(["width_spread", "central_density", "wide_attack"]);
+  const TEMPO_EFFECTS = new Set(["tempo_modifier"]);
+  const STAMINA_EFFECTS = new Set(["stamina_drain"]);
+  const OFFSIDE_EFFECTS = new Set(["offside_success", "offside_trap"]);
+  const ARIEL_EFFECTS = new Set(["ariel_duel"]);
+  const FOUL_WON_EFFECTS = new Set(["foul_won"]);
 
   for (const [instName, selectedOption] of Object.entries(activeInstructions)) {
     const inst = TACTICAL_INSTRUCTIONS.find((i) => i.name === instName);
     if (!inst) continue;
+    if (!selectedOption) continue;
 
-    // Sadece "Evet" veya ilk opsiyon (örn "Yüksek", "Direkt", "Geniş") seçilmişse etkili
-    const isFirstOption = selectedOption === inst.options[0];
-    if (!isFirstOption) continue;
+    // Opsiyon sayısına göre etki çarpanı hesapla
+    const optCount = inst.options.length;
+    const optIdx = inst.options.indexOf(selectedOption);
+    if (optIdx < 0) continue;
+
+    // 3-lü opsiyon (Yüksek/Normal/Düşük):
+    //  - ilk (Yüksek) = 1.0
+    //  - ikinci (Normal) = 0.0 (nötr)
+    //  - üçüncü (Düşük) = -0.5 (ters yönde hafif)
+    // 2-li opsiyon (Evet/Hayır):
+    //  - ilk (Evet) = 1.0
+    //  - ikinci (Hayır) = 0.0 (nötr — opsiyon kapalı demek)
+    let effectMultiplier: number;
+    if (optCount === 3) {
+      if (optIdx === 0) effectMultiplier = 1.0;
+      else if (optIdx === 1) effectMultiplier = 0.0; // Normal = nötr
+      else effectMultiplier = -0.5; // Düşük = ters yönde hafif
+    } else if (optCount === 2) {
+      // Evet/Hayır — Evet (idx 0) tam etki, Hayır (idx 1) nötr
+      effectMultiplier = optIdx === 0 ? 1.0 : 0.0;
+    } else {
+      // Bilinmeyen format — ilk opsiyon tam etki
+      effectMultiplier = optIdx === 0 ? 1.0 : 0.0;
+    }
+
+    if (effectMultiplier === 0) continue;
 
     // Effects'i kategorilere göre modifier'lara çevir
     for (const [effectKey, effectVal] of Object.entries(inst.effects)) {
+      const scaledVal = effectVal * effectMultiplier * 0.003;
+
       // Hücum efektleri
-      if (["crossing_chance", "wide_attack", "central_attack", "dribbling_success",
-           "long_shot_chance", "shot_volume", "clear_cut_chance", "early_cross_chance",
-           "fast_break", "first_time_shot", "cutback_chance", "crossing_accuracy",
-           "crossing_speed", "heading_opportunity", "goal_from_corner", "near_post_goal",
-           "quick_goal_chance", "counter_attack", "patient_buildup"].includes(effectKey)) {
-        goalMod += effectVal * 0.003;
+      if (ATTACK_EFFECTS.has(effectKey)) {
+        goalMod += scaledVal;
+        // Çapraz efektler
+        if (CROSS_EFFECTS.has(effectKey)) crossingMod += scaledVal * 0.5;
+        if (WIDTH_EFFECTS.has(effectKey)) widthMod += scaledVal * 0.3;
       }
       // Savunma efektleri
-      else if (["defensive_depth", "defensive_shape", "compact_defense", "formation_integrity",
-                "possession_regain", "ball_recovery", "tackle_intensity", "set_piece_defense",
-                "zonal_coverage", "man_marking_tightness", "offside_success"].includes(effectKey)) {
-        conceedMod -= effectVal * 0.003;
+      else if (DEFENSE_EFFECTS.has(effectKey)) {
+        conceedMod -= Math.abs(scaledVal);
+        defenseBonusMod += Math.abs(scaledVal) * 0.5;
+        if (OFFSIDE_EFFECTS.has(effectKey)) offsideSuccessMod += scaledVal * 0.5;
       }
       // Risk / savunma zaafı
-      else if (["defensive_risk", "through_ball_vuln", "interception_risk", "turnover_risk",
-                "foul_risk", "counter_vuln", "defensive_vuln", "crowd_frustration"].includes(effectKey)) {
-        conceedMod += effectVal * 0.003;
+      else if (RISK_EFFECTS.has(effectKey)) {
+        conceedMod += Math.abs(scaledVal);
+        if (effectKey === "through_ball_vuln" || effectKey === "counter_vuln") {
+          offsideRiskMod += Math.abs(scaledVal) * 0.5;
+        }
       }
       // Kontra
-      else if (["counter_attack", "fast_break", "counter_vuln"].includes(effectKey)) {
-        counterMod += effectVal * 0.003;
+      else if (COUNTER_EFFECTS.has(effectKey)) {
+        counterMod += scaledVal;
       }
-      // Faul kazanma
-      else if (["foul_won"].includes(effectKey)) {
-        goalMod += effectVal * 0.002;
+      // Top tutma
+      else if (POSSESSION_EFFECTS.has(effectKey)) {
+        possessionMod += scaledVal;
+      }
+      // Pas isabeti
+      else if (PASS_ACC_EFFECTS.has(effectKey)) {
+        passAccMod += scaledVal;
+      }
+      // Tempo
+      else if (TEMPO_EFFECTS.has(effectKey)) {
+        tempoMod += scaledVal;
+      }
+      // Stamina drain (negatif etki)
+      else if (STAMINA_EFFECTS.has(effectKey)) {
+        // Yüksek tempo = yüksek stamina drain = küçük -goalMod (geç maç)
+        if (effectMultiplier > 0) goalMod -= Math.abs(scaledVal) * 0.3;
       }
       // Hava düellosu
-      else if (["ariel_duel"].includes(effectKey)) {
-        goalMod += effectVal * 0.002;
+      else if (ARIEL_EFFECTS.has(effectKey)) {
+        goalMod += scaledVal * 0.7;
+      }
+      // Faul kazanma
+      else if (FOUL_WON_EFFECTS.has(effectKey)) {
+        goalMod += scaledVal * 0.5;
       }
     }
   }
 
-  // Çarpanları sınırla
+  // Çarpanları sınırla (aşırı stacklenmeyi önle)
+  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
   return {
-    goalMod: Math.max(-0.15, Math.min(0.15, goalMod)),
-    conceedMod: Math.max(-0.15, Math.min(0.15, conceedMod)),
-    counterMod: Math.max(-0.10, Math.min(0.10, counterMod)),
+    goalMod: clamp(goalMod, -0.20, 0.20),
+    conceedMod: clamp(conceedMod, -0.20, 0.20),
+    counterMod: clamp(counterMod, -0.15, 0.15),
+    passAccMod: clamp(passAccMod, -0.15, 0.15),
+    longBallMod: clamp(longBallMod, -0.15, 0.15),
+    crossingMod: clamp(crossingMod, -0.15, 0.15),
+    possessionMod: clamp(possessionMod, -0.15, 0.15),
+    offsideSuccessMod: clamp(offsideSuccessMod, -0.15, 0.15),
+    offsideRiskMod: clamp(offsideRiskMod, -0.15, 0.15),
+    gkSaveMod: clamp(gkSaveMod, -0.10, 0.10),
+    defenseBonusMod: clamp(defenseBonusMod, -0.15, 0.15),
+    attackPenaltyMod: clamp(attackPenaltyMod, -0.15, 0.15),
+    widthMod: clamp(widthMod, -0.10, 0.10),
+    tempoMod: clamp(tempoMod, -0.15, 0.15),
   };
 }
 

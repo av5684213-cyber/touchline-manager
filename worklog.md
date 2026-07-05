@@ -1405,3 +1405,47 @@ Stage Summary:
 - Maç sekmesi artık zamanlanmış: TR saatiyle 00:00, 04:00, 08:00, 12:00, 16:00, 20:00'de maç pencereleri açılıyor. 60 dakikalık pencerede "MAÇI İZLE" butonu aktif. Kullanıcı pencereyi kaçırırsa otomatik simülasyon yapılıp fikstüre sonucu yazılıyor. "Başlat" butonu tamamen kaldırıldı — artık zamanı gelince maç izlenebiliyor.
 - Üst nav (StickyQuickBar) alt nav ile çakışmıyor: üstte "Sonraki Maç + Bakiye + Sıra" widget'ı, altta 5 ana sekme + Diğer drawer. UX daha temiz.
 - Otomatik simülasyon localStorage'da işaretleniyor (auto-simmed set), böylece aynı pencere için tekrar simülasyon yapılmıyor.
+
+---
+Task ID: feature-tactics-engine-integration
+Agent: main
+Task: Taktik sekmesindeki 10 entegre olmayan ayarı maç motoruna bağla + Tactical Instructions effects'i tam entegre et
+
+Work Log:
+- enhancedMatchEngine.ts içinde grep ile tüm taktik kullanım yerleri tespit edildi. Sonuç: 17 farklı ActiveTactic alanından sadece 7'si (formation, mentality, pressing, intensity, aggression, playStyle, slotRoles) motor tarafından okunuyordu. 10 alan (width, passingIntensity, lineHeight, passingStyle, screenKeeper, wasteTime, parkTheBus, crossGame, loneStrikerCounter, offsideTrap) hiç kullanılmıyordu.
+- constants.ts'ye 14 yeni sabit eklendi (TACTIC_WIDTH_SCALE, TACTIC_PASSING_STYLE_MODS, TACTIC_PARK_THE_BUS_DEF_BONUS, vb.) — slider'lar için 50 nötr referanslı, ±0.20 max etki.
+- enhancedMatchEngine.ts'de TacticModifiers interface'i genişletildi: 11 yeni opsiyonel alan eklendi (passAccMod, longBallMod, crossingMod, possessionMod, offsideSuccessMod, offsideRiskMod, gkSaveMod, defenseBonusMod, attackPenaltyMod, widthMod, tempoMod).
+- computeExtendedTacticModifiers(tactic: ActiveTactic): TacticModifiers yardımcı fonksiyonu yazıldı. 10 eksik ayarı sırayla işliyor: width→widthMod+crossingMod, passingIntensity→tempoMod+passAccMod, lineHeight→offsideSuccess+offsideRisk, passingStyle→passAccMod+longBallMod+counterMod (4 opsiyonlu tablo), screenKeeper→gkSaveMod, wasteTime→possessionMod+goalMod(-), parkTheBus→defenseBonus+goalMod(-), crossGame→crossingMod, loneStrikerCounter→counterMod, offsideTrap→offsideSuccess+offsideRisk.
+- mergeTacticModifiers(base, extended) fonksiyonu yazıldı — mevcut homeTacticModifiers ile extended olanı additive birleştirir.
+- simulateEnhancedMatch fonksiyonunun başında (clearEffectivenessCache'den sonra) effectiveOptions objesi oluşturuldu. homeTactic ve awayTactic'den computeExtendedTacticModifiers çağrılıp merge ediliyor, tüm downstream options erişimleri effectiveOptions üzerinden yapılıyor.
+- Gol şansı hesabında (2130+ satır) 8 yeni modifier uygulaması eklendi: defenseBonusMod (savunan takım), attackPenaltyMod (saldıran), gkSaveMod (savunan kaleci), crossingMod (sadece forvet/kanat pozisyonlarında), counterMod (%25 ihtimalle kontra durumu), offsideRiskMod (%15 through ball), offsideSuccessMod (%10 ofsayt kazanma), tempoMod (saldıran takım).
+- Pas simülasyonunda (2073+ satır) 4 yeni modifier: possessionMod (ekstra/redüksiyon possession tick), tempoMod (pasCount çarpanı), passAccMod (passSkill çarpanı), longBallMod (uzun pas riski).
+- use-match-engine.ts'deki computeInstructionModifiers fonksiyonu tamamen yeniden yazıldı. Eski: sadece ilk opsiyon seçiliyse etkili, sadece 3 çarpan (goalMod/conceedMod/counterMod). Yeni: tüm opsiyonlar işleniyor (3-lü: Yüksek=1.0, Normal=0.0 nötr, Düşük=-0.5 ters; 2-li: Evet=1.0, Hayır=0.0). 14 ayrı modifier döndürüyor (genişletilmiş TacticModifiers ile uyumlu). 12 farklı effect kategorisi (ATTACK, DEFENSE, RISK, COUNTER, POSSESSION, PASS_ACC, CROSS, WIDTH, TEMPO, STAMINA, OFFSIDE, ARIEL, FOUL_WON) set tabanlı分类.
+- Build başarılı (8.6s), TS hatası yok.
+
+Stage Summary:
+- Taktik sekmesindeki 17 ayarın 17'si de artık maç motoruna entegre: 4 slider (width/passingIntensity/lineHeight) + 1 pas stili seçici (4 opsiyon) + 6 toggle (screenKeeper/wasteTime/parkTheBus/crossGame/loneStrikerCounter/offsideTrap) + 20 talimat (3-lü ve 2-li opsiyonların hepsi) + 4 halihazırda entegre (formation/mentality/pressing/aggression) + 23 slot rolü + playStyle.
+- TacticModifiers interface'i 14 alana genişletildi, motorun gol şansı + pas simülasyonu + possession tick yerlerinde okunuyor.
+- Eski davranış korundu: mevcut homeTacticModifiers (computeInstructionModifiers'dan geliyordu) merge ediliyor, nötr başlangıç.
+- Tactical Instructions artık "Normal" veya "Hayır" seçilse bile hiç olmasından daha iyi — sadece nötr oluyor (eskiden hiç işlemiyordu).
+- Sonraki adım: Raporlar sekmesi (5 rapor türü).
+
+---
+Task ID: feature-reports-screen-rewrite
+Agent: main
+Task: Raporlar sekmesini 5 rapor türüyle (Maç/Finansal/Performans/Scout/Sezon) tamamen yeniden yaz
+
+Work Log:
+- Mevcut reports.tsx 438 satırdı, 5 rapor türü içeriyordu ama her biri yüzeyseldi (1-2 kart). reports.tsx tamamen yeniden yazıldı, 1235 satıra çıktı.
+- 1) MAÇ RAPORU: Son 10 maç listesi + form serisi (son 5 W/D/L rozeti) + 4'lü özet grid (G/B/M/Puan) + gol analizi (atılan/yenilen/gol yemedi/golsüz maç %) + ev/deplasman performansı (galibiyet oranı bar'ları) + maç listesi kartı (renkli border'lı).
+- 2) FİNANSAL RAPOR: Bütçe özeti + sezon sonu tahmini bütçe + haftalık net kartı + gelirler (4 satır + toplam) + giderler (3 satır + toplam) + pozisyon bazında maaş dağılımı (4 pozisyon, bar'lı) + en yüksek maaş 5 oyuncu + kadro değeri (toplam + oyuncu başına) + transfer durumu özeti.
+- 3) PERFORMANS RAPORU: 9'luk takım özeti grid (ort rating/form/kondisyon/moral/yaş/kadro/sakat/yabancı/toplam gol) + pozisyon bazında kalite (4 bar) + gol kralları (5) + asist kralları (5) yan yana + en iyi formda 5 + en düşük formda 5 + sakat oyuncular kartı (kalangün sayısı) + düşük kondisyon (<%60) oyuncuları uyarı kartı.
+- 4) SCOUT RAPORU: Scout birimi özeti (scout sayısı + toplam yıldız + gelen teklif) + pazar durumu (serbest + izleme listesi) + kadro ihtiyaç analizi (her pozisyon grubu için ideal 3GK/7DEF/7MID/4FWD karşılaştırması, Acil/Eksik/Tamam etiketi) + izleme listesi + önerilen oyuncular (ihtiyaç duyulan pozisyonlara göre filtreli) + gelen teklifler.
+- 5) SEZON İLERLEME RAPORU: Sezon ilerleme bar'ı (ilk/ikinci yarı etiketi) + mevcut hedef kartı (Şampiyonluk/Yükselme/Play-off/Küme Düşme) + lig performansı 6'lı grid (sıra/puan/averaj/G/B/M) + yarı sezon karşılaştırması (ilk yarı vs ikinci yarı puan/gol) + son 5 hafta trendi + sezon tahminleri (6 satır) + yakındaki rakipler listesi (3 üstü + 3 altı takım).
+- 8 yardımcı bileşen eklendi: SummaryTile, StatTile, FinRow, PlayerStatRow, ScoutPlayerRow, PredRow, formatEuroShort. Tüm veriler store'dan çekildi (clubs, fixtures, facilities, transfer).
+- Build başarılı (9.7s), TS hatası yok.
+
+Stage Summary:
+- Raporlar sekmesi 5 derin rapor türü içeriyor: Maç (son 10 maç analizi + form + gol + ev/dep), Finansal (gelir/gider + pozisyon maaş + kadro değeri + transfer), Performans (takım özeti + pozisyon kalitesi + gol/asist kralları + sakat/yorgun uyarıları), Scout (scout birimi + kadro ihtiyaç analizi + öneriler + teklifler), Sezon (ilerleme + hedef + yarı karşılaştırma + tahminler + rakipler).
+- Toplam ~25 kart, ~15 istatistik grid'i, ~10 trend bar'ı. Tüm Türkçe etiketler hardcoded (eski oyunla uyumlu).
+- Önceki task (taktik-motor entegrasyonu) ile birlikte: taktik sekmesindeki 17 ayar motorun 14 modifier çarpanına bağlı, raporlar sekmesi maç sonuçlarından üretilen tüm metrikleri görselleştiriyor.
