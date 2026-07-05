@@ -1475,3 +1475,27 @@ Stage Summary:
 - 10/10 kontrol başarılı: her taktik ayarı motoru anlamlı şekilde etkiliyor.
 - Raporlar sekmesi veri hesapları test edildi: computeStandings + generateFixtures + playFixturesUpTo çalışıyor, sıralama doğru hesaplanıyor.
 - Tempo modifikasyonu için bug fix uygulandı (Math.round → probabilistik +1/-1).
+
+---
+Task ID: audit-game-comprehensive
+Agent: main
+Task: Trait/arketip entegrasyonu + tüm oyun kategorilerini 10 üzerinden puanla
+
+Work Log:
+- TRAITS_DATA 4 kategoride (defans/orta_saha/forvet/kaleci) 78 pozitif + 25 negatif trait içeriyor. Motor'da ensureTraitLookup() + traitLookupMap + negTraitPenaltyMap ile lookup kuruluyor.
+- Pozitif traitler: engineEffect'i olanlar (örn "Ofsayt ustası", "Gölge Markajcı", "Top Hırsızı") doğrudan engineWeight uygulanıyor. engineEffect yoksa level bazlı DEFAULT_ENGINE_WEIGHT (MOR=0.04, ALTIN=0.035, LACIVERT=0.03, BEYAZ=0.025).
+- applyAttackerTraitEffects: ofansif traitler goalChance *= (1+weight), defansif traitler hücumda yarı etki. Her trait ±0.06 cap (TRAIT_EFFECT_CAP).
+- applyDefenderTraitEffects: kaleci traitleri probs.save'i, defans traitleri probs.tackle'ı artırır.
+- Kişilik traitleri (Lider/Profesyonel/Çalışkan/Sinirli/Tembel/Bencil/Disiplinsiz) calculateTeamStrength'te personalityMod olarak uygulanıyor (±%3-6).
+- Arketipler 30+ farklı şekilde gol şansını etkiliyor: Gol Makinesi +%30, Bitirici +%25, Fırsatçı +%22, Hızlı Forvet +%18... Defansif arketipler -%18-22. Kaleci arketipleri -%12-22.
+- Maç karakterleri (clutch/big_match/closer/inconsistent/leader) ekstra etki.
+- scripts/test-traits-archetypes.ts ve test-traits-debug.ts oluşturuldu, 100 maç/senaryo testler çalıştırıldı.
+- Test sonuçları (100 maç ortalaması):
+  - Forvetlere 3 pozitif trait (Bitirici+Penaltı Uzmanı+Klasik Forvet): Home gol 1.89→2.53 (+%34)
+  - Forvetlere 3 negatif trait (Beceriksiz bitirici+Ofsayta düşer+Bencil): 2.53→1.78 (-%30)
+  - Zayıf kaleci (rating 60) + Refleks Canavarı arketipi: Home gol yeme 2.18→1.77 (-%19)
+  - Gol Makinesi arketipi: Home gol 2.21→3.55 (+%60) — çok güçlü etki
+
+Stage Summary:
+- Trait'ler (78 pozitif + 25 negatif) ve arketipler (30+) maç motoruna güçlü şekilde entegre. Test sonuçları: Gol Makinesi +%60 gol artışı, Refleks Canavarı zayıf kalecide -%19 gol yeme, 3 pozitif forvet traiti +%34 gol artışı. TRAIT_EFFECT_CAP=0.06 bazı trait'lerin bireysel etkisini kısıtlasa da kümülatif etki anlamlı.
+- UI tarafında: oyuncu modal'ında traits + negTraits + personalityTraits + archetype + playStyle hepsi gösteriliyor. Arketip tıklanır, açıklama modal'ı açılıyor.
