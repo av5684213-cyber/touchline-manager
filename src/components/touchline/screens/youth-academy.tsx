@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowUp, GraduationCap, Sparkles } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
@@ -14,25 +14,46 @@ export function YouthAcademyScreen() {
   const { t } = useI18n();
   const team = useMyTeam();
   const { facilities } = useAppStore();
+  const academyLevel = facilities.levels.academy || 0;
+
+  // P1#9 FIX: Store'da sakla — her açılışta YENİ oyuncular üretme
+  // localStorage ile persist et, sezon değişince yenile
+  const STORAGE_KEY = "tm_youth_academy";
+  const seasonNumber = useAppStore((s) => s.seasonNumber ?? 1);
+
   const [youthPlayers, setYouthPlayers] = useState<Player[]>(() => {
-    // Akademi seviyesine göre 3-5 genç oyuncu üret
-    const count = 3 + (facilities.levels.academy || 0);
+    try {
+      const saved = localStorage.getItem(`${STORAGE_KEY}_${seasonNumber}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Eski kayıttaki oyuncuları filtrele — terfi edilenler listeden çıkar
+        return parsed;
+      }
+    } catch {}
+    // İlk kez — üret
+    const count = 3 + academyLevel;
     const positions: string[] = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LW", "RW", "ST"];
     return Array.from({ length: Math.min(count, 8) }, () => {
       const pos = positions[Math.floor(Math.random() * positions.length)] as any;
       const p = generatePlayer(pos, { min: 40, max: 60 });
-      p.age = 15 + Math.floor(Math.random() * 4); // 15-18
+      p.age = 15 + Math.floor(Math.random() * 4);
       p.potential = p.rating + 10 + Math.floor(Math.random() * 25);
       p.hidden_potential = p.potential;
       return p;
     });
   });
+
+  // localStorage'a kaydet
+  useEffect(() => {
+    try {
+      localStorage.setItem(`${STORAGE_KEY}_${seasonNumber}`, JSON.stringify(youthPlayers));
+    } catch {}
+  }, [youthPlayers, seasonNumber]);
+
   const [feedback, setFeedback] = useState<string | null>(null);
   const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
 
   if (!team) return null;
-
-  const academyLevel = facilities.levels.academy || 0;
 
   const handlePromote = (player: Player) => {
     haptic("success");

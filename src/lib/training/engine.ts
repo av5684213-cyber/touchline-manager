@@ -261,22 +261,36 @@ export function applyResultsToSquad(squad: Player[], results: TrainingSessionRes
     const r = map.get(p.id);
     if (!r) return p;
     const newCond = Math.max(0, Math.min(100, p.cond + r.condChange));
+    // P1#7 FIX: Hem stats.* hem top-level attribute'ları güncelle
+    // Motor top-level'ları okur (passing, shooting, defending, speed, power, dribbling)
+    const paceGain = r.statGains.pace ?? 0;
+    const shootingGain = r.statGains.shooting ?? 0;
+    const passingGain = r.statGains.passing ?? 0;
+    const defendingGain = r.statGains.defending ?? 0;
+    const physicalGain = r.statGains.physical ?? 0;
+    const dribblingGain = r.statGains.dribbling ?? 0;
     return {
       ...p,
       stats: {
-        pace: Math.min(99, p.stats.pace + (r.statGains.pace ?? 0)),
-        shooting: Math.min(99, p.stats.shooting + (r.statGains.shooting ?? 0)),
-        passing: Math.min(99, p.stats.passing + (r.statGains.passing ?? 0)),
-        defending: Math.min(99, p.stats.defending + (r.statGains.defending ?? 0)),
-        physical: Math.min(99, p.stats.physical + (r.statGains.physical ?? 0)),
-        dribbling: Math.min(99, p.stats.dribbling + (r.statGains.dribbling ?? 0)),
+        pace: Math.min(99, p.stats.pace + paceGain),
+        shooting: Math.min(99, p.stats.shooting + shootingGain),
+        passing: Math.min(99, p.stats.passing + passingGain),
+        defending: Math.min(99, p.stats.defending + defendingGain),
+        physical: Math.min(99, p.stats.physical + physicalGain),
+        dribbling: Math.min(99, p.stats.dribbling + dribblingGain),
       },
+      // P1#7 FIX: Top-level attribute'ları da güncelle — maç motoru bunları okur
+      passing: Math.min(99, (p.passing ?? 50) + passingGain),
+      shooting: Math.min(99, (p.shooting ?? 50) + shootingGain),
+      defending: Math.min(99, (p.defending ?? 50) + defendingGain),
+      speed: Math.min(99, (p.speed ?? 50) + paceGain),
+      power: Math.min(99, (p.power ?? 50) + physicalGain),
+      dribbling: Math.min(99, (p.dribbling ?? 50) + dribblingGain),
       cond: newCond,
       condition: newCond,
       morale: Math.max(0, Math.min(100, p.morale + r.moraleChange)),
-      // rating 0-100, küçük artış
       rating: Math.min(99, Math.round(p.rating + r.ratingChange * 10)),
-    };
+    } as any;
   });
 }
 

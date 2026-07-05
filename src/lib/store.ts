@@ -1176,7 +1176,9 @@ export const useAppStore = create<AppState>()(
           const facilitiesState = get().facilities;
           // Gelir
           const stadiumCap = 5000 + facilitiesState.levels.stadium * 10000;
-          const ticketRev = Math.round(stadiumCap * 0.6 * facilitiesState.ticketPrice);
+          // P1#6 FIX: stadiumMult ekle — Finance ekranıyla tutarlı
+          const stadiumMult = 1 + facilitiesState.levels.stadium * 0.1;
+          const ticketRev = Math.round(stadiumCap * 0.6 * facilitiesState.ticketPrice * stadiumMult);
           const sponsor = 200_000 + facilitiesState.levels.stadium * 30_000;
           const tv = 150_000;
           const merch = Math.round(stadiumCap * 0.4 * 2);

@@ -88,7 +88,23 @@ export function ScoutingScreen() {
         }
       }
 
-      setResults(pool.slice(0, 20));
+      const sliced = pool.slice(0, 20);
+      setResults(sliced);
+
+      // P1#10 FIX: Bulunan oyuncuları transfer.freeAgents'a ekle
+      // Böylece transfer ekranından da alınabilirler
+      const store = useAppStore.getState();
+      const existingIds = new Set(store.transfer.freeAgents.map(l => l.player.id));
+      const newAdditions = sliced.filter(l => !existingIds.has(l.player.id));
+      if (newAdditions.length > 0) {
+        useAppStore.setState({
+          transfer: {
+            ...store.transfer,
+            freeAgents: [...store.transfer.freeAgents, ...newAdditions],
+          },
+        });
+      }
+
       setSearching(false);
     }, 800);
   };
