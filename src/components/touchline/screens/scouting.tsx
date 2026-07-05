@@ -306,7 +306,7 @@ export function ScoutingScreen() {
                 className="tm-tap tm-card p-2.5 flex items-center gap-2.5 cursor-pointer hover:bg-accent/50 transition-colors"
               >
                 <PlayerAvatar
-                  initials={`${listing.player.firstName[0]}${listing.player.lastName[0]}`}
+                  initials={listing.player.specificPosition ?? "—"}
                   size={32}
                 />
                 <div className="flex-1 min-w-0">

@@ -388,10 +388,10 @@ export function TransferScreen() {
             const player = team.players.find((p) => p.id === listed.playerId);
             if (!player) return null;
             return (
-              <div key={listed.playerId} className="tm-card p-3">
+              <div key={listed.playerId} className="tm-card py-2.5 px-3">
                 <div className="flex items-center gap-3">
                   <PlayerAvatar
-                    initials={`${player.firstName[0]}${player.lastName[0]}`}
+                    initials={player.specificPosition ?? "—"}
                     color={team.primaryColor}
                     size={36}
                   />
@@ -479,7 +479,7 @@ function PlayerCard({
         aria-label="Profil"
       >
         <PlayerAvatar
-          initials={`${player.firstName[0]}${player.lastName[0]}`}
+          initials={player.specificPosition ?? "—"}
           size={36}
         />
       </button>
@@ -562,11 +562,11 @@ function IncomingOfferCard({
       : t("transfer.incoming.recommended.negotiate");
 
   return (
-    <div className="tm-card p-3">
+    <div className="tm-card py-2.5 px-3">
       <div className="flex items-center gap-3 mb-2">
         {player && (
           <PlayerAvatar
-            initials={`${player.firstName[0]}${player.lastName[0]}`}
+            initials={player.specificPosition ?? "—"}
             color={team?.primaryColor}
             size={36}
           />
@@ -699,7 +699,7 @@ function OfferModal({
           {/* Player summary */}
           <div className="flex items-center gap-3">
             <PlayerAvatar
-              initials={`${player.firstName[0]}${player.lastName[0]}`}
+              initials={player.specificPosition ?? "—"}
               size={44}
             />
             <div className="flex-1">

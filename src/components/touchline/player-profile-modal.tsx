@@ -111,10 +111,18 @@ export function PlayerProfileModal({
       <div className="relative w-full max-w-[440px] bg-background h-screen flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-border" style={{ background: "var(--primary)" }}>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-white">{player.firstName} {player.lastName}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-sm font-bold text-white truncate">{player.firstName} {player.lastName}</span>
+            {/* TALİMAT: Takım adı ismin yanına */}
+            {(() => {
+              const allClubs = useAppStore.getState().clubs;
+              const playerTeam = allClubs.find(c => c.players.some(p => p.id === player.id));
+              return playerTeam ? (
+                <span className="text-[10px] text-white/70 truncate">· {playerTeam.name}</span>
+              ) : null;
+            })()}
           </div>
-          <button onClick={onClose} className="tm-tap p-1 text-white/80" aria-label={t("common.close")}>
+          <button onClick={onClose} className="tm-tap p-1 text-white/80 shrink-0" aria-label={t("common.close")}>
             <X size={16} />
           </button>
         </div>
@@ -506,6 +514,33 @@ function StatsTab({
           </div>
         ))}
       </div>
+
+      {/* TALİMAT: Sakatlık geçmişi — istatistikler sekmesinin en altında */}
+      {(() => {
+        const injuries = (player as any).injury_history ?? [];
+        if (injuries.length === 0) {
+          return (
+            <div className="tm-card p-2.5">
+              <div className="text-[9px] text-muted-foreground uppercase tracking-wide font-bold mb-1">🩹 Sakatlık Geçmişi</div>
+              <div className="text-[10px] text-muted-foreground text-center py-1">Kayıtlı sakatlık yok.</div>
+            </div>
+          );
+        }
+        return (
+          <div className="tm-card p-2.5">
+            <div className="text-[9px] text-muted-foreground uppercase tracking-wide font-bold mb-2">🩹 Sakatlık Geçmişi</div>
+            <div className="space-y-1">
+              {injuries.map((inj: any, i: number) => (
+                <div key={i} className="flex items-center justify-between text-[10px] py-1 border-b border-border/30 last:border-b-0">
+                  <span className="text-muted-foreground">{inj.date ?? "—"}</span>
+                  <span className="font-medium">{inj.type ?? "Sakatlık"}</span>
+                  <span className="text-muted-foreground tabular-nums">{inj.duration_days ?? inj.remaining_days ?? "?"} gün</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

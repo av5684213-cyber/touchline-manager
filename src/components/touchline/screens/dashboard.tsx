@@ -8,6 +8,7 @@ import {
   Flame,
   Heart,
   ListChecks,
+  MessageSquare,
   TrendingUp,
   Trophy,
   Users,
@@ -171,6 +172,45 @@ export function DashboardScreen() {
       {/* Enflasyon göstergesi */}
       <InflationIndicator />
 
+      {/* Bildirimler — TALİMAT: en üstte */}
+      <section>
+        <SectionTitle icon={Bell} title={t("dash.notifications")} />
+        <div className="tm-card divide-y divide-border">
+          {notifs.length === 0 && (
+            <div className="p-4 text-sm text-muted-foreground text-center">
+              {t("dash.notifications.empty")}
+            </div>
+          )}
+          {notifs.slice(0, 5).map((n) => {
+            const notifTeam = n.teamId ? clubs.find((c) => c.id === n.teamId) : null;
+            const notifPlayer = n.playerId ? team?.players.find((p) => p.id === n.playerId) : null;
+            return (
+              <button
+                key={n.id}
+                onClick={() => {
+                  haptic("light");
+                  if (notifPlayer) setProfilePlayer(notifPlayer);
+                  else if (notifTeam) setSelectedTeamId(notifTeam.id);
+                }}
+                className="tm-tap w-full flex items-start gap-3 p-3 text-left hover:bg-accent/50 transition-colors"
+              >
+                <NotifIcon kind={n.kind} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold">{n.title[locale]}</div>
+                  <div className="text-xs text-muted-foreground">{n.body[locale]}</div>
+                </div>
+                <div className="text-[10px] text-muted-foreground whitespace-nowrap">
+                  {relativeTime(n.at, locale)}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Mesajlar kutusu — TALİMAT: yeni kutu olarak eklendi */}
+      <MessagesBox />
+
       {/* Hoşgeldin kartı */}
       <WelcomeBanner teamName={team.name} />
 
@@ -182,9 +222,6 @@ export function DashboardScreen() {
 
       {/* Günlük Görevler */}
       <DailyTasks />
-
-      {/* Rozetler */}
-      <AchievementsCard />
 
       {/* Achievement Toast */}
       <AchievementToast achievements={newAchievements} onClose={() => setNewAchievements([])} />
@@ -327,41 +364,8 @@ export function DashboardScreen() {
         </section>
       )}
 
-      {/* Notifications */}
-      <section>
-        <SectionTitle icon={Bell} title={t("dash.notifications")} />
-        <div className="tm-card divide-y divide-border">
-          {notifs.length === 0 && (
-            <div className="p-4 text-sm text-muted-foreground text-center">
-              {t("dash.notifications.empty")}
-            </div>
-          )}
-          {notifs.map((n) => {
-            const notifTeam = n.teamId ? clubs.find((c) => c.id === n.teamId) : null;
-            const notifPlayer = n.playerId ? team?.players.find((p) => p.id === n.playerId) : null;
-            return (
-              <button
-                key={n.id}
-                onClick={() => {
-                  haptic("light");
-                  if (notifPlayer) setProfilePlayer(notifPlayer);
-                  else if (notifTeam) setSelectedTeamId(notifTeam.id);
-                }}
-                className="tm-tap w-full flex items-start gap-3 p-3 text-left hover:bg-accent/50 transition-colors"
-              >
-                <NotifIcon kind={n.kind} />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold">{n.title[locale]}</div>
-                  <div className="text-xs text-muted-foreground">{n.body[locale]}</div>
-                </div>
-                <div className="text-[10px] text-muted-foreground whitespace-nowrap">
-                  {relativeTime(n.at, locale)}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </section>
+      {/* Rozetler — TALİMAT: en alta taşındı */}
+      <AchievementsCard />
 
       {/* Advance matchday button — bot maçlarını oynar + haftayı ilerletir */}
       {!allPlayed && (
@@ -803,5 +807,36 @@ function WelcomeBanner({ teamName }: { teamName: string }) {
         <button onClick={() => setDismissed(true)} className="tm-tap text-muted-foreground text-xs">✕</button>
       </div>
     </div>
+  );
+}
+
+// Mesajlar kutusu — TALİMAT: Dashboard'a yeni kutu olarak eklendi
+function MessagesBox() {
+  const { t } = useI18n();
+  const transfer = useAppStore((s) => s.transfer);
+  const messages = transfer.messages ?? [];
+  const unreadCount = messages.filter(m => !m.read).length;
+
+  return (
+    <section>
+      <SectionTitle icon={MessageSquare} title={`Mesajlar${unreadCount > 0 ? ` (${unreadCount} yeni)` : ""}`} />
+      <div className="tm-card divide-y divide-border">
+        {messages.length === 0 ? (
+          <div className="p-4 text-sm text-muted-foreground text-center">
+            Yeni mesaj yok.
+          </div>
+        ) : (
+          messages.slice(0, 3).map((m) => (
+            <div key={m.id} className={cn("p-3 flex items-start gap-2", !m.read && "bg-primary/5")}>
+              <div className={cn("w-2 h-2 rounded-full mt-1.5 shrink-0", m.read ? "bg-transparent" : "bg-primary")} />
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-semibold truncate">{m.fromTeamName ?? "Mesaj"}</div>
+                <div className="text-[10px] text-muted-foreground truncate">{m.message ?? ""}</div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
   );
 }
