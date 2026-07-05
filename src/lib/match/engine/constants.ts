@@ -544,10 +544,10 @@ export const DEFEND_PROBS = {
 
 // ─── Güç Oranı Çarpanları ──────────────────────────────────────────────
 export const STRENGTH_RATIO = {
-  attackShot: 1.5,
-  attackChance: 1.3,
-  defendTackle: 1.3,
-  defendSave: 1.5,
+  attackShot: 2.0,      // 1.5→2.0: güçlü takım daha çok şut atar
+  attackChance: 1.8,    // 1.3→1.8: güçlü takım daha çok fırsat yaratır
+  defendTackle: 1.8,    // 1.3→1.8: güçlü savunma daha çok müdahale yapar
+  defendSave: 2.0,      // 1.5→2.0: güçlü kaleci daha çok kurtarır
 } as const;
 
 // ─── Olasılık Üst Sınırları ────────────────────────────────────────────

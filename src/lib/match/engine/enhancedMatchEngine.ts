@@ -1145,7 +1145,7 @@ function getEventProbabilities(
 // penalty alanına sahip negatif traitler motoru etkiler.
 // Her trait'in goalChance üzerindeki etkisi maksimum ±0.03 ile sınırlıdır.
 
-const TRAIT_EFFECT_CAP = 0.03; // Maksimum ±0.03 goalChance değişimi per trait
+const TRAIT_EFFECT_CAP = 0.06; // Maksimum ±0.06 goalChance değişimi per trait (0.03→0.06)
 
 // Level bazlı varsayılan engineWeight (trait'in kendi engineEffect'i yoksa)
 const DEFAULT_ENGINE_WEIGHT: Record<string, number> = {
@@ -1971,6 +1971,38 @@ export function simulateEnhancedMatch(
 
       let goalChance = baseGoalChance * strengthRatio * (finishing / (finishing + gkRating * GOAL_CHANCE.gkWeight));
 
+      // 📊 GÜÇLÜ OVR ETKİSİ — finishing'i OVR ile güçlendir
+      // 90 OVR forvet finishing'i 0.9 ise → 0.9 * (1 + 0.3) = 1.17
+      // 50 OVR forvet finishing'i 0.5 ise → 0.5 * (1 + 0) = 0.5
+      // Fark: 2.3x gol şansı
+      const scorerOvr = (selectedPlayer.player.rating ?? 50);
+      const ovrGoalMultiplier = 1 + Math.max(0, (scorerOvr - 50) / 100); // 50→1.0, 90→1.4
+      goalChance *= ovrGoalMultiplier;
+
+      // 🎭 ARKETİP ETKİSİ — forvet arketipleri gol şansını modifiye eder
+      const scorerArchetype = (selectedPlayer.player as any).archetype ?? "";
+      if (scorerArchetype === "Gol Makinesi" || scorerArchetype === "Bitirici") {
+        goalChance *= 1.25; // %25 daha çok gol
+      } else if (scorerArchetype === "Hızlı Forvet" || scorerArchetype === "Hızlı Kanat") {
+        goalChance *= 1.15; // %15 daha çok gol (hızlı kontra)
+      } else if (scorerArchetype === "Hedef Adam") {
+        goalChance *= 1.10; // %10 daha çok gol (kafa)
+      } else if (scorerArchetype === "Playmaker" || scorerArchetype === "Numara 10" || scorerArchetype === "Oyun Kurucu") {
+        goalChance *= 1.08; // %8 daha çok gol (asist kralı ama gol de atar)
+      }
+
+      // 🎭 MAÇ KARAKTERİ — clutch forvet penaltıda/son dakikada daha çok gol atar
+      const scorerChar = (selectedPlayer.player as any).match_character ?? "";
+      if (scorerChar === "clutch") goalChance *= 1.15;
+      if (scorerChar === "big_match") goalChance *= 1.12;
+      if (scorerChar === "closer" && currentMinute <= 15) goalChance *= 1.20;
+      if (scorerChar === "inconsistent") goalChance *= (0.7 + Math.random() * 0.6); // 0.7-1.3 arası
+
+      // 🛡️ SAVUNMA KARAKTERİ — güçlü savunma gol şansını düşürür
+      const defChar = (opponentDefender?.player as any)?.match_character ?? "";
+      if (defChar === "leader") goalChance *= 0.90; // lider savunma %10 az gol
+      if (defChar === "clutch") goalChance *= 0.88; // soğukkanlı savunma
+
       // ── Pozisyon etkinlik carpani ──────────────────────────────────────
       // Oyuncunun pozisyonuna uygunlugu goalChance'i etkiler
       // effectiveRating = rating * (0.7 + 0.3 * effectiveness)
@@ -2771,10 +2803,54 @@ export function simulateEnhancedMatch(
       }
     }
 
-    // 📊 OVR FARKI ETKİSİ — yüksek OVR'lı oyuncu daha yüksek rating alır
-    // player.rating (OVR) ile maç rating'i arasındaki bağıntıyı güçlendir
-    const ovrBonus = ((state.player.rating ?? 50) - 50) * 0.03; // 50 OVR = 0, 90 OVR = +1.2
+    // 📊 OVR FARKI ETKİSİ — ÇOK DAHA GÜÇLÜ
+    // 50 OVR = +0, 70 OVR = +1.6, 80 OVR = +2.4, 90 OVR = +3.2, 95 OVR = +3.6
+    // Yüksek OVR'lı oyuncular maç rating'inde belirgin şekilde üstün olmalı
+    const ovrBonus = ((state.player.rating ?? 50) - 50) * 0.08;
     rating += ovrBonus;
+
+    // 📊 DETAYLI STAT ETKİSİ — oyuncunun pozisyonuna göre en kritik stat bonusu
+    // Bu, "sadece OVR değil, hangi stat'ların yüksek olduğu da önemli" sağlar
+    const p: any = state.player;
+    const statPos = state.player.specificPosition || "";
+    let statBonus = 0;
+    if (["ST", "CF"].includes(statPos)) {
+      // Forvet: finishing + composure
+      const fin = p.finishing ?? p.shooting ?? 50;
+      const comp = p.composure ?? 50;
+      statBonus = ((fin - 50) * 0.015) + ((comp - 50) * 0.01);
+    } else if (["LW", "RW", "LM", "RM"].includes(pos)) {
+      // Kanat: dribbling + speed + crossing
+      const drb = p.dribbling ?? 50;
+      const spd = p.speed ?? p.pace ?? 50;
+      statBonus = ((drb - 50) * 0.012) + ((spd - 50) * 0.012);
+    } else if (["CAM", "CM"].includes(pos)) {
+      // Orta saha: passing + vision
+      const pas = p.passing ?? 50;
+      const vis = p.vision ?? 50;
+      statBonus = ((pas - 50) * 0.015) + ((vis - 50) * 0.01);
+    } else if (pos === "CDM") {
+      // Defansif orta saha: tackling + positioning
+      const tck = p.tackling ?? p.defending ?? 50;
+      const pos2 = p.positioning ?? 50;
+      statBonus = ((tck - 50) * 0.015) + ((pos2 - 50) * 0.01);
+    } else if (["CB"].includes(pos)) {
+      // Stoper: tackling + marking
+      const tck = p.tackling ?? p.defending ?? 50;
+      const mrk = p.marking ?? 50;
+      statBonus = ((tck - 50) * 0.015) + ((mrk - 50) * 0.012);
+    } else if (["LB", "RB"].includes(pos)) {
+      // Bek: tackling + speed + crossing
+      const tck = p.tackling ?? p.defending ?? 50;
+      const spd = p.speed ?? p.pace ?? 50;
+      statBonus = ((tck - 50) * 0.012) + ((spd - 50) * 0.012);
+    } else if (pos === "GK") {
+      // Kaleci: goalkeeping + reflexes
+      const gk = p.goalkeeping ?? 50;
+      const rfx = p.reflexes ?? 50;
+      statBonus = ((gk - 50) * 0.015) + ((rfx - 50) * 0.012);
+    }
+    rating += statBonus;
 
     // 👤 YAŞ FAKTÖRÜ — prime yaş (24-29) en iyi, genç/yaşlı daha düşük
     const age = state.player.age ?? 25;
