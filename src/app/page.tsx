@@ -23,6 +23,7 @@ import { AwardsScreen } from "@/components/touchline/screens/awards";
 import { CupScreen } from "@/components/touchline/screens/cup";
 import { TopScorersScreen } from "@/components/touchline/screens/top-scorers";
 import { WeeklyReportScreen } from "@/components/touchline/screens/weekly-report";
+import { ReportsScreen } from "@/components/touchline/screens/reports";
 import { ComingSoonScreen } from "@/components/touchline/screens/coming-soon";
 import { FriendlyScreen } from "@/components/touchline/screens/friendly";
 import { OtherDrawer } from "@/components/touchline/other-drawer";
@@ -87,6 +88,7 @@ export default function Home() {
           {tab === "topscorers" && <TopScorersScreen />}
           {tab === "cup" && <CupScreen />}
           {tab === "friendly" && <FriendlyScreen />}
+          {tab === "reports" && <ReportsScreen />}
         </main>
         <BottomNav
           active={tab}
