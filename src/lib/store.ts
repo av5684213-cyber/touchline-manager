@@ -1140,6 +1140,50 @@ export const useAppStore = create<AppState>()(
           return { ...m, homeScore: hs, awayScore: asNum, played: true };
         });
 
+        // Adım 3: Kupa maçlarında oyunculara gol/asist dağıt — Gol Kralı resmi maçları kapsar
+        const pickScorerCup = (players: any[]) => {
+          const attackers = players.filter(p => p.specificPosition !== "GK" && !p.is_injured);
+          if (attackers.length === 0) return null;
+          const forwards = attackers.filter(p => ["ST", "CF", "LW", "RW", "LM", "RM", "CAM"].includes(p.specificPosition));
+          const pool = forwards.length > 0 && Math.random() > 0.3 ? forwards : attackers;
+          return pool[Math.floor(Math.random() * pool.length)];
+        };
+
+        const allClubsForCup = [...clubs];
+        for (const m of updatedMatches) {
+          if (m.round !== cup.currentRound || !m.played) continue;
+          const homeTeam = allClubsForCup.find(c => c.id === m.homeId);
+          const awayTeam = allClubsForCup.find(c => c.id === m.awayId);
+          if (!homeTeam || !awayTeam) continue;
+
+          // Home goals dağıt
+          for (let i = 0; i < (m.homeScore ?? 0); i++) {
+            const scorer = pickScorerCup(homeTeam.players);
+            if (scorer) {
+              scorer.goals = (scorer.goals ?? 0) + 1;
+              scorer.appearances = (scorer.appearances ?? 0) + 1;
+              const assistPool = homeTeam.players.filter(p => p.id !== scorer?.id && p.specificPosition !== "GK");
+              if (assistPool.length > 0 && Math.random() > 0.4) {
+                const assister = assistPool[Math.floor(Math.random() * assistPool.length)];
+                assister.assists = (assister.assists ?? 0) + 1;
+              }
+            }
+          }
+          // Away goals dağıt
+          for (let i = 0; i < (m.awayScore ?? 0); i++) {
+            const scorer = pickScorerCup(awayTeam.players);
+            if (scorer) {
+              scorer.goals = (scorer.goals ?? 0) + 1;
+              scorer.appearances = (scorer.appearances ?? 0) + 1;
+              const assistPool = awayTeam.players.filter(p => p.id !== scorer?.id && p.specificPosition !== "GK");
+              if (assistPool.length > 0 && Math.random() > 0.4) {
+                const assister = assistPool[Math.floor(Math.random() * assistPool.length)];
+                assister.assists = (assister.assists ?? 0) + 1;
+              }
+            }
+          }
+        }
+
         // Kullanıcının sonucu
         let myResult: string | undefined;
         const myMatch = currentMatches.find(m => m.homeId === myTeamId || m.awayId === myTeamId);
@@ -1176,18 +1220,17 @@ export const useAppStore = create<AppState>()(
 
         // Şampiyon
         let champion: string | undefined;
-        const allClubs = [...clubs];
         if (winners.length === 1 && nextMatches.length === 0) {
           champion = winners[0];
           if (champion === myTeamId) {
             const reward = 1_000_000;
-            const t2 = allClubs.find(c => c.id === myTeamId);
+            const t2 = allClubsForCup.find(c => c.id === myTeamId);
             if (t2) t2.budget += reward;
           }
         }
 
         set({
-          clubs: allClubs,
+          clubs: allClubsForCup,
           cup: {
             matches: [...updatedMatches, ...nextMatches],
             currentRound: nextMatches.length > 0 ? nextRound : cup.currentRound,
