@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   ChevronDown,
   GitCompare,
+  Info,
   Repeat,
   SlidersHorizontal,
   Trophy,
@@ -496,8 +497,9 @@ export function TacticsScreen() {
             setSlotPicker(null);
           }}
           onRoleClick={() => {
-            setRoleSlot(slotPicker);
-            setSlotPicker(null);
+            // KAPANMAYACAK — rol seçimi picker içinde inline yapılır
+            // setSlotPicker(null) YAPMA
+            haptic("light");
           }}
           onClose={() => setSlotPicker(null)}
         />
@@ -1056,6 +1058,7 @@ function SlotPlayerPicker({
   onClear,
   onRoleClick,
   onClose,
+  onShowProfile,
 }: {
   slotIndex: number;
   slotPos: string;
@@ -1065,9 +1068,12 @@ function SlotPlayerPicker({
   onClear: () => void;
   onRoleClick: () => void;
   onClose: () => void;
+  onShowProfile?: (player: PlayerT) => void;
 }) {
   const { t, locale } = useI18n();
   const [showAll, setShowAll] = useState(false);
+  // INLINE mod: "players" (oyuncu listesi) | "roles" (rol listesi) — picker KAPANMAZ
+  const [mode, setMode] = useState<"players" | "roles">("players");
 
   // Slot pozisyonuna göre grup belirle
   const slotGroup = POSITION_GROUP[slotPos as keyof typeof POSITION_GROUP] ?? "MID";
@@ -1089,104 +1095,207 @@ function SlotPlayerPicker({
 
   const candidates = showAll ? [...sameGroup, ...otherGroup] : sameGroup;
 
+  // Mevcut rol
+  const currentRole = useAppStore.getState().tactics.slotRoles[slotIndex] ?? "";
+
+  // Pozisyona göre gösterilecek stat'lar
+  const getPosStats = (p: PlayerT): string => {
+    const pos = p.specificPosition;
+    const s = p.stats;
+    if (["ST", "CF"].includes(pos)) return `Şut:${s.shooting} Bit:${(p as any).finishing ?? s.shooting}`;
+    if (["LW", "RW", "LM", "RM"].includes(pos)) return `Drib:${s.dribbling} Hız:${s.pace}`;
+    if (["CAM", "CM"].includes(pos)) return `Pas:${s.passing} Tek:${s.dribbling}`;
+    if (pos === "CDM") return `Def:${s.defending} Pas:${s.passing}`;
+    if (["CB"].includes(pos)) return `Def:${s.defending} Fiz:${s.physical}`;
+    if (["LB", "RB"].includes(pos)) return `Def:${s.defending} Hız:${s.pace}`;
+    if (pos === "GK") return `Kale:${(p as any).goalkeeping ?? 50}`;
+    return `Pas:${s.passing} Def:${s.defending}`;
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
       <div className="relative w-full max-w-[390px] bg-background rounded-t-2xl border-t border-border tm-safe-bottom max-h-[80vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <div>
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+          <div className="flex-1 min-w-0">
             <h3 className="text-sm font-bold">Slot {slotIndex + 1} — {slotPos}</h3>
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-[10px] text-muted-foreground truncate">
               {current ? `Şu an: ${current.firstName} ${current.lastName}` : "Boş slot"}
             </p>
           </div>
+          {current && onShowProfile && (
+            <button
+              onClick={() => { haptic("light"); onShowProfile(current); }}
+              className="tm-tap p-1.5 mr-1 rounded-full border border-sky-500/40 bg-sky-500/10 text-sky-400"
+              title="Oyuncu kartını aç"
+            >
+              <Info size={14} />
+            </button>
+          )}
           <button onClick={onClose} className="tm-tap p-1">
             <X size={16} />
           </button>
         </div>
 
-        {/* Action buttons */}
-        <div className="flex gap-1.5 p-2 border-b border-border">
+        {/* INLINE TAB: Oyuncular / Roller — picker KAPANMAZ */}
+        <div className="flex gap-1 p-2 border-b border-border">
           <button
-            onClick={onRoleClick}
-            className="tm-tap flex-1 py-1.5 rounded text-[10px] font-bold border border-border bg-card"
-          >
-            🎭 Rol Seç
-          </button>
-          {current && (
-            <button
-              onClick={onClear}
-              className="tm-tap flex-1 py-1.5 rounded text-[10px] font-bold border border-red-500/30 bg-red-500/10 text-red-400"
-            >
-              ✕ Boşalt
-            </button>
-          )}
-          <button
-            onClick={() => setShowAll(!showAll)}
+            onClick={() => { haptic("light"); setMode("players"); }}
             className={cn(
               "tm-tap flex-1 py-1.5 rounded text-[10px] font-bold border",
-              showAll ? "bg-primary text-primary-foreground border-primary" : "border-border bg-card"
+              mode === "players" ? "bg-primary text-primary-foreground border-primary" : "border-border bg-card text-muted-foreground"
             )}
           >
-            {showAll ? "Sadece Önerilen" : "Tümünü Göster"}
+            👥 Oyuncular
+          </button>
+          <button
+            onClick={() => { haptic("light"); setMode("roles"); }}
+            className={cn(
+              "tm-tap flex-1 py-1.5 rounded text-[10px] font-bold border",
+              mode === "roles" ? "bg-primary text-primary-foreground border-primary" : "border-border bg-card text-muted-foreground"
+            )}
+          >
+            🎭 Rol {currentRole ? "✓" : ""}
           </button>
         </div>
 
-        {/* Player list */}
-        <div className="flex-1 overflow-y-auto tm-thin-scrollbar p-2 space-y-1">
-          {candidates.length === 0 && (
-            <div className="text-center text-xs text-muted-foreground py-6">
-              Uygun oyuncu yok
-            </div>
-          )}
-          {candidates.map((p) => {
-            const isCurrent = current?.id === p.id;
-            const isUsed = usedIds.has(p.id) && !isCurrent;
-            return (
+        {/* Player list — ince satırlar, OVR + pozisyon stats */}
+        {mode === "players" && (
+          <>
+            {/* Filter buttons */}
+            <div className="flex gap-1.5 px-2 py-1.5 border-b border-border">
+              {current && (
+                <button
+                  onClick={onClear}
+                  className="tm-tap flex-1 py-1 rounded text-[9px] font-bold border border-red-500/30 bg-red-500/10 text-red-400"
+                >
+                  ✕ Boşalt
+                </button>
+              )}
               <button
-                key={p.id}
-                onClick={() => !isUsed && onPick(p.id)}
-                disabled={isUsed}
+                onClick={() => setShowAll(!showAll)}
                 className={cn(
-                  "tm-tap w-full flex items-center gap-2.5 p-2.5 rounded-md border text-left",
-                  isCurrent ? "bg-primary/10 border-primary" : "bg-card border-border",
-                  isUsed && "opacity-40"
+                  "tm-tap flex-1 py-1 rounded text-[9px] font-bold border",
+                  showAll ? "bg-primary text-primary-foreground border-primary" : "border-border bg-card"
                 )}
               >
-                <PlayerAvatar
-                  initials={p.specificPosition}
-                  color={team.primaryColor}
-                  size={32}
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-semibold truncate">
-                      {p.firstName} {p.lastName}
-                    </span>
-                    <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
-                    {isCurrent && (
-                      <span className="text-[8px] px-1 py-0.5 rounded bg-primary text-primary-foreground font-bold">
-                        SEÇİLİ
-                      </span>
-                    )}
-                    {isUsed && (
-                      <span className="text-[8px] px-1 py-0.5 rounded bg-muted text-muted-foreground">
-                        Başka slotta
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[9px] text-muted-foreground">
-                    {p.age}{t("common.year")} · {p.archetype ?? "—"} · Kondisyon {p.cond}%
-                  </div>
-                </div>
-                <div className="text-right">
-                  <RatingBadge value={p.formRating} />
-                </div>
+                {showAll ? "Sadece Önerilen" : "Tümünü Göster"}
               </button>
-            );
-          })}
-        </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto tm-thin-scrollbar px-1.5 py-1 space-y-0.5">
+              {candidates.length === 0 && (
+                <div className="text-center text-xs text-muted-foreground py-6">
+                  Uygun oyuncu yok
+                </div>
+              )}
+              {candidates.map((p) => {
+                const isCurrent = current?.id === p.id;
+                const isUsed = usedIds.has(p.id) && !isCurrent;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => !isUsed && onPick(p.id)}
+                    disabled={isUsed}
+                    className={cn(
+                      "tm-tap w-full flex items-center gap-2 py-1.5 px-2 rounded border text-left",
+                      isCurrent ? "bg-primary/10 border-primary" : "bg-card border-border",
+                      isUsed && "opacity-40"
+                    )}
+                  >
+                    {/* OVR — büyük göster */}
+                    <div className="shrink-0 w-8 h-8 rounded flex items-center justify-center text-xs font-bold text-white"
+                      style={{ background: p.rating >= 80 ? "#16a34a" : p.rating >= 70 ? "#0891b2" : p.rating >= 60 ? "#d97706" : "#dc2626" }}>
+                      {p.rating}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[11px] font-semibold truncate">
+                          {p.firstName} {p.lastName}
+                        </span>
+                        {isCurrent && <span className="text-[7px] px-0.5 py-0 rounded bg-primary text-primary-foreground font-bold">SEÇİLİ</span>}
+                        {isUsed && <span className="text-[7px] text-muted-foreground">dolu</span>}
+                      </div>
+                      {/* Pozisyon stats — ince satır */}
+                      <div className="text-[8px] text-muted-foreground truncate">
+                        {p.specificPosition} · {getPosStats(p)} · {p.cond}%
+                      </div>
+                    </div>
+                    {/* Form rating */}
+                    <div className="shrink-0 text-right">
+                      <div className="text-[9px] font-bold tabular-nums text-muted-foreground">{(p.formRating ?? 0).toFixed(1)}</div>
+                      <div className="text-[7px] text-muted-foreground">form</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* Role list — INLINE, picker KAPANMAZ */}
+        {mode === "roles" && (
+          <div className="flex-1 overflow-y-auto tm-thin-scrollbar p-2 space-y-1">
+            <button
+              onClick={() => { haptic("light"); useAppStore.getState().setSlotRole(slotIndex, ""); }}
+              className={cn(
+                "tm-tap w-full px-2 py-1.5 rounded text-[11px] font-semibold border text-left flex items-center gap-2",
+                !currentRole ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border"
+              )}
+            >
+              <span className="text-base">🚫</span>
+              <span>Rol Yok</span>
+              {!currentRole && <span className="ml-auto text-[9px]">✓</span>}
+            </button>
+            {getCompatibleRoles(slotPos).map((r) => {
+              const isSel = currentRole === r.id;
+              const benefit = ROLE_BENEFITS[r.id] ?? { att: 50, def: 50, style: [], desc: "" };
+              const att = benefit.att;
+              const def = benefit.def;
+              const attLabel = att >= 70 ? "Yüksek" : att >= 40 ? "Orta" : "Düşük";
+              const defLabel = def >= 70 ? "Yüksek" : def >= 40 ? "Orta" : "Düşük";
+              const attColor = att >= 70 ? "text-emerald-400" : att >= 40 ? "text-amber-400" : "text-red-400";
+              const defColor = def >= 70 ? "text-emerald-400" : def >= 40 ? "text-amber-400" : "text-red-400";
+              return (
+                <button
+                  key={r.id}
+                  onClick={() => { haptic("light"); useAppStore.getState().setSlotRole(slotIndex, r.id); }}
+                  className={cn(
+                    "tm-tap w-full px-2 py-1.5 rounded text-[11px] font-semibold border text-left",
+                    isSel ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">{r.icon}</span>
+                    <span className="flex-1">{r.name}</span>
+                    {isSel && <span className="text-[9px]">✓</span>}
+                  </div>
+                  <div className={cn("mt-0.5 flex flex-wrap gap-1.5", isSel ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                    <span className="text-[8px] flex items-center gap-0.5">
+                      <span>⚔️</span>
+                      <span className={cn("font-bold", !isSel && attColor)}>{attLabel}</span>
+                    </span>
+                    <span className="text-[8px] flex items-center gap-0.5">
+                      <span>🛡️</span>
+                      <span className={cn("font-bold", !isSel && defColor)}>{defLabel}</span>
+                    </span>
+                    {benefit.style.map((s) => (
+                      <span key={s.name} className={cn("text-[8px]", s.val > 0 ? "" : "opacity-50")}>
+                        {s.val > 0 ? "+" : ""}{s.val}% {s.name}
+                      </span>
+                    ))}
+                  </div>
+                  {benefit.desc && (
+                    <div className={cn("mt-0.5 text-[9px] leading-tight", isSel ? "text-primary-foreground/70" : "text-muted-foreground/80")}>
+                      {benefit.desc}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
