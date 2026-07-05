@@ -77,20 +77,22 @@ export const MENTALITY_LABELS: Record<Mentality, { tr: string; en: string }> = {
 
 // Formasyon → slot pozisyonları (11 oyuncu)
 export const FORMATION_SLOTS: Record<string, string[]> = {
-  "4-4-2": ["GK", "RB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST", "ST"],
-  "4-3-3": ["GK", "RB", "CB", "CB", "LB", "CM", "CM", "CM", "RW", "ST", "LW"],
-  "4-2-3-1": ["GK", "RB", "CB", "CB", "LB", "CDM", "CDM", "CAM", "RW", "ST", "LW"],
-  "4-1-4-1": ["GK", "RB", "CB", "CB", "LB", "CDM", "RM", "CM", "CM", "LM", "ST"],
-  "4-5-1": ["GK", "RB", "CB", "CB", "LB", "RM", "CM", "CDM", "CM", "LM", "ST"],
-  "4-3-2-1": ["GK", "RB", "CB", "CB", "LB", "CM", "CM", "CM", "CAM", "CAM", "ST"],
-  "4-4-1-1": ["GK", "RB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "CF", "ST"],
-  "4-3-1-2": ["GK", "RB", "CB", "CB", "LB", "CM", "CM", "CM", "CAM", "ST", "ST"],
-  "3-5-2": ["GK", "CB", "CB", "CB", "RM", "CM", "CDM", "CM", "LM", "ST", "ST"],
-  "3-4-3": ["GK", "CB", "CB", "CB", "RM", "CM", "CM", "LM", "RW", "ST", "LW"],
-  "3-1-4-2": ["GK", "CB", "CB", "CB", "CDM", "RM", "CM", "CM", "LM", "ST", "ST"],
-  "3-3-3-1": ["GK", "CB", "CB", "CB", "CM", "CM", "CM", "RW", "CAM", "LW", "ST"],
-  "5-4-1": ["GK", "RB", "CB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST"],
-  "5-3-2": ["GK", "RB", "CB", "CB", "CB", "LB", "CM", "CM", "CM", "ST", "ST"],
+  // Slot sırası FORMATION_PITCH koordinatlarıyla EŞLEŞMELİ:
+  // x küçük = SOL (LB, LM, LW), x büyük = SAĞ (RB, RM, RW)
+  "4-4-2": ["GK", "LB", "CB", "CB", "RB", "LM", "CM", "CM", "RM", "ST", "ST"],
+  "4-3-3": ["GK", "LB", "CB", "CB", "RB", "CM", "CM", "CM", "LW", "ST", "RW"],
+  "4-2-3-1": ["GK", "LB", "CB", "CB", "RB", "CDM", "CDM", "CAM", "LW", "ST", "RW"],
+  "4-1-4-1": ["GK", "LB", "CB", "CB", "RB", "CDM", "LM", "CM", "CM", "RM", "ST"],
+  "4-5-1": ["GK", "LB", "CB", "CB", "RB", "LM", "CM", "CDM", "CM", "RM", "ST"],
+  "4-3-2-1": ["GK", "LB", "CB", "CB", "RB", "CM", "CM", "CM", "CAM", "CAM", "ST"],
+  "4-4-1-1": ["GK", "LB", "CB", "CB", "RB", "LM", "CM", "CM", "RM", "CF", "ST"],
+  "4-3-1-2": ["GK", "LB", "CB", "CB", "RB", "CM", "CM", "CM", "CAM", "ST", "ST"],
+  "3-5-2": ["GK", "CB", "CB", "CB", "LM", "CM", "CDM", "CM", "RM", "ST", "ST"],
+  "3-4-3": ["GK", "CB", "CB", "CB", "LM", "CM", "CM", "RM", "LW", "ST", "RW"],
+  "3-1-4-2": ["GK", "CB", "CB", "CB", "CDM", "LM", "CM", "CM", "RM", "ST", "ST"],
+  "3-3-3-1": ["GK", "CB", "CB", "CB", "CM", "CM", "CM", "LW", "CAM", "RW", "ST"],
+  "5-4-1": ["GK", "LB", "CB", "CB", "CB", "RB", "LM", "CM", "CM", "RM", "ST"],
+  "5-3-2": ["GK", "LB", "CB", "CB", "CB", "RB", "CM", "CM", "CM", "ST", "ST"],
 };
 
 export type PitchCoord = { x: number; y: number };
