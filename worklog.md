@@ -1581,3 +1581,22 @@ Stage Summary:
 - Maç sekmesinde "HAFTAYI İLERLE (Test Modu)" butonu eklendi — pencere beklemeden haftayı ilerletebilir.
 - Kullanıcı girişte 500M Euro transfer bütçesi alır.
 - APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.1.0-test-mode/touchline-manager-v1.1.0-release.apk
+
+---
+Task ID: test-mode-play-match-anytime
+Agent: main
+Task: Maçı istediğin an oynatabil — saat 12:00/18:00 beklemeden, tıkla→oyna→sonraki
+
+Work Log:
+- ScheduleWidget onWatch fonksiyonundan pencere kontrolü kaldırıldı (if !schedule.inWindow → haptic error). Artık her durumda showPreMatch(true) çağrılıyor.
+- PreMatchScreen onStart'ta currentMatchId yoksa `manual-${Date.now()}` fallback id ile markMatchWatched çağrılıyor.
+- ScheduleWidget pencere dışı durumuna "MAÇI OYNAT (Test Modu)" butonu eklendi (emerald-600, animate-pulse). Mevcut "HAFTAYI İLERLE" butonunun üstünde.
+- use-match-engine.ts tick interval'inde maç bitince (eventCursor >= allEvents.length) advanceMatchday() çağrısı eklendi. Böylece maç bitince otomatik olarak sonraki haftaya geçiliyor — kullanıcı 12:00 maçını oynasa bile 18:00 maçına hazır hale geliyor.
+- match.tsx finished durumuna "Maç tamamlandı" kartı + "SONRAKİ MAÇA HAZIRLAN" butonu eklendi. Tıklayınca engine.reset() → status idle → ScheduleWidget tekrar gösterilir → sonraki maç oynanabilir.
+- Build başarılı, APK yenilendi (790KB), GitHub Release v1.2.0-test-mode oluşturuldu.
+
+Stage Summary:
+- Akış: Maçı Oynat (12:00) → canlı maç → bitince "Maç tamamlandı" kartı → SONRAKİ MAÇA HAZIRLAN → ScheduleWidget (idle) → Maçı Oynat (18:00) → ... → sonraki hafta.
+- Saatler gerçek hayattan bağımsız, sadece tıklamayla ilerliyor.
+- 500M Euro bütçe + HAFTAYI İLERLE butonu önceki task'tan devam ediyor.
+- APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.2.0-test-mode/touchline-manager-v1.2.0-release.apk
