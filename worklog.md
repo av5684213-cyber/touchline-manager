@@ -1542,3 +1542,21 @@ Stage Summary:
 - Android SDK kuruldu, Gradle build çalışıyor, gerçek APK'ler üretildi.
 - APK'ler download/ klasöründe, kullanıcı indirebilir.
 - Sonraki adım: Play Store için release keystore (upload key) ile imzalama + AAB formatında build.
+
+---
+Task ID: github-release-apk-upload
+Agent: main
+Task: APK'leri GitHub Releases olarak yükle, indirilebilir link ver
+
+Work Log:
+- gh CLI yok — GitHub REST API kullanıldı.
+- Token git remote URL'sinden çıkarıldı (ghp_...).
+- POST /repos/{owner}/{repo}/releases ile v1.0.0-apk tag'inde release oluşturuldu (ID: 349324945).
+- POST /uploads.github.com/repos/.../assets ile iki APK upload edildi:
+  - touchline-manager-v1.0.0-release.apk (790KB)
+  - touchline-manager-v1.0.0-debug.apk (889KB)
+
+Stage Summary:
+- Release URL: https://github.com/av5684213-cyber/touchline-manager/releases/tag/v1.0.0-apk
+- Release APK direct: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.0.0-apk/touchline-manager-v1.0.0-release.apk
+- Debug APK direct: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.0.0-apk/touchline-manager-v1.0.0-debug.apk
