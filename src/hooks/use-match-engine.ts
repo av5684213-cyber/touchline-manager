@@ -772,6 +772,9 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
             result.homeScore,
             result.awayScore
           );
+          // TEST/SOLO MOD: Maç bitince otomatik haftayı ilerlet
+          // (scheduler pencere beklemeden sonraki maça geç)
+          useAppStore.getState().advanceMatchday();
         }
         clearInterval(id);
         return;

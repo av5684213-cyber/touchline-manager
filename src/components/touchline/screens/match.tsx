@@ -245,8 +245,9 @@ export function MatchScreen() {
         onStart={() => {
           setShowPreMatch(false);
           engine.start();
-          // İzlendi olarak işaretle
-          if (currentMatchId) markMatchWatched(currentMatchId);
+          // İzlendi olarak işaretle — test modunda currentMatchId yoksa manuel id ver
+          const matchId = currentMatchId ?? `manual-${Date.now()}`;
+          markMatchWatched(matchId);
         }}
         onBack={() => setShowPreMatch(false)}
       />
@@ -274,11 +275,7 @@ export function MatchScreen() {
             currentWatched={currentWatched}
             currentAutoSimmed={currentAutoSimmed}
             onWatch={() => {
-              // Sadece pencere içindeyken izlenebilir
-              if (!schedule.inWindow) {
-                haptic("error");
-                return;
-              }
+              // TEST/SOLO MOD: Pencere kontrolü yok — istediğin an maçı oynat
               haptic("medium");
               setShowPreMatch(true);
             }}
@@ -418,7 +415,29 @@ export function MatchScreen() {
         )}
 
         {engine.state.status === "finished" && !engine.replay.active && (
-          <StatsBar state={engine.state} />
+          <>
+            {/* TEST/SOLO MOD: Maç bitti → sonraki maça hazırla */}
+            <div className="tm-card p-4 bg-emerald-50/40 border-emerald-200 text-center space-y-3">
+              <Trophy size={28} className="text-emerald-600 mx-auto" />
+              <div className="text-sm font-bold text-emerald-700">Maç tamamlandı</div>
+              <div className="text-[10px] text-muted-foreground">
+                {homeTeam.shortName} {engine.state.homeScore} - {engine.state.awayScore} {awayTeam.shortName}
+              </div>
+              <button
+                onClick={() => {
+                  haptic("success");
+                  engine.reset();
+                }}
+                className="tm-tap w-full py-3 rounded-lg bg-emerald-600 text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+              >
+                <Play size={16} />
+                SONRAKİ MAÇA HAZIRLAN
+              </button>
+              <div className="text-[8px] text-emerald-400/70">
+                Test modu — sonraki maç için tıkla
+              </div>
+            </div>
+          </>
         )}
       </div>
 
@@ -577,6 +596,18 @@ function ScheduleWidget({
         Maçlar hafta içi (Pzt-Cum) TR saatiyle 12:00 ve 18:00'de oynanır. Hafta sonu maç yok.
         <br />
         Saat gelince "MAÇI İZLE" butonu aktif olur.
+      </div>
+
+      {/* TEST/SOLO MOD: Maçı Oynat — pencere dışında da canlı oynatabilir */}
+      <button
+        onClick={onWatch}
+        className="tm-tap w-full py-3 rounded-lg bg-emerald-600 text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform animate-pulse"
+      >
+        <Play size={16} />
+        MAÇI OYNAT (Test Modu)
+      </button>
+      <div className="text-[8px] text-emerald-400/70 text-center -mt-1">
+        Test modu — saati beklemeden maçı canlı oynat
       </div>
 
       {/* TEST MODU: Haftayı ilerle butonu — pencere dışında da çalışır */}
