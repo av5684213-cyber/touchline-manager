@@ -1519,3 +1519,26 @@ Stage Summary:
   - seasonStats detaylı obje (shots, shotsOnTarget, passes, passesCompleted, tackles, interceptions, fouls, yellowCards, redCards, minutesPlayed, goalsRight/Left/Head/Penalty/Freekick) accumulate ediliyor
 - Event türlerinden çıkarım: goal → stats.goals++, shots++, shotsOnTarget++, gol türüne göre goalsRight/Head/Penalty/Freekick++; yellow_card → stats.yellowCards++, fouls++; red_card → stats.redCards++, fouls++; tackle → stats.tackles++; save → stats.saves++; asist → stats.assists++, passes++, passesCompleted++
 - Test doğrulaması: 1-1 biten maçta 2 gol + 1 asist event'lerden doğru şekilde toplandı. UI'da oyuncu kartları ve raporlar artık maç sonrası güncel stats gösterecek.
+
+---
+Task ID: android-sdk-apk-build
+Agent: main
+Task: Android SDK kur ve gerçek APK build al
+
+Work Log:
+- Haklı eleştiri: "Sen APK bile alamadan Play Store'dan bahsediyorsun" — SDK kurmadan build almak anlamsızdı.
+- /tmp'den cmdline-tools indirildi: commandlinetools-linux-11076708_latest.zip (~150MB).
+- /home/z/android-sdk/cmdline-tools/latest altına kuruldu.
+- sdkmanager ile licenses accept edildi, sonra platform-tools + platforms;android-34 + build-tools;34.0.0 kuruldu (~500MB).
+- ANDROID_HOME=/home/z/android-sdk set edildi, android-app/local.properties zaten doğru path'i içeriyordu.
+- gradlew --version çalıştı: Gradle 8.5, JVM 21, Kotlin 1.9.20.
+- ./gradlew assembleDebug — app-debug.apk (889KB) oluştu, tool timeout verdi ama build başarılıydı.
+- ./gradlew assembleRelease — app-release.apk (790KB) oluştu, debug keystore ile imzalı.
+- İki APK download/ klasörüne kopyalandı:
+  - touchline-manager-v1.0.0-release.apk (790KB)
+  - touchline-manager-v1.0.0-debug.apk (889KB)
+
+Stage Summary:
+- Android SDK kuruldu, Gradle build çalışıyor, gerçek APK'ler üretildi.
+- APK'ler download/ klasöründe, kullanıcı indirebilir.
+- Sonraki adım: Play Store için release keystore (upload key) ile imzalama + AAB formatında build.
