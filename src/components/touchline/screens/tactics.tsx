@@ -83,6 +83,8 @@ export function TacticsScreen() {
   });
   // Slot oyuncu seçim modal'ı
   const [slotPicker, setSlotPicker] = useState<number | null>(null);
+  // Yedek kulübesinden oyuncu seçip slota yerleştirme modu
+  const [benchModeSlot, setBenchModeSlot] = useState<string | null>(null);
   // Üst sekme — Diziliş / Oyuncularım / Karşılaştır / Antrenman
   const [topTab, setTopTab] = useState<"lineup" | "squad" | "compare" | "training">("lineup");
   // Formation seçici modal
@@ -93,6 +95,15 @@ export function TacticsScreen() {
   const formation = active.formation;
   const slots = FORMATION_SLOTS[formation] ?? FORMATION_SLOTS["4-4-2"];
   const pitchCoords = FORMATION_PITCH[formation] ?? FORMATION_PITCH["4-4-2"];
+
+  // Yedek kulübesi — lineup'ta olmayan tüm oyuncular (rating'e göre sıralı)
+  const benchPlayers = useMemo(() => {
+    if (!team) return [];
+    const lineupIds = new Set(tactics.lineup.filter((p): p is PlayerT => p !== null).map((p) => p.id));
+    return team.players
+      .filter((p) => !lineupIds.has(p.id) && !p.is_injured)
+      .sort((a, b) => b.rating - a.rating);
+  }, [team, tactics.lineup]);
 
   // Taktik skoru — 3 alt skor + toplam
   const { score, roleScore, instructionScore, attributeScore, strengths, weaknesses } = useMemo(() => {
@@ -465,6 +476,109 @@ export function TacticsScreen() {
                       <div className={cn("mt-1 text-[9px] leading-tight", isSel ? "text-primary-foreground/70" : "text-muted-foreground/80")}>
                         {benefit.desc}
                       </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Yedek Kulübesi — 2D sahanın altında, tıklayınca ilk 11 slot seçimi */}
+      <div className="tm-card overflow-hidden">
+        <div className="px-3 pt-2 pb-1.5 flex items-center justify-between border-b border-border">
+          <div className="flex items-center gap-1.5">
+            <Users size={12} className="text-muted-foreground" />
+            <span className="text-xs font-bold">Yedek Kulübesi</span>
+          </div>
+          <span className="text-[9px] text-muted-foreground">
+            {benchPlayers.length} oyuncu · tıkla → slota yerleştir
+          </span>
+        </div>
+        {benchModeSlot !== null ? (
+          // Bench'ten bir oyuncu seçildi → hangi slota yerleştireceğini sor
+          <div className="p-2.5 bg-amber-500/5 border-b border-amber-500/20">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-bold text-amber-300">
+                {benchPlayers.find(p => p.id === benchModeSlot)?.firstName} {benchPlayers.find(p => p.id === benchModeSlot)?.lastName} → hangi slota?
+              </span>
+              <button
+                onClick={() => { haptic("light"); setBenchModeSlot(null); }}
+                className="tm-tap text-[10px] text-muted-foreground hover:text-foreground"
+              >
+                ✕ İptal
+              </button>
+            </div>
+            <div className="text-[9px] text-muted-foreground mb-2">
+              İlk 11'den bir slota tıkla, oyuncu oraya yerleşsin (mevcut oyuncu yedeğe düşer).
+            </div>
+            {/* Hızlı slot seçimi — 11 slot buton olarak */}
+            <div className="grid grid-cols-6 gap-1">
+              {slots.map((slotPos, i) => {
+                const current = tactics.lineup[i];
+                return (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      haptic("success");
+                      swapLineupSlot(i, benchModeSlot);
+                      setBenchModeSlot(null);
+                    }}
+                    className="tm-tap py-1 px-1 rounded text-[9px] font-bold border bg-card border-border hover:bg-accent/50 transition-colors flex flex-col items-center gap-0.5"
+                  >
+                    <span className="text-[8px] text-muted-foreground">{slotPos}</span>
+                    <span className="text-[9px] truncate max-w-[50px]">
+                      {current ? `${current.firstName[0]}. ${current.lastName}` : "Boş"}
+                    </span>
+                    {current && (
+                      <span className="text-[8px] tabular-nums text-amber-300">{current.rating}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          // Yedek oyuncu listesi — yatay kaydırılabilir
+          <div className="px-2 py-2 overflow-x-auto tm-no-scrollbar">
+            <div className="flex gap-1.5 min-w-min">
+              {benchPlayers.length === 0 && (
+                <div className="text-[10px] text-muted-foreground text-center py-3 w-full">
+                  Tüm oyuncular ilk 11'de — yedek yok.
+                </div>
+              )}
+              {benchPlayers.map((p) => {
+                const posGroup = POSITION_GROUP[p.specificPosition] ?? "MID";
+                const roleId = tactics.slotRoles[Object.keys(tactics.slotRoles).find(k => tactics.lineup[Number(k)]?.id === p.id) ?? "-1"];
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => { haptic("light"); setBenchModeSlot(p.id); }}
+                    className={cn(
+                      "tm-tap shrink-0 w-[68px] flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-md border-2 transition-colors",
+                      "hover:border-primary/50 hover:bg-accent/30",
+                      POSITION_ROW_BG[posGroup],
+                    )}
+                  >
+                    <span
+                      className="inline-flex items-center justify-center rounded-full text-[10px] font-bold text-white border border-white/30"
+                      style={{
+                        width: 28, height: 28,
+                        background: team.primaryColor ?? "#1a3a2a",
+                      }}
+                    >
+                      {p.rating}
+                    </span>
+                    <span className="text-[8px] font-semibold truncate w-full text-center">
+                      {p.firstName[0]}. {p.lastName}
+                    </span>
+                    <span className="text-[7px] text-muted-foreground">{p.specificPosition}</span>
+                    {(p.cond ?? 100) < 50 && (
+                      <span className="text-[7px] text-red-400 font-bold">{p.cond}❤</span>
+                    )}
+                    {p.is_injured && (
+                      <span className="text-[7px] text-red-400 font-bold">🤕</span>
                     )}
                   </button>
                 );
