@@ -616,22 +616,22 @@ export const PROB_CAPS = {
 // clamp 0.015 → 0.015
 // 22 event × 0.015 = 0.33 beklenen gol → bazen 1 gol, sürpriz ✓
 export const GOAL_CHANCE = {
-  base: 0.10,              // 10% base
-  gkWeight: 0.30,          // GK rating weight (0.35→0.30: kaleci önemli ama çok değil)
-  qualityGapBonus: 0.70,   // Güçlü takıma avantaj
+  base: 0.10,              // 10% base (v4 değeri — dengeli)
+  gkWeight: 0.30,          // GK rating weight
+  qualityGapBonus: 0.70,   // Güçlü takıma avantaj (0.60→0.70: v4 değerine dön)
   qualityGapPenalty: 0.70, // Zayıf takıma ceza
   mentalityBonus: 0.22,
   mentalityPenalty: 0.18,
   counterTriggerProb: 0.50,
   pressingGoalBoost: 0.50,
   lateGameDesperation: 1.45,
-  clampMin: 0.015,         // Min %1.5
+  clampMin: 0.020,         // Min %2.0 (sürpriz için: zayıf takım bazen gol atsın)
   clampMax: 0.22,          // Max %22
   qualityGapSmallThreshold: 0.10,
-  qualityGapSmallMult: 0.40,
+  qualityGapSmallMult: 0.55,  // Küçük fark çarpanı (0.40→0.55: yakın takımlar arası çekişmeli)
   qualityGapLargeMult: 1.0,
-  defenderOvrWeight: 0.10,         // Savunma OVR etkisi (0.15→0.10: daha az agresif)
-  gkOvrWeight: 0.07,              // Kaleci OVR ekstra (0.10→0.07: daha az agresif)
+  defenderOvrWeight: 0.10,
+  gkOvrWeight: 0.07,
 } as const;
 
 // ─── Pozisyon Bazlı Nitelik Ağırlıkları ────────────────────────────────
