@@ -49,10 +49,10 @@ export function TransferNegotiationModal({
     if (sellOnPercent >= 20) aiScore += 5;
     // Buy-back: yüksek fiyat ise AI sever
     if (buyBackAmount >= askingPrice * 1.5) aiScore += 10;
-    // Taksit: AI taksit sevmez (nakit tercih)
+    // Taksit: AI taksit sevmez (nakit tercih) — max 12 tur (her maç 1 tur)
     if (installmentMonths === 0) aiScore += 10;
-    else if (installmentMonths <= 12) aiScore += 0;
-    else aiScore -= 10;
+    else if (installmentMonths <= 6) aiScore += 0;
+    else aiScore -= 5;
     // Performance bonus: ek gelir
     if (performanceBonusGoals > 0) aiScore += 5;
     // Takas: oyuncu değeri kontrol
@@ -231,14 +231,14 @@ export function TransferNegotiationModal({
                     Taksitlendirme
                   </label>
                   <div className="flex gap-1 mt-1">
-                    {[0, 12, 24, 36].map((months) => (
+                    {[0, 3, 6, 12].map((months) => (
                       <button
                         key={months}
                         onClick={() => { haptic("light"); setInstallmentMonths(months); }}
                         className={cn("flex-1 py-1 rounded text-[10px] font-bold border",
                           installmentMonths === months ? "bg-primary text-primary-foreground border-primary" : "border-border bg-card")}
                       >
-                        {months === 0 ? "Peşin" : `${months} ay`}
+                        {months === 0 ? "Peşin" : `${months} tur`}
                       </button>
                     ))}
                   </div>

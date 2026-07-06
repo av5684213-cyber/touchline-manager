@@ -289,7 +289,7 @@ export function MatchScreen() {
             }))}
             homeColor={homeTeam.primaryColor}
             awayColor={awayTeam.primaryColor}
-            homeFormation="4-4-2"
+            homeFormation={useAppStore.getState().tactics.active?.formation ?? "4-4-2"}
             awayFormation="4-4-2"
             minute={engine.state.minute}
             homeScore={engine.state.homeScore}
@@ -1409,22 +1409,51 @@ function PostMatch({
 }) {
   const { t, locale } = useI18n();
   const [profilePlayer, setProfilePlayer] = useState<PlayerT | null>(null);
+  // ADDED: Home/Away sekme state — oyuncu puanları ayrı
+  const [ratingsTab, setRatingsTab] = useState<"home" | "away">("home");
 
   const motm = state.motmPlayerId
     ? [...homeTeam.players, ...awayTeam.players].find((p) => p.id === state.motmPlayerId)
     : null;
   const motmSide: Side = motm && homeTeam.players.some((p) => p.id === motm.id) ? "home" : "away";
 
-  // Tüm oyuncuları puana göre sırala, ilk 11'i göster
-  const allRated = [...homeTeam.players, ...awayTeam.players]
+  // ADDED: Mevki sıralaması — GK → DEF → MID → FWD
+  const POSITION_ORDER: Record<string, number> = {
+    GK: 0, CB: 1, LB: 2, RB: 3, LWB: 4, RWB: 5,
+    CDM: 6, CM: 7, CAM: 8, LM: 9, RM: 10,
+    LW: 11, RW: 12, CF: 13, ST: 14,
+  };
+
+  // Home ve Away oyuncuları ayrı ayrı, mevki sıralı
+  const homeRated = homeTeam.players
     .map((p) => ({
       player: p,
       rating: state.playerRatings[p.id] ?? 6.5,
       stats: state.playerMatchStats[p.id] ?? { goals: 0, assists: 0, yellow: 0, red: 0 },
-      side: homeTeam.players.some((hp) => hp.id === p.id) ? "home" : "away" as Side,
     }))
-    .sort((a, b) => b.rating - a.rating)
-    .slice(0, 22);
+    .sort((a, b) => {
+      const pa = POSITION_ORDER[a.player.specificPosition] ?? 99;
+      const pb = POSITION_ORDER[b.player.specificPosition] ?? 99;
+      if (pa !== pb) return pa - pb;
+      return b.rating - a.rating;
+    })
+    .slice(0, 11);
+
+  const awayRated = awayTeam.players
+    .map((p) => ({
+      player: p,
+      rating: state.playerRatings[p.id] ?? 6.5,
+      stats: state.playerMatchStats[p.id] ?? { goals: 0, assists: 0, yellow: 0, red: 0 },
+    }))
+    .sort((a, b) => {
+      const pa = POSITION_ORDER[a.player.specificPosition] ?? 99;
+      const pb = POSITION_ORDER[b.player.specificPosition] ?? 99;
+      if (pa !== pb) return pa - pb;
+      return b.rating - a.rating;
+    })
+    .slice(0, 11);
+
+  const activeRated = ratingsTab === "home" ? homeRated : awayRated;
 
   return (
     <div className="space-y-3">
@@ -1538,10 +1567,29 @@ function PostMatch({
         </div>
       </div>
 
-      {/* Player ratings table */}
+      {/* Player ratings table — Home/Away sekmeli, mevki sıralı */}
       <div className="tm-card">
-        <div className="px-3 py-2 border-b border-border">
+        <div className="px-3 py-2 border-b border-border flex items-center justify-between">
           <span className="text-xs font-bold">{t("match.post.ratings")}</span>
+        </div>
+        {/* ADDED: Home/Away sekme seçici */}
+        <div className="flex gap-1 p-2 border-b border-border">
+          <button
+            onClick={() => { haptic("light"); setRatingsTab("home"); }}
+            className={cn("flex-1 py-1.5 rounded text-[10px] font-bold flex items-center justify-center gap-1.5",
+              ratingsTab === "home" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}
+          >
+            <span className="w-2 h-2 rounded-full" style={{ background: homeTeam.primaryColor }} />
+            {homeTeam.shortName}
+          </button>
+          <button
+            onClick={() => { haptic("light"); setRatingsTab("away"); }}
+            className={cn("flex-1 py-1.5 rounded text-[10px] font-bold flex items-center justify-center gap-1.5",
+              ratingsTab === "away" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}
+          >
+            <span className="w-2 h-2 rounded-full" style={{ background: awayTeam.primaryColor }} />
+            {awayTeam.shortName}
+          </button>
         </div>
         <div className="max-h-80 overflow-y-auto tm-thin-scrollbar">
           <table className="w-full text-xs">
@@ -1556,7 +1604,7 @@ function PostMatch({
               </tr>
             </thead>
             <tbody>
-              {allRated.map((row) => {
+              {activeRated.map((row) => {
                 const cards = row.stats.yellow > 0 || row.stats.red > 0;
                 return (
                   <tr

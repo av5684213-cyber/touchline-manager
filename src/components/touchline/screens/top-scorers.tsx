@@ -69,9 +69,9 @@ export function TopScorersScreen() {
         </div>
         {ranked.length >= 3 && (
           <div className="grid grid-cols-3 gap-2 mb-3">
-            <PodiumItem rank={2} entry={ranked[1]} />
-            <PodiumItem rank={1} entry={ranked[0]} />
-            <PodiumItem rank={3} entry={ranked[2]} />
+            <PodiumItem rank={2} entry={ranked[1]} onClick={() => { haptic("light"); setProfilePlayer(ranked[1].player); }} />
+            <PodiumItem rank={1} entry={ranked[0]} onClick={() => { haptic("light"); setProfilePlayer(ranked[0].player); }} />
+            <PodiumItem rank={3} entry={ranked[2]} onClick={() => { haptic("light"); setProfilePlayer(ranked[2].player); }} />
           </div>
         )}
         <div className="grid grid-cols-3 gap-1.5">
@@ -206,19 +206,22 @@ export function TopScorersScreen() {
   );
 }
 
-function PodiumItem({ rank, entry }: { rank: number; entry: any }) {
+function PodiumItem({ rank, entry, onClick }: { rank: number; entry: any; onClick?: () => void }) {
   const p = entry?.player, t = entry?.team;
   if (!p || !t) return <div />;
   const bgClass = rank === 1 ? "bg-amber-500/15 border-amber-500/40" :
                   rank === 2 ? "bg-slate-400/15 border-slate-400/40" : "bg-orange-700/15 border-orange-700/40";
   const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉";
   return (
-    <div className={cn("rounded-lg p-2 border text-center", bgClass)}>
+    <button
+      onClick={onClick}
+      className={cn("tm-tap rounded-lg p-2 border text-center w-full hover:scale-105 transition-transform", bgClass)}
+    >
       <div className="text-xl mb-1">{medal}</div>
       <PlayerAvatar initials={p.specificPosition} color={t.primaryColor} size={36} />
       <div className="text-[10px] font-bold mt-1 truncate">{p.lastName}</div>
       <div className="text-[9px] text-muted-foreground truncate">{t.shortName}</div>
       <div className="text-sm font-bold text-foreground tabular-nums mt-0.5">{p.goals}⚽</div>
-    </div>
+    </button>
   );
 }

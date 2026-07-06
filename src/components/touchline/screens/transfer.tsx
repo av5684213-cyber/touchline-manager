@@ -226,13 +226,6 @@ export function TransferScreen() {
                     <span>·</span>
                     <span className="text-emerald-400 font-bold">Bedelsiz</span>
                   </div>
-                  {/* Mini stats özeti — 4 temel stat */}
-                  <div className="flex items-center gap-1.5 mt-1 text-[9px]">
-                    <StatChip label="Hız" value={p.stats?.pace ?? p.speed ?? 50} />
-                    <StatChip label="Pas" value={p.passing ?? 50} />
-                    <StatChip label="Şut" value={p.shooting ?? 50} />
-                    <StatChip label="Def" value={p.defending ?? 50} />
-                  </div>
                 </button>
                 <div className="flex flex-col items-end gap-1">
                   <RatingBadge value={p.rating} />
@@ -571,13 +564,6 @@ function PlayerCard({
               <span className="truncate max-w-[120px]">{player.archetype}</span>
             </>
           )}
-        </div>
-        {/* Mini stats özeti — 4 temel stat */}
-        <div className="flex items-center gap-1.5 mt-1 text-[9px]">
-          <StatChip label="Hız" value={player.stats?.pace ?? player.speed ?? 50} />
-          <StatChip label="Pas" value={player.passing ?? 50} />
-          <StatChip label="Şut" value={player.shooting ?? 50} />
-          <StatChip label="Def" value={player.defending ?? 50} />
         </div>
       </button>
       <div className="flex flex-col items-end gap-1 w-20 shrink-0">

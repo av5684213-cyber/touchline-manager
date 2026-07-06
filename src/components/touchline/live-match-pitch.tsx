@@ -168,12 +168,13 @@ export function LiveMatchPitch({
           </g>
         </svg>
 
-        {/* Away oyuncuları (üst yarı) — koordinatları ters çevir */}
+        {/* Away oyuncuları (üst yarı: 0-50%) — koordinatları üst yarıya sıkıştır */}
         {awayPlayers.slice(0, 11).map((p, i) => {
           const coord = awayCoords[i] ?? DEFAULT_COORDS[i % 11];
-          // Away: y'yi 100-y'ye çevir (üstte kaleci)
+          // Away: y 0-100 → üst yarıya (2-48%) map'le
+          // Kaleci y=8 → üstte ~5%, Forvet y=72 → ortada ~46%
           const x = coord.x;
-          const y = 100 - coord.y;
+          const y = 2 + (100 - coord.y) * 0.46; // 2-48 arası
           return (
             <PlayerDot
               key={`away-${p.id}-${i}`}
@@ -186,15 +187,19 @@ export function LiveMatchPitch({
           );
         })}
 
-        {/* Home oyuncuları (alt yarı) */}
+        {/* Home oyuncuları (alt yarı: 50-98%) — koordinatları alt yarıya sıkıştır */}
         {homePlayers.slice(0, 11).map((p, i) => {
           const coord = homeCoords[i] ?? DEFAULT_COORDS[i % 11];
+          // Home: y 0-100 → alt yarıya (52-98%) map'le
+          // Kaleci y=8 → altta ~95%, Forvet y=72 → ortada ~54%
+          const x = coord.x;
+          const y = 52 + coord.y * 0.46; // 52-98 arası
           return (
             <PlayerDot
               key={`home-${p.id}-${i}`}
               player={p}
-              x={coord.x}
-              y={coord.y}
+              x={x}
+              y={y}
               color={homeColor}
               side="home"
             />
