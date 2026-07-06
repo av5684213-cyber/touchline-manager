@@ -17,6 +17,47 @@ function makeTeam(name: string, shortName: string, color: string, minOvr: number
   const players: Player[] = [];
   for (let i = 0; i < positions.length; i++) {
     const p = generatePlayer(positions[i], { min: minOvr, max: maxOvr });
+    // FIX: Tüm attribute'ları OVR ile uyumlu yap — calculateTeamStrength doğru hesaplasın
+    const ovr = p.rating;
+    const variance = () => Math.floor(Math.random() * 10 - 5); // ±5
+    p.finishing = Math.max(1, Math.min(99, ovr + variance()));
+    p.dribbling = Math.max(1, Math.min(99, ovr + variance()));
+    p.passing = Math.max(1, Math.min(99, ovr + variance()));
+    p.shooting = Math.max(1, Math.min(99, ovr + variance()));
+    p.tackling = Math.max(1, Math.min(99, ovr + variance()));
+    p.marking = Math.max(1, Math.min(99, ovr + variance()));
+    p.crossing = Math.max(1, Math.min(99, ovr + variance()));
+    p.technique = Math.max(1, Math.min(99, ovr + variance()));
+    p.longShots = Math.max(1, Math.min(99, ovr + variance()));
+    p.heading = Math.max(1, Math.min(99, ovr + variance()));
+    p.firstTouch = Math.max(1, Math.min(99, ovr + variance()));
+    p.offTheBall = Math.max(1, Math.min(99, ovr + variance()));
+    p.vision = Math.max(1, Math.min(99, ovr + variance()));
+    p.stamina = Math.max(1, Math.min(99, ovr + variance()));
+    p.strength = Math.max(1, Math.min(99, ovr + variance()));
+    p.speed = Math.max(1, Math.min(99, ovr + variance()));
+    p.agility = Math.max(1, Math.min(99, ovr + variance()));
+    p.balance = Math.max(1, Math.min(99, ovr + variance()));
+    p.acceleration = Math.max(1, Math.min(99, ovr + variance()));
+    p.jumping = Math.max(1, Math.min(99, ovr + variance()));
+    p.composure = Math.max(1, Math.min(99, ovr + variance()));
+    p.concentration = Math.max(1, Math.min(99, ovr + variance()));
+    p.positioning = Math.max(1, Math.min(99, ovr + variance()));
+    p.decisions = Math.max(1, Math.min(99, ovr + variance()));
+    p.aggression = Math.max(1, Math.min(99, ovr + variance()));
+    p.goalkeeping = positions[i] === "GK" ? Math.max(1, Math.min(99, ovr + variance())) : p.goalkeeping ?? 30;
+    p.reflexes = positions[i] === "GK" ? Math.max(1, Math.min(99, ovr + variance())) : 50;
+    p.handling = positions[i] === "GK" ? Math.max(1, Math.min(99, ovr + variance())) : 30;
+    p.kicking = positions[i] === "GK" ? Math.max(1, Math.min(99, ovr + variance())) : 50;
+    p.command = positions[i] === "GK" ? Math.max(1, Math.min(99, ovr + variance())) : 30;
+    p.stats = {
+      pace: Math.max(1, Math.min(99, ovr + variance())),
+      shooting: Math.max(1, Math.min(99, ovr + variance())),
+      passing: Math.max(1, Math.min(99, ovr + variance())),
+      defending: Math.max(1, Math.min(99, ovr + variance())),
+      physical: Math.max(1, Math.min(99, ovr + variance())),
+      dribbling: Math.max(1, Math.min(99, ovr + variance())),
+    };
     players.push(p);
   }
   return {

@@ -588,19 +588,23 @@ export const PROB_CAPS = {
   save: 0.20,
 } as const;
 
-// ─── Gol Olasılığı Sabitleri ───────────────────────────────────────────
+// ─── Gol Olasılığı Sabitleri — v3 Dengeli ───────────────────────────
+// Hedef: OVR farkı domine etsin, extreme skorlar olmasın, tutarlı sonuçlar
+// Matematik: 90 dk'da ~22 atak event/takım. base×multiplier = per-event şans.
+// 0.10 base × 1.80 OVR × 1.27 qualityGap × 1.10 arketip = ~0.13 → clamp 0.25
+// Beklenen gol: 22 × 0.13 = 2.9 (gerçekçi), max 22 × 0.25 = 5.5 (rare)
 export const GOAL_CHANCE = {
-  base: 0.10,             // 10% base (daha az random, OVR farkı domine etsin)
-  gkWeight: 0.25,         // GK rating weight
-  qualityGapBonus: 0.80,  // Güçlü takıma büyük avantaj (0.35→0.80)
-  qualityGapPenalty: 0.80, // Zayıf takıma büyük ceza (0.35→0.80)
+  base: 0.07,              // 7% base (0.10→0.07: uyumlu attribute'larla compound etkisi için düşük taban)
+  gkWeight: 0.25,          // GK rating weight
+  qualityGapBonus: 1.0,    // Güçlü takıma maksimum avantaj
+  qualityGapPenalty: 1.0,  // Zayıf takıma maksimum ceza
   mentalityBonus: 0.22,
   mentalityPenalty: 0.18,
   counterTriggerProb: 0.50,
   pressingGoalBoost: 0.50,
   lateGameDesperation: 1.45,
-  clampMin: 0.01,         // Min gol şansı %1 (0.03→0.01: zayıf takım çok az gol atsın)
-  clampMax: 0.55,         // Max gol şansı %55 (0.30→0.55: güçlü takım çok gol atabilsin)
+  clampMin: 0.005,         // Min %0.5 (zayıf takım çok az gol)
+  clampMax: 0.22,          // Max %22 (0.25→0.22: 7-0 skorları önle, max ~4-5 gol)
 } as const;
 
 // ─── Pozisyon Bazlı Nitelik Ağırlıkları ────────────────────────────────
