@@ -7,6 +7,7 @@ import {
   Clock,
   CloudRain,
   CloudSun,
+  FastForward,
   Pause,
   Play,
   RefreshCw,
@@ -281,6 +282,15 @@ export function MatchScreen() {
               haptic("medium");
               setShowPreMatch(true);
             }}
+            onAdvanceWeek={() => {
+              // TEST/SOLO MOD: Haftayı ilerle — kullanıcının maçını arka planda simüle et,
+              // diğer maçları da oyna, fikstürü ilerlet.
+              haptic("success");
+              silentlySimulateMatch(homeTeam, awayTeam);
+              useAppStore.getState().advanceMatchday();
+              // Match ID'yi izlendi olarak işaretle ki pencere tekrar tetiklemesin
+              if (currentMatchId) markMatchWatched(currentMatchId);
+            }}
           />
         )}
 
@@ -432,6 +442,7 @@ function ScheduleWidget({
   currentWatched,
   currentAutoSimmed,
   onWatch,
+  onAdvanceWeek,
 }: {
   schedule: import("@/lib/match/scheduler").MatchScheduleStatus;
   homeTeam: { name: string; shortName: string; primaryColor: string; secondaryColor?: string };
@@ -439,6 +450,7 @@ function ScheduleWidget({
   currentWatched: boolean;
   currentAutoSimmed: boolean;
   onWatch: () => void;
+  onAdvanceWeek: () => void;
 }) {
   const { t } = useI18n();
 
@@ -451,6 +463,14 @@ function ScheduleWidget({
         <div className="text-[10px] text-muted-foreground">
           Sonraki maç: {schedule.nextMatchDateTr} · {schedule.nextMatchTimeTr}
         </div>
+        {/* TEST MODU: Haftayı ilerle butonu */}
+        <button
+          onClick={onAdvanceWeek}
+          className="tm-tap w-full mt-3 py-2.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+        >
+          <FastForward size={14} />
+          HAFTAYI İLERLE (Test Modu)
+        </button>
       </div>
     );
   }
@@ -498,6 +518,14 @@ function ScheduleWidget({
         <div className="text-[9px] text-muted-foreground text-center">
           Pencere dolmadan izle, yoksa otomatik simüle edilir.
         </div>
+        {/* TEST MODU: Haftayı ilerle butonu */}
+        <button
+          onClick={onAdvanceWeek}
+          className="tm-tap w-full py-2 rounded-lg bg-muted text-foreground text-[11px] font-bold flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform border border-border"
+        >
+          <FastForward size={12} />
+          HAFTAYI İLERLE (Test Modu)
+        </button>
       </div>
     );
   }
@@ -549,6 +577,18 @@ function ScheduleWidget({
         Maçlar hafta içi (Pzt-Cum) TR saatiyle 12:00 ve 18:00'de oynanır. Hafta sonu maç yok.
         <br />
         Saat gelince "MAÇI İZLE" butonu aktif olur.
+      </div>
+
+      {/* TEST MODU: Haftayı ilerle butonu — pencere dışında da çalışır */}
+      <button
+        onClick={onAdvanceWeek}
+        className="tm-tap w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+      >
+        <FastForward size={14} />
+        HAFTAYI İLERLE (Test Modu)
+      </button>
+      <div className="text-[8px] text-amber-400/70 text-center -mt-1">
+        Test amaçlı — maçı atlayıp haftayı ilerletir
       </div>
     </div>
   );

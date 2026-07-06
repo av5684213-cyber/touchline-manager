@@ -346,6 +346,13 @@ export const useAppStore = create<AppState>()(
         }
 
         const team = clubs.find((c) => c.id === myTeamId)!;
+        // TEST/SOLO MOD: Kullanıcının takımına 500M Euro transfer bütçesi ver
+        // (oyunu idare ettirebilmek için test amaçlı)
+        const TEST_MODE_BUDGET = 500_000_000; // 500M Euro
+        if (team.budget < TEST_MODE_BUDGET) {
+          team.budget = TEST_MODE_BUDGET;
+          clubs = clubs.map((c) => (c.id === myTeamId ? { ...c, budget: TEST_MODE_BUDGET } : c));
+        }
         const tactics = defaultTacticsFor(team);
 
         // Transfer verisi — eksikse üret

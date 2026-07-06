@@ -1560,3 +1560,24 @@ Stage Summary:
 - Release URL: https://github.com/av5684213-cyber/touchline-manager/releases/tag/v1.0.0-apk
 - Release APK direct: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.0.0-apk/touchline-manager-v1.0.0-release.apk
 - Debug APK direct: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.0.0-apk/touchline-manager-v1.0.0-debug.apk
+
+---
+Task ID: test-mode-advance-week-and-budget
+Agent: main
+Task: Haftayı ilerle butonu ekle (test/solo mod) + 500M Euro transfer bütçesi ver
+
+Work Log:
+- match.tsx ScheduleWidget fonksiyonuna onAdvanceWeek prop'u eklendi. 3 durumda da buton gösteriliyor:
+  1. Pencere dışı (geri sayım ekranı) — primary renk buton
+  2. Pencere içi (maç saati) — muted buton
+  3. İzlendi (maç bitti) — primary renk buton
+- Buton tıklayınca: silentlySimulateMatch(homeTeam, awayTeam) → kullanıcının maçını arka planda simüle eder, useAppStore.getState().advanceMatchday() → diğer maçları oynar + fikstürü ilerletir, markMatchWatched(currentMatchId) → pencere tekrar tetiklemesin.
+- FastForward ikonu lucide-react'ten import edildi.
+- store.ts loginDemo fonksiyonuna TEST_MODE_BUDGET = 500_000_000 eklendi. Kullanıcının takım bütçesi 500M'nin altındaysa 500M'ye yükseltiliyor (clubs array'inde de güncelleniyor).
+- Build başarılı, APK yenilendi (790KB).
+- GitHub Release v1.1.0-test-mode oluşturuldu, APK upload edildi.
+
+Stage Summary:
+- Maç sekmesinde "HAFTAYI İLERLE (Test Modu)" butonu eklendi — pencere beklemeden haftayı ilerletebilir.
+- Kullanıcı girişte 500M Euro transfer bütçesi alır.
+- APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.1.0-test-mode/touchline-manager-v1.1.0-release.apk
