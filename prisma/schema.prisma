@@ -1,16 +1,12 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -19,6 +15,10 @@ model User {
   name      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // ADDED: v2.0 ilişkiler
+  badges    UserBadge[]
+  sponsorships Sponsorship[]
 }
 
 model Post {
@@ -29,4 +29,112 @@ model Post {
   authorId  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADDED: v2.0 — Badge (Başarım) Sistemi
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Badge {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  displayName String
+  icon        String
+  description String?
+  condition   String      // JSON koşul
+  category    String      @default("general")
+  createdAt   DateTime    @default(now())
+  users       UserBadge[]
+}
+
+model UserBadge {
+  userId    String
+  badgeId   String
+  earnedAt  DateTime   @default(now())
+  user      User       @relation(fields: [userId], references: [id])
+  badge     Badge      @relation(fields: [badgeId], references: [id])
+
+  @@id([userId, badgeId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADDED: v2.0 — Sponsor Sistemi
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Sponsorship {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  amount      Int      // Haftalık gelir (Euro)
+  tier        String   // BRONZE, SILVER, GOLD, PLATINUM
+  startDate   DateTime @default(now())
+  endDate     DateTime?
+  isActive    Boolean  @default(false)
+  seasonNumber Int?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, isActive])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADDED: v2.0 — Transfer Pazarlık Modeli
+// ═══════════════════════════════════════════════════════════════════════════
+
+model TransferOffer {
+  id                 String   @id @default(cuid())
+  playerId           String
+  fromTeamId         String
+  toTeamId           String
+  fee                Int
+  wage               Int
+  contractYears      Int      @default(3)
+  status             String   @default("pending") // pending, accepted, rejected, countered
+
+  // ADDED: Gelişmiş pazarlık argümanları
+  sellOnFeePercent   Int      @default(0)
+  performanceBonus   String?  // JSON: { goals: 10, amount: 500000 }
+  buyBackAmount      Int      @default(0)
+  exchangePlayerId   String?
+  installmentMonths  Int      @default(0)
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model LoanOffer {
+  id              String   @id @default(cuid())
+  playerId        String
+  fromTeamId      String
+  toTeamId        String
+  loanFee         Int
+  durationWeeks   Int
+  status          String   @default("pending")
+
+  // ADDED: Kiralık pazarlık argümanları
+  minAppearances  Int      @default(0)
+  penaltyFee      Int      @default(0)
+
+  createdAt       DateTime @default(now())
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADDED: v2.0 — Sakatlık Geçmişi
+// ═══════════════════════════════════════════════════════════════════════════
+
+model InjuryHistory {
+  id            String   @id @default(cuid())
+  playerId      String
+  teamId        String?
+  injuryDate    DateTime @default(now())
+  injuryType    String
+  durationDays  Int
+  severity      Int      @default(1)
+  matchId       String?
+  recovered     Boolean  @default(false)
+  recoveredDate DateTime?
+  createdAt     DateTime @default(now())
+
+  @@index([playerId])
+  @@index([teamId])
 }
