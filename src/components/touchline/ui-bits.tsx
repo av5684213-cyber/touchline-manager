@@ -129,3 +129,23 @@ export function RatingBadge({ value }: { value: number }) {
     </span>
   );
 }
+
+// P5: Gelişim rozeti — sezon başına göre oyuncunun rating artışını gösterir
+export function GrowthBadge({ currentRating, playerId }: { currentRating: number; playerId: string }) {
+  try {
+    // Store'dan sezon başı stats'ını oku (lazy import ile circular dependency önle)
+    const store = require("@/lib/store").useAppStore.getState();
+    const startStats = store.seasonStartStats?.[playerId];
+    if (!startStats) return null;
+    const startRating = startStats.rating ?? currentRating;
+    const diff = currentRating - startRating;
+    if (diff <= 0) return null;
+    return (
+      <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+        ↑ +{diff}
+      </span>
+    );
+  } catch {
+    return null;
+  }
+}

@@ -53,6 +53,7 @@ type MatchTactics = {
 type Side = "home" | "away" | "neutral";
 type HomeAway = "home" | "away";
 import { ClubBadge, PositionPill, RatingBadge } from "../ui-bits";
+import { PlayerProfileModal } from "../player-profile-modal";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 import { PreMatchScreen } from "../pre-match-screen";
@@ -927,9 +928,15 @@ function HalftimeSubs({ team, homeTeam, engine, mySide }: {
                 >
                   <span className="text-[9px] font-bold w-6 shrink-0">{p.specificPosition}</span>
                   <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
+                  <span className="text-[8px] text-amber-400 font-bold tabular-nums">{p.rating} OVR</span>
                   <span className={cn("text-[8px] tabular-nums", p.cond < 30 ? "text-red-400" : "text-muted-foreground")}>
                     {p.cond}❤
                   </span>
+                  {(p.goals > 0 || p.assists > 0) && (
+                    <span className="text-[8px] text-emerald-400 font-bold tabular-nums">
+                      {p.goals}G{p.assists > 0 ? `·${p.assists}A` : ""}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -939,17 +946,31 @@ function HalftimeSubs({ team, homeTeam, engine, mySide }: {
                 <span className="text-[9px] text-muted-foreground">Girecek oyuncuyu seç:</span>
                 <button onClick={() => setSelectOut(null)} className="text-[9px] text-muted-foreground">← Geri</button>
               </div>
-              {subs.map((p: any) => (
-                <button
-                  key={p.id}
-                  onClick={() => handleSub(selectOut, p.id)}
-                  className="tm-tap w-full flex items-center gap-2 p-1.5 rounded text-left bg-card border border-border hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-colors"
-                >
-                  <span className="text-[9px] font-bold w-6 shrink-0">{p.specificPosition}</span>
-                  <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
-                  <span className="text-[8px] text-amber-400 font-bold">{p.rating} OVR</span>
-                </button>
-              ))}
+              {subs.map((p: any) => {
+                // Çıkacak oyuncunun OVR'ı ile girecek oyuncunun OVR'ı arasındaki fark
+                const outPlayer = startingXI.find((sp: any) => sp.id === selectOut);
+                const diff = (p.rating ?? 0) - (outPlayer?.rating ?? 0);
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => handleSub(selectOut, p.id)}
+                    className="tm-tap w-full flex items-center gap-2 p-1.5 rounded text-left bg-card border border-border hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-colors"
+                  >
+                    <span className="text-[9px] font-bold w-6 shrink-0">{p.specificPosition}</span>
+                    <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
+                    <span className="text-[8px] text-amber-400 font-bold tabular-nums">{p.rating} OVR</span>
+                    <span className="text-[8px] text-muted-foreground tabular-nums">{p.cond}❤</span>
+                    {diff !== 0 && (
+                      <span className={cn(
+                        "text-[8px] font-bold tabular-nums px-1 rounded",
+                        diff > 0 ? "bg-emerald-500/20 text-emerald-300" : "bg-red-500/20 text-red-300"
+                      )}>
+                        {diff > 0 ? "+" : ""}{diff}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </>
@@ -1316,6 +1337,7 @@ function PostMatch({
   onNewMatch: () => void;
 }) {
   const { t, locale } = useI18n();
+  const [profilePlayer, setProfilePlayer] = useState<PlayerT | null>(null);
 
   const motm = state.motmPlayerId
     ? [...homeTeam.players, ...awayTeam.players].find((p) => p.id === state.motmPlayerId)
@@ -1466,7 +1488,11 @@ function PostMatch({
               {allRated.map((row) => {
                 const cards = row.stats.yellow > 0 || row.stats.red > 0;
                 return (
-                  <tr key={row.player.id} className="border-b border-border/50 last:border-b-0">
+                  <tr
+                    key={row.player.id}
+                    onClick={() => { haptic("light"); setProfilePlayer(row.player); }}
+                    className="border-b border-border/50 last:border-b-0 cursor-pointer hover:bg-accent/30 transition-colors tm-tap"
+                  >
                     <td className="px-2 py-1.5">
                       <PositionPill label={row.player.specificPosition} group={POSITION_GROUP[row.player.specificPosition]} />
                     </td>
@@ -1495,6 +1521,19 @@ function PostMatch({
           </table>
         </div>
       </div>
+
+      {/* Player profile modal — tablo satırına tıklayınca açılır */}
+      {profilePlayer && (
+        <PlayerProfileModal
+          player={profilePlayer}
+          teamColor={
+            homeTeam.players.some((p) => p.id === profilePlayer.id)
+              ? homeTeam.primaryColor
+              : awayTeam.primaryColor
+          }
+          onClose={() => setProfilePlayer(null)}
+        />
+      )}
 
       {/* Actions */}
       <div className="flex gap-2">

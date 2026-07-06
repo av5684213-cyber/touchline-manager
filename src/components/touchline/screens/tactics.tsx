@@ -34,7 +34,7 @@ import {
   type PassingStyle,
   type InstructionCategory,
 } from "@/lib/tactics/types";
-import { PlayerAvatar, PositionPill, RatingBadge } from "../ui-bits";
+import { PlayerAvatar, PositionPill, RatingBadge, GrowthBadge } from "../ui-bits";
 import { PlayerProfileModal } from "../player-profile-modal";
 import { TrainingScreen } from "./training";
 import { formatEuro } from "@/lib/format";
@@ -773,7 +773,10 @@ export function TacticsScreen() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <RatingBadge value={p.formRating} />
+                    <div className="flex items-center gap-1 justify-end">
+                      <RatingBadge value={p.formRating} />
+                      <GrowthBadge currentRating={p.rating} playerId={p.id} />
+                    </div>
                     <div className="text-[9px] text-muted-foreground mt-0.5">
                       {p.specificPosition === "GK" ? `${p.saves}K` : `${p.goals}G·${p.assists}A`}
                     </div>
@@ -1027,7 +1030,10 @@ function CompareTab({
                     {selectedSlot + 1}
                   </span>
                 ) : (
-                  <RatingBadge value={p.formRating} />
+                  <div className="flex items-center gap-1 justify-end">
+                    <RatingBadge value={p.formRating} />
+                    <GrowthBadge currentRating={p.rating} playerId={p.id} />
+                  </div>
                 )}
                 {!isSelected && (
                   <div className="text-[9px] text-muted-foreground mt-0.5">

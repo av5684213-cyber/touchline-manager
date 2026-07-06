@@ -161,6 +161,8 @@ type AppState = {
   facilities: FacilitiesState;
   // Kupa sistemi — store'da tutulur, component state değil
   cup: CupState;
+  // P5: Sezon başı oyuncu stats'ları — gelişim rozeti için (playerId → { rating, finishing, ... })
+  seasonStartStats: Record<string, Record<string, number>>;
 
   // actions
   loginDemo: (name?: string) => void;
@@ -328,6 +330,9 @@ export const useAppStore = create<AppState>()(
         eliminated: false,
       },
 
+      // P5: Sezon başı stats'ları — boş başlar, loginDemo'da doldurulur
+      seasonStartStats: {},
+
       loginDemo: (name) => {
         // Already-initialized clubs varsa yeniden üretme
         let clubs = get().clubs;
@@ -400,6 +405,34 @@ export const useAppStore = create<AppState>()(
             champion: undefined,
             eliminated: false,
           },
+          // P5: Sezon başı stats'larını kaydet — gelişim rozeti için
+          seasonStartStats: (() => {
+            const map: Record<string, Record<string, number>> = {};
+            for (const club of clubs) {
+              for (const p of club.players) {
+                map[p.id] = {
+                  rating: p.rating ?? 50,
+                  finishing: p.finishing ?? 50,
+                  dribbling: p.dribbling ?? 50,
+                  passing: p.passing ?? 50,
+                  shooting: p.shooting ?? 50,
+                  tackling: p.tackling ?? 50,
+                  marking: p.marking ?? 50,
+                  heading: p.heading ?? 50,
+                  speed: p.speed ?? p.stats?.pace ?? 50,
+                  stamina: p.stamina ?? 50,
+                  strength: p.strength ?? 50,
+                  vision: p.vision ?? 50,
+                  technique: p.technique ?? 50,
+                  crossing: p.crossing ?? 50,
+                  longShots: p.longShots ?? 50,
+                  firstTouch: p.firstTouch ?? 50,
+                  offTheBall: p.offTheBall ?? 50,
+                };
+              }
+            }
+            return map;
+          })(),
         });
       },
 
@@ -1597,6 +1630,34 @@ export const useAppStore = create<AppState>()(
             champion: undefined,
             eliminated: false,
           },
+          // P5: Yeni sezon başı stats'larını kaydet
+          seasonStartStats: (() => {
+            const map: Record<string, Record<string, number>> = {};
+            for (const club of updatedClubs) {
+              for (const p of club.players) {
+                map[p.id] = {
+                  rating: p.rating ?? 50,
+                  finishing: p.finishing ?? 50,
+                  dribbling: p.dribbling ?? 50,
+                  passing: p.passing ?? 50,
+                  shooting: p.shooting ?? 50,
+                  tackling: p.tackling ?? 50,
+                  marking: p.marking ?? 50,
+                  heading: p.heading ?? 50,
+                  speed: p.speed ?? p.stats?.pace ?? 50,
+                  stamina: p.stamina ?? 50,
+                  strength: p.strength ?? 50,
+                  vision: p.vision ?? 50,
+                  technique: p.technique ?? 50,
+                  crossing: p.crossing ?? 50,
+                  longShots: p.longShots ?? 50,
+                  firstTouch: p.firstTouch ?? 50,
+                  offTheBall: p.offTheBall ?? 50,
+                };
+              }
+            }
+            return map;
+          })(),
         });
 
         const summary: SeasonSummary = {

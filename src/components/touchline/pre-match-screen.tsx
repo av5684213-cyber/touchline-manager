@@ -33,15 +33,32 @@ export function PreMatchScreen({
   const myTeam = useMyTeam();
   const isHome = myTeam?.id === homeTeam.id;
 
-  // İlk 11 (formasyon bazlı)
-  const homeXI = homeTeam.players
-    .slice()
-    .sort((a, b) => b.rating - a.rating)
-    .slice(0, 11);
-  const awayXI = awayTeam.players
-    .slice()
-    .sort((a, b) => b.rating - a.rating)
-    .slice(0, 11);
+  // İlk 11 (formasyon bazlı) — pozisyon sırasına göre: GK → DEF → MID → FWD
+  const POSITION_ORDER: Record<string, number> = {
+    GK: 0, CB: 1, LB: 2, RB: 3, LWB: 4, RWB: 5,
+    CDM: 6, CM: 7, CAM: 8, LM: 9, RM: 10,
+    LW: 11, RW: 12, CF: 13, ST: 14,
+  };
+  const sortByPosition = (arr: any[]) => [...arr].sort((a, b) => {
+    const pa = POSITION_ORDER[a.specificPosition] ?? 99;
+    const pb = POSITION_ORDER[b.specificPosition] ?? 99;
+    if (pa !== pb) return pa - pb;
+    return b.rating - a.rating;
+  });
+  const homeXI = sortByPosition(
+    homeTeam.players.slice().sort((a, b) => b.rating - a.rating).slice(0, 11)
+  );
+  const awayXI = sortByPosition(
+    awayTeam.players.slice().sort((a, b) => b.rating - a.rating).slice(0, 11)
+  );
+
+  // Pozisyon grubuna göre satır arka planı (taktik ekranıyla uyumlu)
+  const POSITION_ROW_BG: Record<string, string> = {
+    GK: "bg-amber-100/70 dark:bg-amber-950/30",
+    DEF: "bg-sky-100/70 dark:bg-sky-950/30",
+    MID: "bg-emerald-100/70 dark:bg-emerald-950/30",
+    FWD: "bg-rose-100/70 dark:bg-rose-950/30",
+  };
 
   const homeAvg = Math.round(homeXI.reduce((s, p) => s + p.rating, 0) / 11);
   const awayAvg = Math.round(awayXI.reduce((s, p) => s + p.rating, 0) / 11);
@@ -177,19 +194,47 @@ export function PreMatchScreen({
         </div>
       </div>
 
+      {/* Senin kadron — İlk 11 (pozisyon sırasına göre, renkli) */}
+      <div className="tm-card p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[10px] text-muted-foreground uppercase font-bold">{homeTeam.name} — İlk 11</div>
+          <div className="text-[9px] font-bold text-amber-300 tabular-nums">Ort: {homeAvg}</div>
+        </div>
+        <div className="space-y-0.5">
+          {homeXI.map((p, i) => {
+            const group = POSITION_GROUP[p.specificPosition] ?? "MID";
+            return (
+              <div key={p.id} className={cn("flex items-center gap-2 py-1 px-1.5 rounded", POSITION_ROW_BG[group])}>
+                <span className="text-[8px] text-muted-foreground w-4 text-right">{i + 1}</span>
+                <PlayerAvatar initials={`${p.firstName[0]}${p.lastName[0]}`} color={homeTeam.primaryColor} size={20} />
+                <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
+                <PositionPill label={p.specificPosition} group={group} />
+                <span className="text-[9px] font-bold tabular-nums w-6 text-right">{p.rating}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Rakip kadro özeti */}
       <div className="tm-card p-3">
-        <div className="text-[10px] text-muted-foreground uppercase font-bold mb-2">{awayTeam.name} — İlk 11</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[10px] text-muted-foreground uppercase font-bold">{awayTeam.name} — İlk 11</div>
+          <div className="text-[9px] font-bold text-amber-300 tabular-nums">Ort: {awayAvg}</div>
+        </div>
         <div className="space-y-0.5">
-          {awayXI.map((p, i) => (
-            <div key={p.id} className="flex items-center gap-2 py-0.5">
-              <span className="text-[8px] text-muted-foreground w-4 text-right">{i + 1}</span>
-              <PlayerAvatar initials={`${p.firstName[0]}${p.lastName[0]}`} color={awayTeam.primaryColor} size={20} />
-              <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
-              <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
-              <span className="text-[9px] font-bold tabular-nums w-6 text-right">{p.rating}</span>
-            </div>
-          ))}
+          {awayXI.map((p, i) => {
+            const group = POSITION_GROUP[p.specificPosition] ?? "MID";
+            return (
+              <div key={p.id} className={cn("flex items-center gap-2 py-1 px-1.5 rounded", POSITION_ROW_BG[group])}>
+                <span className="text-[8px] text-muted-foreground w-4 text-right">{i + 1}</span>
+                <PlayerAvatar initials={`${p.firstName[0]}${p.lastName[0]}`} color={awayTeam.primaryColor} size={20} />
+                <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
+                <PositionPill label={p.specificPosition} group={group} />
+                <span className="text-[9px] font-bold tabular-nums w-6 text-right">{p.rating}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 

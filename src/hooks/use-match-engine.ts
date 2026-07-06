@@ -740,7 +740,38 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
       }
     }
 
-    useAppStore.setState({ clubs: updatedClubs });
+    // P4 FIX: Sakatlık haberi ekle — injury_history'e işlenen sakatlık news'e de yazılsın
+    const injuryNews: any[] = [];
+    for (const ev of result.events) {
+      if (ev.type === "injury" && ev.playerId) {
+        const injuredPlayer = updatedTeam.players.find((p) => p.id === ev.playerId);
+        if (injuredPlayer) {
+          const injuryDur = injuredPlayer.injury?.remaining_days ?? Math.floor(Math.random() * 14) + 3;
+          const injuryType = ["Hamstring", "Diz", "Bilek", "Kasık", "Sırt", "Omuz"][Math.floor(Math.random() * 6)];
+          injuryNews.push({
+            id: `news_injury_${ev.playerId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            category: "injury" as const,
+            headline: `🤕 ${injuredPlayer.firstName} ${injuredPlayer.lastName} Sakatlandı`,
+            body: `${injuredPlayer.firstName} ${injuredPlayer.lastName} maçta ${injuryType} sakatlığı geçirdi. Tahmini iyileşme süresi: ${injuryDur} gün.`,
+            timestamp: Date.now(),
+            importance: 4,
+            read: false,
+            relatedTeamId: teamId,
+            playerId: ev.playerId,
+          });
+        }
+      }
+    }
+
+    if (injuryNews.length > 0) {
+      const prevNews = useAppStore.getState().news ?? [];
+      useAppStore.setState({
+        clubs: updatedClubs,
+        news: [...injuryNews, ...prevNews],
+      });
+    } else {
+      useAppStore.setState({ clubs: updatedClubs });
+    }
   }, []);
 
   // Tick interval — her 800ms'de bir event göster
