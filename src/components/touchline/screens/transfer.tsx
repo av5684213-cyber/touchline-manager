@@ -221,6 +221,13 @@ export function TransferScreen() {
                     <span>·</span>
                     <span className="text-emerald-400 font-bold">Bedelsiz</span>
                   </div>
+                  {/* Mini stats özeti — 4 temel stat */}
+                  <div className="flex items-center gap-1.5 mt-1 text-[9px]">
+                    <StatChip label="Hız" value={p.stats?.pace ?? p.speed ?? 50} />
+                    <StatChip label="Pas" value={p.passing ?? 50} />
+                    <StatChip label="Şut" value={p.shooting ?? 50} />
+                    <StatChip label="Def" value={p.defending ?? 50} />
+                  </div>
                 </button>
                 <div className="flex flex-col items-end gap-1">
                   <RatingBadge value={p.rating} />
@@ -326,25 +333,19 @@ export function TransferScreen() {
                       {listing.lenderTeamShort}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
-                    <span>{p.age}{t("common.year")}</span>
-                    <span>·</span>
-                    <span>{listing.lenderTeamName}</span>
-                    <span>·</span>
+                  <div className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                    {p.age}{t("common.year")} · {listing.lenderTeamName}
+                  </div>
+                  <div className="text-[10px] mt-0.5">
                     <span className="text-sky-400 font-bold">{formatEuro(listing.dailyFee)}/gün</span>
-                    <span>·</span>
-                    <span>{listing.durationWeeks} hafta</span>
+                    <span className="text-muted-foreground"> · {listing.durationWeeks} hafta</span>
                     {listing.buyOption && (
-                      <>
-                        <span>·</span>
-                        <span className="text-amber-400">Opsiyon: {formatEuro(listing.buyOption)}</span>
-                      </>
+                      <span className="text-amber-400 font-bold"> · Opsiyon: {formatEuro(listing.buyOption)}</span>
                     )}
                   </div>
                 </button>
-                <div className="flex flex-col items-end gap-1">
+                <div className="flex flex-col items-end gap-1 shrink-0">
                   <RatingBadge value={p.rating} />
-                  <span className="text-[9px] text-muted-foreground">{formatEuro(listing.dailyFee)}/gün</span>
                 </div>
                 <button
                   onClick={() => {
@@ -556,20 +557,17 @@ function PlayerCard({
           <StatChip label="Def" value={player.defending ?? 50} />
         </div>
       </button>
-      <div className="flex flex-col items-end gap-1">
-        <RatingBadge value={player.rating} />
+      <div className="flex flex-col items-end gap-1 w-20 shrink-0">
         <button
           onClick={onToggleWatch}
           className={cn(
-            "tm-tap p-1 rounded-full",
+            "tm-tap p-1 rounded-full self-end",
             isWatched ? "text-red-500" : "text-muted-foreground"
           )}
           aria-label={isWatched ? t("transfer.watchlist.remove") : t("transfer.watchlist.add")}
         >
           <Heart size={14} fill={isWatched ? "currentColor" : "none"} />
         </button>
-      </div>
-      <div className="flex flex-col items-end gap-1 w-20">
         <div className="text-xs font-bold tabular-nums">{formatEuro(askingPrice)}</div>
         <div className={cn(
           "text-[9px] flex items-center gap-0.5",

@@ -1482,7 +1482,23 @@ export const useAppStore = create<AppState>()(
           console.warn("[advanceMatchday] auto-training failed:", e);
         }
 
-        set({ fixtures: updatedFixtures, clubs: updatedClubs, transfer: updatedTransfer });
+        // P7 FIX: Stale incoming offers temizle — artık kadroda olmayan oyunculara teklifleri kaldır
+        const myCurrentTeam = updatedClubs.find((c) => c.id === myTeamId);
+        const currentPlayerIds = new Set(myCurrentTeam?.players.map((p) => p.id) ?? []);
+        const validOffers = transfer.incomingOffers.filter((o) => currentPlayerIds.has(o.myPlayerId));
+        // Eğer teklif sayısı azaldıysa veya 2'den azsa, yeni teklifler üret
+        let finalOffers = validOffers;
+        if (myCurrentTeam && validOffers.length < 2) {
+          const { generateIncomingOffers } = require("@/lib/mock/transfer");
+          const freshOffers = generateIncomingOffers(myCurrentTeam.players);
+          // Mevcut teklif ID'leri ile çakışmasın
+          const existingIds = new Set(validOffers.map((o) => o.id));
+          const newOffers = freshOffers.filter((o) => !existingIds.has(o.id));
+          finalOffers = [...validOffers, ...newOffers].slice(0, 5);
+        }
+        const updatedTransferFinal = { ...transfer, incomingOffers: finalOffers };
+
+        set({ fixtures: updatedFixtures, clubs: updatedClubs, transfer: updatedTransferFinal });
       },
 
       endSeason: () => {

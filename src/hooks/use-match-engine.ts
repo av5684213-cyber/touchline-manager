@@ -457,7 +457,29 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
       const stadiumLevel = facilities.levels.stadium;
       const pitchLevel = facilities.levels.pitch;
       // Atmosfer skoru — stadyum kapasitesine göre
-      const atmosphereScore = Math.min(100, 40 + stadiumLevel * 6);
+      let atmosphereScore = Math.min(100, 40 + stadiumLevel * 6);
+
+      // P6 FIX: İlk 5 takım maçı → seyirci yoğun ilgisi
+      // Eğer kullanıcı ev sahibiyse ve rakip ilk 5'teyse, ya da kullanıcı ilk 5'teyse ve rakip de ilk 5'teyse
+      // atmosfer skoru %30 artar (seyirci maça yoğun ilgi gösterir)
+      try {
+        const { computeStandings } = require("@/lib/mock/season");
+        const standings = computeStandings(storeState.clubs, storeState.fixtures);
+        const myPos = standings.findIndex((s: any) => s.teamId === home.id) + 1;
+        const oppPos = standings.findIndex((s: any) => s.teamId === away.id) + 1;
+        // Maçta en az biri ilk 5'teyse ve maç "büyük maç" sayılırsa
+        const isBigMatch = (myPos > 0 && myPos <= 5) && (oppPos > 0 && oppPos <= 5);
+        const isTopMatch = (myPos > 0 && myPos <= 5) || (oppPos > 0 && oppPos <= 5);
+        if (isBigMatch) {
+          // İki takım da ilk 5'te — çekişmeli maç, atmosfer maksimum
+          atmosphereScore = Math.min(100, atmosphereScore + 30);
+        } else if (isTopMatch) {
+          // Sadece biri ilk 5'te — yine de yoğun ilgi
+          atmosphereScore = Math.min(100, atmosphereScore + 15);
+        }
+      } catch (e) {
+        // standings hesaplanamazsa varsayılan atmosfer skoru kullan
+      }
 
       // Pitch pass accuracy bonus (seviye 0 = 0, seviye 10 = +20%)
       const pitchPassBonus = pitchLevel > 0 ? pitchLevel * 0.02 : undefined;

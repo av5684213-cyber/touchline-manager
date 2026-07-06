@@ -59,7 +59,13 @@ export function TopScorersScreen() {
       <div className="tm-card p-3">
         <div className="flex items-center gap-2 mb-2">
           <Crown size={16} className="text-amber-400" />
-          <span className="text-sm font-bold">Gol Kralı Yarışı</span>
+          <span className="text-sm font-bold">
+            {sortKey === "goals" ? "Gol Kralı Yarışı" :
+             sortKey === "assists" ? "Asist Kralı Yarışı" :
+             sortKey === "rating" ? "Form Sıralaması" :
+             sortKey === "motm" ? "Maçın Adamı Sıralaması" :
+             "Oynama Süresi Sıralaması"}
+          </span>
         </div>
         {ranked.length >= 3 && (
           <div className="grid grid-cols-3 gap-2 mb-3">

@@ -28,7 +28,7 @@ import { ComingSoonScreen } from "@/components/touchline/screens/coming-soon";
 import { FriendlyScreen } from "@/components/touchline/screens/friendly";
 import { OtherDrawer } from "@/components/touchline/other-drawer";
 import { useI18n } from "@/lib/i18n/locale-provider";
-import { useSwipe, useBodyScrollLock } from "@/hooks/touchline";
+import { useBodyScrollLock } from "@/hooks/touchline";
 import { useKeyboardScrollLock } from "@/hooks/use-keyboard-scroll-lock";
 
 const TAB_ORDER: TabKey[] = [
@@ -46,19 +46,7 @@ export default function Home() {
   useBodyScrollLock(otherOpen);
   useKeyboardScrollLock();
 
-  const idx = TAB_ORDER.indexOf(tab);
-  useSwipe({
-    onLeft: () => {
-      if (idx >= 0 && idx < TAB_ORDER.length - 1) {
-        setTab(TAB_ORDER[idx + 1]);
-      }
-    },
-    onRight: () => {
-      if (idx > 0) {
-        setTab(TAB_ORDER[idx - 1]);
-      }
-    },
-  });
+  // Yatay swipe ile sekme geçişi iptal edildi — kullanıcı yanlışlıkla sekme değiştirmesin
 
   const handleSelectFromOther = (k: TabKey) => {
     setTab(k);
