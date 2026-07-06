@@ -136,6 +136,15 @@ export function MatchScreen() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showPreMatch, setShowPreMatch] = useState(false);
+  // ADDED: Maç içi sekme — Saha / Akış / İstatistik
+  const [matchTab, setMatchTab] = useState<"pitch" | "feed" | "stats">("pitch");
+  // ADDED: Sabit hakem — her render'da değişmesin
+  const [fixedReferee] = useState(() => ({
+    name: ["Selim Aydoğan", "Burak Yıldırımer", "Kaan Demirci", "Tolga Şahin", "Emre Karaca", "Onur Toprak", "Mert Yavuz", "Serkan Aksoy"][Math.floor(Math.random() * 8)],
+    personality: ["strict", "balanced", "lenient", "home_bias", "volatile"][Math.floor(Math.random() * 5)] as string,
+  }));
+  // ADDED: Saha oyuncusu profil modal'ı
+  const [pitchProfilePlayer, setPitchProfilePlayer] = useState<PlayerT | null>(null);
 
   // ===== Scheduler — maçlar TR saatiyle belli saatlerde =====
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -241,8 +250,8 @@ export function MatchScreen() {
         homeTeam={homeTeam}
         awayTeam={awayTeam}
         weather={engine.state.weather || "sunny"}
-        refereeName={engine.state.referee.name || ["Selim Aydoğan", "Burak Yıldırımer", "Kaan Demirci", "Tolga Şahin", "Emre Karaca", "Onur Toprak", "Mert Yavuz", "Serkan Aksoy"][Math.floor(Math.random() * 8)]}
-        refereePersonality={engine.state.referee.personality || "balanced"}
+        refereeName={engine.state.referee.name || fixedReferee.name}
+        refereePersonality={engine.state.referee.personality || fixedReferee.personality}
         homeForm={homeRecent}
         awayForm={awayRecent}
         onStart={() => {
@@ -269,34 +278,84 @@ export function MatchScreen() {
         {/* Referee & weather info banner */}
         <InfoBanner state={engine.state} />
 
-        {/* ADDED: 2D Live Match Pitch — canlı maç sırasında 11v11 saha görselleştirmesi */}
+        {/* ADDED: Maç içi sekme — Saha / Akış / İstatistik (live/paused/halftime durumunda) */}
         {(engine.state.status === "live" || engine.state.status === "paused" || engine.state.status === "halftime") && (
-          <LiveMatchPitch
-            homePlayers={homeTeam.players.slice(0, 11).map((p: any) => ({
-              id: p.id,
-              name: p.name ?? `${p.firstName} ${p.lastName}`,
-              rating: p.rating,
-              position: p.specificPosition,
-              side: "home" as const,
-              isCaptain: p.special_role === "kaptan" || p.special_role === "captain",
-            }))}
-            awayPlayers={awayTeam.players.slice(0, 11).map((p: any) => ({
-              id: p.id,
-              name: p.name ?? `${p.firstName} ${p.lastName}`,
-              rating: p.rating,
-              position: p.specificPosition,
-              side: "away" as const,
-            }))}
-            homeColor={homeTeam.primaryColor}
-            awayColor={awayTeam.primaryColor}
-            homeFormation={useAppStore.getState().tactics.active?.formation ?? "4-4-2"}
-            awayFormation="4-4-2"
-            minute={engine.state.minute}
-            homeScore={engine.state.homeScore}
-            awayScore={engine.state.awayScore}
-            homeShort={homeTeam.shortName}
-            awayShort={awayTeam.shortName}
-          />
+          <>
+            {/* Sekme seçici */}
+            <div className="flex gap-1 p-1 bg-muted rounded-md">
+              <button
+                onClick={() => { haptic("light"); setMatchTab("pitch"); }}
+                className={cn("flex-1 py-1.5 rounded text-[10px] font-bold", matchTab === "pitch" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
+              >
+                🏟️ Saha
+              </button>
+              <button
+                onClick={() => { haptic("light"); setMatchTab("feed"); }}
+                className={cn("flex-1 py-1.5 rounded text-[10px] font-bold", matchTab === "feed" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
+              >
+                📋 Akış
+              </button>
+              <button
+                onClick={() => { haptic("light"); setMatchTab("stats"); }}
+                className={cn("flex-1 py-1.5 rounded text-[10px] font-bold", matchTab === "stats" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
+              >
+                📊 İstatistik
+              </button>
+            </div>
+
+            {/* Saha sekmesi — 2D pitch + oyuncu tıklanır */}
+            {matchTab === "pitch" && (
+              <LiveMatchPitch
+                homePlayers={homeTeam.players.slice(0, 11).map((p: any) => ({
+                  id: p.id,
+                  name: p.name ?? `${p.firstName} ${p.lastName}`,
+                  rating: p.rating,
+                  position: p.specificPosition,
+                  side: "home" as const,
+                  isCaptain: p.special_role === "kaptan" || p.special_role === "captain",
+                }))}
+                awayPlayers={awayTeam.players.slice(0, 11).map((p: any) => ({
+                  id: p.id,
+                  name: p.name ?? `${p.firstName} ${p.lastName}`,
+                  rating: p.rating,
+                  position: p.specificPosition,
+                  side: "away" as const,
+                }))}
+                homeColor={homeTeam.primaryColor}
+                awayColor={awayTeam.primaryColor}
+                homeFormation={useAppStore.getState().tactics.active?.formation ?? "4-4-2"}
+                awayFormation="4-4-2"
+                minute={engine.state.minute}
+                homeScore={engine.state.homeScore}
+                awayScore={engine.state.awayScore}
+                homeShort={homeTeam.shortName}
+                awayShort={awayTeam.shortName}
+                onPlayerClick={(playerId) => {
+                  const p = [...homeTeam.players, ...awayTeam.players].find((pp) => pp.id === playerId);
+                  if (p) { haptic("light"); setPitchProfilePlayer(p); }
+                }}
+              />
+            )}
+
+            {/* Akış sekmesi */}
+            {matchTab === "feed" && (
+              <>
+                <LiveCommentaryBanner events={engine.state.events} />
+                <EventFeed
+                  events={engine.state.events}
+                  emptyText={t("match.events.empty")}
+                  locale={locale}
+                  homeTeam={homeTeam}
+                  awayTeam={awayTeam}
+                />
+              </>
+            )}
+
+            {/* İstatistik sekmesi */}
+            {matchTab === "stats" && (
+              <StatsBar state={engine.state} />
+            )}
+          </>
         )}
 
         {/* ===== Scheduler Widget — maç saati bekleniyor ===== */}
@@ -414,25 +473,10 @@ export function MatchScreen() {
           </div>
         )}
 
-        {/* Live commentary banner — son event'in yorumu */}
-        {engine.state.status !== "idle" && engine.state.events.length > 0 && (
-          <LiveCommentaryBanner events={engine.replay.active ? engine.replay.events : engine.state.events} />
-        )}
+        {/* Live event feed — artık Akış sekmesinde gösteriliyor, bağımsız değil */}
 
-        {/* Live event feed */}
-        {engine.state.status !== "finished" || engine.replay.active ? (
-          <EventFeed
-            events={
-              engine.replay.active
-                ? engine.replay.events
-                : engine.state.events
-            }
-            emptyText={t("match.events.empty")}
-            locale={locale}
-            homeTeam={homeTeam}
-            awayTeam={awayTeam}
-          />
-        ) : (
+        {/* PostMatch — maç bittiğinde */}
+        {engine.state.status === "finished" && !engine.replay.active && (
           <PostMatch
             state={engine.state}
             homeTeam={homeTeam}
@@ -442,10 +486,7 @@ export function MatchScreen() {
           />
         )}
 
-        {/* Match stats bar */}
-        {engine.state.status !== "idle" && !engine.replay.active && (
-          <StatsBar state={engine.state} />
-        )}
+        {/* Match stats bar — artık İstatistik sekmesinde, bağımsız değil */}
 
         {engine.state.status === "finished" && !engine.replay.active && (
           <>
@@ -482,6 +523,19 @@ export function MatchScreen() {
         mySide={mySide}
         myTeam={team}
       />
+
+      {/* ADDED: Saha oyuncusu profil modal'ı — 2D sahada tıklayınca */}
+      {pitchProfilePlayer && (
+        <PlayerProfileModal
+          player={pitchProfilePlayer}
+          teamColor={
+            homeTeam.players.some((p) => p.id === pitchProfilePlayer.id)
+              ? homeTeam.primaryColor
+              : awayTeam.primaryColor
+          }
+          onClose={() => setPitchProfilePlayer(null)}
+        />
+      )}
     </div>
   );
 }

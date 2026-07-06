@@ -29,6 +29,7 @@ interface LiveMatchPitchProps {
   awayScore: number;
   homeShort: string;
   awayShort: string;
+  onPlayerClick?: (playerId: string) => void;
 }
 
 // Formasyon slot koordinatları (0-100, top-down view)
@@ -85,6 +86,7 @@ export function LiveMatchPitch({
   awayScore,
   homeShort,
   awayShort,
+  onPlayerClick,
 }: LiveMatchPitchProps) {
   // Koordinatları al, yoksa default
   const homeCoords = FORMATION_COORDS[homeFormation] ?? DEFAULT_COORDS;
@@ -171,10 +173,8 @@ export function LiveMatchPitch({
         {/* Away oyuncuları (üst yarı: 0-50%) — koordinatları üst yarıya sıkıştır */}
         {awayPlayers.slice(0, 11).map((p, i) => {
           const coord = awayCoords[i] ?? DEFAULT_COORDS[i % 11];
-          // Away: y 0-100 → üst yarıya (2-48%) map'le
-          // Kaleci y=8 → üstte ~5%, Forvet y=72 → ortada ~46%
           const x = coord.x;
-          const y = 2 + (100 - coord.y) * 0.46; // 2-48 arası
+          const y = 2 + (100 - coord.y) * 0.46;
           return (
             <PlayerDot
               key={`away-${p.id}-${i}`}
@@ -183,6 +183,7 @@ export function LiveMatchPitch({
               y={y}
               color={awayColor}
               side="away"
+              onClick={onPlayerClick ? () => onPlayerClick(p.id) : undefined}
             />
           );
         })}
@@ -190,10 +191,8 @@ export function LiveMatchPitch({
         {/* Home oyuncuları (alt yarı: 50-98%) — koordinatları alt yarıya sıkıştır */}
         {homePlayers.slice(0, 11).map((p, i) => {
           const coord = homeCoords[i] ?? DEFAULT_COORDS[i % 11];
-          // Home: y 0-100 → alt yarıya (52-98%) map'le
-          // Kaleci y=8 → altta ~95%, Forvet y=72 → ortada ~54%
           const x = coord.x;
-          const y = 52 + coord.y * 0.46; // 52-98 arası
+          const y = 52 + coord.y * 0.46;
           return (
             <PlayerDot
               key={`home-${p.id}-${i}`}
@@ -202,6 +201,7 @@ export function LiveMatchPitch({
               y={y}
               color={homeColor}
               side="home"
+              onClick={onPlayerClick ? () => onPlayerClick(p.id) : undefined}
             />
           );
         })}
@@ -235,12 +235,14 @@ function PlayerDot({
   y,
   color,
   side,
+  onClick,
 }: {
   player: LivePlayer;
   x: number;
   y: number;
   color: string;
   side: "home" | "away";
+  onClick?: () => void;
 }) {
   const isGK = player.position === "GK";
   const hasYellow = player.isCarded === "yellow";
@@ -248,7 +250,8 @@ function PlayerDot({
 
   return (
     <div
-      className="absolute flex flex-col items-center gap-0.5"
+      onClick={onClick}
+      className={cn("absolute flex flex-col items-center gap-0.5", onClick && "cursor-pointer tm-tap")}
       style={{
         left: `${x}%`,
         top: `${y}%`,

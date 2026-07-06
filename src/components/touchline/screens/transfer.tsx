@@ -562,48 +562,22 @@ function PlayerCard({
           {player.archetype && (
             <>
               <span>·</span>
-              <span className="truncate max-w-[120px]">{player.archetype}</span>
+              <span className="truncate max-w-[100px]">{player.archetype}</span>
             </>
           )}
         </div>
       </button>
-      <div className="flex flex-col items-end gap-0.5 w-20 shrink-0">
-        <button
-          onClick={onToggleWatch}
-          className={cn(
-            "tm-tap p-0.5 rounded-full self-end",
-            isWatched ? "text-red-500" : "text-muted-foreground"
-          )}
-          aria-label={isWatched ? t("transfer.watchlist.remove") : t("transfer.watchlist.add")}
-        >
-          <Heart size={14} fill={isWatched ? "currentColor" : "none"} />
-        </button>
-        <div className="text-[8px] text-muted-foreground uppercase">OVR <span className="text-amber-400 font-bold text-sm">{player.rating}</span></div>
-        <div className="text-xs font-bold tabular-nums">{formatEuro(askingPrice)}</div>
-        <div className={cn(
-          "text-[9px] flex items-center gap-0.5",
-          isAboveValue ? "text-red-500" : "text-emerald-600"
-        )}>
-          {isAboveValue ? <TrendingUp size={9} className="rotate-90" /> : <TrendingUp size={9} className="-rotate-90" />}
-          {Math.round(((askingPrice - player.marketValue) / player.marketValue) * 100)}%
-        </div>
-        <div className="flex gap-0.5 w-full">
-          <button
-            onClick={onMakeOffer}
-            className="tm-tap flex-1 px-1 py-1 rounded text-[9px] font-bold bg-primary text-primary-foreground"
-          >
-            {t("transfer.make_offer")}
-          </button>
-          {onNegotiate && (
-            <button
-              onClick={onNegotiate}
-              className="tm-tap px-1.5 py-1 rounded text-[9px] font-bold bg-amber-600 text-white"
-            >
-              ⚡
-            </button>
-          )}
-        </div>
+      {/* Sağ sütun — takımsız ile aynı boyut: RatingBadge + fiyat + buton */}
+      <div className="flex flex-col items-end gap-1">
+        <RatingBadge value={player.rating} />
+        <div className="text-[9px] text-muted-foreground">{formatEuro(askingPrice)}</div>
       </div>
+      <button
+        onClick={onMakeOffer}
+        className="tm-tap px-2 py-1.5 rounded text-[10px] font-bold bg-primary text-primary-foreground whitespace-nowrap"
+      >
+        {t("transfer.make_offer")}
+      </button>
     </div>
   );
 }
