@@ -117,7 +117,7 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
           <h1 className="text-base font-bold">Hazırlık Maçı</h1>
         </div>
         <p className="text-[10px] text-muted-foreground leading-relaxed">
-          Bot takımlarla dostluk maçı oyna. Sonuçlar <strong className="text-foreground">lig puanını etkilemez</strong> ama oyuncuların kondisyonu, formu ve morali değişir.
+          Bot takımlarla dostluk maçı oyna. Sonuçlar <strong className="text-foreground">lig puanını etkilemez</strong> ama oyuncuların formu ve morali <strong className="text-emerald-400">her zaman pozitif</strong> yönde etkilenir (antrenman niteliğinde).
         </p>
       </div>
 
@@ -388,7 +388,7 @@ function FriendlyResultView({
       {/* Bilgi kartı */}
       <div className="tm-card p-3 bg-muted/30">
         <div className="text-[10px] text-muted-foreground leading-relaxed">
-          💡 Hazırlık maçları lig puanını etkilemez. Oyuncuların kondisyonu düştü, form ve moral maç sonucuna göre güncellendi. Bir sonraki resmi maçta taze kadro kullanmak için kondisyonlarını takip et.
+          💡 Hazırlık maçları lig puanını etkilemez. Oyuncuların formu ve morali her zaman pozitif yönde gelişti. Bir sonraki resmi maçta taze kadro kullanmak için kondisyonlarını takip et.
         </div>
       </div>
 

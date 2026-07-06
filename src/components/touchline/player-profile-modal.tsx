@@ -1274,7 +1274,7 @@ function ActionsTab({
     <div className="space-y-3">
       {/* Player mini header */}
       <div className="flex items-center gap-2 p-2 tm-card">
-        <PlayerAvatar initials={`${player.firstName[0]}${player.lastName[0]}`} size={36} color={teamColor} />
+        <PlayerAvatar initials={player.specificPosition} size={36} color={teamColor} />
         <div className="flex-1 min-w-0">
           <div className="text-sm font-bold truncate">{player.firstName} {player.lastName}</div>
           <div className="text-[10px] text-muted-foreground">

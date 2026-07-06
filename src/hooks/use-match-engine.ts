@@ -676,11 +676,16 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
       if (matchRating === undefined) return p;
 
       const condDrain = Math.floor(8 + Math.random() * 8 + (matchRating < 6 ? 4 : 0));
-      const formChange = matchRating >= 6.5 ? 2 : matchRating < 5.5 ? -3 : 0;
+      // P2.5 FIX: Hazırlık maçlarında her zaman pozitif form/moral
+      const formChange = isFriendly
+        ? 2  // Hazırlık maçı = her zaman +2 form
+        : matchRating >= 6.5 ? 2 : matchRating < 5.5 ? -3 : 0;
       const isHome = result.homePlayerRatings.some((r) => r.playerId === p.id);
       const won = isHome ? result.homeScore > result.awayScore : result.awayScore > result.homeScore;
       const lost = isHome ? result.homeScore < result.awayScore : result.awayScore < result.homeScore;
-      const moraleChange = won ? 3 + streakBonus : lost ? -3 + streakBonus : 0;
+      const moraleChange = isFriendly
+        ? 2  // Hazırlık maçı = her zaman +2 moral
+        : won ? 3 + streakBonus : lost ? -3 + streakBonus : 0;
 
       const newCond = Math.max(20, Math.min(100, p.cond - condDrain));
       const newForm = Math.max(30, Math.min(100, p.form + formChange));

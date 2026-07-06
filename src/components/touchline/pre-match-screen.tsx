@@ -5,7 +5,7 @@ import { useI18n } from "@/lib/i18n/locale-provider";
 import { useMyTeam } from "@/lib/store";
 import type { Team } from "@/lib/mock/data";
 import { POSITION_GROUP } from "@/lib/mock/data";
-import { ClubBadge, PlayerAvatar, PositionPill, RatingBadge } from "./ui-bits";
+import { ClubBadge, PositionPill, RatingBadge } from "./ui-bits";
 import { cn } from "@/lib/utils";
 
 export function PreMatchScreen({
@@ -173,7 +173,6 @@ export function PreMatchScreen({
         <div className="grid grid-cols-2 gap-3">
           {homeBest && (
             <div className="flex items-center gap-2">
-              <PlayerAvatar initials={`${homeBest.firstName[0]}${homeBest.lastName[0]}`} color={homeTeam.primaryColor} size={28} />
               <div className="flex-1 min-w-0">
                 <div className="text-[10px] font-bold truncate">{homeBest.firstName} {homeBest.lastName}</div>
                 <div className="text-[8px] text-muted-foreground">{homeBest.specificPosition} · {homeBest.archetype}</div>
@@ -183,7 +182,6 @@ export function PreMatchScreen({
           )}
           {awayBest && (
             <div className="flex items-center gap-2">
-              <PlayerAvatar initials={`${awayBest.firstName[0]}${awayBest.lastName[0]}`} color={awayTeam.primaryColor} size={28} />
               <div className="flex-1 min-w-0">
                 <div className="text-[10px] font-bold truncate">{awayBest.firstName} {awayBest.lastName}</div>
                 <div className="text-[8px] text-muted-foreground">{awayBest.specificPosition} · {awayBest.archetype}</div>
@@ -206,7 +204,6 @@ export function PreMatchScreen({
             return (
               <div key={p.id} className={cn("flex items-center gap-2 py-1 px-1.5 rounded", POSITION_ROW_BG[group])}>
                 <PositionPill label={p.specificPosition} group={group} />
-                <PlayerAvatar initials={`${p.firstName[0]}${p.lastName[0]}`} color={homeTeam.primaryColor} size={20} />
                 <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
                 <span className="text-[9px] font-bold tabular-nums w-6 text-right">{p.rating}</span>
               </div>
@@ -227,7 +224,6 @@ export function PreMatchScreen({
             return (
               <div key={p.id} className={cn("flex items-center gap-2 py-1 px-1.5 rounded", POSITION_ROW_BG[group])}>
                 <PositionPill label={p.specificPosition} group={group} />
-                <PlayerAvatar initials={`${p.firstName[0]}${p.lastName[0]}`} color={awayTeam.primaryColor} size={20} />
                 <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
                 <span className="text-[9px] font-bold tabular-nums w-6 text-right">{p.rating}</span>
               </div>

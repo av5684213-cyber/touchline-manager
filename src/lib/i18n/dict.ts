@@ -39,6 +39,7 @@ export const dict: Dict = {
   "nav.reports": { tr: "Raporlar", en: "Reports" },
   "nav.cup": { tr: "Kupa", en: "Cup" },
   "nav.other": { tr: "Diğer", en: "More" },
+  "nav.topscorers": { tr: "Gol Kralları", en: "Top Scorers" },
 
   // ---- common ----
   "common.loading": { tr: "Yükleniyor…", en: "Loading…" },
@@ -223,7 +224,7 @@ export const dict: Dict = {
   "match.events.title": { tr: "Olay Akışı", en: "Event Feed" },
   "match.events.empty": { tr: "Henüz olay yok", en: "No events yet" },
   "match.stats.possession": { tr: "Topa Sahip", en: "Possession" },
-  "match.stats.shots": { tr: "İabetli Şut", en: "Shots on Target" },
+  "match.stats.shots": { tr: "İsabetli Şut", en: "Shots on Target" },
   "match.stats.corners": { tr: "Korner", en: "Corners" },
   "match.stats.fouls": { tr: "Faul", en: "Fouls" },
   "match.tactics": { tr: "Taktik", en: "Tactics" },

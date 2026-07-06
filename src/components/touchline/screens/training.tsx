@@ -325,7 +325,7 @@ export function TrainingScreen() {
               return (
                 <div key={r.playerId} className="flex items-center gap-2 text-xs py-1">
                   <PlayerAvatar
-                    initials={`${player.firstName[0]}${player.lastName[0]}`}
+                    initials={player.specificPosition}
                     color={team.primaryColor}
                     size={24}
                   />
@@ -430,7 +430,7 @@ export function TrainingScreen() {
                   aria-label="Profil"
                 >
                   <PlayerAvatar
-                    initials={`${p.firstName[0]}${p.lastName[0]}`}
+                    initials={p.specificPosition}
                     color={team.primaryColor}
                     size={36}
                   />
@@ -646,10 +646,10 @@ function MentorModal({ onClose }: { onClose: () => void }) {
                   if (!mentor || !mentee) return null;
                   return (
                     <div key={m.menteeId} className="tm-card p-2.5 flex items-center gap-2 text-xs">
-                      <PlayerAvatar initials={`${mentor.firstName[0]}${mentor.lastName[0]}`} size={24} />
+                      <PlayerAvatar initials={mentor.specificPosition} size={24} />
                       <span className="font-semibold truncate">{mentor.firstName} {mentor.lastName}</span>
                       <span className="text-muted-foreground">→</span>
-                      <PlayerAvatar initials={`${mentee.firstName[0]}${mentee.lastName[0]}`} size={24} />
+                      <PlayerAvatar initials={mentee.specificPosition} size={24} />
                       <span className="font-semibold truncate flex-1">{mentee.firstName} {mentee.lastName}</span>
                       <span className="text-emerald-700 font-bold">+{Math.round(m.bonusRate * 100)}%</span>
                       <button
@@ -683,7 +683,7 @@ function MentorModal({ onClose }: { onClose: () => void }) {
                       )}
                     >
                       <PlayerAvatar
-                        initials={`${m.firstName[0]}${m.lastName[0]}`}
+                        initials={m.specificPosition}
                         size={22}
                         color={team.primaryColor}
                       />
@@ -711,7 +711,7 @@ function MentorModal({ onClose }: { onClose: () => void }) {
                       )}
                     >
                       <PlayerAvatar
-                        initials={`${m.firstName[0]}${m.lastName[0]}`}
+                        initials={m.specificPosition}
                         size={22}
                         color={team.primaryColor}
                       />

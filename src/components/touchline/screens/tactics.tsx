@@ -34,7 +34,7 @@ import {
   type PassingStyle,
   type InstructionCategory,
 } from "@/lib/tactics/types";
-import { PlayerAvatar, PositionPill, RatingBadge, GrowthBadge } from "../ui-bits";
+import { PositionPill, RatingBadge, GrowthBadge } from "../ui-bits";
 import { PlayerProfileModal } from "../player-profile-modal";
 import { TrainingScreen } from "./training";
 import { formatEuro } from "@/lib/format";
@@ -387,7 +387,7 @@ export function TacticsScreen() {
                   {p ? p.rating : slotPos}
                 </span>
                 <span className="text-[8px] text-white font-semibold drop-shadow max-w-[60px] truncate text-center">
-                  {p ? `${p.firstName[0]}. ${p.lastName}` : "Boş"}
+                  {p ? `${p.firstName} ${p.lastName}` : "Boş"}
                 </span>
                 {role && (
                   <span className="text-[7px] text-amber-300 font-semibold">
@@ -529,7 +529,7 @@ export function TacticsScreen() {
                   >
                     <span className="text-[8px] text-muted-foreground">{slotPos}</span>
                     <span className="text-[9px] truncate max-w-[50px]">
-                      {current ? `${current.firstName[0]}. ${current.lastName}` : "Boş"}
+                      {current ? `${current.firstName} ${current.lastName}` : "Boş"}
                     </span>
                     {current && (
                       <span className="text-[8px] tabular-nums text-amber-300">{current.rating}</span>
@@ -571,7 +571,7 @@ export function TacticsScreen() {
                       {p.rating}
                     </span>
                     <span className="text-[8px] font-semibold truncate w-full text-center">
-                      {p.firstName[0]}. {p.lastName}
+                      {p.firstName} {p.lastName}
                     </span>
                     <span className="text-[7px] text-muted-foreground">{p.specificPosition}</span>
                     {(p.cond ?? 100) < 50 && (
@@ -873,7 +873,6 @@ export function TacticsScreen() {
                     inLineup && "border-l-2 border-l-emerald-500"
                   )}
                 >
-                  <PlayerAvatar initials={p.specificPosition} size={32} color={team.primaryColor} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-semibold truncate">{p.firstName} {p.lastName}</span>
@@ -1077,11 +1076,6 @@ function CompareTab({
                 </button>
                 {p ? (
                   <div className="flex flex-col items-center text-center">
-                    <PlayerAvatar
-                      initials={p.specificPosition}
-                      color={team.primaryColor}
-                      size={36}
-                    />
                     <div className="text-[10px] font-bold mt-1 truncate w-full">
                       {p.firstName} {p.lastName}
                     </div>
@@ -1125,7 +1119,6 @@ function CompareTab({
                 isSelected && "bg-primary/10"
               )}
             >
-              <PlayerAvatar initials={`${p.firstName[0]}${p.lastName[0]}`} size={32} color={team.primaryColor} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs font-semibold truncate">{p.firstName} {p.lastName}</span>
@@ -1557,7 +1550,6 @@ function PlayerHeader({
 }) {
   return (
     <div className={cn("flex items-center gap-2", alignRight && "flex-row-reverse")}>
-      <PlayerAvatar initials={p.specificPosition} size={32} color={teamColor} />
       <div className={cn("min-w-0", alignRight && "text-right")}>
         <div className="text-xs font-semibold truncate">{p.firstName} {p.lastName}</div>
         <div className="text-[10px] text-muted-foreground">{p.specificPosition} · {p.age}</div>

@@ -1433,7 +1433,7 @@ function SubPicker({
         className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold text-white shrink-0"
         style={{ background: team?.primaryColor ?? "#1a3a2a" }}
       >
-        {player.firstName[0]}{player.lastName[0]}
+        {player.firstName} {player.lastName}
       </span>
       <div className="min-w-0 flex-1">
         <div className="text-[11px] font-semibold truncate">
@@ -1543,7 +1543,7 @@ function PostMatch({
               className="inline-flex items-center justify-center w-12 h-12 rounded-full text-sm font-bold text-white"
               style={{ background: motmSide === "home" ? homeTeam.primaryColor : awayTeam.primaryColor }}
             >
-              {motm.firstName[0]}{motm.lastName[0]}
+              {motm.firstName} {motm.lastName}
             </span>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-bold truncate">{motm.firstName} {motm.lastName}</div>

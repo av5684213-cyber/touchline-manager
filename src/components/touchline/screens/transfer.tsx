@@ -543,38 +543,44 @@ function PlayerCard({
       >
         <PlayerAvatar
           initials={player.specificPosition ?? "—"}
-          size={36}
+          size={32}
         />
       </button>
       <button
         onClick={onOpenProfile}
         className="flex-1 min-w-0 text-left"
       >
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-sm font-semibold truncate">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-semibold truncate">
             {player.firstName} {player.lastName}
           </span>
           <PositionPill label={player.specificPosition} group={POSITION_GROUP[player.specificPosition]} />
-          <span className="text-xs">{flag}</span>
         </div>
-        <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
-          <span>{player.age} {t("common.year")}</span>
-          {player.archetype && (
-            <>
-              <span>·</span>
-              <span className="truncate max-w-[100px]">{player.archetype}</span>
-            </>
-          )}
+        <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground mt-0.5">
+          {player.archetype && <span className="text-amber-300 truncate max-w-[80px]">{player.archetype}</span>}
+          <span>·</span>
+          <StatChip label="Hız" value={player.stats?.pace ?? player.speed ?? 50} />
+          <StatChip label="Pas" value={player.passing ?? 50} />
+          <StatChip label="Şut" value={player.shooting ?? 50} />
         </div>
       </button>
-      {/* Sağ sütun — takımsız ile aynı boyut: RatingBadge + fiyat + buton */}
-      <div className="flex flex-col items-end gap-1">
+      <div className="flex flex-col items-end gap-0.5 shrink-0">
         <RatingBadge value={player.rating} />
-        <div className="text-[9px] text-muted-foreground">{formatEuro(askingPrice)}</div>
+        <div className="text-[9px] font-bold tabular-nums">{formatEuro(askingPrice)}</div>
       </div>
       <button
+        onClick={onToggleWatch}
+        className={cn(
+          "tm-tap p-0.5 rounded-full shrink-0",
+          isWatched ? "text-red-500" : "text-muted-foreground"
+        )}
+        aria-label={isWatched ? t("transfer.watchlist.remove") : t("transfer.watchlist.add")}
+      >
+        <Heart size={14} fill={isWatched ? "currentColor" : "none"} />
+      </button>
+      <button
         onClick={onMakeOffer}
-        className="tm-tap px-2 py-1.5 rounded text-[10px] font-bold bg-primary text-primary-foreground whitespace-nowrap"
+        className="tm-tap px-2 py-1.5 rounded text-[10px] font-bold bg-primary text-primary-foreground whitespace-nowrap shrink-0"
       >
         {t("transfer.make_offer")}
       </button>

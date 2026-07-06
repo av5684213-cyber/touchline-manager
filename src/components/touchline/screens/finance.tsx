@@ -65,7 +65,8 @@ export function FinanceScreen() {
     // Pozisyona göre maaş dağılımı
     const wageByGroup: Record<PositionGroup, number> = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
     for (const p of team.players) {
-      wageByGroup[POSITION_GROUP[p.position]] += p.weeklyWage;
+      const group = POSITION_GROUP[p.specificPosition] ?? POSITION_GROUP[p.position] ?? "MID";
+      wageByGroup[group] += p.weeklyWage;
     }
     const maxWage = Math.max(...Object.values(wageByGroup), 1);
 

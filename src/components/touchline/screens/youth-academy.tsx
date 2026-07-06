@@ -108,7 +108,7 @@ export function YouthAcademyScreen() {
                 aria-label="Profil"
               >
                 <PlayerAvatar
-                  initials={`${p.firstName[0]}${p.lastName[0]}`}
+                  initials={p.specificPosition}
                   color={team.primaryColor}
                   size={32}
                 />

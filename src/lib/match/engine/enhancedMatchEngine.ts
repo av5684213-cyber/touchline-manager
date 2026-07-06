@@ -397,7 +397,24 @@ function randInt(min: number, max: number): number {
   return Math.floor(rand(min, max + 1));
 }
 
+// P2.6 FIX: Son seçilen yorumları takip et — tekrar engelle
+const recentCommentary: string[] = [];
+const COMMENTARY_HISTORY_SIZE = 3;
+
 function pick<T>(arr: T[]): T {
+  // Eğer arr string ise, son 3 yorumu tekrar seçme
+  if (arr.length > 0 && typeof arr[0] === 'string') {
+    const stringArr = arr as unknown as string[];
+    const available = stringArr.filter(s => !recentCommentary.includes(s));
+    const pool = available.length > 0 ? available : stringArr;
+    const picked = pool[Math.floor(Math.random() * pool.length)];
+    // Geçmişi güncelle
+    recentCommentary.push(picked as unknown as string);
+    if (recentCommentary.length > COMMENTARY_HISTORY_SIZE) {
+      recentCommentary.shift();
+    }
+    return picked as unknown as T;
+  }
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
