@@ -359,6 +359,33 @@ export function FacilitiesScreen() {
         </div>
 
         {/* Active staff list */}
+        {/* ADDED: Personel bonus özeti — Scout/Doctor/Coach etkileri tooltip */}
+        {facilities.staff.length > 0 && (
+          <div className="tm-card p-2.5 bg-primary/5 border-primary/20 mb-2">
+            <div className="text-[9px] font-bold text-muted-foreground uppercase mb-1.5">Personel Faydaları</div>
+            <div className="space-y-1">
+              {(() => {
+                try {
+                  const { getStaffBonusSummary } = require("@/lib/staffBonus");
+                  const summary = getStaffBonusSummary(facilities.staff);
+                  return [
+                    { icon: "🔍", ...summary.scout },
+                    { icon: "⚕️", ...summary.doctor },
+                    { icon: "📋", ...summary.coach },
+                  ].map((s, i) => (
+                    <div key={i} className="flex items-center gap-2 text-[10px]">
+                      <span>{s.icon}</span>
+                      <span className="font-semibold">{s.level > 0 ? `${s.level}★` : "—"}</span>
+                      <span className="text-muted-foreground flex-1 truncate">{s.description}</span>
+                    </div>
+                  ));
+                } catch {
+                  return <div className="text-[9px] text-muted-foreground">Personel bonusları yüklenemedi</div>;
+                }
+              })()}
+            </div>
+          </div>
+        )}
         {facilities.staff.length > 0 && (
           <div className="tm-card divide-y divide-border">
             {facilities.staff.map((s) => {

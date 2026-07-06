@@ -1,16 +1,21 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Award, Crown, Star, Trophy, Shield, Goal, TrendingUp, TrendingDown } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { computeStandings, SEASON_INFO } from "@/lib/mock/season";
 import { cn } from "@/lib/utils";
+// ADDED: Profil modalı için import
+import { PlayerProfileModal } from "../player-profile-modal";
+import type { Player } from "@/lib/mock/data";
 
 export function AwardsScreen() {
   const { t, locale } = useI18n();
   const team = useMyTeam();
   const { clubs, fixtures, cup, seasonNumber } = useAppStore();
+  // ADDED: Seçili oyuncu profili state
+  const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
 
   const awards = useMemo(() => {
     if (!team) return null;
@@ -134,18 +139,21 @@ export function AwardsScreen() {
             label="Gol Kralı"
             name={awards.topScorer ? `${awards.topScorer.player.firstName} ${awards.topScorer.player.lastName}` : "—"}
             sub={`${awards.topScorer?.player.goals ?? 0} gol · ${awards.topScorer?.club.shortName ?? ""}`}
+            onClickPlayer={awards.topScorer ? () => setProfilePlayer(awards.topScorer!.player) : undefined}
           />
           <AwardRow
             icon={<Star size={16} className="text-sky-400" />}
             label="Asist Kralı"
             name={awards.topAssist ? `${awards.topAssist.player.firstName} ${awards.topAssist.player.lastName}` : "—"}
             sub={`${awards.topAssist?.player.assists ?? 0} asist · ${awards.topAssist?.club.shortName ?? ""}`}
+            onClickPlayer={awards.topAssist ? () => setProfilePlayer(awards.topAssist!.player) : undefined}
           />
           <AwardRow
             icon={<Award size={16} className="text-purple-400" />}
             label="Sezonun Oyuncusu"
             name={awards.mvp ? `${awards.mvp.player.firstName} ${awards.mvp.player.lastName}` : "—"}
             sub={`${(awards.mvp?.player.formRating ?? 0).toFixed(1)} form · ${awards.mvp?.club.shortName ?? ""}`}
+            onClickPlayer={awards.mvp ? () => setProfilePlayer(awards.mvp!.player) : undefined}
           />
           {awards.topGK && (
             <AwardRow
@@ -153,6 +161,7 @@ export function AwardsScreen() {
               label="En İyi Kaleci"
               name={`${awards.topGK.player.firstName} ${awards.topGK.player.lastName}`}
               sub={`${awards.topGK.player.saves ?? 0} kurtarış · ${awards.topGK.club.shortName}`}
+              onClickPlayer={() => setProfilePlayer(awards.topGK!.player)}
             />
           )}
           <AwardRow
@@ -160,12 +169,14 @@ export function AwardsScreen() {
             label="En Çok Maç Adamı"
             name={awards.topMotm ? `${awards.topMotm.player.firstName} ${awards.topMotm.player.lastName}` : "—"}
             sub={`${awards.topMotm?.player.motmAwards ?? 0} MOTM · ${awards.topMotm?.club.shortName ?? ""}`}
+            onClickPlayer={awards.topMotm ? () => setProfilePlayer(awards.topMotm!.player) : undefined}
           />
           <AwardRow
             icon={<TrendingUp size={16} className="text-indigo-400" />}
             label="En Çok Maç Oynayan"
             name={awards.topApps ? `${awards.topApps.player.firstName} ${awards.topApps.player.lastName}` : "—"}
             sub={`${awards.topApps?.player.appearances ?? 0} maç · ${awards.topApps?.club.shortName ?? ""}`}
+            onClickPlayer={awards.topApps ? () => setProfilePlayer(awards.topApps!.player) : undefined}
           />
         </div>
       </div>
@@ -219,6 +230,15 @@ export function AwardsScreen() {
           </div>
         </div>
       )}
+
+      {/* ADDED: Profil modalı — ödül kazanan oyuncuya tıklayınca açılır */}
+      {profilePlayer && (
+        <PlayerProfileModal
+          player={profilePlayer}
+          teamColor={team?.primaryColor ?? "#1a3a2a"}
+          onClose={() => setProfilePlayer(null)}
+        />
+      )}
     </div>
   );
 }
@@ -229,12 +249,14 @@ function AwardRow({
   name,
   sub,
   highlight,
+  onClickPlayer,
 }: {
   icon: React.ReactNode;
   label: string;
   name: string;
   sub: string;
   highlight?: boolean;
+  onClickPlayer?: () => void;
 }) {
   return (
     <div className={cn(
@@ -244,7 +266,17 @@ function AwardRow({
       <div className="shrink-0">{icon}</div>
       <div className="flex-1 min-w-0">
         <div className="text-[10px] text-muted-foreground">{label}</div>
-        <div className="text-xs font-bold truncate">{name}</div>
+        {/* ADDED: Oyuncu adına tıklayınca profil kartı aç */}
+        {onClickPlayer ? (
+          <button
+            onClick={onClickPlayer}
+            className="text-xs font-bold truncate text-left hover:text-primary hover:underline transition-colors tm-tap"
+          >
+            {name}
+          </button>
+        ) : (
+          <div className="text-xs font-bold truncate">{name}</div>
+        )}
       </div>
       <div className="text-[9px] text-muted-foreground text-right shrink-0">{sub}</div>
     </div>

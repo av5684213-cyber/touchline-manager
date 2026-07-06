@@ -418,8 +418,28 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
       const userTactic = storeState.tactics.active ?? DEFAULT_TACTIC;
       const formation = userTactic.formation || "4-4-2";
 
-      // İlk 11'i formasyon bazlı seç
-      const homeSquad = pickStartingXIByFormation(home.players, formation) as unknown as MatchEnginePlayer[];
+      // ADDED: Taktikten ilk 11 kontrolü — lineup'da null slot varsa uyarı
+      const lineupFromTactics = storeState.tactics.lineup;
+      const filledSlots = lineupFromTactics.filter((p): p is Player => p !== null);
+      const emptySlots = lineupFromTactics.length - filledSlots.length;
+
+      // İlk 11'i seç:
+      // 1. Öncelik: kullanıcının taktik ekranında seçtiği lineup (11 dolu slot)
+      // 2. Fallback: pickStartingXIByFormation ile en iyi 11
+      let homeSquad: MatchEnginePlayer[];
+      if (filledSlots.length === 11) {
+        // Kullanıcının seçtiği ilk 11 — taktik ekranından
+        homeSquad = filledSlots as unknown as MatchEnginePlayer[];
+      } else if (filledSlots.length >= 7) {
+        // Yeterli oyuncu var ama 11 değil — eksikleri otomatik doldur
+        const autoFilled = pickStartingXIByFormation(home.players, formation) as unknown as MatchEnginePlayer[];
+        const usedIds = new Set(filledSlots.map((p) => p.id));
+        const missing = autoFilled.filter((p) => !usedIds.has(p.id)).slice(0, 11 - filledSlots.length);
+        homeSquad = [...filledSlots, ...missing] as unknown as MatchEnginePlayer[];
+      } else {
+        // Çok az oyuncu seçilmiş — tamamen otomatik
+        homeSquad = pickStartingXIByFormation(home.players, formation) as unknown as MatchEnginePlayer[];
+      }
       const awaySquad = pickStartingXIByFormation(away.players, "4-4-2") as unknown as MatchEnginePlayer[];
 
       // Kullanıcının taktiğini home için kullan, away için default
@@ -667,7 +687,13 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
       const newMorale = Math.max(20, Math.min(100, p.morale + moraleChange));
 
       const isInjured = injuredIds.has(p.id);
-      const injuryDuration = Math.floor(Math.random() * 14) + 3;
+      let injuryDuration = Math.floor(Math.random() * 14) + 3;
+      // ADDED: Doctor bonus — sakatlık süresini kısalt
+      try {
+        const { applyDoctorHealingBonus } = require("@/lib/staffBonus");
+        const storeState = useAppStore.getState();
+        injuryDuration = applyDoctorHealingBonus(injuryDuration, storeState.facilities.staff);
+      } catch (e) { /* staffBonus yüklenemezse default süre */ }
       const injurySeverity = Math.floor(Math.random() * 5) + 1;
       const injury = isInjured
         ? { type: "light" as const, remaining_days: injuryDuration, severity: injurySeverity }
@@ -793,6 +819,68 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
       });
     } else {
       useAppStore.setState({ clubs: updatedClubs });
+    }
+
+    // ADDED: Başarım tetikleyici — maç sonu
+    try {
+      if (typeof window !== "undefined") {
+        const { checkAchievements } = require("@/components/touchline/achievements");
+        const isHome = result.homePlayerRatings.some((r) => r.playerId === teamId);
+        const won = isHome ? result.homeScore > result.awayScore : result.awayScore > result.homeScore;
+        const goalScored = isHome ? result.homeScore > 0 : result.awayScore > 0;
+        const cleanSheet = isHome ? result.awayScore === 0 : result.homeScore === 0;
+        // Son 5 maçtan galibiyet serisi hesapla
+        const fixtures = useAppStore.getState().fixtures
+          .filter((f) => f.played && (f.homeId === teamId || f.awayId === teamId))
+          .sort((a, b) => b.matchday - a.matchday)
+          .slice(0, 5);
+        let winStreak = 0;
+        for (const f of fixtures) {
+          const fHome = f.homeId === teamId;
+          const us = fHome ? (f.homeScore ?? 0) : (f.awayScore ?? 0);
+          const them = fHome ? (f.awayScore ?? 0) : (f.homeScore ?? 0);
+          if (us > them) winStreak++;
+          else break;
+        }
+        // Gol kralı/asist kralı
+        let topScorerGoals = 0, topAssists = 0;
+        for (const p of team.players) {
+          if ((p.goals ?? 0) > topScorerGoals) topScorerGoals = p.goals ?? 0;
+          if ((p.assists ?? 0) > topAssists) topAssists = p.assists ?? 0;
+        }
+        // Clean sheet streak (son 5 maçta gol yememe)
+        let cleanSheetStreak = 0;
+        for (const f of fixtures) {
+          const fHome = f.homeId === teamId;
+          const them = fHome ? (f.awayScore ?? 0) : (f.homeScore ?? 0);
+          if (them === 0) cleanSheetStreak++;
+          else break;
+        }
+        const newlyUnlocked = checkAchievements({
+          matchWon: won,
+          goalScored,
+          topScorerGoals,
+          topAssists,
+          cleanSheetStreak,
+          winStreak,
+        });
+        // Yeni başarım varsa haber ekle
+        if (newlyUnlocked.length > 0) {
+          const achNews = newlyUnlocked.map((ach: any) => ({
+            id: `news_ach_${ach.id}_${Date.now()}`,
+            category: "milestone" as const,
+            headline: `✅ Başarım Açıldı: ${ach.name}`,
+            body: `${ach.icon} ${ach.name} — ${ach.description}`,
+            timestamp: Date.now(),
+            importance: 5,
+            read: false,
+          }));
+          const prevNews2 = useAppStore.getState().news ?? [];
+          useAppStore.setState({ news: [...achNews, ...prevNews2] });
+        }
+      }
+    } catch (e) {
+      console.warn("[achievements] maç sonu kontrol hatası:", e);
     }
   }, []);
 

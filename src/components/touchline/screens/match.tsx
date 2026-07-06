@@ -54,6 +54,8 @@ type Side = "home" | "away" | "neutral";
 type HomeAway = "home" | "away";
 import { ClubBadge, PositionPill, RatingBadge } from "../ui-bits";
 import { PlayerProfileModal } from "../player-profile-modal";
+// ADDED: 2D Live Match Pitch
+import { LiveMatchPitch } from "../live-match-pitch";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 import { PreMatchScreen } from "../pre-match-screen";
@@ -266,6 +268,36 @@ export function MatchScreen() {
 
         {/* Referee & weather info banner */}
         <InfoBanner state={engine.state} />
+
+        {/* ADDED: 2D Live Match Pitch — canlı maç sırasında 11v11 saha görselleştirmesi */}
+        {(engine.state.status === "live" || engine.state.status === "paused" || engine.state.status === "halftime") && (
+          <LiveMatchPitch
+            homePlayers={homeTeam.players.slice(0, 11).map((p: any) => ({
+              id: p.id,
+              name: p.name ?? `${p.firstName} ${p.lastName}`,
+              rating: p.rating,
+              position: p.specificPosition,
+              side: "home" as const,
+              isCaptain: p.special_role === "kaptan" || p.special_role === "captain",
+            }))}
+            awayPlayers={awayTeam.players.slice(0, 11).map((p: any) => ({
+              id: p.id,
+              name: p.name ?? `${p.firstName} ${p.lastName}`,
+              rating: p.rating,
+              position: p.specificPosition,
+              side: "away" as const,
+            }))}
+            homeColor={homeTeam.primaryColor}
+            awayColor={awayTeam.primaryColor}
+            homeFormation="4-4-2"
+            awayFormation="4-4-2"
+            minute={engine.state.minute}
+            homeScore={engine.state.homeScore}
+            awayScore={engine.state.awayScore}
+            homeShort={homeTeam.shortName}
+            awayShort={awayTeam.shortName}
+          />
+        )}
 
         {/* ===== Scheduler Widget — maç saati bekleniyor ===== */}
         {engine.state.status === "idle" && !showPreMatch && (
@@ -1028,11 +1060,50 @@ function LiveCommentaryBanner({ events }: { events: MatchEvent[] }) {
 // ---- Stats bar ----
 function StatsBar({ state }: { state: MatchState }) {
   const { t } = useI18n();
+
+  // ADDED: Event'lerden ekstra istatistik çıkar — ofsayt, pas yüzdesi, kartlar
+  const extraStats = useMemo(() => {
+    let homeOffsides = 0, awayOffsides = 0;
+    let homeYellow = 0, awayYellow = 0;
+    let homeRed = 0, awayRed = 0;
+    let homeSaves = 0, awaySaves = 0;
+    let homeShotsWide = 0, awayShotsWide = 0;
+    for (const ev of state.events) {
+      if (ev.type === "offside") {
+        if (ev.team === "home") homeOffsides++;
+        else awayOffsides++;
+      } else if (ev.type === "yellow_card") {
+        if (ev.team === "home") homeYellow++;
+        else awayYellow++;
+      } else if (ev.type === "red_card") {
+        if (ev.team === "home") homeRed++;
+        else awayRed++;
+      } else if (ev.type === "save") {
+        // Save olayı savunan takımın kalecisi için — ev team attıysa away kaleci kurtardı
+        if (ev.team === "away") homeSaves++; // home şut attı, away kaleci kurtardı → home şut
+        else awaySaves++;
+      } else if (ev.type === "shot_wide" || ev.type === "shot_post") {
+        if (ev.team === "home") homeShotsWide++;
+        else awayShotsWide++;
+      }
+    }
+    return { homeOffsides, awayOffsides, homeYellow, awayYellow, homeRed, awayRed, homeSaves, awaySaves, homeShotsWide, awayShotsWide };
+  }, [state.events]);
+
   const rows: { label: string; home: number; away: number; suffix?: string }[] = [
     { label: t("match.stats.possession"), home: state.stats.possession[0], away: state.stats.possession[1], suffix: "%" },
     { label: t("match.stats.shots"), home: state.stats.shotsOnTarget[0], away: state.stats.shotsOnTarget[1] },
+    // ADDED: İsabetli şut (kaleci kurtarışları da şut olarak say)
+    { label: "İsabetli Şut", home: state.stats.shotsOnTarget[0], away: state.stats.shotsOnTarget[1] },
+    { label: "Kaleci Kurtarış", home: extraStats.homeSaves, away: extraStats.awaySaves },
     { label: t("match.stats.corners"), home: state.stats.corners[0], away: state.stats.corners[1] },
     { label: t("match.stats.fouls"), home: state.stats.fouls[0], away: state.stats.fouls[1] },
+    // ADDED: Ofsayt
+    { label: "Ofsayt", home: extraStats.homeOffsides, away: extraStats.awayOffsides },
+    // ADDED: Sarı kart
+    { label: "Sarı Kart", home: extraStats.homeYellow, away: extraStats.awayYellow },
+    // ADDED: Kırmızı kart
+    { label: "Kırmızı Kart", home: extraStats.homeRed, away: extraStats.awayRed },
   ];
   return (
     <div className="tm-card p-3 space-y-2.5">

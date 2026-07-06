@@ -28,6 +28,10 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: "budget_master", name: "Bütçe Ustası", description: "50M+ bütçe biriktir", icon: "💎", unlocked: false },
   { id: "champion", name: "Sezon Şampiyonu", description: "Ligi 1. bitir", icon: "👑", unlocked: false },
   { id: "legend", name: "Efsane", description: "5 sezon oyna", icon: "🌟", unlocked: false },
+  // ADDED: Yeni başarım tetikleyiciler
+  { id: "first_login", name: "Hoş Geldin", description: "Oyuna ilk kez giriş yap", icon: "👋", unlocked: false },
+  { id: "tactical_master", name: "Taktik Ustası", description: "Tüm taktik talimatlarını aktif et", icon: "📋", unlocked: false },
+  { id: "youth_promoted", name: "Altyapı Fatihi", description: "3 altyapı oyuncusu terfi et", icon: "🎓", unlocked: false },
 ];
 
 const STORAGE_KEY = "tm_achievements";
@@ -71,6 +75,10 @@ export function checkAchievements(context: {
   youthPromoted?: boolean;
   transferCount?: number;
   budget?: number;
+  // ADDED: Yeni başarım context alanları
+  firstLogin?: boolean;
+  tacticalMaster?: boolean;
+  youthPromotedCount?: number;
   leaguePosition?: number;
   seasonsPlayed?: number;
 }) {
@@ -134,6 +142,19 @@ export function checkAchievements(context: {
   }
   if ((context.seasonsPlayed ?? 0) >= 5) {
     const r = unlockAchievement("legend");
+    if (r.newlyUnlocked && r.achievement) newlyUnlocked.push(r.achievement);
+  }
+  // ADDED: Yeni başarım kontrolleri
+  if (context.firstLogin) {
+    const r = unlockAchievement("first_login");
+    if (r.newlyUnlocked && r.achievement) newlyUnlocked.push(r.achievement);
+  }
+  if (context.tacticalMaster) {
+    const r = unlockAchievement("tactical_master");
+    if (r.newlyUnlocked && r.achievement) newlyUnlocked.push(r.achievement);
+  }
+  if ((context.youthPromotedCount ?? 0) >= 3) {
+    const r = unlockAchievement("youth_promoted");
     if (r.newlyUnlocked && r.achievement) newlyUnlocked.push(r.achievement);
   }
 
@@ -207,4 +228,54 @@ export function AchievementsCard() {
       </div>
     </div>
   );
+}
+
+// ADDED: checkAndAwardBadges — tüm başarım tetikleyicileri için merkezi fonksiyon
+// loginDemo, transfer, maç sonu, sezon sonu tarafından çağrılır
+export function checkAndAwardBadges(context: {
+  matchWon?: boolean;
+  goalScored?: boolean;
+  transferDone?: boolean;
+  topScorerGoals?: number;
+  topAssists?: number;
+  cleanSheetStreak?: number;
+  winStreak?: number;
+  promoted?: boolean;
+  cupWon?: boolean;
+  tacticScore?: number;
+  youthPromoted?: boolean;
+  transferCount?: number;
+  budget?: number;
+  leaguePosition?: number;
+  seasonsPlayed?: number;
+}) {
+  if (typeof window === "undefined") return [];
+  try {
+    return checkAchievements(context);
+  } catch (e) {
+    console.warn("[checkAndAwardBadges] hata:", e);
+    return [];
+  }
+}
+
+// ADDED: Transfer başarımı tetikleyici — transfer sayısını localStorage'da sayar
+const TRANSFER_COUNT_KEY = "tm_transfer_count";
+
+export function incrementTransferCount(): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    const current = parseInt(localStorage.getItem(TRANSFER_COUNT_KEY) ?? "0", 10) + 1;
+    localStorage.setItem(TRANSFER_COUNT_KEY, String(current));
+    // İlk transfer başarımı
+    checkAndAwardBadges({ transferDone: true, transferCount: current });
+    // Budget master — 50M+ bütçe
+    const store = require("@/lib/store").useAppStore.getState();
+    const myTeam = store.clubs?.find((c: any) => c.id === store.myTeamId);
+    if (myTeam) {
+      checkAndAwardBadges({ budget: myTeam.budget });
+    }
+    return current;
+  } catch {
+    return 0;
+  }
 }

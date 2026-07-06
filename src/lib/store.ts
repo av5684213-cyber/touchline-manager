@@ -86,6 +86,8 @@ export type NewsItem = {
   importance: number;
   read: boolean;
   relatedTeamId?: string;
+  // ADDED: İlişkili oyuncu ID'si (transfer/sakatlık haberleri için)
+  playerId?: string;
 };
 
 type TransferState = {
@@ -163,6 +165,11 @@ type AppState = {
   cup: CupState;
   // P5: Sezon başı oyuncu stats'ları — gelişim rozeti için (playerId → { rating, finishing, ... })
   seasonStartStats: Record<string, Record<string, number>>;
+  // ADDED: Sponsor sistemi — aktif + teklif sponsorlar
+  sponsors: {
+    active: any[]; // aktif imzalı sponsorlar
+    offers: any[]; // bekleyen teklifler
+  };
 
   // actions
   loginDemo: (name?: string) => void;
@@ -207,6 +214,10 @@ type AppState = {
   endSeason: () => { success: boolean; summary?: SeasonSummary };
   advanceMatchday: () => void;
   recordMatchResult: (homeId: string, awayId: string, homeScore: number, awayScore: number) => void;
+  // ADDED: Sponsor actions
+  generateSponsorOffers: () => void;
+  acceptSponsor: (sponsorId: string) => void;
+  getSponsorWeeklyIncome: () => number;
   // message actions
   markMessageRead: (msgId: string) => void;
   markAllMessagesRead: () => void;
@@ -333,6 +344,12 @@ export const useAppStore = create<AppState>()(
       // P5: Sezon başı stats'ları — boş başlar, loginDemo'da doldurulur
       seasonStartStats: {},
 
+      // ADDED: Sponsor sistemi — boş başlar
+      sponsors: {
+        active: [],
+        offers: [],
+      },
+
       loginDemo: (name) => {
         // Already-initialized clubs varsa yeniden üretme
         let clubs = get().clubs;
@@ -434,6 +451,16 @@ export const useAppStore = create<AppState>()(
             return map;
           })(),
         });
+
+        // ADDED: Başarım tetikleyici — login sonrası first_login başarımı
+        try {
+          if (typeof window !== "undefined") {
+            const { checkAndAwardBadges } = require("@/components/touchline/achievements");
+            checkAndAwardBadges({ firstLogin: true });
+          }
+        } catch (e) {
+          console.warn("[achievements] login tetikleyici hatası:", e);
+        }
       },
 
       logout: async () => {
@@ -638,9 +665,32 @@ export const useAppStore = create<AppState>()(
             myTeam.budget -= fee;
             const newPlayer = { ...faListing.player, weeklyWage: wage, salary: wage };
             myTeam.players = [...myTeam.players, newPlayer];
+            // ADDED: Transfer bildirimi — haber + mesaj
+            const newMsg: MessageItem = {
+              id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              kind: "transfer_accepted",
+              fromTeamName: "Serbest Oyuncu",
+              fromTeamShort: "SER",
+              message: `${newPlayer.firstName} ${newPlayer.lastName} takımınıza katıldı. Transfer ücreti: ${formatEuroShort(fee)}.`,
+              at: Date.now(),
+              read: false,
+              amount: fee,
+              playerId,
+            };
+            const newNews: NewsItem = {
+              id: `news_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              category: "transfer",
+              headline: "Transfer Tamamlandı",
+              body: `${newPlayer.firstName} ${newPlayer.lastName} takımınıza katıldı. Transfer ücreti: ${formatEuroShort(fee)}.`,
+              timestamp: Date.now(),
+              importance: 2,
+              read: false,
+              playerId,
+            };
             set({
               clubs: [...clubs],
-              transfer: { ...transfer, freeAgents: transfer.freeAgents.filter((l) => l.player.id !== playerId) },
+              news: [newNews, ...(get().news ?? [])],
+              transfer: { ...transfer, freeAgents: transfer.freeAgents.filter((l) => l.player.id !== playerId), messages: [newMsg, ...transfer.messages] },
             });
             return { success: true, response: "accepted" };
           }
@@ -651,9 +701,32 @@ export const useAppStore = create<AppState>()(
             myTeam.budget -= fee;
             const newPlayer = { ...faListing2.player, weeklyWage: wage, salary: wage };
             myTeam.players = [...myTeam.players, newPlayer];
+            // ADDED: Transfer bildirimi — haber + mesaj
+            const newMsg2: MessageItem = {
+              id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              kind: "transfer_accepted",
+              fromTeamName: "Takımsız Oyuncu",
+              fromTeamShort: "TAZ",
+              message: `${newPlayer.firstName} ${newPlayer.lastName} takımınıza katıldı (takımsız). İmza bonusu: ${formatEuroShort(fee)}.`,
+              at: Date.now(),
+              read: false,
+              amount: fee,
+              playerId,
+            };
+            const newNews2: NewsItem = {
+              id: `news_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              category: "transfer",
+              headline: "Takımsız Oyuncu Transferi",
+              body: `${newPlayer.firstName} ${newPlayer.lastName} takımınıza katıldı. İmza bonusu: ${formatEuroShort(fee)}.`,
+              timestamp: Date.now(),
+              importance: 2,
+              read: false,
+              playerId,
+            };
             set({
               clubs: [...clubs],
-              transfer: { ...transfer, freeAgentListings: transfer.freeAgentListings?.filter((l) => l.player.id !== playerId) ?? [] },
+              news: [newNews2, ...(get().news ?? [])],
+              transfer: { ...transfer, freeAgentListings: transfer.freeAgentListings?.filter((l) => l.player.id !== playerId) ?? [], messages: [newMsg2, ...transfer.messages] },
             });
             return { success: true, response: "accepted" };
           }
@@ -974,7 +1047,15 @@ export const useAppStore = create<AppState>()(
         }
 
         const facilityLevel = facilities.levels.pitch;
-        const results = runTrainingSession(team.players, training, facilityLevel, multiplier);
+        // ADDED: Coach bonus — antrenman çarpanını artır
+        let effectiveMultiplier = multiplier;
+        try {
+          const { applyCoachTrainingBoost } = require("@/lib/staffBonus");
+          // multiplier'ı coach bonus ile artır (örn: 1.0 → 1.0 * (1 + 0.10) = 1.10)
+          const boosted = applyCoachTrainingBoost(multiplier, facilities.staff);
+          effectiveMultiplier = boosted;
+        } catch (e) { /* staffBonus yüklenemezse default multiplier */ }
+        const results = runTrainingSession(team.players, training, facilityLevel, effectiveMultiplier);
 
         // Sonuçları kadroya uygula
         const updatedPlayers = applyResultsToSquad(team.players, results);
@@ -1793,6 +1874,56 @@ export const useAppStore = create<AppState>()(
         }
 
         set({ fixtures: updatedFixtures, news: [...newNews, ...news] });
+      },
+
+      // ADDED: ===== Sponsor actions =====
+      generateSponsorOffers: () => {
+        const { clubs, myTeamId, sponsors } = get();
+        const myTeam = clubs.find((c) => c.id === myTeamId);
+        if (!myTeam) return;
+        const avgOvr = myTeam.players.reduce((s, p) => s + p.rating, 0) / myTeam.players.length;
+        try {
+          const { generateSponsorOffers } = require("@/lib/sponsorSystem");
+          const offers = generateSponsorOffers(myTeam.leagueTier ?? 2, avgOvr);
+          set({ sponsors: { ...sponsors, offers } });
+        } catch (e) {
+          console.warn("[generateSponsorOffers] hata:", e);
+        }
+      },
+
+      acceptSponsor: (sponsorId) => {
+        const { sponsors, clubs, myTeamId } = get();
+        const offer = sponsors.offers.find((s) => s.id === sponsorId);
+        if (!offer) return;
+        // Sadece 1 aktif sponsor olabilir — öncekileri pasifleştir
+        const activeSponsor = { ...offer, isActive: true };
+        set({
+          sponsors: {
+            active: [activeSponsor],
+            offers: sponsors.offers.filter((s) => s.id !== sponsorId),
+          },
+        });
+        // Haber ekle
+        const sponsorNews: NewsItem = {
+          id: `news_sponsor_${Date.now()}`,
+          category: "transfer",
+          headline: `🤝 ${offer.name} Sponsor Oldu`,
+          body: `${offer.name} ile ${offer.tier} tier sponsorluk anlaşması imzalandı. Haftalık gelir: ${offer.amount.toLocaleString("tr-TR")} €.`,
+          timestamp: Date.now(),
+          importance: 3,
+          read: false,
+        };
+        set({ news: [sponsorNews, ...(get().news ?? [])] });
+      },
+
+      getSponsorWeeklyIncome: () => {
+        const { sponsors } = get();
+        try {
+          const { getTotalSponsorIncome } = require("@/lib/sponsorSystem");
+          return getTotalSponsorIncome(sponsors.active);
+        } catch {
+          return 0;
+        }
       },
 
       // ===== Message actions =====

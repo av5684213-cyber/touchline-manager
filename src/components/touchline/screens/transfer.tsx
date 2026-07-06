@@ -31,6 +31,8 @@ import {
 } from "@/lib/mock/data";
 import { ClubBadge, PlayerAvatar, PositionPill, RatingBadge } from "../ui-bits";
 import { PlayerProfileModal } from "../player-profile-modal";
+// ADDED: Gelişmiş pazarlık modal'ı
+import { TransferNegotiationModal } from "../transfer-negotiation-modal";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
@@ -45,6 +47,8 @@ export function TransferScreen() {
   const [filter, setFilter] = useState<PositionGroup | "ALL">("ALL");
   const [offerModal, setOfferModal] = useState<Player | null>(null);
   const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
+  // ADDED: Gelişmiş pazarlık modal'ı state
+  const [negotiationModal, setNegotiationModal] = useState<{ player: Player; askingPrice: number } | null>(null);
 
   const filteredListings = useMemo(() => {
     if (filter === "ALL") return transfer.freeAgents;
@@ -174,6 +178,7 @@ export function TransferScreen() {
                 onToggleWatch={() => useAppStore.getState().toggleWatchlist(listing.player.id)}
                 onMakeOffer={() => setOfferModal(listing.player)}
                 onOpenProfile={() => setProfilePlayer(listing.player)}
+                onNegotiate={() => setNegotiationModal({ player: listing.player, askingPrice: listing.askingPrice })}
               />
             ))}
           </div>
@@ -290,6 +295,11 @@ export function TransferScreen() {
                           ],
                         },
                       });
+                      // ADDED: Transfer başarım tetikleyici
+                      try {
+                        const { incrementTransferCount } = require("@/components/touchline/achievements");
+                        incrementTransferCount();
+                      } catch (e) { console.warn("[achievements] transfer tetikleyici hatası:", e); }
                       setProfilePlayer(null);
                     }
                   }}
@@ -395,7 +405,8 @@ export function TransferScreen() {
               isWatched={true}
               onToggleWatch={() => useAppStore.getState().toggleWatchlist(listing.player.id)}
               onMakeOffer={() => setOfferModal(listing.player)}
-                onOpenProfile={() => setProfilePlayer(listing.player)}
+              onOpenProfile={() => setProfilePlayer(listing.player)}
+              onNegotiate={() => setNegotiationModal({ player: listing.player, askingPrice: listing.askingPrice })}
             />
           ))}
         </div>
@@ -484,6 +495,15 @@ export function TransferScreen() {
           onClose={() => setProfilePlayer(null)}
         />
       )}
+
+      {/* ADDED: Gelişmiş pazarlık modal'ı */}
+      {negotiationModal && (
+        <TransferNegotiationModal
+          player={negotiationModal.player}
+          askingPrice={negotiationModal.askingPrice}
+          onClose={() => setNegotiationModal(null)}
+        />
+      )}
     </div>
   );
 }
@@ -498,6 +518,7 @@ function PlayerCard({
   onToggleWatch,
   onMakeOffer,
   onOpenProfile,
+  onNegotiate,
 }: {
   player: Player;
   askingPrice: number;
@@ -507,6 +528,8 @@ function PlayerCard({
   onToggleWatch: () => void;
   onMakeOffer: () => void;
   onOpenProfile: () => void;
+  // ADDED: Gelişmiş pazarlık modal'ı aç
+  onNegotiate?: () => void;
 }) {
   const { t } = useI18n();
   const nat = NATIONALITIES.find((n) =>
@@ -558,6 +581,11 @@ function PlayerCard({
         </div>
       </button>
       <div className="flex flex-col items-end gap-1 w-20 shrink-0">
+        {/* ADDED: OVR sütunu — net olarak yazılı */}
+        <div className="flex items-center gap-1 self-end">
+          <span className="text-[8px] text-muted-foreground uppercase">OVR</span>
+          <span className="text-sm font-bold tabular-nums text-amber-400">{player.rating}</span>
+        </div>
         <button
           onClick={onToggleWatch}
           className={cn(
@@ -582,6 +610,15 @@ function PlayerCard({
         >
           {t("transfer.make_offer")}
         </button>
+        {/* ADDED: Gelişmiş pazarlık butonu */}
+        {onNegotiate && (
+          <button
+            onClick={onNegotiate}
+            className="tm-tap w-full px-2 py-1 rounded text-[9px] font-bold bg-amber-600 text-white"
+          >
+            ⚡ Pazarlık
+          </button>
+        )}
       </div>
     </div>
   );
