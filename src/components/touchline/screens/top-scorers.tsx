@@ -6,6 +6,8 @@ import { useAppStore, useMyTeam } from "@/lib/store";
 import { PlayerAvatar } from "../ui-bits";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
+import { PlayerProfileModal } from "../player-profile-modal";
+import type { Player } from "@/lib/mock/data";
 
 type SortKey = "goals" | "assists" | "rating" | "motm" | "appearances";
 
@@ -14,6 +16,7 @@ export function TopScorersScreen() {
   const myTeam = useMyTeam();
   const [sortKey, setSortKey] = useState<SortKey>("goals");
   const [tier, setTier] = useState<"all" | "mine">("all");
+  const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
 
   const allPlayers = useMemo(() => {
     const list: Array<{ player: any; team: any; isMyPlayer: boolean }> = [];
@@ -114,8 +117,12 @@ export function TopScorersScreen() {
           const p = entry.player;
           const trend = idx < 3 ? "up" : idx > 10 ? "down" : "same";
           return (
-            <div key={p.id} className={cn("tm-card py-1.5 px-2.5 flex items-center gap-2",
-              isMyPlayer && "border-primary bg-primary/5", rank === 1 && "border-amber-500/40 bg-amber-500/5")}>
+            <button
+              key={p.id}
+              onClick={() => { haptic("light"); setProfilePlayer(p); }}
+              className={cn("tm-tap w-full text-left tm-card py-1.5 px-2.5 flex items-center gap-2",
+                isMyPlayer && "border-primary bg-primary/5", rank === 1 && "border-amber-500/40 bg-amber-500/5")}
+            >
               <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
                 rank === 1 ? "bg-amber-500 text-black" : rank === 2 ? "bg-slate-400 text-black" :
                 rank === 3 ? "bg-orange-700 text-white" : "bg-muted text-muted-foreground")}>
@@ -150,7 +157,7 @@ export function TopScorersScreen() {
                    sortKey === "rating" ? "Rating" : sortKey === "motm" ? "MOTM" : "Maç"}
                 </div>
               </div>
-            </div>
+            </button>
           );
         })}
         {top20.length === 0 && (
@@ -180,6 +187,15 @@ export function TopScorersScreen() {
       <div className="text-[10px] text-muted-foreground text-center px-4">
         💡 Sıralama haftalık güncellenir. Gol kralı sezon sonu ödül alır.
       </div>
+
+      {/* Profile modal — tıklayınca açılır */}
+      {profilePlayer && (
+        <PlayerProfileModal
+          player={profilePlayer}
+          teamColor={myTeam?.primaryColor ?? "#1a3a2a"}
+          onClose={() => setProfilePlayer(null)}
+        />
+      )}
     </div>
   );
 }

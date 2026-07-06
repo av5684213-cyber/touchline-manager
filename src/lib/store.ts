@@ -1419,7 +1419,17 @@ export const useAppStore = create<AppState>()(
         }
 
         // Matchday'i ilerlet
-        SEASON_INFO.matchday = Math.min(SEASON_INFO.totalMatchdays, currentMd + 1);
+        const nextMd = currentMd + 1;
+        if (nextMd > SEASON_INFO.totalMatchdays) {
+          // Sezon bitti — endSeason çağır
+          SEASON_INFO.matchday = SEASON_INFO.totalMatchdays;
+          const endResult = get().endSeason();
+          if (endResult.success) {
+            console.log(`[advanceMatchday] Sezon ${get().seasonNumber - 1} bitti, yeni sezon başladı.`);
+          }
+          return;
+        }
+        SEASON_INFO.matchday = nextMd;
 
         // BUG-004 FIX: Otomatik antrenman — kullanıcı manuel tıklamak zorunda kalmasın
         // Her hafta hafif bir antrenman seansı çalıştır (multiplier=0.7, daha az kondisyon düşüşü)
@@ -1603,6 +1613,48 @@ export const useAppStore = create<AppState>()(
           retiredPlayers: retiredNames,
           newRegens: retiredNames.length,
         };
+
+        // Şampiyon belirle + bildirim ekle + achievement kontrolü
+        try {
+          const championTeam = standings[0];
+          const isUserChampion = championTeam?.teamId === myTeamId;
+          // Haber ekle — şampiyon
+          const championNews: NewsItem = {
+            id: `news-champion-${Date.now()}`,
+            category: "milestone",
+            headline: isUserChampion
+              ? `🏆 ${team.name} Şampiyon Oldu!`
+              : `🏆 ${championTeam?.teamName ?? "—"} Sezon Şampiyonu`,
+            body: isUserChampion
+              ? `Sezon ${oldSeasonNumber} sonunda ${team.name} ligi ${championTeam?.points ?? 0} puanla 1. sırada bitirdi! Tarihi an!`
+              : `${championTeam?.teamName ?? "—"} ligi ${championTeam?.points ?? 0} puanla şampiyon olarak tamamladı. Sen ise ${myIdx + 1}. sırada bitirdin.`,
+            timestamp: Date.now(),
+            importance: 10,
+            read: false,
+            relatedTeamId: championTeam?.teamId,
+          };
+          // Achievement kontrolü — client-side localStorage
+          if (typeof window !== "undefined") {
+            try {
+              const achMod = require("@/components/touchline/achievements");
+              const newlyUnlocked = achMod.checkAchievements({
+                leaguePosition: myIdx + 1,
+                promoted: summary.promoted,
+                seasonsPlayed: newSeasonNumber - 1,
+                cupWon: get().cup.champion === myTeamId,
+              });
+              // Achievement haberleri ekle
+              for (const ach of newlyUnlocked) {
+                championNews.body += `\n✅ Başarım açıldı: ${ach.name}!`;
+              }
+            } catch (e) {
+              console.warn("[endSeason] achievement check failed:", e);
+            }
+          }
+          set({ news: [championNews, ...get().news] });
+        } catch (e) {
+          console.warn("[endSeason] achievement/news failed:", e);
+        }
 
         return { success: true, summary };
       },

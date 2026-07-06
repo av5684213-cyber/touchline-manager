@@ -224,7 +224,18 @@ export function DashboardScreen() {
             {t("dash.season_day")}
           </div>
           <div className="text-base font-bold tabular-nums">
-            {SEASON_INFO.matchday}/{SEASON_INFO.totalMatchdays}
+            {/* Oynanmış son maç haftası — kullanıcının fikstüründen hesapla */}
+            {(() => {
+              const myPlayed = fixtures
+                .filter((f: any) => f.played && (f.homeId === team?.id || f.awayId === team?.id))
+                .sort((a: any, b: any) => b.matchday - a.matchday);
+              const lastPlayed = myPlayed[0]?.matchday ?? 0;
+              const nextToPlay = SEASON_INFO.matchday;
+              // Eğer nextToPlay haftasının maçı oynanmadıysa, lastPlayed'i göster
+              return lastPlayed > 0 && lastPlayed < nextToPlay
+                ? `${lastPlayed}/${SEASON_INFO.totalMatchdays}`
+                : `${nextToPlay}/${SEASON_INFO.totalMatchdays}`;
+            })()}
           </div>
         </div>
       </div>

@@ -229,15 +229,60 @@ export function TransferScreen() {
                 <button
                   onClick={() => {
                     haptic("success");
-                    // Bedelsiz transfer — sadece maaş öde
+                    // Bedelsiz transfer — sadece maaş öde, serbest listeden çıkar, bildirim ekle
                     if (team) {
                       const state = useAppStore.getState();
+                      const signingFee = (listing.wageDemand ?? 0) * 4; // 4 haftalık maaş = imza bonusu
+                      if (signingFee > team.budget) {
+                        // Bütçe yetersiz — bildirim
+                        useAppStore.setState({
+                          transfer: {
+                            ...state.transfer,
+                            messages: [
+                              {
+                                id: `msg-${Date.now()}`,
+                                kind: "transfer_rejected",
+                                fromTeamName: "Serbest Oyuncu",
+                                message: `${p.firstName} ${p.lastName} için yeterli bütçeniz yok (gerekli: ${formatEuro(signingFee)}).`,
+                                at: Date.now(),
+                                read: false,
+                              },
+                              ...state.transfer.messages,
+                            ],
+                          },
+                        });
+                        return;
+                      }
                       const updatedClubs = state.clubs.map((c) =>
                         c.id === team.id
-                          ? { ...c, players: [...c.players, p], budget: c.budget }
+                          ? { ...c, players: [...c.players, { ...p, is_free_agent: false, weeklyWage: listing.wageDemand ?? p.weeklyWage }], budget: c.budget - signingFee }
                           : c
                       );
-                      useAppStore.setState({ clubs: updatedClubs });
+                      // Serbest listeden kaldır
+                      const updatedFreeAgentListings = (state.transfer.freeAgentListings ?? []).filter(
+                        (l) => l.player.id !== p.id
+                      );
+                      useAppStore.setState({
+                        clubs: updatedClubs,
+                        transfer: {
+                          ...state.transfer,
+                          freeAgentListings: updatedFreeAgentListings,
+                          messages: [
+                            {
+                              id: `msg-${Date.now()}`,
+                              kind: "transfer_accepted",
+                              fromTeamName: "Serbest Oyuncu",
+                              fromTeamShort: "SER",
+                              message: `${p.firstName} ${p.lastName} takımınıza katıldı (bedelsiz transfer). İmza bonusu: ${formatEuro(signingFee)}.`,
+                              at: Date.now(),
+                              read: false,
+                              playerId: p.id,
+                              amount: signingFee,
+                            },
+                            ...state.transfer.messages,
+                          ],
+                        },
+                      });
                       setProfilePlayer(null);
                     }
                   }}
@@ -502,6 +547,13 @@ function PlayerCard({
               <span className="truncate max-w-[120px]">{player.archetype}</span>
             </>
           )}
+        </div>
+        {/* Mini stats özeti — 4 temel stat */}
+        <div className="flex items-center gap-1.5 mt-1 text-[9px]">
+          <StatChip label="Hız" value={player.stats?.pace ?? player.speed ?? 50} />
+          <StatChip label="Pas" value={player.passing ?? 50} />
+          <StatChip label="Şut" value={player.shooting ?? 50} />
+          <StatChip label="Def" value={player.defending ?? 50} />
         </div>
       </button>
       <div className="flex flex-col items-end gap-1">
@@ -865,5 +917,16 @@ function OfferModal({
         </div>
       </div>
     </div>
+  );
+}
+
+// Mini stat chip — transfer kartındaki 4 temel stat
+function StatChip({ label, value }: { label: string; value: number }) {
+  const color = value >= 80 ? "text-emerald-400" : value >= 65 ? "text-amber-400" : "text-red-400";
+  return (
+    <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-muted/40">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={cn("font-bold tabular-nums", color)}>{value}</span>
+    </span>
   );
 }

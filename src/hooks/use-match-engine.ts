@@ -66,8 +66,8 @@ function getGroup(pos: string): "GK" | "DEF" | "MID" | "FWD" {
 // 6 hakem kişiliği
 const REFEREE_PERSONALITIES = ["strict", "balanced", "balanced", "lenient", "home_bias", "volatile", "var_lover"] as const;
 const REFEREE_NAMES = [
-  "Halil Umut Meler", "Cüneyt Çakır", "Fırat Aydınus", "Mete Kalkavan",
-  "Mustafa Öğretmenoğlu", "Ali Palabıyık",
+  "Selim Aydoğan", "Burak Yıldırımer", "Kaan Demirci", "Tolga Şahin",
+  "Emre Karaca", "Onur Toprak", "Mert Yavuz", "Serkan Aksoy",
 ];
 function pickRandomReferee(): string {
   return REFEREE_PERSONALITIES[Math.floor(Math.random() * REFEREE_PERSONALITIES.length)];
@@ -794,7 +794,8 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
           return { ...s, halftimeSecondsLeft: s.halftimeSecondsLeft - 1 };
         }
         // Devre arası bitti — ikinci yarıya başla
-        return { ...s, status: "live", halftimeSecondsLeft: undefined };
+        // minute'i 46'ya set et ki devre arası tekrar tetiklenmesin
+        return { ...s, status: "live", halftimeSecondsLeft: undefined, minute: Math.max(s.minute, 46) };
       });
     }, 1000);
     return () => clearInterval(id);

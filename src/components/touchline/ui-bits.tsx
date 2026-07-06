@@ -109,7 +109,9 @@ export function PositionPill({
 }
 
 export function RatingBadge({ value }: { value: number }) {
-  const v = Math.max(0, Math.min(10, value));
+  // Hem 0-10 (formRating) hem 0-100 (rating) kabul et
+  // 50+ değerler 0-100 aralığı kabul edilir, /10 ile normalize
+  const v = value > 10 ? Math.max(0, Math.min(100, value)) / 10 : Math.max(0, Math.min(10, value));
   const tone =
     v >= 8 ? "bg-emerald-600 text-white" :
     v >= 7 ? "bg-emerald-500 text-white" :

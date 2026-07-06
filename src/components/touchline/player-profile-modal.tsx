@@ -1160,6 +1160,56 @@ function ActionsTab({
     setTimeout(() => setFeedback(null), 2500);
   };
 
+  // Serbest bırak — oyuncuyu kadrodan çıkar, serbest oyuncu listesine ekle
+  const handleRelease = () => {
+    haptic("success");
+    const state = useAppStore.getState();
+    if (!myTeam) return;
+    // Oyuncuyu kulüpten çıkar
+    const updatedClubs = state.clubs.map((c) =>
+      c.id === myTeam.id
+        ? { ...c, players: c.players.filter((p) => p.id !== player.id) }
+        : c
+    );
+    // Serbest oyuncu listesine ekle
+    const releasedPlayer = { ...player, is_free_agent: true };
+    const updatedFreeAgentListings = [
+      {
+        player: releasedPlayer,
+        wageDemand: player.weeklyWage,
+        daysListed: 0,
+        offers: 0,
+      },
+      ...(state.transfer.freeAgentListings ?? []),
+    ];
+    useAppStore.setState({
+      clubs: updatedClubs,
+      transfer: {
+        ...state.transfer,
+        freeAgentListings: updatedFreeAgentListings,
+        messages: [
+          {
+            id: `msg-release-${Date.now()}`,
+            kind: "general",
+            fromTeamName: myTeam.name,
+            fromTeamShort: myTeam.shortName,
+            fromTeamColor: myTeam.primaryColor,
+            message: `${player.firstName} ${player.lastName} serbest bırakıldı. Artık takımsız oyuncular listesinde.`,
+            at: Date.now(),
+            read: false,
+            playerId: player.id,
+          },
+          ...state.transfer.messages,
+        ],
+      },
+    });
+    setFeedback(`✓ ${player.firstName} ${player.lastName} serbest bırakıldı`);
+    setTimeout(() => {
+      setFeedback(null);
+      onClose();
+    }, 1500);
+  };
+
   // Transfer teklifi gönder (başka takımın oyuncusuna)
   const handleTransferOffer = () => {
     haptic("medium");
@@ -1498,6 +1548,28 @@ function ActionsTab({
               className="tm-tap w-full py-2 rounded-md text-xs font-bold bg-sky-600 text-white"
             >
               Kiralık Pazarına Gönder
+            </button>
+          </div>
+
+          {/* Serbest Bırak — oyuncuyu kadrodan çıkar */}
+          <div className="tm-card p-3 border-red-500/30 bg-red-500/5">
+            <div className="flex items-center gap-2 mb-2">
+              <X size={14} className="text-red-400" />
+              <span className="text-xs font-bold text-red-400">Serbest Bırak</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground mb-2">
+              Oyuncuyu kadrodan çıkar. Başka takım imzalayana kadar "Takımsız" listesinde kalır.
+              <span className="text-red-400"> Bu işlem geri alınamaz.</span>
+            </div>
+            <button
+              onClick={() => {
+                if (confirm(`${player.firstName} ${player.lastName} serbest bırakılacak. Emin misin?`)) {
+                  handleRelease();
+                }
+              }}
+              className="tm-tap w-full py-2 rounded-md text-xs font-bold bg-red-600 text-white"
+            >
+              Serbest Bırak
             </button>
           </div>
         </>
