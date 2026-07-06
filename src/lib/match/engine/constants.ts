@@ -588,23 +588,27 @@ export const PROB_CAPS = {
   save: 0.20,
 } as const;
 
-// ─── Gol Olasılığı Sabitleri — v3 Dengeli ───────────────────────────
-// Hedef: OVR farkı domine etsin, extreme skorlar olmasın, tutarlı sonuçlar
-// Matematik: 90 dk'da ~22 atak event/takım. base×multiplier = per-event şans.
-// 0.10 base × 1.80 OVR × 1.27 qualityGap × 1.10 arketip = ~0.13 → clamp 0.25
-// Beklenen gol: 22 × 0.13 = 2.9 (gerçekçi), max 22 × 0.25 = 5.5 (rare)
+// ─── Gol Olasılığı Sabitleri — v4 Dengeli ───────────────────────────
+// Hedef: OVR farkı domine etsin AMA %100 değil, sürpriz olsun
+// Gerçekçi hedef (28 OVR farkı): %85-90 galibiyet, 2-3 beraberlik, 0-1 mağlubiyet
+//
+// Matematik:
+// Güçlü (85 OVR): 0.09 × 0.65 × 0.85 = 0.050 → ×1.80 = 0.090 → ×1.16 = 0.104 → ×1.10 = 0.114
+//   22 event × 0.114 = 2.5 beklenen gol ✓
+// Zayıf (57 OVR): 0.09 × 0.35 × 0.50 = 0.016 → ×0.78 = 0.012 → ×0.84 = 0.010 → ×0.90 = 0.009
+//   22 event × 0.012 = 0.26 beklenen gol → bazen 1 gol, sürpriz şansı ✓
 export const GOAL_CHANCE = {
-  base: 0.07,              // 7% base (0.10→0.07: uyumlu attribute'larla compound etkisi için düşük taban)
-  gkWeight: 0.25,          // GK rating weight
-  qualityGapBonus: 1.0,    // Güçlü takıma maksimum avantaj
-  qualityGapPenalty: 1.0,  // Zayıf takıma maksimum ceza
+  base: 0.10,              // 10% base (0.09→0.10: biraz daha gol)
+  gkWeight: 0.25,
+  qualityGapBonus: 0.70,   // Güçlü takıma avantaj (0.65→0.70: biraz daha)
+  qualityGapPenalty: 0.70, // Zayıf takıma ceza
   mentalityBonus: 0.22,
   mentalityPenalty: 0.18,
   counterTriggerProb: 0.50,
   pressingGoalBoost: 0.50,
   lateGameDesperation: 1.45,
-  clampMin: 0.005,         // Min %0.5 (zayıf takım çok az gol)
-  clampMax: 0.22,          // Max %22 (0.25→0.22: 7-0 skorları önle, max ~4-5 gol)
+  clampMin: 0.010,         // Min %1.0 (0.012→0.010: zayıf takım biraz daha az gol)
+  clampMax: 0.22,          // Max %22 (extreme skorları önle)
 } as const;
 
 // ─── Pozisyon Bazlı Nitelik Ağırlıkları ────────────────────────────────
