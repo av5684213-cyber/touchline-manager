@@ -588,27 +588,50 @@ export const PROB_CAPS = {
   save: 0.20,
 } as const;
 
-// ─── Gol Olasılığı Sabitleri — v4 Dengeli ───────────────────────────
-// Hedef: OVR farkı domine etsin AMA %100 değil, sürpriz olsun
-// Gerçekçi hedef (28 OVR farkı): %85-90 galibiyet, 2-3 beraberlik, 0-1 mağlubiyet
+// ─── Gol Olasılığı Sabitleri — v5 Mükemmel Denge ──────────────────
+// Hedef: OVR farkı domine, arketip önemli ama OVR ile etkileşimli, sürpriz mümkün
 //
-// Matematik:
-// Güçlü (85 OVR): 0.09 × 0.65 × 0.85 = 0.050 → ×1.80 = 0.090 → ×1.16 = 0.104 → ×1.10 = 0.114
-//   22 event × 0.114 = 2.5 beklenen gol ✓
-// Zayıf (57 OVR): 0.09 × 0.35 × 0.50 = 0.016 → ×0.78 = 0.012 → ×0.84 = 0.010 → ×0.90 = 0.009
-//   22 event × 0.012 = 0.26 beklenen gol → bazen 1 gol, sürpriz şansı ✓
+// Prensipler:
+// 1. Güçlü forvet + güçlü arketip = sinerji (85 OVR Gol Makinesi > 55 OVR Gol Makinesi)
+// 2. Güçlü savunma = gol şansını direkt düşür (sadece qualityGap değil)
+// 3. Kaleci %35 etki (gerçek hayatta kaleci çok önemli)
+// 4. Parçalı qualityGap: küçük fark az etki, büyük fark çok etki
+// 5. Traitler ±0.04 ile hissedilir ama domine etmez
+//
+// Matematik (85 OVR Gol Makinesi, 57 OVR kaleciye karşı):
+// 0.10 × 0.65 × (0.85 / (0.85 + 0.35×0.57)) = 0.10 × 0.65 × 0.81 = 0.053
+// × 1.50 (OVR mult) = 0.079
+// × 1.189 (qualityGap parçalı) = 0.094
+// × 1.22 (Gol Makinesi 80+ OVR boost) = 0.115
+// × 0.90 (57 OVR savunma, zayıf = gol şansı yüksek) = 0.104
+// clamp 0.22 → 0.104
+// 22 event × 0.104 = 2.3 beklenen gol ✓
+//
+// Matematik (57 OVR forvet, 85 OVR kaleciye karşı):
+// 0.10 × 0.35 × (0.50 / (0.50 + 0.35×0.85)) = 0.10 × 0.35 × 0.626 = 0.022
+// × 0.85 (OVR mult) = 0.019
+// × 0.811 (qualityGap ceza) = 0.015
+// × 1.00 (arketip yok) = 0.015
+// × 0.78 (85 OVR savunma, güçlü = gol şansı düşük) = 0.012
+// clamp 0.015 → 0.015
+// 22 event × 0.015 = 0.33 beklenen gol → bazen 1 gol, sürpriz ✓
 export const GOAL_CHANCE = {
-  base: 0.10,              // 10% base (0.09→0.10: biraz daha gol)
-  gkWeight: 0.25,
-  qualityGapBonus: 0.70,   // Güçlü takıma avantaj (0.65→0.70: biraz daha)
+  base: 0.10,              // 10% base
+  gkWeight: 0.30,          // GK rating weight (0.35→0.30: kaleci önemli ama çok değil)
+  qualityGapBonus: 0.70,   // Güçlü takıma avantaj
   qualityGapPenalty: 0.70, // Zayıf takıma ceza
   mentalityBonus: 0.22,
   mentalityPenalty: 0.18,
   counterTriggerProb: 0.50,
   pressingGoalBoost: 0.50,
   lateGameDesperation: 1.45,
-  clampMin: 0.010,         // Min %1.0 (0.012→0.010: zayıf takım biraz daha az gol)
-  clampMax: 0.22,          // Max %22 (extreme skorları önle)
+  clampMin: 0.015,         // Min %1.5
+  clampMax: 0.22,          // Max %22
+  qualityGapSmallThreshold: 0.10,
+  qualityGapSmallMult: 0.40,
+  qualityGapLargeMult: 1.0,
+  defenderOvrWeight: 0.10,         // Savunma OVR etkisi (0.15→0.10: daha az agresif)
+  gkOvrWeight: 0.07,              // Kaleci OVR ekstra (0.10→0.07: daha az agresif)
 } as const;
 
 // ─── Pozisyon Bazlı Nitelik Ağırlıkları ────────────────────────────────

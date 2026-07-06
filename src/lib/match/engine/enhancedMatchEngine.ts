@@ -1308,7 +1308,7 @@ function getEventProbabilities(
 // penalty alanına sahip negatif traitler motoru etkiler.
 // Her trait'in goalChance üzerindeki etkisi maksimum ±0.03 ile sınırlıdır.
 
-const TRAIT_EFFECT_CAP = 0.03; // Maksimum ±0.03 goalChance değişimi per trait (0.06→0.03: OVR domine etsin)
+const TRAIT_EFFECT_CAP = 0.04; // ±0.04 (0.03→0.04: traitler hissedilir ama domine etmez)
 
 // Level bazlı varsayılan engineWeight (trait'in kendi engineEffect'i yoksa)
 const DEFAULT_ENGINE_WEIGHT: Record<string, number> = {
@@ -2201,71 +2201,89 @@ export function simulateEnhancedMatch(
 
       let goalChance = baseGoalChance * strengthRatio * (finishing / (finishing + gkRating * GOAL_CHANCE.gkWeight));
 
-      // 📊 GÜÇLÜ OVR ETKİSİ — OVR farkı domine etsin
-      // 50 OVR → ×0.70 | 60 → ×0.85 | 70 → ×1.10 | 80 → ×1.50 | 90 → ×2.00 | 95+ → ×2.50
+      // 📊 OVR ETKİSİ — dengeli, diğer modifier'lara yer bırakır
+      // 50 → ×0.75 | 60 → ×0.88 | 70 → ×1.15 | 80 → ×1.40 | 85 → ×1.50 | 90 → ×1.65 | 95+ → ×1.80
       const scorerOvr = (selectedPlayer.player.rating ?? 50);
       let ovrGoalMultiplier = 1.0;
-      if (scorerOvr >= 95) ovrGoalMultiplier = 2.50;
-      else if (scorerOvr >= 90) ovrGoalMultiplier = 2.10;
-      else if (scorerOvr >= 85) ovrGoalMultiplier = 1.80;
-      else if (scorerOvr >= 80) ovrGoalMultiplier = 1.55;
-      else if (scorerOvr >= 75) ovrGoalMultiplier = 1.35;
+      if (scorerOvr >= 95) ovrGoalMultiplier = 1.80;
+      else if (scorerOvr >= 90) ovrGoalMultiplier = 1.65;
+      else if (scorerOvr >= 85) ovrGoalMultiplier = 1.50;
+      else if (scorerOvr >= 80) ovrGoalMultiplier = 1.40;
+      else if (scorerOvr >= 75) ovrGoalMultiplier = 1.28;
       else if (scorerOvr >= 70) ovrGoalMultiplier = 1.15;
-      else if (scorerOvr >= 65) ovrGoalMultiplier = 1.00;
+      else if (scorerOvr >= 65) ovrGoalMultiplier = 1.02;
       else if (scorerOvr >= 60) ovrGoalMultiplier = 0.88;
-      else if (scorerOvr >= 55) ovrGoalMultiplier = 0.78;
-      else if (scorerOvr < 50) ovrGoalMultiplier = 0.65;
-      else ovrGoalMultiplier = 0.70; // 50-55
+      else if (scorerOvr >= 55) ovrGoalMultiplier = 0.80;
+      else ovrGoalMultiplier = 0.75; // <55
       goalChance *= ovrGoalMultiplier;
 
-      // 🎭 ARKETİP ETKİSİ — makul seviyeye indirildi (OVR farkı domine etsin)
+      // 🎭 ARKETİP ETKİSİ — OVR ile etkileşimli (85 OVR Gol Makinesi > 55 OVR Gol Makinesi)
+      // Arketip bonusu = temel_bonus × OVR_factor
+      // OVR_factor: 50 OVR → 0.5, 70 OVR → 1.0, 90 OVR → 1.5 (güçlü oyuncu arketipten daha çok faydalanır)
       const scorerArchetype = (selectedPlayer.player as any).archetype ?? "";
-      // Forvet arketipleri — gol şansı artırır (yarıya indirildi)
-      if (scorerArchetype === "Gol Makinesi") goalChance *= 1.15;       // %30→%15
-      else if (scorerArchetype === "Bitirici") goalChance *= 1.12;      // %25→%12
-      else if (scorerArchetype === "Fırsatçı") goalChance *= 1.10;      // %22→%10
-      else if (scorerArchetype === "Hızlı Forvet") goalChance *= 1.08;  // %18→%8
-      else if (scorerArchetype === "Hızlı Kanat") goalChance *= 1.07;   // %15→%7
-      else if (scorerArchetype === "Hedef Adam") goalChance *= 1.07;    // %15→%7
-      else if (scorerArchetype === "Dripling Ustası") goalChance *= 1.06; // %12→%6
-      else if (scorerArchetype === "İçeri Dönen") goalChance *= 1.06;   // %12→%6
-      else if (scorerArchetype === "Yaratıcı Forvet") goalChance *= 1.05; // %10→%5
-      else if (scorerArchetype === "İkinci Forvet") goalChance *= 1.04; // %8→%4
+      const archetypeOvrFactor = 0.5 + ((scorerOvr - 50) / 40) * 1.0; // 50→0.5, 90→1.5
+      // Forvet arketipleri — temel bonus × OVR factor
+      if (scorerArchetype === "Gol Makinesi") goalChance *= 1 + 0.20 * archetypeOvrFactor;       // +%20 × OVR factor
+      else if (scorerArchetype === "Bitirici") goalChance *= 1 + 0.17 * archetypeOvrFactor;      // +%17
+      else if (scorerArchetype === "Fırsatçı") goalChance *= 1 + 0.15 * archetypeOvrFactor;      // +%15
+      else if (scorerArchetype === "Hızlı Forvet") goalChance *= 1 + 0.13 * archetypeOvrFactor;  // +%13
+      else if (scorerArchetype === "Hızlı Kanat") goalChance *= 1 + 0.12 * archetypeOvrFactor;   // +%12
+      else if (scorerArchetype === "Hedef Adam") goalChance *= 1 + 0.12 * archetypeOvrFactor;    // +%12
+      else if (scorerArchetype === "Dripling Ustası") goalChance *= 1 + 0.10 * archetypeOvrFactor; // +%10
+      else if (scorerArchetype === "İçeri Dönen") goalChance *= 1 + 0.10 * archetypeOvrFactor;   // +%10
+      else if (scorerArchetype === "Yaratıcı Forvet") goalChance *= 1 + 0.08 * archetypeOvrFactor; // +%8
+      else if (scorerArchetype === "İkinci Forvet") goalChance *= 1 + 0.07 * archetypeOvrFactor; // +%7
       // Orta saha arketipleri
-      else if (scorerArchetype === "Numara 10") goalChance *= 1.06;     // %12→%6
-      else if (scorerArchetype === "Playmaker") goalChance *= 1.04;     // %8→%4
-      else if (scorerArchetype === "Oyun Kurucu") goalChance *= 1.04;   // %8→%4
-      else if (scorerArchetype === "Yaratıcı") goalChance *= 1.03;      // %6→%3
-      else if (scorerArchetype === "Box-to-Box") goalChance *= 1.02;    // %5→%2
-      else if (scorerArchetype === "Motor") goalChance *= 1.02;         // %4→%2
-      else if (scorerArchetype === "Pas Ustası") goalChance *= 1.01;    // %3→%1
-      else if (scorerArchetype === "Tempo Kontrolcüsü") goalChance *= 1.01; // %2→%1
-      // Defansif arketipler
-      else if (scorerArchetype === "Yıkıcı") goalChance *= 0.90;        // -%20→-%10
-      else if (scorerArchetype === "Duvar Orta Saha") goalChance *= 0.88; // -%22→-%12
-      else if (scorerArchetype === "Ekran Oyuncusu") goalChance *= 0.90;  // -%18→-%10
-      else if (scorerArchetype === "Regista") goalChance *= 0.92;        // -%15→-%8
+      else if (scorerArchetype === "Numara 10") goalChance *= 1 + 0.10 * archetypeOvrFactor;     // +%10
+      else if (scorerArchetype === "Playmaker") goalChance *= 1 + 0.07 * archetypeOvrFactor;     // +%7
+      else if (scorerArchetype === "Oyun Kurucu") goalChance *= 1 + 0.07 * archetypeOvrFactor;   // +%7
+      else if (scorerArchetype === "Yaratıcı") goalChance *= 1 + 0.05 * archetypeOvrFactor;      // +%5
+      else if (scorerArchetype === "Box-to-Box") goalChance *= 1 + 0.04 * archetypeOvrFactor;    // +%4
+      else if (scorerArchetype === "Motor") goalChance *= 1 + 0.03 * archetypeOvrFactor;         // +%3
+      else if (scorerArchetype === "Pas Ustası") goalChance *= 1 + 0.02 * archetypeOvrFactor;    // +%2
+      else if (scorerArchetype === "Tempo Kontrolcüsü") goalChance *= 1 + 0.02 * archetypeOvrFactor; // +%2
+      // Defansif arketipler — gol şansını düşür
+      else if (scorerArchetype === "Yıkıcı") goalChance *= 1 - 0.12 * (1 - archetypeOvrFactor * 0.3); // -%12 (düşük OVR daha çok ceza)
+      else if (scorerArchetype === "Duvar Orta Saha") goalChance *= 1 - 0.14 * (1 - archetypeOvrFactor * 0.3);
+      else if (scorerArchetype === "Ekran Oyuncusu") goalChance *= 1 - 0.12 * (1 - archetypeOvrFactor * 0.3);
+      else if (scorerArchetype === "Regista") goalChance *= 1 - 0.10 * (1 - archetypeOvrFactor * 0.3);
 
-      // 🛡️ SAVUNMA ARKETİP ETKİSİ (yarıya indirildi)
+      // 🛡️ SAVUNMA ARKETİP ETKİSİ — savunmacının OVR'ı ile etkileşimli
       const defArchetype = (opponentDefender?.player as any)?.archetype ?? "";
-      if (defArchetype === "Duvar") goalChance *= 0.90;        // -%18→-%10
-      else if (defArchetype === "Lider Stoper") goalChance *= 0.92; // -%15→-%8
-      else if (defArchetype === "Kale Gibi") goalChance *= 0.92;    // -%15→-%8
-      else if (defArchetype === "Hava Hakimi") goalChance *= 0.94;  // -%12→-%6
-      else if (defArchetype === "Top Çıkan Stoper") goalChance *= 0.95; // -%10→-%5
-      else if (defArchetype === "Baskı Ustası") goalChance *= 0.94;  // -%12→-%6
-      else if (defArchetype === "Kanat Beki") goalChance *= 0.96;    // -%8→-%4
-      else if (defArchetype === "Hücumcu Bek") goalChance *= 0.97;   // -%5→-%3
-      else if (defArchetype === "Defansif Bek") goalChance *= 0.94;  // -%12→-%6
-      else if (defArchetype === "Ters Bek") goalChance *= 0.95;      // -%10→-%5
+      const defOvr = opponentDefender?.player?.rating ?? 50;
+      const defArchetypeOvrFactor = 0.5 + ((defOvr - 50) / 40) * 1.0; // güçlü savunmacı arketipten daha çok faydalanır
+      if (defArchetype === "Duvar") goalChance *= 1 - 0.12 * defArchetypeOvrFactor;
+      else if (defArchetype === "Lider Stoper") goalChance *= 1 - 0.10 * defArchetypeOvrFactor;
+      else if (defArchetype === "Kale Gibi") goalChance *= 1 - 0.10 * defArchetypeOvrFactor;
+      else if (defArchetype === "Hava Hakimi") goalChance *= 1 - 0.08 * defArchetypeOvrFactor;
+      else if (defArchetype === "Top Çıkan Stoper") goalChance *= 1 - 0.07 * defArchetypeOvrFactor;
+      else if (defArchetype === "Baskı Ustası") goalChance *= 1 - 0.08 * defArchetypeOvrFactor;
+      else if (defArchetype === "Kanat Beki") goalChance *= 1 - 0.05 * defArchetypeOvrFactor;
+      else if (defArchetype === "Hücumcu Bek") goalChance *= 1 - 0.04 * defArchetypeOvrFactor;
+      else if (defArchetype === "Defansif Bek") goalChance *= 1 - 0.07 * defArchetypeOvrFactor;
+      else if (defArchetype === "Ters Bek") goalChance *= 1 - 0.06 * defArchetypeOvrFactor;
 
-      // 🧤 KALECİ ARKETİP ETKİSİ (yarıya indirildi)
+      // 🛡️ SAVUNMA OVR ETKİSİ — savunmacının genel OVR'ı gol şansını direkt düşürür
+      // 85 OVR savunmacı → ×0.85 (güçlü savunma gol şansını %15 düşürür)
+      // 55 OVR savunmacı → ×1.075 (zayıf savunma gol şansını %7.5 artırır)
+      const defOvrMod = 1 - ((defOvr - 70) / 100) * GOAL_CHANCE.defenderOvrWeight;
+      goalChance *= Math.max(0.70, Math.min(1.15, defOvrMod));
+
+      // 🧤 KALECİ ARKETİP ETKİSİ — kaleci OVR'ı ile etkileşimli
       const gkArchetype = (opponentGK?.player as any)?.archetype ?? "";
-      if (gkArchetype === "Refleks Canavarı") goalChance *= 0.88;     // -%22→-%12
-      else if (gkArchetype === "Büyük Maç Kalecisi") goalChance *= 0.90; // -%18→-%10
-      else if (gkArchetype === "Süpürücü Kaleci") goalChance *= 0.92; // -%15→-%8
-      else if (gkArchetype === "Güvenli Eller") goalChance *= 0.92;   // -%15→-%8
-      else if (gkArchetype === "Penaltı Uzmanı") goalChance *= 0.94;  // -%12→-%6
+      const gkOvr = opponentGK?.player?.rating ?? 50;
+      const gkArchetypeOvrFactor = 0.5 + ((gkOvr - 50) / 40) * 1.0;
+      if (gkArchetype === "Refleks Canavarı") goalChance *= 1 - 0.14 * gkArchetypeOvrFactor;
+      else if (gkArchetype === "Büyük Maç Kalecisi") goalChance *= 1 - 0.12 * gkArchetypeOvrFactor;
+      else if (gkArchetype === "Süpürücü Kaleci") goalChance *= 1 - 0.10 * gkArchetypeOvrFactor;
+      else if (gkArchetype === "Güvenli Eller") goalChance *= 1 - 0.10 * gkArchetypeOvrFactor;
+      else if (gkArchetype === "Penaltı Uzmanı") goalChance *= 1 - 0.08 * gkArchetypeOvrFactor;
+
+      // 🧤 KALECİ OVR ETKİSİ — kalecinin genel OVR'ı ekstra gol şansı düşürür
+      // 85 OVR kaleci → ×0.915 (ekstra %8.5 düşür)
+      // 55 OVR kaleci → ×1.025 (ekstra %2.5 artır)
+      const gkOvrMod = 1 - ((gkOvr - 70) / 100) * GOAL_CHANCE.gkOvrWeight;
+      goalChance *= Math.max(0.80, Math.min(1.10, gkOvrMod));
 
       // 🎭 MAÇ KARAKTERİ — clutch forvet penaltıda/son dakikada daha çok gol atar
       const scorerChar = (selectedPlayer.player as any).match_character ?? "";
@@ -2288,12 +2306,16 @@ export function simulateEnhancedMatch(
       const posEffectivenessMod = 0.7 + 0.3 * playerEff; // 0.7 — 1.0 arası
       goalChance *= posEffectivenessMod;
 
-      // Quality gap modifier — much stronger team creates more
+      // Quality gap modifier — parçalı: küçük fark az etki, büyük fark çok etki
       const qualityGap = Math.abs(attackingTeam.overallStrength - defendingTeam.overallStrength) / 100;
+      // Parçalı çarpan: 10 OVR fark'a kadar düşük etki, sonrasında tam etki
+      const gapMult = qualityGap <= GOAL_CHANCE.qualityGapSmallThreshold
+        ? GOAL_CHANCE.qualityGapBonus * GOAL_CHANCE.qualityGapSmallMult  // küçük fark: 0.70 × 0.40 = 0.28
+        : GOAL_CHANCE.qualityGapBonus * GOAL_CHANCE.qualityGapLargeMult;  // büyük fark: 0.70 × 1.0 = 0.70
       if (attackingTeam.overallStrength > defendingTeam.overallStrength) {
-        goalChance *= (1 + qualityGap * GOAL_CHANCE.qualityGapBonus);
+        goalChance *= (1 + qualityGap * gapMult);
       } else {
-        goalChance *= (1 - qualityGap * GOAL_CHANCE.qualityGapPenalty);
+        goalChance *= (1 - qualityGap * gapMult);
       }
 
       // Tactic mentality modifier
