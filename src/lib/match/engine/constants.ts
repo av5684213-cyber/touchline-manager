@@ -590,17 +590,17 @@ export const PROB_CAPS = {
 
 // ─── Gol Olasılığı Sabitleri ───────────────────────────────────────────
 export const GOAL_CHANCE = {
-  base: 0.16,           // 16% base goal per attacking minute (2.5 gol/maç hedefi)
-  gkWeight: 0.20,       // GK rating weight (0.25→0.20: kaleci en geçirgen)
-  qualityGapBonus: 0.35, // Quality gap bonus (0.30→0.35)
-  qualityGapPenalty: 0.35, // Quality gap penalty (0.30→0.35)
-  mentalityBonus: 0.22,   // Per-point mentality bonus (0.20→0.22)
-  mentalityPenalty: 0.18, // Per-point mentality penalty (0.15→0.18)
-  counterTriggerProb: 0.50, // Counter bonus trigger (0.45→0.50)
-  pressingGoalBoost: 0.50,  // Pressing → goal boost (0.45→0.50)
-  lateGameDesperation: 1.45, // Late game desperation (1.40→1.45)
-  clampMin: 0.03,        // Goal chance clamp minimum (0.02→0.03)
-  clampMax: 0.30,          // Goal chance clamp maximum (0.25→0.30)
+  base: 0.10,             // 10% base (daha az random, OVR farkı domine etsin)
+  gkWeight: 0.25,         // GK rating weight
+  qualityGapBonus: 0.80,  // Güçlü takıma büyük avantaj (0.35→0.80)
+  qualityGapPenalty: 0.80, // Zayıf takıma büyük ceza (0.35→0.80)
+  mentalityBonus: 0.22,
+  mentalityPenalty: 0.18,
+  counterTriggerProb: 0.50,
+  pressingGoalBoost: 0.50,
+  lateGameDesperation: 1.45,
+  clampMin: 0.01,         // Min gol şansı %1 (0.03→0.01: zayıf takım çok az gol atsın)
+  clampMax: 0.55,         // Max gol şansı %55 (0.30→0.55: güçlü takım çok gol atabilsin)
 } as const;
 
 // ─── Pozisyon Bazlı Nitelik Ağırlıkları ────────────────────────────────

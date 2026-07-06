@@ -45,7 +45,7 @@ function pickXI(players: Player[]): Player[] {
 
 async function main() {
   console.log("╔" + "═".repeat(68) + "╗");
-  console.log("║" + " 80+ OVR vs 60- OVR — 10 Maç Simülasyonu".padEnd(68) + "║");
+  console.log("║" + " 80+ OVR vs 60- OVR — 20 Maç Simülasyonu (Dengeli Motor)".padEnd(68) + "║");
   console.log("╚" + "═".repeat(68) + "╝\n");
 
   const strongTeam = makeTeam("Yıldızspor", "YLD", "#1a3a2a", 78, 90);
@@ -72,7 +72,7 @@ async function main() {
   console.log("Maç sonuçları:");
   console.log("-".repeat(50));
 
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 20; i++) {
     // Ev/deplasman dönüşümlü
     const isStrongHome = i % 2 === 0;
     const homeSquad = isStrongHome ? strongXI : weakXI;
@@ -109,21 +109,21 @@ async function main() {
   }
 
   console.log("-".repeat(50));
-  console.log("\n📊 ÖZET:");
+  console.log("\n📊 ÖZET (20 maç):");
   console.log(`  Yıldızspor (80+): ${strongWins}G / ${draws}B / ${weakWins}M`);
   console.log(`  Çayırspor (60-): ${weakWins}G / ${draws}B / ${strongWins}M`);
   console.log(`  Toplam gol: YLD ${strongGoals} - CYR ${weakGoals}`);
-  console.log(`  Gol başına: YLD ${(strongGoals / 10).toFixed(1)} - CYR ${(weakGoals / 10).toFixed(1)}`);
-  console.log(`  YLD gol yemedi: ${strongCleanSheets}/10`);
-  console.log(`  YLD galibiyet oranı: %${(strongWins / 10 * 100).toFixed(0)}`);
-  console.log(`  CYR galibiyet oranı: %${(weakWins / 10 * 100).toFixed(0)}`);
+  console.log(`  Gol başına: YLD ${(strongGoals / 20).toFixed(1)} - CYR ${(weakGoals / 20).toFixed(1)}`);
+  console.log(`  YLD gol yemedi: ${strongCleanSheets}/20`);
+  console.log(`  YLD galibiyet oranı: %${(strongWins / 20 * 100).toFixed(0)}`);
+  console.log(`  CYR galibiyet oranı: %${(weakWins / 20 * 100).toFixed(0)}`);
 
   // Değerlendirme
   console.log("\n📋 DEĞERLENDİRME:");
-  if (strongWins >= 8) {
-    console.log("  ✓ Güçlü takım beklenen gibi dominant — 80+ OVR farkı belirgin");
-  } else if (strongWins >= 5) {
-    console.log("  ⚠️ Güçlü takım kazanıyor ama fark beklenenden az — denge tartışmalı");
+  if (strongWins >= 14) {
+    console.log("  ✓ Güçlü takım dominant — OVR farkı motora doğru yansıyor");
+  } else if (strongWins >= 10) {
+    console.log("  ⚠️ Güçlü takım kazanıyor ama fark beklenenden az");
   } else {
     console.log("  ❌ Güçlü takım yeterince kazanamıyor — OVR farkı motora yansımıyor");
   }
