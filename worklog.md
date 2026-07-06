@@ -1621,3 +1621,20 @@ Work Log:
 Stage Summary:
 - 8 kullanıcı rapor edilen bug fix edildi + 1 ekstra (hakem isimleri).
 - APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.3.0-bugfix/touchline-manager-v1.3.0-release.apk
+
+---
+Task ID: v1.4.0-ux-improvements
+Agent: main
+Task: 5 UX improvement — maç sonrası profil, değişiklikte overal, sakatlık haber, gelişim rozeti, pre-match lineup
+
+Work Log:
+- 1) MAÇ SONRASI PROFİL: match.tsx PostMatch fonksiyonuna profilePlayer state + PlayerProfileModal import + tablo satırları onClick ile tıklayınca profil açılıyor. cursor-pointer + hover:bg-accent/30.
+- 2) DEĞİŞİKLİKTE OVERAL: match.tsx HalftimeSubs fonksiyonunda çıkacak oyuncu listesine OVR + kondisyon + gol/asist eklendi. Girecek oyuncu listesinde OVR + kondisyon + OVR farkı rozeti (yeşil/kırmızı +N/-N).
+- 3) SAKATLIK HABER: use-match-engine.ts applyPostMatchEffects'e injuryNews array eklendi. result.events'ten injury tipindeki olaylar taranıp NewsItem olarak news'e ekleniyor (category: "injury", headline: "🤕 X Sakatlandı", body: sakatlık türü + gün sayısı).
+- 4) GELİŞİM ROZETİ: store.ts AppState'e seasonStartStats eklendi (playerId → {rating, finishing, ...17 stat}). loginDemo ve endSeason'da dolduruluyor. ui-bits.tsx'e GrowthBadge bileşeni eklendi — store'dan sezon başı rating'ini okuyup fark > 0 ise yeşil "↑ +N" rozeti gösteriyor. tactics.tsx kadro listesinde ve compare tab'ında RatingBadge yanına eklendi.
+- 5) PRE-MATCH LINEUP: pre-match-screen.tsx'de homeXI ve awayXI artık pozisyon sırasına göre diziliyor (GK→DEF→MID→FWD). POSITION_ROW_BG ile satır arka planı renklendiriliyor (GK=amber, DEF=sky, MID=emerald, FWD=rose — taktik ekranıyla uyumlu). Senin kadron da artık gösteriliyor (önce sadece rakip vardı). Takım ortalama OVR gösteriliyor.
+- Build başarılı, APK 794KB, GitHub Release v1.4.0-ux-improvements oluşturuldu.
+
+Stage Summary:
+- 5 UX improvement tamamlandı.
+- APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.4.0-ux-improvements/touchline-manager-v1.4.0-release.apk
