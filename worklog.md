@@ -1600,3 +1600,24 @@ Stage Summary:
 - Saatler gerçek hayattan bağımsız, sadece tıklamayla ilerliyor.
 - 500M Euro bütçe + HAFTAYI İLERLE butonu önceki task'tan devam ediyor.
 - APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.2.0-test-mode/touchline-manager-v1.2.0-release.apk
+
+---
+Task ID: v1.3.0-bugfix-batch
+Agent: main
+Task: 8 bug fix — devre arası, transfer bildirim, stats, sezon sonu, serbest bırak, panel hafta, top scorers profil, hakem isimleri
+
+Work Log:
+- 1) DEVRE ARASI: use-match-engine.ts halftime'tan live'a dönüşte snapshot.minute'i Math.max(s.minute, 46) yap. Eskiden minute 45'te takılı kalıp tekrar halftime tetikleniyordu.
+- 2) TRANSFER BİLDİRİM: transfer.tsx freeagents tab'ında "Transfer Et" butonu artık: 4 haftalık maaş imza bonusu kesiyor, serbest listeden kaldırıyor, transfer message ekliyor (transfer_accepted kind). Bütçe yetersizse transfer_rejected mesajı.
+- 3) TRANSFER STATS: PlayerCard'a 4 mini StatChip eklendi (Hız, Pas, Şut, Def). Renk kodlu (80+ emerald, 65+ amber, <65 red).
+- 4) RATINGBADGE FIX: ui-bits.tsx RatingBadge artık value > 10 ise /10 ile normalize ediyor. Eskiden Math.min(10, value) yüzünden 100'ler 10'a clamp'leniyordu.
+- 5) SEZON SONU: store.ts advanceMatchday'de nextMd > totalMatchdays ise endSeason çağrılıyor. endSeason'a şampiyon haberi (NewsItem) + achievement check (checkAchievements) eklendi. require("@/components/touchline/achievements") ile client-side çağrı.
+- 6) SERBEST BIRAK: player-profile-modal.tsx ActionsTab'a handleRelease fonksiyonu + "Serbest Bırak" butonu eklendi (kırmızı kart, confirm dialog). Oyuncuyu kulüpten çıkarıp freeAgentListings'e ekliyor + message bırakıyor.
+- 7) PANEL HAFTA: dashboard.tsx season_day artık oynanmış son maç haftasını gösteriyor (fixtures'tan hesap). Eskiden SEASON_INFO.matchday gösteriyordu — 34 görünüyordu ama 32-33 maçları oynanmıştı.
+- 8) TOP SCORERS PROFIL: top-scorers.tsx PlayerCard button'a dönüştürüldü, tıklayınca PlayerProfileModal açılıyor.
+- 9) HAKEM ISIMLERI: use-match-engine.ts REFEREE_NAMES sahte isimlerle değiştirildi: Selim Aydoğan, Burak Yıldırımer, Kaan Demirci, Tolga Şahin, Emre Karaca, Onur Toprak, Mert Yavuz, Serkan Aksoy.
+- Build başarılı, APK 792KB, GitHub Release v1.3.0-bugfix oluşturuldu.
+
+Stage Summary:
+- 8 kullanıcı rapor edilen bug fix edildi + 1 ekstra (hakem isimleri).
+- APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.3.0-bugfix/touchline-manager-v1.3.0-release.apk
