@@ -22,7 +22,10 @@ export function TopScorersScreen() {
     const list: Array<{ player: any; team: any; isMyPlayer: boolean }> = [];
     for (const club of clubs) {
       for (const p of club.players) {
-        list.push({ player: p, team: club, isMyPlayer: club.id === myTeam?.id });
+        // ADDED: Sadece maça çıkmış oyuncuları listele (appearances > 0)
+        if ((p.appearances ?? 0) > 0) {
+          list.push({ player: p, team: club, isMyPlayer: club.id === myTeam?.id });
+        }
       }
     }
     return list;
@@ -34,11 +37,11 @@ export function TopScorersScreen() {
     return [...filtered].sort((a, b) => {
       const pa = a.player, pb = b.player;
       switch (sortKey) {
-        case "goals": return (pb.goals ?? 0) - (pa.goals ?? 0) || (pb.assists ?? 0) - (pa.assists ?? 0);
-        case "assists": return (pb.assists ?? 0) - (pa.assists ?? 0) || (pb.goals ?? 0) - (pa.goals ?? 0);
-        case "rating": return (pb.formRating ?? 0) - (pa.formRating ?? 0);
-        case "motm": return (pb.motmAwards ?? 0) - (pa.motmAwards ?? 0);
-        case "appearances": return (pb.appearances ?? 0) - (pa.appearances ?? 0);
+        case "goals": return (pb.goals ?? 0) - (pa.goals ?? 0) || (pb.assists ?? 0) - (pa.assists ?? 0) || (pb.rating ?? 0) - (pa.rating ?? 0);
+        case "assists": return (pb.assists ?? 0) - (pa.assists ?? 0) || (pb.goals ?? 0) - (pa.goals ?? 0) || (pb.rating ?? 0) - (pa.rating ?? 0);
+        case "rating": return (pb.formRating ?? 0) - (pa.formRating ?? 0) || (pb.goals ?? 0) - (pa.goals ?? 0);
+        case "motm": return (pb.motmAwards ?? 0) - (pa.motmAwards ?? 0) || (pb.rating ?? 0) - (pa.rating ?? 0);
+        case "appearances": return (pb.appearances ?? 0) - (pa.appearances ?? 0) || (pb.rating ?? 0) - (pa.rating ?? 0);
         default: return 0;
       }
     });

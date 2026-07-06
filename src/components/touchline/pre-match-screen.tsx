@@ -205,10 +205,9 @@ export function PreMatchScreen({
             const group = POSITION_GROUP[p.specificPosition] ?? "MID";
             return (
               <div key={p.id} className={cn("flex items-center gap-2 py-1 px-1.5 rounded", POSITION_ROW_BG[group])}>
-                <span className="text-[8px] text-muted-foreground w-4 text-right">{i + 1}</span>
+                <PositionPill label={p.specificPosition} group={group} />
                 <PlayerAvatar initials={`${p.firstName[0]}${p.lastName[0]}`} color={homeTeam.primaryColor} size={20} />
                 <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
-                <PositionPill label={p.specificPosition} group={group} />
                 <span className="text-[9px] font-bold tabular-nums w-6 text-right">{p.rating}</span>
               </div>
             );
@@ -227,10 +226,9 @@ export function PreMatchScreen({
             const group = POSITION_GROUP[p.specificPosition] ?? "MID";
             return (
               <div key={p.id} className={cn("flex items-center gap-2 py-1 px-1.5 rounded", POSITION_ROW_BG[group])}>
-                <span className="text-[8px] text-muted-foreground w-4 text-right">{i + 1}</span>
+                <PositionPill label={p.specificPosition} group={group} />
                 <PlayerAvatar initials={`${p.firstName[0]}${p.lastName[0]}`} color={awayTeam.primaryColor} size={20} />
                 <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
-                <PositionPill label={p.specificPosition} group={group} />
                 <span className="text-[9px] font-bold tabular-nums w-6 text-right">{p.rating}</span>
               </div>
             );

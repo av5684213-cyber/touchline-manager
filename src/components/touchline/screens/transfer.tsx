@@ -420,6 +420,7 @@ export function TransferScreen() {
                 key={offer.id}
                 offer={offer}
                 player={player}
+                onOpenProfile={() => player && setProfilePlayer(player)}
               />
             );
           })}
@@ -566,22 +567,18 @@ function PlayerCard({
           )}
         </div>
       </button>
-      <div className="flex flex-col items-end gap-1 w-20 shrink-0">
-        {/* ADDED: OVR sütunu — net olarak yazılı */}
-        <div className="flex items-center gap-1 self-end">
-          <span className="text-[8px] text-muted-foreground uppercase">OVR</span>
-          <span className="text-sm font-bold tabular-nums text-amber-400">{player.rating}</span>
-        </div>
+      <div className="flex flex-col items-end gap-0.5 w-20 shrink-0">
         <button
           onClick={onToggleWatch}
           className={cn(
-            "tm-tap p-1 rounded-full self-end",
+            "tm-tap p-0.5 rounded-full self-end",
             isWatched ? "text-red-500" : "text-muted-foreground"
           )}
           aria-label={isWatched ? t("transfer.watchlist.remove") : t("transfer.watchlist.add")}
         >
           <Heart size={14} fill={isWatched ? "currentColor" : "none"} />
         </button>
+        <div className="text-[8px] text-muted-foreground uppercase">OVR <span className="text-amber-400 font-bold text-sm">{player.rating}</span></div>
         <div className="text-xs font-bold tabular-nums">{formatEuro(askingPrice)}</div>
         <div className={cn(
           "text-[9px] flex items-center gap-0.5",
@@ -590,21 +587,22 @@ function PlayerCard({
           {isAboveValue ? <TrendingUp size={9} className="rotate-90" /> : <TrendingUp size={9} className="-rotate-90" />}
           {Math.round(((askingPrice - player.marketValue) / player.marketValue) * 100)}%
         </div>
-        <button
-          onClick={onMakeOffer}
-          className="tm-tap w-full px-2 py-1 rounded text-[10px] font-bold bg-primary text-primary-foreground"
-        >
-          {t("transfer.make_offer")}
-        </button>
-        {/* ADDED: Gelişmiş pazarlık butonu */}
-        {onNegotiate && (
+        <div className="flex gap-0.5 w-full">
           <button
-            onClick={onNegotiate}
-            className="tm-tap w-full px-2 py-1 rounded text-[9px] font-bold bg-amber-600 text-white"
+            onClick={onMakeOffer}
+            className="tm-tap flex-1 px-1 py-1 rounded text-[9px] font-bold bg-primary text-primary-foreground"
           >
-            ⚡ Pazarlık
+            {t("transfer.make_offer")}
           </button>
-        )}
+          {onNegotiate && (
+            <button
+              onClick={onNegotiate}
+              className="tm-tap px-1.5 py-1 rounded text-[9px] font-bold bg-amber-600 text-white"
+            >
+              ⚡
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -614,9 +612,11 @@ function PlayerCard({
 function IncomingOfferCard({
   offer,
   player,
+  onOpenProfile,
 }: {
   offer: IncomingOffer;
   player?: Player;
+  onOpenProfile?: () => void;
 }) {
   const { t } = useI18n();
   const team = useMyTeam();
@@ -638,16 +638,25 @@ function IncomingOfferCard({
     <div className="tm-card py-2.5 px-3">
       <div className="flex items-center gap-3 mb-2">
         {player && (
-          <PlayerAvatar
-            initials={player.specificPosition ?? "—"}
-            color={team?.primaryColor}
-            size={36}
-          />
+          <button
+            onClick={onOpenProfile}
+            className="tm-tap shrink-0"
+            aria-label="Profil"
+          >
+            <PlayerAvatar
+              initials={player.specificPosition ?? "—"}
+              color={team?.primaryColor}
+              size={36}
+            />
+          </button>
         )}
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold truncate">
+          <button
+            onClick={onOpenProfile}
+            className="tm-tap text-sm font-semibold truncate text-left hover:text-primary hover:underline transition-colors"
+          >
             {player ? `${player.firstName} ${player.lastName}` : "—"}
-          </div>
+          </button>
           <div className="text-[11px] text-muted-foreground flex items-center gap-1">
             <Clock size={10} />
             {offer.expiresHours}{t("transfer.incoming.hours")} {t("transfer.incoming.expires")}

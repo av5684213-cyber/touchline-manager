@@ -241,7 +241,7 @@ export function MatchScreen() {
         homeTeam={homeTeam}
         awayTeam={awayTeam}
         weather={engine.state.weather || "sunny"}
-        refereeName={engine.state.referee.name || "—"}
+        refereeName={engine.state.referee.name || ["Selim Aydoğan", "Burak Yıldırımer", "Kaan Demirci", "Tolga Şahin", "Emre Karaca", "Onur Toprak", "Mert Yavuz", "Serkan Aksoy"][Math.floor(Math.random() * 8)]}
         refereePersonality={engine.state.referee.personality || "balanced"}
         homeForm={homeRecent}
         awayForm={awayRecent}
