@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { X, Trophy, Clock, Play } from "lucide-react";
 import type { Team } from "@/lib/mock/data";
-import { simulateEnhancedMatch } from "@/lib/match/engine";
+import { simulateEnhancedMatch } from "@/lib/match/engine/enhancedMatchEngine";
 import { DEFAULT_TACTIC } from "@/lib/tactics/types";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";

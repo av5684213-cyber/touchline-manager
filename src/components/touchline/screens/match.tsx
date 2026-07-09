@@ -27,11 +27,12 @@ import {
   type Player as PlayerT,
   type Team,
 } from "@/lib/mock/data";
-import { simulateEnhancedMatch } from "@/lib/match/engine";
+import { simulateEnhancedMatch } from "@/lib/match/engine/enhancedMatchEngine";
 import { DEFAULT_TACTIC } from "@/lib/tactics/types";
 import type {
-  EnhancedMatchEvent as MatchEvent,
-} from "@/lib/match/engine";
+  MatchEvent as EnhancedMatchEvent,
+} from "@/lib/match/engine/enhancedMatchEngine";
+type MatchEvent = EnhancedMatchEvent;
 import type { LiveMatchState } from "@/hooks/use-match-engine";
 import {
   formatCountdown,

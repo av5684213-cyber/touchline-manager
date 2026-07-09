@@ -300,6 +300,12 @@ export function getStadiumTicketRevenueMultiplier(level: number): number {
 export function getStadiumCapacity(level: number): number {
   return 5000 + level * 10000;
 }
+export function getStadiumFillRate(level: number, leagueTier: number = 2): number {
+  // Stadyum doluluk oranı — seviye ve lig tier'ına göre
+  const baseFill = 0.5 + level * 0.03;
+  const tierBonus = (5 - leagueTier) * 0.05;
+  return Math.min(0.95, baseFill + tierBonus);
+}
 export function getTrainingXPMultiplier(level: number): number {
   // pitch seviyesi
   return 1.0 + level * 0.1;

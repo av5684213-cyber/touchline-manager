@@ -4,9 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   simulateEnhancedMatch,
   type EnhancedMatchResult,
-  type EnhancedMatchEvent,
-  type MatchEnginePlayer,
-} from "@/lib/match/engine";
+  type MatchEvent as EnhancedMatchEvent,
+} from "@/lib/match/engine/enhancedMatchEngine";
+import type { Player as MatchEnginePlayer } from "@/lib/match/engine/types";
 import type { Player, Team } from "@/lib/mock/data";
 import { useAppStore } from "@/lib/store";
 import { FORMATION_SLOTS, DEFAULT_TACTIC, TACTICAL_INSTRUCTIONS } from "@/lib/tactics/types";
