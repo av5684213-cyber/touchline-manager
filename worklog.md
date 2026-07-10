@@ -1719,3 +1719,19 @@ Stage Summary:
 - Android SDK yeniden kuruldu (silinmişti)
 - GitHub Release v1.6.0-bugfix oluşturuldu
 - APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.6.0-bugfix/touchline-manager-v1.6.0-bugfix-release.apk
+
+---
+Task ID: v1.6.1-apk-open-fix
+Agent: main
+Task: APK açılış hatası fix — net::ERR_FILE_NOT_FOUND
+
+Work Log:
+- Kullanıcı raporu: APK açılınca "Web sayfası mevcut değil — file:///android_asset/web/index.html adresindeki web sayfası yüklenemedi: net::ERR_FILE_NOT_FOUND"
+- Kök neden: Next.js export çıktısı (out/) yanlış dizine kopyalanıyordu — android-app/app/src/main/assets/static/ altına. Oysa MainActivity.java satır 97: `webView.loadUrl("file:///android_asset/web/index.html")` — yani assets/web/ bekliyor.
+- Çözüm: out/ dizini android-app/app/src/main/assets/web/ olarak kopyalandı. static/ kaldırıldı.
+- APK içinde assets/web/index.html doğrulandı (unzip -l ile).
+- Build başarılı, APK 820KB (web assets dahil).
+
+Stage Summary:
+- APK açılış hatası giderildi.
+- APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.6.1-fix/touchline-manager-v1.6.1-fix-release.apk
