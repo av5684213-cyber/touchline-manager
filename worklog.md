@@ -1756,3 +1756,54 @@ Work Log:
 Stage Summary:
 - 2 kullanıcı raporu düzeltildi: PreMatch 2 kaleci + transfer kart iç içe
 - APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.6.2-fix/touchline-manager-v1.6.2-fix-release.apk
+
+---
+Task ID: v1.7.0-fmcm
+Agent: main
+Task: FM/CM mantığına geçiş + 10 düzeltme (10/10)
+
+Work Log:
+ÖNCELİK 1 — GERÇEK SAAT KİLİDİ KALDIRILDI:
+- match.tsx'te nowTick/schedule/currentMatchId/currentWatched/currentAutoSimmed hesabı kaldırıldı
+- Otomatik simülasyon effect'i (180-216 satır) kaldırıldı
+- ScheduleWidget tamamen yeniden yazıldı:
+  - 3 durum (pencere içinde/izlendi/pencere dışı) kaldırıldı
+  - Tek basit kart: HAFTA X/Y + takım rozetleri + MAÇI OYNAT + HAFTAYI İLERLET
+  - Gerçek saat geri sayımı, "Maçlar hafta içi 12:00/18:00" mesajı kaldırıldı
+  - Test modu etiketleri kaldırıldı
+- onWatch: setShowPreMatch(true) — istediğin an maça gir
+- onAdvanceWeek: silentlySimulateMatch + advanceMatchday — haftayı ilerlet, kendi maçını da oyna
+
+ÖNCELİK 2 — DESTEKLEYİCİ DÜZELTMELER:
+1. match.ref.home_bias çeviri sızıntısı:
+   - dict.ts'e 4 yeni hakem tipi çevirisi eklendi: lenient (Müsamaha), home_bias (Ev Sahibi Tarafı), volatile (Değişken), var_lover (VAR Dostu)
+2. Tekrarlayan maç yorumu engelleme:
+   - matchCommentaryGenerator.ts'e _recentCommentary havuzu (son 20 cümle)
+   - pick() fonksiyonu güncellendi — recent'te olmayan elemanı tercih et
+   - resetRecentCommentary() export edildi
+   - enhancedMatchEngine.ts simulateEnhancedMatch başında çağrılıyor
+3. Aynı takım rumuzu çakışması:
+   - data.ts'te Yeditepespor short: "YTP" → "YED" (Yıldıztepespor ile çakışıyordu)
+   - Tüm short'lar kontrol edildi, çakışma yok
+4. Ödüller MOTM 0 tutarsızlığı:
+   - awards.tsx'te topMotm: motmAwards > 0 olan oyuncular arasından seç
+   - Yoksa last_match_rating en yüksek oyuncuyu seç
+   - Sub metni: 0 MOTM yerine "Son maç 7.5 puan" göster
+5. Raporlar "2G-değil" bozuk etiket:
+   - reports.tsx'te "XG / YG-değil · Z maç" → "XG · YB · ZM" formatı
+   - homeDraws/awayDraws hesabı eklendi (returns'e dahil)
+6. Bütçe gerçekçiliği:
+   - store.ts loginDemo'da TEST_MODE_BUDGET (500M) kaldırıldı
+   - Lig tier'ı bazlı gerçekçi bütçe: TIER_BASE_BUDGETS × 1.2
+   - Süper Lig 24M, 1. Lig 12M, 2. Lig 6M, 3. Lig 2.4M
+7. Maç anı hissi:
+   - LiveCommentaryBanner'a useEffect + useRef ile gol titreşim feedback
+   - Gol = haptic("success"), kırmızı kart = haptic("heavy")
+   - Sadece yeni event geldiğinde tetiklenir (prevFirstEventId kontrolü)
+
+Stage Summary:
+- 10/10 düzeltme tamamlandı
+- FM/CM mantığı: oyuncu istediği an ilerler, maçını istediği an oynar
+- Gerçek saat kilidi tamamen kaldırıldı
+- Test modu butonları kaldırıldı (artık normal butonlar)
+- APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.7.0-fmcm/touchline-manager-v1.7.0-fmcm-release.apk
