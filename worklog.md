@@ -1735,3 +1735,24 @@ Work Log:
 Stage Summary:
 - APK açılış hatası giderildi.
 - APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.6.1-fix/touchline-manager-v1.6.1-fix-release.apk
+
+---
+Task ID: v1.6.2-2kaleci-transfer-layout
+Agent: main
+Task: PreMatch 2 kaleci sorunu + transfer kartı iç içe geçme
+
+Work Log:
+- PreMatchScreen'de ilk 11 hesabı düzeltildi:
+  - Eski: homeTeam.players.slice().sort(rating).slice(0,11) — rating'e göre ilk 11, 2 kaleci olabiliyordu
+  - Yeni: pickXIByFormation(players, formation) — FORMATION_SLOTS kullanır, her slot için doğru pozisyon seçer → maksimum 1 kaleci
+  - Kullanıcının takımı için tactics.lineup kullanılıyor (kullanıcının seçtiği diziliş)
+  - Rakip takım için "4-4-2" formasyonu bazlı seçim
+  - Sakat oyuncular filtreleniyor
+- Transfer kartı layout düzeltildi:
+  - Eski: tek satırda avatar+isim+4 stat+rating+fiyat+heart+teklif — dar ekranda stat chip'ler iç içe geçiyordu
+  - Yeni: 2 satır — üstte avatar+isim+arketip+rating+fiyat+heart+teklif, altta 4 stat chip tam genişlikte
+  - min-w-0 ve shrink-0 ile mobil taşma önlendi
+
+Stage Summary:
+- 2 kullanıcı raporu düzeltildi: PreMatch 2 kaleci + transfer kart iç içe
+- APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.6.2-fix/touchline-manager-v1.6.2-fix-release.apk
