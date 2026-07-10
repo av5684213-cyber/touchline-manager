@@ -97,11 +97,12 @@ export function TacticsScreen() {
   const pitchCoords = FORMATION_PITCH[formation] ?? FORMATION_PITCH["4-4-2"];
 
   // Yedek kulübesi — lineup'ta olmayan tüm oyuncular (rating'e göre sıralı)
+  // FIX: is_injured filtresi kaldırıldı — sakat oyuncular da yedekte görünsün (2D saha ile uyumlu)
   const benchPlayers = useMemo(() => {
     if (!team) return [];
     const lineupIds = new Set(tactics.lineup.filter((p): p is PlayerT => p !== null).map((p) => p.id));
     return team.players
-      .filter((p) => !lineupIds.has(p.id) && !p.is_injured)
+      .filter((p) => !lineupIds.has(p.id))
       .sort((a, b) => b.rating - a.rating);
   }, [team, tactics.lineup]);
 
@@ -355,7 +356,9 @@ export function TacticsScreen() {
           </div>
           {/* Oyuncular */}
           {pitchCoords.map((coord, i) => {
-            const p = tactics.lineup[i];
+            // FIX: lineup'tan ID al, team.players'dan gerçek oyuncuyu bul — referans tutarsızlığını önle
+            const lineupPlayer = tactics.lineup[i];
+            const p = lineupPlayer ? team?.players.find(tp => tp.id === lineupPlayer.id) ?? lineupPlayer : null;
             const slotPos = slots[i];
             const roleId = tactics.slotRoles[i];
             const role = ROLES.find((r) => r.id === roleId);
@@ -516,7 +519,9 @@ export function TacticsScreen() {
             {/* Hızlı slot seçimi — 11 slot buton olarak */}
             <div className="grid grid-cols-6 gap-1">
               {slots.map((slotPos, i) => {
-                const current = tactics.lineup[i];
+                // FIX: team.players'dan ID bazlı bul
+                const lineupP = tactics.lineup[i];
+                const current = lineupP ? team?.players.find(tp => tp.id === lineupP.id) ?? lineupP : null;
                 return (
                   <button
                     key={i}
