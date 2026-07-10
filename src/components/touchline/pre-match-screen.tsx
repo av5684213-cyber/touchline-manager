@@ -2,11 +2,49 @@
 
 import { CloudRain, CloudSun, Sun, Wind, Shield, Users, Trophy, ChevronRight } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
-import { useMyTeam } from "@/lib/store";
-import type { Team } from "@/lib/mock/data";
+import { useAppStore, useMyTeam } from "@/lib/store";
+import type { Player, Team } from "@/lib/mock/data";
 import { POSITION_GROUP } from "@/lib/mock/data";
+import { FORMATION_SLOTS } from "@/lib/tactics/types";
 import { ClubBadge, PositionPill, RatingBadge } from "./ui-bits";
 import { cn } from "@/lib/utils";
+
+// Formasyon bazlı ilk 11 seç — her slot için doğru pozisyondan oyuncu al
+// Bu sayede maksimum 1 kaleci olur (rating'e göre sıralama yapılmaz)
+function pickXIByFormation(players: Player[], formation: string): Player[] {
+  const slots = FORMATION_SLOTS[formation] ?? FORMATION_SLOTS["4-4-2"];
+  const used = new Set<string>();
+  const lineup: Player[] = [];
+
+  const getGroup = (pos: string): "GK" | "DEF" | "MID" | "FWD" => {
+    if (pos === "GK") return "GK";
+    if (["CB", "LB", "RB", "LWB", "RWB"].includes(pos)) return "DEF";
+    if (["CDM", "CM", "CAM", "LM", "RM"].includes(pos)) return "MID";
+    return "FWD";
+  };
+
+  for (const slotPos of slots) {
+    // 1. Tam pozisyon eşleşmesi (sakatlar hariç)
+    let candidate = players
+      .filter((p) => !used.has(p.id) && !p.is_injured && p.specificPosition === slotPos)
+      .sort((a, b) => b.rating - a.rating)[0];
+    // 2. Aynı gruptan
+    if (!candidate) {
+      const group = getGroup(slotPos);
+      candidate = players
+        .filter((p) => !used.has(p.id) && !p.is_injured && getGroup(p.specificPosition) === group)
+        .sort((a, b) => b.rating - a.rating)[0];
+    }
+    // 3. En yüksek OVR (son çare)
+    if (!candidate) {
+      candidate = players
+        .filter((p) => !used.has(p.id) && !p.is_injured)
+        .sort((a, b) => b.rating - a.rating)[0];
+    }
+    if (candidate) { used.add(candidate.id); lineup.push(candidate); }
+  }
+  return lineup;
+}
 
 export function PreMatchScreen({
   homeTeam,
@@ -45,12 +83,34 @@ export function PreMatchScreen({
     if (pa !== pb) return pa - pb;
     return b.rating - a.rating;
   });
-  const homeXI = sortByPosition(
-    homeTeam.players.slice().sort((a, b) => b.rating - a.rating).slice(0, 11)
-  );
-  const awayXI = sortByPosition(
-    awayTeam.players.slice().sort((a, b) => b.rating - a.rating).slice(0, 11)
-  );
+
+  // P1 FIX: İlk 11'i rating'e göre DEĞİL, formasyon bazlı seç — maksimum 1 kaleci
+  // Kullanıcının takımı için tactics.lineup kullan (kullanıcının seçtiği diziliş)
+  // Rakip için formasyon bazlı otomatik seçim
+  const storeState = useAppStore.getState();
+  const userFormation = storeState.tactics.active?.formation ?? "4-4-2";
+  const tacticsLineup = storeState.tactics.lineup;
+  const filledTactics = tacticsLineup.filter((p): p is Player => p !== null);
+
+  let homeXI: Player[];
+  let awayXI: Player[];
+  if (isHome) {
+    // Kullanıcı ev sahibi — tactics.lineup kullan, eksikse tamamla
+    if (filledTactics.length === 11) {
+      homeXI = sortByPosition(filledTactics);
+    } else {
+      homeXI = sortByPosition(pickXIByFormation(homeTeam.players, userFormation));
+    }
+    awayXI = sortByPosition(pickXIByFormation(awayTeam.players, "4-4-2"));
+  } else {
+    // Kullanıcı deplasmanda
+    homeXI = sortByPosition(pickXIByFormation(homeTeam.players, "4-4-2"));
+    if (filledTactics.length === 11) {
+      awayXI = sortByPosition(filledTactics);
+    } else {
+      awayXI = sortByPosition(pickXIByFormation(awayTeam.players, userFormation));
+    }
+  }
 
   // Pozisyon grubuna göre satır arka planı (taktik ekranıyla uyumlu)
   const POSITION_ROW_BG: Record<string, string> = {

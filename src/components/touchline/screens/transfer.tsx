@@ -542,62 +542,65 @@ function PlayerCard({
   const isAboveValue = askingPrice > player.marketValue;
 
   return (
-    <div className="py-1.5 px-3 flex items-center gap-2.5">
-      <button
-        onClick={onOpenProfile}
-        className="tm-tap shrink-0"
-        aria-label="Profil"
-      >
-        <PlayerAvatar
-          initials={player.specificPosition ?? "—"}
-          size={32}
-        />
-      </button>
-      <button
-        onClick={onOpenProfile}
-        className="flex-1 min-w-0 text-left"
-      >
-        {/* Satır 1: İsim + pozisyon */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-semibold truncate">
-            {player.firstName} {player.lastName}
-          </span>
-          <PositionPill label={player.specificPosition} group={POSITION_GROUP[player.specificPosition]} />
+    <div className="py-2 px-3">
+      {/* Üst satır: avatar + isim/pos/arketip + rating/fiyat + heart + teklif */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onOpenProfile}
+          className="tm-tap shrink-0"
+          aria-label="Profil"
+        >
+          <PlayerAvatar
+            initials={player.specificPosition ?? "—"}
+            size={32}
+          />
+        </button>
+        <button
+          onClick={onOpenProfile}
+          className="flex-1 min-w-0 text-left"
+        >
+          {/* Satır 1: İsim + pozisyon */}
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-xs font-semibold truncate">
+              {player.firstName} {player.lastName}
+            </span>
+            <PositionPill label={player.specificPosition} group={POSITION_GROUP[player.specificPosition]} />
+          </div>
+          {/* Satır 2: Arketip + yaş */}
+          <div className="flex items-center gap-1 text-[9px] text-muted-foreground mt-0.5 min-w-0">
+            {player.archetype && <span className="text-amber-300 truncate max-w-[80px]">{player.archetype}</span>}
+            {player.archetype && <span className="shrink-0">·</span>}
+            <span className="shrink-0">{player.age}{t("common.year")}</span>
+          </div>
+        </button>
+        <div className="flex flex-col items-end gap-0.5 shrink-0">
+          <RatingBadge value={player.rating} />
+          <div className="text-[9px] font-bold tabular-nums text-emerald-400">{formatEuro(askingPrice)}</div>
         </div>
-        {/* Satır 2: Arketip + yaş (varsa) */}
-        <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground mt-0.5 truncate">
-          {player.archetype && <span className="text-amber-300 truncate max-w-[80px]">{player.archetype}</span>}
-          {player.archetype && <span>·</span>}
-          <span>{player.age}{t("common.year")}</span>
-        </div>
-        {/* Satır 3: Stats — 4 chip yan yana, küçük ve sığar */}
-        <div className="flex items-center gap-1 mt-0.5 text-[9px]">
-          <StatChip label="Hız" value={player.stats?.pace ?? player.speed ?? 50} />
-          <StatChip label="Pas" value={player.stats?.passing ?? player.passing ?? 50} />
-          <StatChip label="Şut" value={player.stats?.shooting ?? player.shooting ?? 50} />
-          <StatChip label="Def" value={player.stats?.defending ?? player.defending ?? 50} />
-        </div>
-      </button>
-      <div className="flex flex-col items-end gap-0.5 shrink-0">
-        <RatingBadge value={player.rating} />
-        <div className="text-[9px] font-bold tabular-nums text-emerald-400">{formatEuro(askingPrice)}</div>
+        <button
+          onClick={onToggleWatch}
+          className={cn(
+            "tm-tap p-0.5 rounded-full shrink-0",
+            isWatched ? "text-red-500" : "text-muted-foreground"
+          )}
+          aria-label={isWatched ? t("transfer.watchlist.remove") : t("transfer.watchlist.add")}
+        >
+          <Heart size={14} fill={isWatched ? "currentColor" : "none"} />
+        </button>
+        <button
+          onClick={onMakeOffer}
+          className="tm-tap px-2 py-1.5 rounded text-[10px] font-bold bg-primary text-primary-foreground whitespace-nowrap shrink-0"
+        >
+          {t("transfer.make_offer")}
+        </button>
       </div>
-      <button
-        onClick={onToggleWatch}
-        className={cn(
-          "tm-tap p-0.5 rounded-full shrink-0",
-          isWatched ? "text-red-500" : "text-muted-foreground"
-        )}
-        aria-label={isWatched ? t("transfer.watchlist.remove") : t("transfer.watchlist.add")}
-      >
-        <Heart size={14} fill={isWatched ? "currentColor" : "none"} />
-      </button>
-      <button
-        onClick={onMakeOffer}
-        className="tm-tap px-2 py-1.5 rounded text-[10px] font-bold bg-primary text-primary-foreground whitespace-nowrap shrink-0"
-      >
-        {t("transfer.make_offer")}
-      </button>
+      {/* Alt satır: 4 stat chip — tam genişlik, iç içe geçmesin */}
+      <div className="flex items-center gap-1 mt-1.5 ml-9 text-[9px]">
+        <StatChip label="Hız" value={player.stats?.pace ?? player.speed ?? 50} />
+        <StatChip label="Pas" value={player.stats?.passing ?? player.passing ?? 50} />
+        <StatChip label="Şut" value={player.stats?.shooting ?? player.shooting ?? 50} />
+        <StatChip label="Def" value={player.stats?.defending ?? player.defending ?? 50} />
+      </div>
     </div>
   );
 }
