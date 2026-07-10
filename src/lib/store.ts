@@ -1655,11 +1655,10 @@ export const useAppStore = create<AppState>()(
           const tv = 150_000;
           const merch = Math.round(stadiumCap * 0.4 * 2);
           const totalIncome = ticketRev + sponsor + tv + merch;
-          // Gider
-          const wages = myTeam.players.reduce((s, p) => s + p.weeklyWage, 0);
+          // Gider — P0 FIX: Futbolcu maaşları tamamen kaldırıldı, sadece personel + tesis
           const staffWages = facilitiesState.staff.reduce((s, st) => s + st.weeklyWage, 0);
           const facilityCost = Object.values(facilitiesState.levels).reduce((s, l) => s + l * 5000, 0);
-          const totalExpense = wages + staffWages + facilityCost;
+          const totalExpense = staffWages + facilityCost;
           const net = totalIncome - totalExpense;
           // P1 FIX: Bütçe negatife düşmesin (clamp 0)
           myTeam.budget = Math.max(0, myTeam.budget + net);

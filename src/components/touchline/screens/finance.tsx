@@ -17,7 +17,6 @@ import {
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { haptic } from "@/hooks/touchline";
-import { POSITION_GROUP, type PositionGroup } from "@/lib/mock/data";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -30,9 +29,6 @@ export function FinanceScreen() {
 
   const computed = useMemo(() => {
     if (!team) return null;
-
-    // Toplam maaş
-    const totalWages = team.players.reduce((s, p) => s + p.weeklyWage, 0);
 
     // Personel maaşları
     const totalStaffWages = facilities.staff.reduce((s, st) => s + st.weeklyWage, 0);
@@ -59,23 +55,15 @@ export function FinanceScreen() {
     const merch = Math.round(stadiumCapacity * 0.4 * 2);
 
     const totalIncome = ticketRevenue + sponsor + tv + merch;
-    const totalExpense = totalWages + totalStaffWages + facilityMaintenance;
+    // P0 FIX: Futbolcu maaşları tamamen kaldırıldı — sadece personel + tesis
+    const totalExpense = totalStaffWages + facilityMaintenance;
     const net = totalIncome - totalExpense;
-
-    // Pozisyona göre maaş dağılımı
-    const wageByGroup: Record<PositionGroup, number> = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
-    for (const p of team.players) {
-      const group = POSITION_GROUP[p.specificPosition] ?? POSITION_GROUP[p.position] ?? "MID";
-      wageByGroup[group] += p.weeklyWage;
-    }
-    const maxWage = Math.max(...Object.values(wageByGroup), 1);
 
     // Mali sağlık
     const ratio = net / Math.max(1, totalExpense);
     const health: "good" | "ok" | "bad" = ratio > 0.2 ? "good" : ratio > -0.1 ? "ok" : "bad";
 
     return {
-      totalWages,
       totalStaffWages,
       facilityMaintenance,
       ticketRevenue,
@@ -85,8 +73,6 @@ export function FinanceScreen() {
       totalIncome,
       totalExpense,
       net,
-      wageByGroup,
-      maxWage,
       health,
     };
   }, [team, facilities]);
@@ -196,7 +182,7 @@ export function FinanceScreen() {
         />
       </div>
 
-      {/* Expense */}
+      {/* Expense — futbolcu maaşları YOK, sadece personel + tesis */}
       <div className="tm-card overflow-hidden">
         <div className="px-3 py-2 border-b border-border flex items-center gap-2 bg-red-50/50">
           <ArrowDownRight size={14} className="text-red-600" />
@@ -205,12 +191,6 @@ export function FinanceScreen() {
             −{formatEuro(computed.totalExpense)}
           </span>
         </div>
-        <FinanceRow
-          icon={Wallet}
-          label={t("finance.expense.wages")}
-          value={computed.totalWages}
-          color="red"
-        />
         <FinanceRow
           icon={Users}
           label={t("finance.expense.staff")}
@@ -224,45 +204,6 @@ export function FinanceScreen() {
           color="red"
           last
         />
-      </div>
-
-      {/* Wage distribution by position */}
-      <div className="tm-card p-3">
-        <div className="flex items-center gap-2 mb-3">
-          <Users size={14} className="text-muted-foreground" />
-          <span className="text-xs font-bold">{t("finance.wage_distribution")}</span>
-        </div>
-        <div className="space-y-2.5">
-          {(Object.entries(computed.wageByGroup) as [PositionGroup, number][]).map(([group, wage]) => {
-            const pct = (wage / computed.maxWage) * 100;
-            const groupColor: Record<PositionGroup, string> = {
-              GK: "bg-amber-500",
-              DEF: "bg-sky-500",
-              MID: "bg-emerald-500",
-              FWD: "bg-rose-500",
-            };
-            return (
-              <div key={group}>
-                <div className="flex justify-between text-[11px] mb-1">
-                  <span className="font-semibold">{t(`pos.${group.toLowerCase()}`)}</span>
-                  <span className="tabular-nums font-bold">{formatEuro(wage)}</span>
-                </div>
-                <div className="h-3 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className={cn("h-full rounded-full transition-all", groupColor[group])}
-                    style={{ width: `${Math.max(2, pct)}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <div className="mt-3 pt-3 border-t border-border flex justify-between text-[11px]">
-          <span className="text-muted-foreground">{t("finance.expense.wages")} / {t("finance.income")}</span>
-          <span className="tabular-nums font-bold">
-            {Math.round((computed.totalWages / Math.max(1, computed.totalIncome)) * 100)}%
-          </span>
-        </div>
       </div>
 
       {/* ADDED: Sponsor Sistemi — teklifler + aktif sponsor */}

@@ -361,31 +361,15 @@ function FinancialReport({
   const merch = Math.round(stadiumCap * 0.4 * 2);
   const totalIncome = ticketRev + sponsor + tv + merch;
 
-  // Gider hesapları
-  const playerWages = team.players.reduce((s, p) => s + (p.weeklyWage ?? 0), 0);
+  // Gider hesapları — P0 FIX: Oyuncu maaşları kaldırıldı, sadece personel + tesis
   const staffWages = facilities.staff.reduce((s: number, st: any) => s + st.weeklyWage, 0);
   const facilityCost = Object.values(facilities.levels).reduce((s: number, l: any) => s + l * 5000, 0);
-  const totalExpense = playerWages + staffWages + facilityCost;
+  const totalExpense = staffWages + facilityCost;
   const net = totalIncome - totalExpense;
 
   // Sezonluk projeksiyon (34 hafta)
   const seasonalNet = net * SEASON_INFO.totalMatchdays;
   const projectedBudget = team.budget + seasonalNet;
-
-  // En pahalı 5 oyuncu
-  const topWages = [...team.players]
-    .sort((a, b) => (b.weeklyWage ?? 0) - (a.weeklyWage ?? 0))
-    .slice(0, 5);
-
-  // Pozisyon bazında maaş dağılımı
-  const posWages = team.players.reduce((acc, p) => {
-    const grp = (p.specificPosition === "GK" ? "Kaleci"
-      : ["CB", "LB", "RB", "LWB", "RWB"].includes(p.specificPosition) ? "Defans"
-      : ["CDM", "CM", "CAM", "LM", "RM"].includes(p.specificPosition) ? "Orta Saha"
-      : "Forvet");
-    acc[grp] = (acc[grp] ?? 0) + (p.weeklyWage ?? 0);
-    return acc;
-  }, {} as Record<string, number>);
 
   // Toplam kadro değeri
   const squadValue = team.players.reduce((s, p) => s + (p.marketValue ?? 0), 0);
@@ -436,66 +420,18 @@ function FinancialReport({
         </div>
       </div>
 
-      {/* Giderler */}
+      {/* Giderler — P0 FIX: Oyuncu maaşları kaldırıldı, sadece personel + tesis */}
       <div className="tm-card p-3">
         <div className="flex items-center gap-1.5 mb-2">
           <ArrowDownRight size={12} className="text-red-400" />
           <span className="text-xs font-bold">Haftalık Giderler</span>
         </div>
         <div className="space-y-1">
-          <FinRow label="Oyuncu Maaşları" value={playerWages} color="red" locale={locale} />
           <FinRow label="Personel Maaşları" value={staffWages} color="red" locale={locale} />
           <FinRow label="Tesis Bakım" value={facilityCost} color="red" locale={locale} />
           <div className="border-t border-border pt-1">
             <FinRow label="Toplam Gider" value={totalExpense} color="red" bold locale={locale} />
           </div>
-        </div>
-      </div>
-
-      {/* Pozisyon bazında maaş dağılımı */}
-      <div className="tm-card p-3">
-        <div className="flex items-center gap-1.5 mb-2">
-          <Users size={12} className="text-muted-foreground" />
-          <span className="text-xs font-bold">Maaş Dağılımı (pozisyon)</span>
-        </div>
-        <div className="space-y-1.5">
-          {Object.entries(posWages)
-            .sort(([, a], [, b]) => b - a)
-            .map(([pos, wage]) => {
-              const pct = (wage / playerWages) * 100;
-              return (
-                <div key={pos}>
-                  <div className="flex justify-between text-[10px] mb-0.5">
-                    <span className="text-muted-foreground">{pos}</span>
-                    <span className="font-bold tabular-nums">{formatEuro(wage, locale)}</span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
-                  </div>
-                  <div className="text-[8px] text-muted-foreground mt-0.5">%{pct.toFixed(1)}</div>
-                </div>
-              );
-            })}
-        </div>
-      </div>
-
-      {/* En pahalı 5 oyuncu */}
-      <div className="tm-card p-3">
-        <div className="flex items-center gap-1.5 mb-2">
-          <Award size={12} className="text-amber-400" />
-          <span className="text-xs font-bold">En Yüksek Maaş (5)</span>
-        </div>
-        <div className="space-y-0.5">
-          {topWages.map((p, i) => (
-            <div key={p.id} className="flex items-center gap-2 py-1 px-1.5 rounded bg-muted/20">
-              <span className="text-[9px] text-muted-foreground w-4">{i + 1}</span>
-              <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
-              <span className="text-[8px] text-muted-foreground">{p.specificPosition}</span>
-              <span className="text-[10px] font-bold tabular-nums text-red-400">
-                {formatEuro(p.weeklyWage ?? 0, locale)}
-              </span>
-            </div>
-          ))}
         </div>
       </div>
 
