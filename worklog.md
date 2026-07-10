@@ -1638,3 +1638,32 @@ Work Log:
 Stage Summary:
 - 5 UX improvement tamamlandı.
 - APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.4.0-ux-improvements/touchline-manager-v1.4.0-release.apk
+
+---
+Task ID: v1.5.0-bugfix
+Agent: main
+Task: Dribling typo, taktik-maç lineup uyumsuzluğu, kısaltma kullanmama, transfer kart layout
+
+Work Log:
+- "Dripling" → "Dribling" tüm kaynaklarda düzeltildi (dict.ts, data.ts, player-profile-modal.tsx, enhancedMatchEngine.ts, scouting.tsx). stat.dribbling artık doğru Türkçe "Dribling".
+- Maç sekmesi (match.tsx) LiveMatchPitch artık store.tactics.lineup kullanıyor — kullanıcının seçtiği ilk 11'i gösteriyor. Önceki: homeTeam.players.slice(0, 11) (sıradaki ilk 11 oyuncu).
+- Formation parametresi de düzeltildi: kullanıcının takımı için taktik formasyonu (4-5-1, 4-4-2, vs.), rakip için 4-4-2.
+- LiveMatchPitch homeShort/awayShort parametreleri artık tam takım adları (homeTeam.name / awayTeam.name). Alt bilgi "Üst: DEF · Alt: YVS" yerine tam isim.
+- Fikstür sekmesinde (fixture.tsx) 4 yerde team.shortName → team.name: form kutusu (alt rakip ismi), sonraki maç kartı (kullanıcı + rakip), kupa şampiyonu.
+- PreMatchScreen (pre-match-screen.tsx) başlık + form kutusunda team.shortName → team.name.
+- match.tsx PostMatch: halftime skor, final skor, event feed spiker metinleri, oyuncu ratings tab sekmeleri — hepsi team.shortName → team.name.
+- Transfer kartı (transfer.tsx PlayerCard) layout düzeltildi: eskiden arketip + 4 StatChip aynı satırda, Şut ve Def çakışıyordu. Şimdi 3 satır: (1) isim+pozisyon, (2) arketip+yaş, (3) 4 StatChip yan yana. Fiyat sütunu (RatingBadge + formatEuro) ayrı.
+- Gradle build sırasında OOM benzeri sessiz çökme yaşandı — build script (scripts/build-apk.sh) yazıldı. --console=plain ile direkt çağırınca build tamamlandı.
+- APK boyutu 6.2MB → 765KB: android-app/app/src/main/assets/web/ ve apk-data.html (6.9MB), apk-indir.html, apk-qr.png .gitignore edildi.
+- .gitignore güncellendi: android-app/.gradle/, android-app/app/build/, android-app/app/src/main/assets/web/, android-app/app/src/main/assets/static/ eklendi.
+- Build başarılı, APK 765KB.
+- GitHub Release v1.5.0-bugfix oluşturuldu, APK upload edildi.
+
+Stage Summary:
+- 4 kullanıcı raporu düzeltildi:
+  1. "Dripling" → "Dribling" (yazım hatası)
+  2. Taktik ↔ Maç ilk 11 uyumsuzluğu giderildi (tactics.lineup kullanılıyor)
+  3. Fikstür/Maç/PreMatch ekranlarında artık takım kısaltması değil tam isim
+  4. Transfer kartı layout — 4 stat chip artık ayrı satırda, fiyat ile çakışmıyor
+- APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.5.0-bugfix/touchline-manager-v1.5.0-bugfix-release.apk (765KB)
+- Repo boyutu önemli ölçüde küçüldü (web assets artık commit'lenmiyor).
