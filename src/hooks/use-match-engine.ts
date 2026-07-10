@@ -341,14 +341,16 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
     let cornersAway = 0;
     let foulsHome = 0;
     let foulsAway = 0;
+    let savesHome = 0;
+    let savesAway = 0;
     const playerStats: Record<string, { goals: number; assists: number; yellow: number; red: number }> = {};
 
     for (const ev of shownEvents) {
       if (ev.type === "goal") {
         if (ev.team === "home") homeScore++;
         else awayScore++;
-        shotsHome += ev.team === "home" ? 1 : 0;
-        shotsAway += ev.team === "away" ? 1 : 0;
+        if (ev.team === "home") shotsHome++;
+        else shotsAway++;
         if (ev.playerId) {
           if (!playerStats[ev.playerId]) playerStats[ev.playerId] = { goals: 0, assists: 0, yellow: 0, red: 0 };
           playerStats[ev.playerId].goals++;
@@ -357,6 +359,13 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
           if (!playerStats[ev.assistPlayerId]) playerStats[ev.assistPlayerId] = { goals: 0, assists: 0, yellow: 0, red: 0 };
           playerStats[ev.assistPlayerId].assists++;
         }
+      } else if (ev.type === "shot_saved" || ev.type === "save") {
+        // Şut kurtarıldı — şut atan takımın shots'ı artar, kurtaran takımın saves'i
+        if (ev.team === "home") { shotsHome++; savesAway++; }
+        else { shotsAway++; savesHome++; }
+      } else if (ev.type === "shot_wide" || ev.type === "shot_post") {
+        if (ev.team === "home") shotsHome++;
+        else shotsAway++;
       } else if (ev.type === "yellow_card") {
         if (ev.playerId) {
           if (!playerStats[ev.playerId]) playerStats[ev.playerId] = { goals: 0, assists: 0, yellow: 0, red: 0 };
@@ -380,6 +389,12 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
       }
     }
 
+    // Canlı possession — event'lere göre approximate et (tam maç sonu değil)
+    const homeEvents = shownEvents.filter(e => e.team === "home").length;
+    const awayEvents = shownEvents.filter(e => e.team === "away").length;
+    const totalEvents = homeEvents + awayEvents;
+    const liveHomePoss = totalEvents > 0 ? Math.round((homeEvents / totalEvents) * 100) : 50;
+
     const lastMinute = shownEvents.length > 0 ? shownEvents[shownEvents.length - 1].minute : 0;
 
     setSnapshot({
@@ -389,7 +404,7 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
       awayScore,
       events: [...shownEvents].reverse(), // en yeni üstte
       stats: {
-        possession: [result.homePossession, result.awayPossession],
+        possession: [liveHomePoss, 100 - liveHomePoss],
         shotsOnTarget: [shotsHome, shotsAway],
         corners: [cornersHome, cornersAway],
         fouls: [foulsHome, foulsAway],

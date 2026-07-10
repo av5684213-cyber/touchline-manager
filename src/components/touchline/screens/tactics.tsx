@@ -1345,6 +1345,16 @@ function SlotPlayerPicker({
                       <div className="text-[9px] font-bold tabular-nums text-muted-foreground">{(p.formRating ?? 0).toFixed(1)}</div>
                       <div className="text-[7px] text-muted-foreground">form</div>
                     </div>
+                    {/* "i" butonu — profil kartı aç */}
+                    {onShowProfile && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); haptic("light"); onShowProfile(p); }}
+                        className="shrink-0 w-5 h-5 rounded-full border border-border text-[9px] font-bold text-muted-foreground hover:text-primary hover:border-primary/50 flex items-center justify-center"
+                        aria-label="Profil"
+                      >
+                        i
+                      </button>
+                    )}
                   </button>
                 );
               })}

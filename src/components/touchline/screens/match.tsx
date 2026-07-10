@@ -1532,20 +1532,17 @@ function PostMatch({
         </div>
       </div>
 
-      {/* MOTM card */}
+      {/* MOTM card — tıklanabilir, profil aç */}
       {motm && (
-        <div className="tm-card p-3 border-amber-300 bg-amber-50/50">
+        <button
+          onClick={() => { haptic("light"); setProfilePlayer(motm); }}
+          className="tm-tap w-full text-left tm-card p-3 border-amber-300 bg-amber-50/50 hover:bg-amber-50/70 transition-colors"
+        >
           <div className="flex items-center gap-2 mb-2">
             <span className="text-base">⭐</span>
             <span className="text-xs font-bold">{t("match.post.motm")}</span>
           </div>
           <div className="flex items-center gap-3">
-            <span
-              className="inline-flex items-center justify-center w-12 h-12 rounded-full text-sm font-bold text-white"
-              style={{ background: motmSide === "home" ? homeTeam.primaryColor : awayTeam.primaryColor }}
-            >
-              {motm.firstName} {motm.lastName}
-            </span>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-bold truncate">{motm.firstName} {motm.lastName}</div>
               <div className="text-[11px] text-muted-foreground">
@@ -1559,7 +1556,7 @@ function PostMatch({
               <div className="text-[9px] text-muted-foreground uppercase">{t("match.post.col.rating")}</div>
             </div>
           </div>
-        </div>
+        </button>
       )}
 
       {/* Gol kartları */}

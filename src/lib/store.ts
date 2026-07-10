@@ -39,7 +39,7 @@ import {
   todayKey,
   type TrainingState,
 } from "@/lib/training/engine";
-import { DEFAULT_TACTIC, type ActiveTactic } from "@/lib/tactics/types";
+import { DEFAULT_TACTIC, FORMATION_SLOTS, type ActiveTactic } from "@/lib/tactics/types";
 
 type Tactics = {
   // Yeni şema — eski oyunun ActiveTactic'i ile birebir
@@ -276,13 +276,49 @@ function pickRandom<T>(arr: T[]): T {
 }
 
 function defaultTacticsFor(team: Team): Tactics {
-  const formation = FORMATIONS[0]; // 4-4-2
+  // FIX: FORMATION_SLOTS kullanarak doğru slot bazlı lineup doldur
+  const formation = DEFAULT_TACTIC.formation || "4-4-2";
+  const slots = FORMATION_SLOTS[formation] ?? FORMATION_SLOTS["4-4-2"];
+  const used = new Set<string>();
+  const lineup: (Player | null)[] = [];
+
+  for (const slotPos of slots) {
+    // Önce tam pozisyon eşleşmesi
+    let candidate = team.players
+      .filter((p) => !used.has(p.id) && p.specificPosition === slotPos)
+      .sort((a, b) => b.rating - a.rating)[0];
+
+    // Yoksa aynı gruptan al
+    if (!candidate) {
+      const group = slotPos === "GK" ? "GK"
+        : ["CB", "LB", "RB", "LWB", "RWB"].includes(slotPos) ? "DEF"
+        : ["CDM", "CM", "CAM", "LM", "RM"].includes(slotPos) ? "MID" : "FWD";
+      const groupPositions = group === "GK" ? ["GK"]
+        : group === "DEF" ? ["CB", "LB", "RB", "LWB", "RWB"]
+        : group === "MID" ? ["CDM", "CM", "CAM", "LM", "RM"]
+        : ["LW", "RW", "ST", "CF"];
+      candidate = team.players
+        .filter((p) => !used.has(p.id) && groupPositions.includes(p.specificPosition))
+        .sort((a, b) => b.rating - a.rating)[0];
+    }
+
+    // Hala yoksa en yüksek OVR'li boş oyuncu
+    if (!candidate) {
+      candidate = team.players
+        .filter((p) => !used.has(p.id))
+        .sort((a, b) => b.rating - a.rating)[0];
+    }
+
+    if (candidate) used.add(candidate.id);
+    lineup.push(candidate ?? null);
+  }
+
   return {
     active: { ...DEFAULT_TACTIC },
-    lineup: autoFillLineup(team, formation),
+    lineup,
     slotRoles: {},
     activeInstructions: {},
-    formationKey: formation.key,
+    formationKey: "4-4-2",
     sliders: {
       attackingPressure: 55,
       defensiveLine: 50,
@@ -538,13 +574,38 @@ export const useAppStore = create<AppState>()(
         if (patch.offsideTrap === true) {
           newActive.parkTheBus = false;
         }
-        // formation değiştiğinde lineup'ı yeniden doldur
+        // formation değiştiğinde lineup'ı yeniden doldur — FORMATION_SLOTS kullan
         let newLineup = tactics.lineup;
         if (patch.formation && patch.formation !== tactics.active.formation) {
-          const formation = FORMATIONS.find((f) => f.key === patch.formation);
           const team = get().clubs.find((c) => c.id === get().myTeamId);
-          if (formation && team) {
-            newLineup = autoFillLineup(team, formation);
+          if (team) {
+            const slots = FORMATION_SLOTS[patch.formation] ?? FORMATION_SLOTS["4-4-2"];
+            const used = new Set<string>();
+            newLineup = [];
+            for (const slotPos of slots) {
+              let candidate = team.players
+                .filter((p) => !used.has(p.id) && p.specificPosition === slotPos)
+                .sort((a, b) => b.rating - a.rating)[0];
+              if (!candidate) {
+                const group = slotPos === "GK" ? "GK"
+                  : ["CB", "LB", "RB", "LWB", "RWB"].includes(slotPos) ? "DEF"
+                  : ["CDM", "CM", "CAM", "LM", "RM"].includes(slotPos) ? "MID" : "FWD";
+                const groupPositions = group === "GK" ? ["GK"]
+                  : group === "DEF" ? ["CB", "LB", "RB", "LWB", "RWB"]
+                  : group === "MID" ? ["CDM", "CM", "CAM", "LM", "RM"]
+                  : ["LW", "RW", "ST", "CF"];
+                candidate = team.players
+                  .filter((p) => !used.has(p.id) && groupPositions.includes(p.specificPosition))
+                  .sort((a, b) => b.rating - a.rating)[0];
+              }
+              if (!candidate) {
+                candidate = team.players
+                  .filter((p) => !used.has(p.id))
+                  .sort((a, b) => b.rating - a.rating)[0];
+              }
+              if (candidate) used.add(candidate.id);
+              newLineup.push(candidate ?? null);
+            }
           }
         }
         set({
