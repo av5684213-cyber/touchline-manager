@@ -557,15 +557,21 @@ function PlayerCard({
         onClick={onOpenProfile}
         className="flex-1 min-w-0 text-left"
       >
+        {/* Satır 1: İsim + pozisyon */}
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-semibold truncate">
             {player.firstName} {player.lastName}
           </span>
           <PositionPill label={player.specificPosition} group={POSITION_GROUP[player.specificPosition]} />
         </div>
-        <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground mt-0.5">
+        {/* Satır 2: Arketip + yaş (varsa) */}
+        <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground mt-0.5 truncate">
           {player.archetype && <span className="text-amber-300 truncate max-w-[80px]">{player.archetype}</span>}
-          <span>·</span>
+          {player.archetype && <span>·</span>}
+          <span>{player.age}{t("common.year")}</span>
+        </div>
+        {/* Satır 3: Stats — 4 chip yan yana, küçük ve sığar */}
+        <div className="flex items-center gap-1 mt-0.5 text-[9px]">
           <StatChip label="Hız" value={player.stats?.pace ?? player.speed ?? 50} />
           <StatChip label="Pas" value={player.stats?.passing ?? player.passing ?? 50} />
           <StatChip label="Şut" value={player.stats?.shooting ?? player.shooting ?? 50} />
@@ -574,7 +580,7 @@ function PlayerCard({
       </button>
       <div className="flex flex-col items-end gap-0.5 shrink-0">
         <RatingBadge value={player.rating} />
-        <div className="text-[9px] font-bold tabular-nums">{formatEuro(askingPrice)}</div>
+        <div className="text-[9px] font-bold tabular-nums text-emerald-400">{formatEuro(askingPrice)}</div>
       </div>
       <button
         onClick={onToggleWatch}

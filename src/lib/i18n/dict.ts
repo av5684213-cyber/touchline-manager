@@ -199,7 +199,7 @@ export const dict: Dict = {
   "stat.passing": { tr: "Pas", en: "Passing" },
   "stat.defending": { tr: "Defans", en: "Defending" },
   "stat.physical": { tr: "Fizik", en: "Physical" },
-  "stat.dribbling": { tr: "Dripling", en: "Dribbling" },
+  "stat.dribbling": { tr: "Dribling", en: "Dribbling" },
   "stat.goals_short": { tr: "G", en: "G" },
   "stat.assists_short": { tr: "A", en: "A" },
   "stat.saves_short": { tr: "K", en: "S" },

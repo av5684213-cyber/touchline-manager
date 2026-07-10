@@ -305,38 +305,61 @@ export function MatchScreen() {
             </div>
 
             {/* Saha sekmesi — 2D pitch + oyuncu tıklanır */}
-            {matchTab === "pitch" && (
-              <LiveMatchPitch
-                homePlayers={homeTeam.players.slice(0, 11).map((p: any) => ({
-                  id: p.id,
-                  name: p.name ?? `${p.firstName} ${p.lastName}`,
-                  rating: p.rating,
-                  position: p.specificPosition,
-                  side: "home" as const,
-                  isCaptain: p.special_role === "kaptan" || p.special_role === "captain",
-                }))}
-                awayPlayers={awayTeam.players.slice(0, 11).map((p: any) => ({
-                  id: p.id,
-                  name: p.name ?? `${p.firstName} ${p.lastName}`,
-                  rating: p.rating,
-                  position: p.specificPosition,
-                  side: "away" as const,
-                }))}
-                homeColor={homeTeam.primaryColor}
-                awayColor={awayTeam.primaryColor}
-                homeFormation={useAppStore.getState().tactics.active?.formation ?? "4-4-2"}
-                awayFormation="4-4-2"
-                minute={engine.state.minute}
-                homeScore={engine.state.homeScore}
-                awayScore={engine.state.awayScore}
-                homeShort={homeTeam.shortName}
-                awayShort={awayTeam.shortName}
-                onPlayerClick={(playerId) => {
-                  const p = [...homeTeam.players, ...awayTeam.players].find((pp) => pp.id === playerId);
-                  if (p) { haptic("light"); setPitchProfilePlayer(p); }
-                }}
-              />
-            )}
+            {matchTab === "pitch" && (() => {
+              // Kullanıcının takımı için TAKTİK dizilişini kullan, rakip için ilk 11
+              const tacticsLineup = useAppStore.getState().tactics.lineup;
+              const userFormation = useAppStore.getState().tactics.active?.formation ?? "4-4-2";
+
+              const mapPlayer = (p: any, side: "home" | "away") => ({
+                id: p.id,
+                name: p.name ?? `${p.firstName} ${p.lastName}`,
+                rating: p.rating,
+                position: p.specificPosition,
+                side,
+                isCaptain: side === "home" && (p.special_role === "kaptan" || p.special_role === "captain"),
+              });
+
+              // Ev sahibi kullanıcının takımıysa → taktik dizilişini kullan
+              // Deplasmanda kullanıcının takımıysa → yine taktik dizilişini kullan (away olarak)
+              const userIsHome = mySide === "home";
+              const filledTactics = tacticsLineup.filter((p): p is PlayerT => p !== null);
+
+              let homeList, awayList;
+              if (userIsHome && filledTactics.length === 11) {
+                homeList = filledTactics.map((p) => mapPlayer(p, "home"));
+                awayList = awayTeam.players.slice(0, 11).map((p: any) => mapPlayer(p, "away"));
+              } else if (!userIsHome && filledTactics.length === 11) {
+                homeList = homeTeam.players.slice(0, 11).map((p: any) => mapPlayer(p, "home"));
+                awayList = filledTactics.map((p) => mapPlayer(p, "away"));
+              } else {
+                homeList = homeTeam.players.slice(0, 11).map((p: any) => mapPlayer(p, "home"));
+                awayList = awayTeam.players.slice(0, 11).map((p: any) => mapPlayer(p, "away"));
+              }
+
+              // Formation: kullanıcının takımı için taktik formasyonu, rakip için 4-4-2
+              const homeFormation = userIsHome ? userFormation : "4-4-2";
+              const awayFormation = userIsHome ? "4-4-2" : userFormation;
+
+              return (
+                <LiveMatchPitch
+                  homePlayers={homeList}
+                  awayPlayers={awayList}
+                  homeColor={homeTeam.primaryColor}
+                  awayColor={awayTeam.primaryColor}
+                  homeFormation={homeFormation}
+                  awayFormation={awayFormation}
+                  minute={engine.state.minute}
+                  homeScore={engine.state.homeScore}
+                  awayScore={engine.state.awayScore}
+                  homeShort={homeTeam.name}
+                  awayShort={awayTeam.name}
+                  onPlayerClick={(playerId) => {
+                    const p = [...homeTeam.players, ...awayTeam.players].find((pp) => pp.id === playerId);
+                    if (p) { haptic("light"); setPitchProfilePlayer(p); }
+                  }}
+                />
+              );
+            })()}
 
             {/* Akış sekmesi */}
             {matchTab === "feed" && (
@@ -426,11 +449,11 @@ export function MatchScreen() {
               İkinci yarı {engine.state.halftimeSecondsLeft ?? 30} saniye sonra başlayacak
             </div>
             <div className="flex items-center justify-center gap-4 text-sm">
-              <span className="font-bold">{homeTeam.shortName}</span>
+              <span className="font-bold truncate max-w-[100px]">{homeTeam.name}</span>
               <span className="text-2xl font-bold tabular-nums text-amber-300">
                 {engine.state.homeScore} - {engine.state.awayScore}
               </span>
-              <span className="font-bold">{awayTeam.shortName}</span>
+              <span className="font-bold truncate max-w-[100px]">{awayTeam.name}</span>
             </div>
 
             {/* Oyuncu değişikliği — devre arası */}
@@ -496,7 +519,7 @@ export function MatchScreen() {
               <Trophy size={28} className="text-emerald-600 mx-auto" />
               <div className="text-sm font-bold text-emerald-700">Maç tamamlandı</div>
               <div className="text-[10px] text-muted-foreground">
-                {homeTeam.shortName} {engine.state.homeScore} - {engine.state.awayScore} {awayTeam.shortName}
+                {homeTeam.name} {engine.state.homeScore} - {engine.state.awayScore} {awayTeam.name}
               </div>
               <button
                 onClick={() => {
@@ -878,7 +901,7 @@ function EventFeed({
 // Event tipine göre Türkçe spiker metni
 function getEventText(ev: MatchEvent, homeTeam: any, awayTeam: any): string {
   const playerName = ev.playerName || ev.playerId || "";
-  const teamName = ev.team === "home" ? homeTeam?.shortName : ev.team === "away" ? awayTeam?.shortName : "";
+  const teamName = ev.team === "home" ? homeTeam?.name : ev.team === "away" ? awayTeam?.name : "";
   const base = ev.description && ev.description !== ev.type ? ev.description : "";
 
   const texts: Record<string, string> = {
@@ -1565,7 +1588,7 @@ function PostMatch({
               .sort((a, b) => a.minute - b.minute)
               .map((ev, i) => {
                 const side = (ev.team as string) ?? "neutral";
-                const teamName = side === "home" ? homeTeam.shortName : side === "away" ? awayTeam.shortName : "";
+                const teamName = side === "home" ? homeTeam.name : side === "away" ? awayTeam.name : "";
                 return (
                   <div key={i} className="flex items-center gap-2 text-[10px]">
                     <span className="font-bold tabular-nums w-6">{ev.minute}'</span>
@@ -1628,7 +1651,7 @@ function PostMatch({
               ratingsTab === "home" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}
           >
             <span className="w-2 h-2 rounded-full" style={{ background: homeTeam.primaryColor }} />
-            {homeTeam.shortName}
+            <span className="truncate">{homeTeam.name}</span>
           </button>
           <button
             onClick={() => { haptic("light"); setRatingsTab("away"); }}
@@ -1636,7 +1659,7 @@ function PostMatch({
               ratingsTab === "away" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}
           >
             <span className="w-2 h-2 rounded-full" style={{ background: awayTeam.primaryColor }} />
-            {awayTeam.shortName}
+            <span className="truncate">{awayTeam.name}</span>
           </button>
         </div>
         <div className="max-h-80 overflow-y-auto tm-thin-scrollbar">

@@ -370,8 +370,8 @@ const ARKETIPLER: Record<string, string[]> = {
   CAM: ["Playmaker", "Numara 10", "Yaratıcı", "Oyun Kurucu"],
   LM: ["Kanat", "İçeri Dönen"],
   RM: ["Kanat", "İçeri Dönen"],
-  LW: ["Hızlı Kanat", "İçeri Dönen", "Dripling Ustası"],
-  RW: ["Hızlı Kanat", "İçeri Dönen", "Dripling Ustası"],
+  LW: ["Hızlı Kanat", "İçeri Dönen", "Dribling Ustası"],
+  RW: ["Hızlı Kanat", "İçeri Dönen", "Dribling Ustası"],
   ST: ["Gol Makinesi", "Bitirici", "Hedef Adam", "Fırsatçı", "Hızlı Forvet"],
   CF: ["İkinci Forvet", "Yaratıcı Forvet", "Hedef Adam"],
 };
@@ -707,7 +707,7 @@ const ARKETIP_GOAL_MODIFIERS: Record<string, { right: number; left: number; head
   // Kanat arketipleri
   "Hızlı Kanat":    { right: 0.55, left: 0.35, head: 0.10, goals: 0.70 },
   "İçeri Dönen":    { right: 0.50, left: 0.40, head: 0.10, goals: 0.85 },
-  "Dripling Ustası":{ right: 0.45, left: 0.40, head: 0.15, goals: 0.80 },
+  "Dribling Ustası":{ right: 0.45, left: 0.40, head: 0.15, goals: 0.80 },
   "Kanat":          { right: 0.50, left: 0.35, head: 0.15, goals: 0.65 },
   // Orta saha arketipleri
   "Playmaker":      { right: 0.50, left: 0.35, head: 0.15, goals: 0.50 },

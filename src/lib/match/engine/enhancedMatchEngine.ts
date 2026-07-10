@@ -2246,7 +2246,7 @@ export function simulateEnhancedMatch(
       else if (scorerArchetype === "Hızlı Forvet") goalChance *= 1 + 0.15 * archetypeOvrFactor;  // +%15
       else if (scorerArchetype === "Hızlı Kanat") goalChance *= 1 + 0.14 * archetypeOvrFactor;   // +%14
       else if (scorerArchetype === "Hedef Adam") goalChance *= 1 + 0.14 * archetypeOvrFactor;    // +%14
-      else if (scorerArchetype === "Dripling Ustası") goalChance *= 1 + 0.12 * archetypeOvrFactor; // +%12
+      else if (scorerArchetype === "Dribling Ustası") goalChance *= 1 + 0.12 * archetypeOvrFactor; // +%12
       else if (scorerArchetype === "İçeri Dönen") goalChance *= 1 + 0.12 * archetypeOvrFactor;   // +%12
       else if (scorerArchetype === "Yaratıcı Forvet") goalChance *= 1 + 0.10 * archetypeOvrFactor; // +%10
       else if (scorerArchetype === "İkinci Forvet") goalChance *= 1 + 0.08 * archetypeOvrFactor; // +%8

@@ -60,3 +60,9 @@ tool-results/
 download/
 upload/
 *.apk
+
+# Android build artifacts
+android-app/.gradle/
+android-app/app/build/
+android-app/app/src/main/assets/web/
+android-app/app/src/main/assets/static/

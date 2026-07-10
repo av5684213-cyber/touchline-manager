@@ -76,13 +76,13 @@ export function PreMatchScreen({
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           <div className="flex flex-col items-center gap-1">
             <ClubBadge short={homeTeam.shortName} primaryColor={homeTeam.primaryColor} size={40} />
-            <span className="text-[10px] font-bold truncate max-w-[80px]">{homeTeam.shortName}</span>
+            <span className="text-[10px] font-bold truncate max-w-[100px]">{homeTeam.name}</span>
             <span className="text-[9px] text-muted-foreground">{isHome ? t("dash.home") : t("dash.away")}</span>
           </div>
           <span className="text-[10px] text-muted-foreground font-bold">{t("dash.vs")}</span>
           <div className="flex flex-col items-center gap-1">
             <ClubBadge short={awayTeam.shortName} primaryColor={awayTeam.primaryColor} size={40} />
-            <span className="text-[10px] font-bold truncate max-w-[80px]">{awayTeam.shortName}</span>
+            <span className="text-[10px] font-bold truncate max-w-[100px]">{awayTeam.name}</span>
             <span className="text-[9px] text-muted-foreground">{!isHome ? t("dash.home") : t("dash.away")}</span>
           </div>
         </div>
@@ -115,7 +115,7 @@ export function PreMatchScreen({
         <div className="text-[10px] text-muted-foreground uppercase font-bold mb-2">{t("fixture.form")}</div>
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col items-center gap-1">
-            <span className="text-[9px] text-muted-foreground">{homeTeam.shortName}</span>
+            <span className="text-[9px] text-muted-foreground truncate max-w-[80px]">{homeTeam.name}</span>
             <div className="flex gap-0.5">
               {homeForm.length === 0 ? (
                 <span className="text-[9px] text-muted-foreground">—</span>
@@ -130,7 +130,7 @@ export function PreMatchScreen({
             </div>
           </div>
           <div className="flex flex-col items-center gap-1">
-            <span className="text-[9px] text-muted-foreground">{awayTeam.shortName}</span>
+            <span className="text-[9px] text-muted-foreground truncate max-w-[80px]">{awayTeam.name}</span>
             <div className="flex gap-0.5">
               {awayForm.length === 0 ? (
                 <span className="text-[9px] text-muted-foreground">—</span>

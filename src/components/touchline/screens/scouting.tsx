@@ -25,7 +25,7 @@ const ARCHETYPE_OPTIONS = [
   "Yıkıcı", "Regista", "Ekran Oyuncusu", "Duvar Orta Saha",
   "Motor", "Truva Atı", "Pas Ustası", "Box-to-Box", "Tempo Kontrolcüsü",
   "Playmaker", "Numara 10", "Yaratıcı", "Oyun Kurucu",
-  "Hızlı Kanat", "İçeri Dönen", "Dripling Ustası",
+  "Hızlı Kanat", "İçeri Dönen", "Dribling Ustası",
   "Gol Makinesi", "Bitirici", "Hedef Adam", "Fırsatçı", "Hızlı Forvet",
   "İkinci Forvet", "Yaratıcı Forvet",
 ];

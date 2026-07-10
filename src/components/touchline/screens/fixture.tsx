@@ -106,7 +106,7 @@ export function FixtureScreen() {
                   <span className={cn("inline-flex items-center justify-center w-7 h-7 rounded text-[10px] font-bold text-white", cls)}>
                     {outcome === "W" ? "G" : outcome === "D" ? "B" : "M"}
                   </span>
-                  <span className="text-[7px] text-muted-foreground">{opp?.shortName ?? "—"}</span>
+                  <span className="text-[7px] text-muted-foreground truncate max-w-[60px]">{opp?.name ?? "—"}</span>
                 </div>
               );
             })}
@@ -123,7 +123,7 @@ export function FixtureScreen() {
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
             <div className="flex flex-col items-center gap-1">
               <ClubBadge short={team.shortName} primaryColor={team.primaryColor} size={36} />
-              <span className="text-[10px] font-semibold truncate max-w-[80px]">{team.shortName}</span>
+              <span className="text-[10px] font-semibold truncate max-w-[100px]">{team.name}</span>
               <span className="text-[8px] text-muted-foreground">
                 {nextMatch.homeId === team.id ? t("fixture.home") : t("fixture.away")}
               </span>
@@ -134,7 +134,7 @@ export function FixtureScreen() {
               return opp ? (
                 <div className="flex flex-col items-center gap-1">
                   <ClubBadge short={opp.shortName} primaryColor={opp.primaryColor} size={36} />
-                  <span className="text-[10px] font-semibold truncate max-w-[80px]">{opp.shortName}</span>
+                  <span className="text-[10px] font-semibold truncate max-w-[100px]">{opp.name}</span>
                   <span className="text-[8px] text-muted-foreground">
                     {nextMatch.awayId === opp.id ? t("fixture.away") : t("fixture.home")}
                   </span>
@@ -310,7 +310,7 @@ function CupFixturesSection() {
         <span className="text-xs font-bold text-amber-400">🏆 Kupa Maçları</span>
         {cup.champion && (
           <span className="text-[10px] text-amber-300 font-bold">
-            Şampiyon: {getTeam(cup.champion)?.shortName ?? "—"}
+            Şampiyon: {getTeam(cup.champion)?.name ?? "—"}
           </span>
         )}
       </div>
