@@ -226,6 +226,13 @@ export function TransferScreen() {
                     <span>·</span>
                     <span className="text-emerald-400 font-bold">Bedelsiz</span>
                   </div>
+                  {/* Stats — güvenli fallback */}
+                  <div className="flex items-center gap-1.5 mt-0.5 text-[9px]">
+                    <StatChip label="Hız" value={p.stats?.pace ?? p.speed ?? 50} />
+                    <StatChip label="Pas" value={p.stats?.passing ?? p.passing ?? 50} />
+                    <StatChip label="Şut" value={p.stats?.shooting ?? p.shooting ?? 50} />
+                    <StatChip label="Def" value={p.stats?.defending ?? p.defending ?? 50} />
+                  </div>
                 </button>
                 <div className="flex flex-col items-end gap-1">
                   <RatingBadge value={p.rating} />
@@ -560,8 +567,9 @@ function PlayerCard({
           {player.archetype && <span className="text-amber-300 truncate max-w-[80px]">{player.archetype}</span>}
           <span>·</span>
           <StatChip label="Hız" value={player.stats?.pace ?? player.speed ?? 50} />
-          <StatChip label="Pas" value={player.passing ?? 50} />
-          <StatChip label="Şut" value={player.shooting ?? 50} />
+          <StatChip label="Pas" value={player.stats?.passing ?? player.passing ?? 50} />
+          <StatChip label="Şut" value={player.stats?.shooting ?? player.shooting ?? 50} />
+          <StatChip label="Def" value={player.stats?.defending ?? player.defending ?? 50} />
         </div>
       </button>
       <div className="flex flex-col items-end gap-0.5 shrink-0">
@@ -671,7 +679,7 @@ function IncomingOfferCard({
           <div className="text-[9px] uppercase tracking-wide text-muted-foreground">
             {t("transfer.offer_modal.contract")}
           </div>
-          <div className="text-sm font-bold tabular-nums">{offer.contractYears}y</div>
+          {/* sözleşme kaldırıldı */}
         </div>
       </div>
 

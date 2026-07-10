@@ -1359,7 +1359,7 @@ function ActionsTab({
 
             {/* Sözleşme süresi */}
             <div className="mb-2">
-              <div className="text-[10px] text-muted-foreground mb-1">Sözleşme Süresi: {offerYears} yıl</div>
+              {/* sözleşme kaldırıldı */}
               <div className="flex gap-1">
                 {[1, 2, 3, 4, 5].map((y) => (
                   <button
@@ -1593,7 +1593,7 @@ function ActionsTab({
           <div className="flex justify-between"><span className="text-muted-foreground">Piyasa Değeri</span><span className="font-bold tabular-nums">{formatEuro(player.marketValue, locale)}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground">Haftalık Maaş</span><span className="font-bold tabular-nums">{formatEuro(player.weeklyWage, locale)}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground">Potansiyel</span><span className="font-bold tabular-nums">{player.potential}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Sözleşme</span><span className="font-bold">2 yıl</span></div>
+          {/* sözleşme kaldırıldı */}
         </div>
       </div>
     </div>

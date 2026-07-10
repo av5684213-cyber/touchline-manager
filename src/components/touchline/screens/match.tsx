@@ -740,14 +740,12 @@ function MatchTopBar({
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
         {/* Home */}
         <div className="flex flex-col items-center gap-1">
-          <ClubBadge
-            short={homeTeam.shortName}
-            primaryColor={homeTeam.primaryColor}
-            size={48}
-          />
-          <span className="text-[11px] font-semibold text-center truncate max-w-[100px]">
+          <div
+            className="w-12 h-12 rounded-md flex items-center justify-center text-white font-bold text-xs text-center px-1 leading-tight"
+            style={{ background: homeTeam.primaryColor }}
+          >
             {homeTeam.name}
-          </span>
+          </div>
         </div>
         {/* Score + minute */}
         <div className="flex flex-col items-center">
@@ -780,14 +778,12 @@ function MatchTopBar({
         </div>
         {/* Away */}
         <div className="flex flex-col items-center gap-1">
-          <ClubBadge
-            short={awayTeam.shortName}
-            primaryColor={awayTeam.primaryColor}
-            size={48}
-          />
-          <span className="text-[11px] font-semibold text-center truncate max-w-[100px]">
+          <div
+            className="w-12 h-12 rounded-md flex items-center justify-center text-white font-bold text-xs text-center px-1 leading-tight"
+            style={{ background: awayTeam.primaryColor }}
+          >
             {awayTeam.name}
-          </span>
+          </div>
         </div>
       </div>
       {/* Weather row */}
