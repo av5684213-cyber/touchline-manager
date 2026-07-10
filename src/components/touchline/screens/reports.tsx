@@ -128,8 +128,8 @@ function MatchReport({
     if (myRecent.length === 0) return null;
     let wins = 0, draws = 0, losses = 0;
     let goalsFor = 0, goalsAgainst = 0;
-    let homeWins = 0, homeGames = 0;
-    let awayWins = 0, awayGames = 0;
+    let homeWins = 0, homeDraws = 0, homeGames = 0;
+    let awayWins = 0, awayDraws = 0, awayGames = 0;
     let cleanSheets = 0;
     let failedToScore = 0;
     const form: FormResult[] = [];
@@ -142,7 +142,7 @@ function MatchReport({
       goalsAgainst += them;
       if (us > them) { wins++; form.push("W"); if (isHome) { homeWins++; homeGames++; } else { awayWins++; awayGames++; } }
       else if (us < them) { losses++; form.push("L"); if (isHome) homeGames++; else awayGames++; }
-      else { draws++; form.push("D"); if (isHome) homeGames++; else awayGames++; }
+      else { draws++; form.push("D"); if (isHome) { homeDraws++; homeGames++; } else { awayDraws++; awayGames++; } }
       if (them === 0) cleanSheets++;
       if (us === 0) failedToScore++;
     }
@@ -162,7 +162,7 @@ function MatchReport({
     return {
       wins, draws, losses,
       goalsFor, goalsAgainst,
-      homeWins, homeGames, awayWins, awayGames,
+      homeWins, homeDraws, homeGames, awayWins, awayDraws, awayGames,
       cleanSheets, failedToScore,
       form: recent5,
       streakType, streakLen,
@@ -258,8 +258,9 @@ function MatchReport({
               <Home size={10} className="text-emerald-400" />
               <span className="text-[9px] font-bold uppercase">Ev Sahibi</span>
             </div>
+            {/* P2 FIX: "G-değil" yerine net G/B/M formatı */}
             <div className="text-[10px] text-muted-foreground">
-              {stats.homeWins}G / {stats.homeGames - stats.homeWins}G-değil · {stats.homeGames} maç
+              {stats.homeWins}G · {stats.homeDraws ?? 0}B · {(stats.homeGames ?? 0) - (stats.homeWins ?? 0) - (stats.homeDraws ?? 0)}M
             </div>
             <div className="mt-1 h-1.5 rounded-full bg-muted overflow-hidden">
               <div className="h-full bg-emerald-500 rounded-full"
@@ -275,7 +276,7 @@ function MatchReport({
               <span className="text-[9px] font-bold uppercase">Deplasman</span>
             </div>
             <div className="text-[10px] text-muted-foreground">
-              {stats.awayWins}G / {stats.awayGames - stats.awayWins}G-değil · {stats.awayGames} maç
+              {stats.awayWins}G · {stats.awayDraws ?? 0}B · {(stats.awayGames ?? 0) - (stats.awayWins ?? 0) - (stats.awayDraws ?? 0)}M
             </div>
             <div className="mt-1 h-1.5 rounded-full bg-muted overflow-hidden">
               <div className="h-full bg-sky-500 rounded-full"

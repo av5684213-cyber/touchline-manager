@@ -300,7 +300,7 @@ const FICTIONAL_CLUB_NAMES: { name: string; short: string; c1: string; c2: strin
   { name: "Pınarbaşıspor", short: "PNB", c1: "#0e7490", c2: "#cffafe" },
   { name: "Hisarspor", short: "HIS", c1: "#4c1d95", c2: "#ede9fe" },
   { name: "Toroslarspor", short: "TRS", c1: "#92400e", c2: "#fff7ed" },
-  { name: "Yeditepespor", short: "YTP", c1: "#14532d", c2: "#bbf7d0" },
+  { name: "Yeditepespor", short: "YED", c1: "#14532d", c2: "#bbf7d0" },
   { name: "Çınarspor", short: "CNR", c1: "#7f1d1d", c2: "#fee2e2" },
   { name: "Halispor", short: "HAL", c1: "#0c4a6e", c2: "#e0f2fe" },
   { name: "Şehzadespor", short: "SHZ", c1: "#581c87", c2: "#f3e8ff" },

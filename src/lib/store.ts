@@ -405,12 +405,16 @@ export const useAppStore = create<AppState>()(
         }
 
         const team = clubs.find((c) => c.id === myTeamId)!;
-        // TEST/SOLO MOD: Kullanıcının takımına 500M Euro transfer bütçesi ver
-        // (oyunu idare ettirebilmek için test amaçlı)
-        const TEST_MODE_BUDGET = 500_000_000; // 500M Euro
-        if (team.budget < TEST_MODE_BUDGET) {
-          team.budget = TEST_MODE_BUDGET;
-          clubs = clubs.map((c) => (c.id === myTeamId ? { ...c, budget: TEST_MODE_BUDGET } : c));
+        // P2 FIX: Gerçekçi başlangıç bütçesi — lig tier'ına göre
+        // 500M yerine: Süper Lig 25M, 1. Lig 12M, 2. Lig 6M, 3. Lig 3M
+        // (test modu kaldırıldı, gerçek menajerlik hissi için)
+        const { TIER_BASE_BUDGETS } = require("@/lib/match/engine/constants");
+        const tier = team.leagueTier ?? 2;
+        const baseBudget = TIER_BASE_BUDGETS[tier] ?? TIER_BASE_BUDGETS[2];
+        const realisticBudget = Math.round(baseBudget * 1.2); // %20 ekstra başlangıç
+        if (team.budget < realisticBudget) {
+          team.budget = realisticBudget;
+          clubs = clubs.map((c) => (c.id === myTeamId ? { ...c, budget: realisticBudget } : c));
         }
         const tactics = defaultTacticsFor(team);
 

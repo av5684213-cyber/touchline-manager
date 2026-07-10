@@ -100,8 +100,33 @@ export interface GeneratedCommentary {
 // YARDIMCI FONKSİYONLAR
 // ═══════════════════════════════════════════════════════════════════
 
+// P2 FIX: Aynı maç içinde aynı yorum cümlesinin tekrarını önle
+// Son 20 seçilen cümleyi tutar, tekrar seçilirse alternatif arar
+const _recentCommentary: string[] = [];
+const RECENT_LIMIT = 20;
+
+/** Maç başlangıcında çağrılır — recent havuzunu temizle */
+export function resetRecentCommentary(): void {
+  _recentCommentary.length = 0;
+}
+
 function pick<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
+  if (arr.length === 0) return undefined as unknown as T;
+  if (arr.length === 1) return arr[0];
+  // P2 FIX: Son 20 seçimde olmayan bir eleman seçmeye çalış
+  const available = arr.filter((item) => {
+    const text = typeof item === "string" ? item : String(item);
+    return !_recentCommentary.includes(text);
+  });
+  // Hepsi recent'te varsa, en eskisini çıkar ve devam et
+  const pool = available.length > 0 ? available : arr;
+  const chosen = pool[Math.floor(Math.random() * pool.length)];
+  const chosenText = typeof chosen === "string" ? chosen : String(chosen);
+  _recentCommentary.push(chosenText);
+  if (_recentCommentary.length > RECENT_LIMIT) {
+    _recentCommentary.shift();
+  }
+  return chosen;
 }
 
 function hasTrait(traits: string[] | undefined, trait: string): boolean {

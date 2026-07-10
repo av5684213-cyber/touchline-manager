@@ -44,8 +44,11 @@ export function AwardsScreen() {
     const topGK = goalkeepers.length > 0
       ? [...goalkeepers].sort((a, b) => (b.player.saves ?? 0) - (a.player.saves ?? 0))[0]
       : null;
-    // En çok MOTM
-    const topMotm = [...allPlayers].sort((a, b) => (b.player.motmAwards ?? 0) - (a.player.motmAwards ?? 0))[0];
+    // En çok MOTM — P2 FIX: motmAwards 0 ise son maç rating'ine göre seç
+    const playersWithMotm = allPlayers.filter(x => (x.player.motmAwards ?? 0) > 0);
+    const topMotm = playersWithMotm.length > 0
+      ? [...playersWithMotm].sort((a, b) => (b.player.motmAwards ?? 0) - (a.player.motmAwards ?? 0))[0]
+      : [...allPlayers].sort((a, b) => (b.player.last_match_rating ?? 0) - (a.player.last_match_rating ?? 0))[0];
     // En çok oynayan
     const topApps = [...allPlayers].sort((a, b) => (b.player.appearances ?? 0) - (a.player.appearances ?? 0))[0];
 
@@ -168,7 +171,13 @@ export function AwardsScreen() {
             icon={<Trophy size={16} className="text-amber-300" />}
             label="En Çok Maç Adamı"
             name={awards.topMotm ? `${awards.topMotm.player.firstName} ${awards.topMotm.player.lastName}` : "—"}
-            sub={`${awards.topMotm?.player.motmAwards ?? 0} MOTM · ${awards.topMotm?.club.shortName ?? ""}`}
+            sub={
+              awards.topMotm
+                ? (awards.topMotm.player.motmAwards ?? 0) > 0
+                  ? `${awards.topMotm.player.motmAwards} MOTM · ${awards.topMotm?.club.shortName ?? ""}`
+                  : `Son maç ${(awards.topMotm.player.last_match_rating ?? 0).toFixed(1)} puan · ${awards.topMotm?.club.shortName ?? ""}`
+                : "—"
+            }
             onClickPlayer={awards.topMotm ? () => setProfilePlayer(awards.topMotm!.player) : undefined}
           />
           <AwardRow

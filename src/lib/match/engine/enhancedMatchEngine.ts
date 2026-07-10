@@ -30,6 +30,7 @@ import {
 } from './referee';
 import {
   generateCommentary,
+  resetRecentCommentary,
   type CommentaryContext,
   type CommentaryEventType,
 } from './matchCommentaryGenerator';
@@ -1535,6 +1536,8 @@ export function simulateEnhancedMatch(
 ): EnhancedMatchResult {
   // ── Pozisyon etkinlik cache'ini temizle (yeni maç) ──
   clearEffectivenessCache();
+  // P2 FIX: Yeni maç — tekrar önleme havuzunu temizle
+  resetRecentCommentary();
 
   // ── P1: Taktik sekmesindeki tüm ayarları modifier'a çevir ──────────────
   // 10 eksik ayar (width/passingIntensity/lineHeight/passingStyle/6 toggle)
