@@ -14,13 +14,13 @@ type TopTabKey =
   | "facilities"
   | "cup";
 
-const TOP_TABS: { key: TopTabKey; icon: LucideIcon; label: string }[] = [
-  { key: "standings", icon: Trophy, label: "Puan Durumu" },
-  { key: "scouting", icon: Search, label: "Scout" },
-  { key: "fixture", icon: CalendarDays, label: "Fikstür" },
-  { key: "friendly", icon: Users, label: "Hazırlık" },
-  { key: "facilities", icon: Grid2x2, label: "Yerleşke" },
-  { key: "cup", icon: Medal, label: "Kupa" },
+const TOP_TABS: { key: TopTabKey; icon: LucideIcon; labelKey: string; defaultLabel: string }[] = [
+  { key: "standings", icon: Trophy, labelKey: "nav.standings", defaultLabel: "Puan Durumu" },
+  { key: "scouting", icon: Search, labelKey: "nav.scouting", defaultLabel: "Scout" },
+  { key: "fixture", icon: CalendarDays, labelKey: "nav.fixture", defaultLabel: "Fikstür" },
+  { key: "friendly", icon: Users, labelKey: "nav.friendly", defaultLabel: "Hazırlık" },
+  { key: "facilities", icon: Grid2x2, labelKey: "nav.facilities", defaultLabel: "Yerleşke" },
+  { key: "cup", icon: Medal, labelKey: "nav.cup", defaultLabel: "Kupa" },
 ];
 
 export function StickyQuickBar({
@@ -30,12 +30,14 @@ export function StickyQuickBar({
   activeTab: TabKey;
   onChange: (k: TabKey) => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border tm-safe-top">
       <div className="grid grid-cols-6 gap-0">
         {TOP_TABS.map((tab) => {
           const TabIcon = tab.icon;
           const isActive = tab.key === activeTab;
+          const label = t(tab.labelKey) || tab.defaultLabel;
           return (
             <button
               key={tab.key}
@@ -51,7 +53,7 @@ export function StickyQuickBar({
               )}
             >
               <TabIcon size={18} strokeWidth={isActive ? 2.5 : 2} className="shrink-0" />
-              <span className="truncate">{tab.label}</span>
+              <span className="truncate">{label}</span>
               <span
                 className={cn(
                   "h-0.5 w-6 rounded-full transition-all",

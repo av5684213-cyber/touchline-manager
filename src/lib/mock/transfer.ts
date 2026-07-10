@@ -48,6 +48,7 @@ export type LoanListing = {
 export type IncomingOffer = {
   id: string;
   myPlayerId: string;
+  buyerTeamId: string;
   buyerTeamName: string;
   buyerTeamShort: string;
   buyerTeamColor: string;
@@ -273,6 +274,8 @@ export function generateIncomingOffers(myPlayers: Player[]): IncomingOffer[] {
     return {
       id: nextId("io"),
       myPlayerId: p.id,
+      // P0 FIX: buyerTeamId ekle — acceptOffer alıcı takıma oyuncuyu ekleyebilsin
+      buyerTeamId: `bot_${buyer.short.toLowerCase()}_${Math.random().toString(36).slice(2, 6)}`,
       buyerTeamName: buyer.name,
       buyerTeamShort: buyer.short,
       buyerTeamColor: buyer.color,

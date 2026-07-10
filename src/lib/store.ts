@@ -16,6 +16,7 @@ import {
   autoFillLineup,
   computeStandings,
   generateFixtures,
+  isTransferWindowOpen,
   playFixturesUpTo,
   SEASON_INFO,
   type FixtureRow,
@@ -537,6 +538,8 @@ export const useAppStore = create<AppState>()(
         if (!team) return;
         const player = team.players.find((p) => p.id === playerId);
         if (!player) return;
+        // P1 FIX: Sakat oyuncu dizilişe konmasın
+        if (player.is_injured) return;
         // Eğer oyuncu başka slotta varsa, o slotu null yap
         const newLineup = [...tactics.lineup];
         for (let i = 0; i < newLineup.length; i++) {
@@ -614,6 +617,8 @@ export const useAppStore = create<AppState>()(
             active: newActive,
             lineup: newLineup,
             formationKey: newActive.formation,
+            // P1 FIX: Formation değişince slotRoles sıfırla — pozisyonlar değişti, roller artık uyumsuz
+            slotRoles: patch.formation && patch.formation !== tactics.active.formation ? {} : tactics.slotRoles,
           },
         });
       },
@@ -661,15 +666,25 @@ export const useAppStore = create<AppState>()(
         });
       },
 
-      buyPlayer: (playerId, fee, _wage, _contractYears) => {
+      buyPlayer: (playerId, fee, wage, contractYears) => {
         const { clubs, myTeamId, transfer } = get();
         const team = clubs.find((c) => c.id === myTeamId);
         if (!team) return { success: false, reason: "no-team" };
+
+        // P1 FIX: Transfer penceresi kontrolü
+        if (!isTransferWindowOpen()) {
+          return { success: false, reason: "window-closed" };
+        }
 
         // Toplam maliyet (transfer + %5 agent + %3 imza)
         const total = fee + Math.round(fee * 0.05) + Math.round(fee * 0.03);
         if (team.budget < total) {
           return { success: false, reason: "budget" };
+        }
+
+        // P1 FIX: Kadro limiti (25 oyuncu)
+        if (team.players.length >= 25) {
+          return { success: false, reason: "squad-full" };
         }
 
         // Listing bul
@@ -681,12 +696,18 @@ export const useAppStore = create<AppState>()(
           return { success: false, reason: "too-low" };
         }
 
-        // Atomik işlem: bütçe düş, oyuncu kadroya ekle, free agent'tan çıkar
-        team.budget -= total;
-        team.players = [...team.players, listing.player];
+        // Atomik işlem: bütçe düş, oyuncu kadroya ekle (P0 FIX: wage/contractYears uygula), free agent'tan çıkar
+        const newPlayer = {
+          ...listing.player,
+          weeklyWage: wage,
+          salary: wage,
+          contractYears: contractYears,
+        };
+        const updatedTeam = { ...team, budget: team.budget - total, players: [...team.players, newPlayer] };
+        const updatedClubs = clubs.map((c) => (c.id === team.id ? updatedTeam : c));
 
         set({
-          clubs: [...clubs], // array referansı değişsin
+          clubs: updatedClubs,
           transfer: {
             ...transfer,
             freeAgents: transfer.freeAgents.filter((l) => l.player.id !== playerId),
@@ -701,6 +722,11 @@ export const useAppStore = create<AppState>()(
         const { clubs, myTeamId, news, transfer } = get();
         const myTeam = clubs.find((c) => c.id === myTeamId);
         if (!myTeam) return { success: false, reason: "no-team" };
+
+        // P1 FIX: Transfer penceresi kontrolü
+        if (!isTransferWindowOpen()) {
+          return { success: false, reason: "window-closed" };
+        }
 
         // Toplam maliyet: transfer ücreti + %5 agent + %3 imza
         const total = fee + Math.round(fee * 0.05) + Math.round(fee * 0.03);
@@ -998,7 +1024,7 @@ export const useAppStore = create<AppState>()(
       },
 
       acceptOffer: (offerId) => {
-        const { clubs, myTeamId, transfer } = get();
+        const { clubs, myTeamId, transfer, news } = get();
         const team = clubs.find((c) => c.id === myTeamId);
         if (!team) return { success: false };
 
@@ -1012,11 +1038,47 @@ export const useAppStore = create<AppState>()(
         // Satıştan %2.5 vergi düş, kalan bütçeye ekle
         const tax = Math.round(offer.offerAmount * 0.025);
         const net = offer.offerAmount - tax;
-        team.budget += net;
-        team.players = team.players.filter((p) => p.id !== offer.myPlayerId);
+
+        // P0 FIX: Alıcı bot takımını bul (buyerTeamId varsa), yoksa rastgele bot seç
+        const buyerTeam = offer.buyerTeamId
+          ? clubs.find((c) => c.id === offer.buyerTeamId)
+          : clubs.find((c) => c.id !== myTeamId && c.is_bot && c.budget >= offer.offerAmount);
+
+        const updatedPlayer = {
+          ...player,
+          weeklyWage: offer.wageOffer ?? player.weeklyWage,
+          salary: offer.wageOffer ?? player.salary,
+        };
+
+        const updatedClubs = clubs.map((c) => {
+          if (c.id === team.id) {
+            return { ...c, budget: c.budget + net, players: c.players.filter((p) => p.id !== offer.myPlayerId) };
+          }
+          if (buyerTeam && c.id === buyerTeam.id) {
+            return {
+              ...c,
+              budget: Math.max(0, c.budget - offer.offerAmount),
+              players: [...c.players, updatedPlayer],
+            };
+          }
+          return c;
+        });
+
+        // P0 FIX: Haber ekle
+        const newNews: NewsItem = {
+          id: `news_sale_${offer.myPlayerId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          category: "transfer",
+          headline: "Oyuncu Satıldı",
+          body: `${player.firstName} ${player.lastName} ${buyerTeam?.name ?? "bir kulübe"} ${formatEuroShort(offer.offerAmount)} karşılığında satıldı.`,
+          timestamp: Date.now(),
+          importance: 3,
+          read: false,
+          playerId: player.id,
+        };
 
         set({
-          clubs: [...clubs],
+          clubs: updatedClubs,
+          news: [newNews, ...news],
           transfer: {
             ...transfer,
             incomingOffers: transfer.incomingOffers.filter((o) => o.id !== offerId),
@@ -1429,6 +1491,38 @@ export const useAppStore = create<AppState>()(
         const { fixtures, clubs, myTeamId, transfer } = get();
         const currentMd = SEASON_INFO.matchday;
 
+        // P0 FIX: Kullanıcının currentMd maçı oynanmadıysa otomatik simüle et (kayıp olmasın)
+        const userMatch = fixtures.find(
+          (f) => f.matchday === currentMd && !f.played && (f.homeId === myTeamId || f.awayId === myTeamId)
+        );
+        if (userMatch) {
+          const homeTeam = clubs.find((c) => c.id === userMatch.homeId);
+          const awayTeam = clubs.find((c) => c.id === userMatch.awayId);
+          if (homeTeam && awayTeam) {
+            // Basit simülasyon — rating bazlı
+            const homeStr = [...homeTeam.players]
+              .filter(p => !p.is_injured)
+              .sort((a, b) => b.rating - a.rating)
+              .slice(0, 11)
+              .reduce((s, p) => s + p.rating, 0) / 11;
+            const awayStr = [...awayTeam.players]
+              .filter(p => !p.is_injured)
+              .sort((a, b) => b.rating - a.rating)
+              .slice(0, 11)
+              .reduce((s, p) => s + p.rating, 0) / 11;
+            const diff = homeStr - awayStr;
+            const homeAdv = diff > 5 ? 0.3 : diff < -5 ? -0.3 : 0;
+            const hs = Math.max(0, Math.floor(Math.random() * 4 + homeAdv * 2));
+            const as = Math.max(0, Math.floor(Math.random() * 3 - homeAdv * 2));
+            // Fikstüre sonucu yaz (kullanıcı oynamadıysa bile)
+            try {
+              get().recordMatchResult(homeTeam.id, awayTeam.id, hs, as);
+            } catch (e) {
+              console.warn("[advanceMatchday] kullanıcı maçı otomatik sim hatası:", e);
+            }
+          }
+        }
+
         // Bot vs bot maçlarını simüle et (kullanıcının maçları hariç)
         const updatedFixtures = fixtures.map((f) => {
           if (f.matchday !== currentMd || f.played) return f;
@@ -1436,8 +1530,9 @@ export const useAppStore = create<AppState>()(
           const homeTeam = clubs.find((c) => c.id === f.homeId);
           const awayTeam = clubs.find((c) => c.id === f.awayId);
           if (!homeTeam || !awayTeam) return f;
-          const homeStr = homeTeam.players.slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
-          const awayStr = awayTeam.players.slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+          // P0 FIX: İlk 11'i rating'e göre seç, sakatları ele
+          const homeStr = [...homeTeam.players].filter(p => !p.is_injured).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+          const awayStr = [...awayTeam.players].filter(p => !p.is_injured).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
           const diff = homeStr - awayStr;
           const homeAdv = diff > 5 ? 0.3 : diff < -5 ? -0.3 : 0;
           const hs = Math.max(0, Math.floor(Math.random() * 4 + homeAdv * 2));
@@ -1467,7 +1562,7 @@ export const useAppStore = create<AppState>()(
             const scorer = pickScorer(homeTeam.players);
             if (scorer) {
               scorer.goals = (scorer.goals ?? 0) + 1;
-              scorer.appearances = (scorer.appearances ?? 0) + 1;
+              // P0 FIX: appearances gol başına +1 değil, maç başına +1 (aşağıda)
               // Asistçi
               const assistPool = homeTeam.players.filter(p => p.id !== scorer?.id && p.specificPosition !== "GK");
               if (assistPool.length > 0 && Math.random() > 0.4) {
@@ -1481,12 +1576,22 @@ export const useAppStore = create<AppState>()(
             const scorer = pickScorer(awayTeam.players);
             if (scorer) {
               scorer.goals = (scorer.goals ?? 0) + 1;
-              scorer.appearances = (scorer.appearances ?? 0) + 1;
               const assistPool = awayTeam.players.filter(p => p.id !== scorer?.id && p.specificPosition !== "GK");
               if (assistPool.length > 0 && Math.random() > 0.4) {
                 const assister = assistPool[Math.floor(Math.random() * assistPool.length)];
                 assister.assists = (assister.assists ?? 0) + 1;
               }
+            }
+          }
+          // P0 FIX: appearances gol başına +1 DEĞİL, maç başına +1 — oynayan her oyuncuya 1 kez
+          for (const p of homeTeam.players) {
+            if (p.specificPosition !== "GK" && !p.is_injured) {
+              p.appearances = (p.appearances ?? 0) + 1;
+            }
+          }
+          for (const p of awayTeam.players) {
+            if (p.specificPosition !== "GK" && !p.is_injured) {
+              p.appearances = (p.appearances ?? 0) + 1;
             }
           }
         }
@@ -1497,24 +1602,27 @@ export const useAppStore = create<AppState>()(
         const updatedClubs = [...clubs];
 
         for (const bot of botTeams) {
+          // P0 FIX: Stale referans yerine updatedClubs'tan taze değer oku
+          const currentBot = updatedClubs.find((c) => c.id === bot.id)!;
           // %30 ihtimalle serbest oyuncu al
-          if (Math.random() < 0.3 && updatedTransfer.freeAgents.length > 0 && bot.budget > 500000) {
+          if (Math.random() < 0.3 && updatedTransfer.freeAgents.length > 0 && currentBot.budget > 500000) {
             const idx = Math.floor(Math.random() * Math.min(5, updatedTransfer.freeAgents.length));
             const listing = updatedTransfer.freeAgents[idx];
-            if (listing.askingPrice < bot.budget) {
+            if (listing.askingPrice < currentBot.budget && currentBot.players.length < 25) {
               const botIdx = updatedClubs.findIndex((c) => c.id === bot.id);
               updatedClubs[botIdx] = {
-                ...bot,
-                budget: bot.budget - listing.askingPrice,
-                players: [...bot.players, listing.player],
+                ...currentBot,
+                budget: currentBot.budget - listing.askingPrice,
+                players: [...currentBot.players, listing.player],
               };
               updatedTransfer.freeAgents = updatedTransfer.freeAgents.filter((_, i) => i !== idx);
             }
           }
 
-          // %15 ihtimalle oyuncu sat (en düşük OVR'li)
-          if (Math.random() < 0.15 && bot.players.length > 18) {
-            const weakest = [...bot.players].sort((a, b) => a.rating - b.rating)[0];
+          // %15 ihtimalle oyuncu sat (en düşük OVR'li) — taze currentBot.players kullan
+          const currentBot2 = updatedClubs.find((c) => c.id === bot.id)!;
+          if (Math.random() < 0.15 && currentBot2.players.length > 18) {
+            const weakest = [...currentBot2.players].sort((a, b) => a.rating - b.rating)[0];
             if (weakest) {
               const botIdx = updatedClubs.findIndex((c) => c.id === bot.id);
               const salePrice = weakest.marketValue;
@@ -1553,7 +1661,8 @@ export const useAppStore = create<AppState>()(
           const facilityCost = Object.values(facilitiesState.levels).reduce((s, l) => s + l * 5000, 0);
           const totalExpense = wages + staffWages + facilityCost;
           const net = totalIncome - totalExpense;
-          myTeam.budget += net;
+          // P1 FIX: Bütçe negatife düşmesin (clamp 0)
+          myTeam.budget = Math.max(0, myTeam.budget + net);
 
           // Oyuncu güncellemesi — kondisyon toparlanma + sakatlık iyileşme + moral
           myTeam.players = myTeam.players.map((p) => {
@@ -1596,8 +1705,25 @@ export const useAppStore = create<AppState>()(
         // Matchday'i ilerlet
         const nextMd = currentMd + 1;
         if (nextMd > SEASON_INFO.totalMatchdays) {
-          // Sezon bitti — endSeason çağır
+          // P0 FIX: Önce state'i set et (son haftanın bot maçları/transferleri kaybolmasın), SONRA endSeason
           SEASON_INFO.matchday = SEASON_INFO.totalMatchdays;
+          // P0 FIX: updatedTransferFinal oluştur (aşağıdaki stale incomingOffers temizliği ile)
+          const myCurrentTeamPre = updatedClubs.find((c) => c.id === myTeamId);
+          const currentPlayerIdsPre = new Set(myCurrentTeamPre?.players.map((p) => p.id) ?? []);
+          const validOffersPre = transfer.incomingOffers.filter((o) => currentPlayerIdsPre.has(o.myPlayerId));
+          let finalOffersPre = validOffersPre;
+          if (myCurrentTeamPre && validOffersPre.length < 2) {
+            try {
+              const { generateIncomingOffers } = require("@/lib/mock/transfer");
+              const freshOffers = generateIncomingOffers(myCurrentTeamPre.players);
+              const existingIds = new Set(validOffersPre.map((o) => o.id));
+              const newOffers = freshOffers.filter((o) => !existingIds.has(o.id));
+              finalOffersPre = [...validOffersPre, ...newOffers].slice(0, 5);
+            } catch (e) { /* ignore */ }
+          }
+          const updatedTransferFinalPre = { ...updatedTransfer, incomingOffers: finalOffersPre };
+          set({ fixtures: updatedFixtures, clubs: updatedClubs, transfer: updatedTransferFinalPre });
+          // Şimdi endSeason çağır — güncel state'i okuyacak
           const endResult = get().endSeason();
           if (endResult.success) {
             console.log(`[advanceMatchday] Sezon ${get().seasonNumber - 1} bitti, yeni sezon başladı.`);
@@ -1640,7 +1766,8 @@ export const useAppStore = create<AppState>()(
         }
         const updatedTransferFinal = { ...transfer, incomingOffers: finalOffers };
 
-        set({ fixtures: updatedFixtures, clubs: updatedClubs, transfer: updatedTransferFinal });
+        // P1 FIX: seasonMatchday state alanını da güncelle (cloud-save doğru kaydetsin)
+        set({ fixtures: updatedFixtures, clubs: updatedClubs, transfer: updatedTransferFinal, seasonMatchday: nextMd });
       },
 
       endSeason: () => {
@@ -1683,25 +1810,46 @@ export const useAppStore = create<AppState>()(
             const pos = c.players[Math.floor(Math.random() * c.players.length)].specificPosition;
             const regen = generatePlayer(pos, { min: 55, max: 70 });
             regen.age = 17; // Yeni regen
+            (regen as any)._isRegen = true;
             regens.push(regen);
           }
 
           // Tüm oyuncuları yaşlandır + stat sıfırla
-          const agedPlayers = [...remainingPlayers, ...regens].map((p) => ({
-            ...p,
-            age: p.age + 1,
-            goals: 0,
-            assists: 0,
-            saves: 0,
-            appearances: 0,
-            match_ratings: [],
-            last_match_rating: undefined,
-            cond: 100,
-            condition: 100,
-            form: 70,
-            morale: 70,
-            confidence: 70,
-          }));
+          // P1 FIX: regen'ler 17 yaşında kalsın (önce 17 üret sonra yaşlandırma skip)
+          const agedPlayers = [...remainingPlayers, ...regens].map((p) => {
+            const isRegen = (p as any)._isRegen === true;
+            const oldStats = p.seasonStats ?? {};
+            return {
+              ...p,
+              age: isRegen ? p.age : p.age + 1,
+              goals: 0,
+              assists: 0,
+              saves: 0,
+              appearances: 0,
+              match_ratings: [],
+              last_match_rating: undefined,
+              cond: 100,
+              condition: 100,
+              form: 70,
+              morale: 70,
+              confidence: 70,
+              // P1 FIX: Sakatlık ve loan flag'lerini sıfırla
+              is_injured: false,
+              injury: undefined,
+              injury_history: [],
+              _loaned: false,
+              _loanWeeks: 0,
+              // P1 FIX: Sezon stats'larını sıfırla — mevcut yapıyı koru, değerleri 0 yap
+              seasonStats: Object.fromEntries(
+                Object.keys(oldStats).map((k) => [k, 0])
+              ) as typeof p.seasonStats,
+              // Form streak sıfırla
+              formRating: 70,
+              form_streak: "neutral" as const,
+              form_streak_count: 0,
+              motmAwards: (p as any).motmAwards ?? 0, // MotM ödülleri korunsun (kariyerlik)
+            };
+          });
 
           return { ...c, players: agedPlayers };
         });
@@ -1749,6 +1897,15 @@ export const useAppStore = create<AppState>()(
         const { TIER_BASE_BUDGETS } = require("@/lib/match/engine/constants");
         const newBudgetMultiplier = getInflationMultiplier(newSeasonNumber);
         updatedClubs.forEach((c) => {
+          // P1 FIX: Kullanıcının takımının bütçesini SIFIRLAMA — biriktirilen para korunsun
+          if (c.id === myTeamId) {
+            // Sadece enflasyon uygula (minimum lig baz bütçesi garanti)
+            const tier = c.leagueTier ?? 2;
+            const baseBudget = TIER_BASE_BUDGETS[tier] ?? TIER_BASE_BUDGETS[2];
+            const minBudget = Math.round(baseBudget * newBudgetMultiplier);
+            c.budget = Math.max(minBudget, Math.round(c.budget * newBudgetMultiplier));
+            return;
+          }
           // Yeni lig tier'ına göre baz bütçe × enflasyon
           const tier = c.leagueTier ?? 2;
           const baseBudget = TIER_BASE_BUDGETS[tier] ?? TIER_BASE_BUDGETS[2];
@@ -1787,6 +1944,16 @@ export const useAppStore = create<AppState>()(
             currentRound: 2,
             champion: undefined,
             eliminated: false,
+          },
+          // P1 FIX: Transfer state temizle — ghost oyuncu referansları kalmasın
+          transfer: {
+            ...get().transfer,
+            watchlist: [],
+            myListedPlayers: [],
+            incomingOffers: [],
+            loanListings: [],
+            messages: [],
+            // freeAgents'ı koru ama stale olanları temizle
           },
           // P5: Yeni sezon başı stats'larını kaydet
           seasonStartStats: (() => {
@@ -2019,25 +2186,121 @@ export const useAppStore = create<AppState>()(
         set({ transfer: { ...transfer, messages: transfer.messages.map((m) => m.id === msgId ? { ...m, read: true } : m) } });
       },
       completeTransfer: (offerId) => {
-        const { transfer, clubs, myTeamId } = get();
+        // P0 FIX: Oyuncu transferini gerçekleştir (sadece para düşmüyordu)
+        const { transfer, clubs, myTeamId, news } = get();
         const team = clubs.find((c) => c.id === myTeamId);
         if (!team) return { success: false, reason: "no-team" };
         const msg = transfer.messages.find((m) => m.relatedOfferId === offerId);
         if (!msg || !msg.amount) return { success: false, reason: "no-offer" };
         if (team.budget < msg.amount) return { success: false, reason: "budget" };
-        team.budget -= msg.amount;
-        set({ clubs: [...clubs], transfer: { ...transfer, messages: transfer.messages.filter((m) => m.id !== msg.id) } });
+
+        // P0 FIX: Oyuncuyu bul — msg.playerId'den
+        const playerId = msg.playerId;
+        if (playerId) {
+          // Satıcı takımı bul
+          let sellerTeam: Team | undefined;
+          let player: any;
+          for (const c of clubs) {
+            if (c.id === myTeamId) continue;
+            const p = c.players.find((pp) => pp.id === playerId);
+            if (p) { sellerTeam = c; player = p; break; }
+          }
+          // Serbest ajan mı?
+          const faListing = transfer.freeAgents.find((l) => l.player.id === playerId);
+          if (faListing && !sellerTeam) {
+            player = faListing.player;
+          }
+
+          if (player) {
+            // P1 FIX: Kadro limiti
+            if (team.players.length >= 25) {
+              return { success: false, reason: "squad-full" };
+            }
+            const updatedPlayer = { ...player, weeklyWage: player.weeklyWage, salary: player.weeklyWage };
+            const updatedClubs = clubs.map((c) => {
+              if (c.id === team.id) {
+                return { ...c, budget: c.budget - (msg.amount ?? 0), players: [...c.players, updatedPlayer] };
+              }
+              if (sellerTeam && c.id === sellerTeam.id) {
+                return { ...c, budget: c.budget + (msg.amount ?? 0), players: c.players.filter((p) => p.id !== playerId) };
+              }
+              return c;
+            });
+            // Haber ekle
+            const newNews: NewsItem = {
+              id: `news_transfer_${playerId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              category: "transfer",
+              headline: "Transfer Tamamlandı",
+              body: `${player.firstName} ${player.lastName} takımınıza katıldı. Transfer ücreti: ${formatEuroShort(msg.amount)}.`,
+              timestamp: Date.now(), importance: 3, read: false, playerId,
+            };
+            const updatedTransfer = faListing
+              ? { ...transfer, freeAgents: transfer.freeAgents.filter((l) => l.player.id !== playerId), messages: transfer.messages.filter((m) => m.id !== msg.id) }
+              : { ...transfer, messages: transfer.messages.filter((m) => m.id !== msg.id) };
+            set({ clubs: updatedClubs, news: [newNews, ...news], transfer: updatedTransfer });
+            return { success: true };
+          }
+        }
+
+        // Oyuncu bulunamadı — sadece para düş
+        const updatedTeam = { ...team, budget: team.budget - msg.amount };
+        set({ clubs: clubs.map((c) => (c.id === team.id ? updatedTeam : c)), transfer: { ...transfer, messages: transfer.messages.filter((m) => m.id !== msg.id) } });
         return { success: true };
       },
       acceptCounterOffer: (offerId) => {
-        const { transfer, clubs, myTeamId } = get();
+        // P0 FIX: Oyuncu transferini gerçekleştir (sadece para düşmüyordu)
+        const { transfer, clubs, myTeamId, news } = get();
         const team = clubs.find((c) => c.id === myTeamId);
         if (!team) return { success: false, reason: "no-team" };
         const msg = transfer.messages.find((m) => m.relatedOfferId === offerId);
         if (!msg || !msg.counterOffer) return { success: false, reason: "no-offer" };
         if (team.budget < msg.counterOffer) return { success: false, reason: "budget" };
-        team.budget -= msg.counterOffer;
-        set({ clubs: [...clubs], transfer: { ...transfer, messages: transfer.messages.filter((m) => m.id !== msg.id) } });
+
+        const playerId = msg.playerId;
+        if (playerId) {
+          let sellerTeam: Team | undefined;
+          let player: any;
+          for (const c of clubs) {
+            if (c.id === myTeamId) continue;
+            const p = c.players.find((pp) => pp.id === playerId);
+            if (p) { sellerTeam = c; player = p; break; }
+          }
+          const faListing = transfer.freeAgents.find((l) => l.player.id === playerId);
+          if (faListing && !sellerTeam) {
+            player = faListing.player;
+          }
+
+          if (player) {
+            if (team.players.length >= 25) {
+              return { success: false, reason: "squad-full" };
+            }
+            const updatedPlayer = { ...player, weeklyWage: player.weeklyWage, salary: player.weeklyWage };
+            const updatedClubs = clubs.map((c) => {
+              if (c.id === team.id) {
+                return { ...c, budget: c.budget - (msg.counterOffer ?? 0), players: [...c.players, updatedPlayer] };
+              }
+              if (sellerTeam && c.id === sellerTeam.id) {
+                return { ...c, budget: c.budget + (msg.counterOffer ?? 0), players: c.players.filter((p) => p.id !== playerId) };
+              }
+              return c;
+            });
+            const newNews: NewsItem = {
+              id: `news_transfer_${playerId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              category: "transfer",
+              headline: "Transfer Tamamlandı",
+              body: `${player.firstName} ${player.lastName} takımınıza katıldı. Transfer ücreti: ${formatEuroShort(msg.counterOffer)}.`,
+              timestamp: Date.now(), importance: 3, read: false, playerId,
+            };
+            const updatedTransfer = faListing
+              ? { ...transfer, freeAgents: transfer.freeAgents.filter((l) => l.player.id !== playerId), messages: transfer.messages.filter((m) => m.id !== msg.id) }
+              : { ...transfer, messages: transfer.messages.filter((m) => m.id !== msg.id) };
+            set({ clubs: updatedClubs, news: [newNews, ...news], transfer: updatedTransfer });
+            return { success: true };
+          }
+        }
+
+        const updatedTeam = { ...team, budget: team.budget - msg.counterOffer };
+        set({ clubs: clubs.map((c) => (c.id === team.id ? updatedTeam : c)), transfer: { ...transfer, messages: transfer.messages.filter((m) => m.id !== msg.id) } });
         return { success: true };
       },
       rejectCounterOffer: (offerId) => {

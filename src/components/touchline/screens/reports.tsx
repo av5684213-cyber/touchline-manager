@@ -349,7 +349,8 @@ function FinancialReport({
   clubs: Team[];
   fixtures: FixtureRow[];
 }) {
-  const transfer = useAppStore.getState().transfer;
+  // P1 FIX: Reaktif okuma — getState() yerine hook kullan
+  const transfer = useAppStore((s) => s.transfer);
 
   // Gelir hesapları
   const stadiumCap = 5000 + facilities.levels.stadium * 10000;
@@ -799,7 +800,8 @@ function ScoutReport({
   clubs: Team[];
   facilities: any;
 }) {
-  const transfer = useAppStore.getState().transfer;
+  // P1 FIX: Reaktif okuma
+  const transfer = useAppStore((s) => s.transfer);
   const freeAgents = transfer.freeAgents ?? [];
   const watchlist = transfer.watchlist ?? [];
   const incomingOffers = transfer.incomingOffers ?? [];

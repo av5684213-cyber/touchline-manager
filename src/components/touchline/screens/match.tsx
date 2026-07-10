@@ -824,9 +824,13 @@ function RefereeBadge({ personality }: { personality: MatchState["referee"]["per
     strict: "bg-red-100 text-red-700",
     balanced: "bg-emerald-100 text-emerald-700",
     soft: "bg-sky-100 text-sky-700",
+    lenient: "bg-sky-100 text-sky-700",
+    home_bias: "bg-amber-100 text-amber-700",
+    volatile: "bg-orange-100 text-orange-700",
+    var_lover: "bg-purple-100 text-purple-700",
   };
   return (
-    <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-bold", colors[personality])}>
+    <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-bold", colors[personality] ?? "bg-muted text-muted-foreground")}>
       {t(`match.ref.${personality}`)}
     </span>
   );
@@ -905,7 +909,7 @@ function getEventText(ev: MatchEvent, homeTeam: any, awayTeam: any): string {
   const base = ev.description && ev.description !== ev.type ? ev.description : "";
 
   const texts: Record<string, string> = {
-    goal: base || `GOL! ${playerName} ağları sarstı! ${teamName} öne geçiyor!`,
+    goal: base || `GOL! ${playerName} ağları sarstı! ${teamName} beraberliği bozuyor!`,
     yellow_card: base || `${playerName} sarı kart gördü. Hakem uyardı.`,
     red_card: base || `${playerName} kırmızı kart! ${teamName} 10 kişi kaldı!`,
     injury: base || `${playerName} sakatlandı, sağlık ekibi içeri girdi.`,
@@ -918,12 +922,18 @@ function getEventText(ev: MatchEvent, homeTeam: any, awayTeam: any): string {
     penalty: base || `Penaltı! ${teamName} için 11 metre!`,
     offside: base || `Ofsayt! ${playerName} zamanlama hatası yaptı.`,
     free_kick: base || `Serbest vuruş! ${teamName} tehlikeli bölgede.`,
-    save: base || `Kaleci bir again kurtardı! ${playerName} şutunu engelledi.`,
+    save: base || `Kaleci yine kurtardı! ${playerName} şutunu engelledi.`,
     tackle: base || `Mükemmel müdahale! ${playerName} topu kazandı.`,
     interception: base || `Top kesişti! ${playerName} savunmaya destek oldu.`,
     chance: base || `${playerName} fırsat yarattı! Tehlikeli atak!`,
     var_review: base || `VAR incelemesi! Hakem monitöre gidiyor.`,
     goal_overturned: base || `Gol iptal edildi! VAR kararı.`,
+    pass: `${playerName} pas verdi.`,
+    pass_completed: `${playerName} pasını buldu.`,
+    dribble_attempt: `${playerName} topu sürdü.`,
+    dribble_success: `${playerName} çalımı başarıyla geçti.`,
+    second_yellow: `${playerName} ikinci sarı kart! Kırmızı kart!`,
+    own_goal: `Kendi kalesine! ${playerName} üzücü bir hata yaptı.`,
   };
   return texts[ev.type] || base || `${playerName} — ${ev.type}`;
 }
@@ -1152,7 +1162,7 @@ function StatsBar({ state }: { state: MatchState }) {
       } else if (ev.type === "red_card") {
         if (ev.team === "home") homeRed++;
         else awayRed++;
-      } else if (ev.type === "save") {
+      } else if (ev.type === "save" || ev.type === "shot_saved") {
         // Save olayı savunan takımın kalecisi için — ev team attıysa away kaleci kurtardı
         if (ev.team === "away") homeSaves++; // home şut attı, away kaleci kurtardı → home şut
         else awaySaves++;
@@ -1166,8 +1176,9 @@ function StatsBar({ state }: { state: MatchState }) {
 
   const rows: { label: string; home: number; away: number; suffix?: string }[] = [
     { label: t("match.stats.possession"), home: state.stats.possession[0], away: state.stats.possession[1], suffix: "%" },
-    { label: t("match.stats.shots"), home: state.stats.shotsOnTarget[0], away: state.stats.shotsOnTarget[1] },
-    // ADDED: İsabetli şut (kaleci kurtarışları da şut olarak say)
+    // Toplam Şut = isabetli + auta giden + direkten dönen
+    { label: t("match.stats.shots"), home: state.stats.shotsOnTarget[0] + extraStats.homeShotsWide, away: state.stats.shotsOnTarget[1] + extraStats.awayShotsWide },
+    // İsabetli Şut (kaleci kurtardığı + gol)
     { label: "İsabetli Şut", home: state.stats.shotsOnTarget[0], away: state.stats.shotsOnTarget[1] },
     { label: "Kaleci Kurtarış", home: extraStats.homeSaves, away: extraStats.awaySaves },
     { label: t("match.stats.corners"), home: state.stats.corners[0], away: state.stats.corners[1] },
@@ -1485,6 +1496,12 @@ function PostMatch({
   const [profilePlayer, setProfilePlayer] = useState<PlayerT | null>(null);
   // ADDED: Home/Away sekme state — oyuncu puanları ayrı
   const [ratingsTab, setRatingsTab] = useState<"home" | "away">("home");
+  // P1 FIX: Kullanıcının tarafını store'dan bul — homeTeam/awayTeam'de id yok, players'tan eşleştir
+  const myTeamId = useAppStore((s) => s.myTeamId);
+  const myTeamPlayers = useAppStore((s) => s.clubs.find((c) => c.id === s.myTeamId)?.players ?? []);
+  const isUserHome = homeTeam.players.some((p) => myTeamPlayers.some((mp) => mp.id === p.id));
+  const userScore = isUserHome ? state.homeScore : state.awayScore;
+  const oppScore = isUserHome ? state.awayScore : state.homeScore;
 
   const motm = state.motmPlayerId
     ? [...homeTeam.players, ...awayTeam.players].find((p) => p.id === state.motmPlayerId)
@@ -1628,10 +1645,12 @@ function PostMatch({
         <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1">📰 Basın</div>
         <div className="text-[11px] leading-relaxed">
           {(() => {
-            const diff = state.homeScore - state.awayScore;
+            // P1 FIX: Kullanıcının perspektifinden hesapla
+            const diff = userScore - oppScore;
             if (diff > 2) return "Etkileyici bir performans! Takım sahadaki üstünlüğünü gole yansıttı ve rakibine nefes aldırmadı.";
-            if (diff === 1 || diff === -1) return "Taraftarlar için çekişmeli bir maçtı. İki takım da mücadele etti, fark tek golde kaldı.";
+            if (diff === 1) return "Taraftarlar için çekişmeli bir maçtı. İki takım da mücadele etti, fark tek golde kaldı.";
             if (diff === 0) return "Beraberlik her iki takım için de adil bir sonuçtu. Maç boyunca kırılma anı yaşanmadı.";
+            if (diff === -1) return "Kıyasıya bir mücadele vardı ama rakip son sözü söyledi. Küçük detaylar belirleyici oldu.";
             if (diff < -2) return "Zor bir gün. Savunma organize olamadı ve rakip bunu acımasızca cezalandırdı. Düşünme zamanı.";
             return "Maç sona erdi, şimdi bir sonraki maça odaklanma zamanı.";
           })()}

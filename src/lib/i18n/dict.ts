@@ -38,6 +38,7 @@ export const dict: Dict = {
   "nav.awards": { tr: "Ödüller", en: "Awards" },
   "nav.reports": { tr: "Raporlar", en: "Reports" },
   "nav.cup": { tr: "Kupa", en: "Cup" },
+  "nav.friendly": { tr: "Hazırlık", en: "Friendly" },
   "nav.other": { tr: "Diğer", en: "More" },
   "nav.topscorers": { tr: "Gol Kralları", en: "Top Scorers" },
 

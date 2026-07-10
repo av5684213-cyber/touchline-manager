@@ -205,22 +205,25 @@ export function LiveMatchPitch({
             {/* Orta daire */}
             <circle cx="50" cy="66.5" r="10" />
             <circle cx="50" cy="66.5" r="0.5" fill="rgba(255,255,255,0.5)" />
-            {/* Alt ceza alanı (home kale) */}
+            {/* Üst ceza alanı (AWAY kale — üstte) */}
             <rect x="20" y="2" width="60" height="14" />
             <rect x="35" y="2" width="30" height="6" />
             <path d="M 30 16 A 8 8 0 0 0 70 16" />
-            {/* Üst ceza alanı (away kale) */}
+            {/* Alt ceza alanı (HOME kale — altta) */}
             <rect x="20" y="117" width="60" height="14" />
             <rect x="35" y="125" width="30" height="6" />
             <path d="M 30 117 A 8 8 0 0 1 70 117" />
           </g>
         </svg>
 
-        {/* Away oyuncuları (üst yarı: 0-50%) — koordinatları üst yarıya sıkıştır */}
+        {/* Away oyuncuları (üst yarı: 0-50%) — kaleci üstte (y≈10), forvet altta (y≈45) */}
         {awayPlayers.slice(0, 11).map((p, i) => {
           const coord = awayCoords[i] ?? DEFAULT_COORDS[i % 11];
           const x = coord.x;
-          const y = 2 + (100 - coord.y) * 0.46;
+          // coord.y: 8 (kaleci) → ekran y≈10 (üst), 72 (forvet) → ekran y≈45
+          // y = 2 + coord.y * 0.46 → 8: 5.68, 72: 35.12 — biraz dar
+          // y = 8 + (coord.y - 8) * 0.5 → 8: 8, 72: 40 — daha dengeli
+          const y = 6 + (coord.y - 8) * 0.5;
           return (
             <PlayerDot
               key={`away-${p.id}-${i}`}
@@ -234,11 +237,13 @@ export function LiveMatchPitch({
           );
         })}
 
-        {/* Home oyuncuları (alt yarı: 50-98%) — koordinatları alt yarıya sıkıştır */}
+        {/* Home oyuncuları (alt yarı: 50-98%) — kaleci altta (y≈90), forvet üstte (y≈55) */}
         {homePlayers.slice(0, 11).map((p, i) => {
           const coord = homeCoords[i] ?? DEFAULT_COORDS[i % 11];
           const x = coord.x;
-          const y = 52 + coord.y * 0.46;
+          // coord.y: 8 (kaleci) → ekran y≈90 (alt), 72 (forvet) → ekran y≈55
+          // y = 98 - (coord.y - 8) * 0.5 → 8: 98, 72: 66 — GK altta, forvet üstte
+          const y = 98 - (coord.y - 8) * 0.5;
           return (
             <PlayerDot
               key={`home-${p.id}-${i}`}

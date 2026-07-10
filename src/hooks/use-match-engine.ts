@@ -389,16 +389,28 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
       }
     }
 
-    // Canlı possession — event'lere göre approximate et (tam maç sonu değil)
-    const homeEvents = shownEvents.filter(e => e.team === "home").length;
-    const awayEvents = shownEvents.filter(e => e.team === "away").length;
+    // Canlı possession — SADECE topa sahip olma event'lerini say (faul/kart/sakatlık/sub sayma)
+    const POSSESSION_TYPES = new Set([
+      "pass", "PASS", "pass_completed", "PASS_COMPLETED",
+      "shot_saved", "shot_on_target", "shot_wide", "shot_blocked", "shot_post",
+      "SAVE", "OWN_GOAL", "goal", "GOAL", "PENALTY_GOAL",
+      "corner", "CORNER", "cross", "CROSS",
+      "dribble_attempt", "DRIBBLE_ATTEMPT", "dribble_success", "DRIBBLE_SUCCESS",
+      "tackle", "TACKLE", "interception", "INTERCEPTION",
+    ]);
+    const homeEvents = shownEvents.filter(e => e.team === "home" && POSSESSION_TYPES.has(e.type as string)).length;
+    const awayEvents = shownEvents.filter(e => e.team === "away" && POSSESSION_TYPES.has(e.type as string)).length;
     const totalEvents = homeEvents + awayEvents;
     const liveHomePoss = totalEvents > 0 ? Math.round((homeEvents / totalEvents) * 100) : 50;
 
     const lastMinute = shownEvents.length > 0 ? shownEvents[shownEvents.length - 1].minute : 0;
 
+    // Status: cursor sona ulaşmışsa "finished", ama syncToCursor'u tetikleyen tick effect
+    // aynı anda status'ü değiştirip clearInterval yapacağı için finalization bir sonraki render'da
+    // ayrı bir useEffect tarafından yapılmalı. Burada sadece live/halftime set et.
+    const isLastEvent = eventCursorRef.current >= allEvents.length;
     setSnapshot({
-      status: eventCursorRef.current >= allEvents.length ? "finished" : "live",
+      status: isLastEvent ? "finished" : "live",
       minute: Math.max(lastMinute, cursor === 0 ? 0 : 1),
       homeScore,
       awayScore,
@@ -433,6 +445,10 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
       const userTactic = storeState.tactics.active ?? DEFAULT_TACTIC;
       const formation = userTactic.formation || "4-4-2";
 
+      // P0 FIX: Kullanıcı ev sahibi mi deplasman mı?
+      const myTeamId = storeState.myTeamId;
+      const isHome = home.id === myTeamId;
+
       // ADDED: Taktikten ilk 11 kontrolü — lineup'da null slot varsa uyarı
       const lineupFromTactics = storeState.tactics.lineup;
       const filledSlots = lineupFromTactics.filter((p): p is Player => p !== null);
@@ -441,23 +457,28 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
       // İlk 11'i seç:
       // 1. Öncelik: kullanıcının taktik ekranında seçtiği lineup (11 dolu slot)
       // 2. Fallback: pickStartingXIByFormation ile en iyi 11
-      let homeSquad: MatchEnginePlayer[];
+      let userSquad: MatchEnginePlayer[];
       if (filledSlots.length === 11) {
         // Kullanıcının seçtiği ilk 11 — taktik ekranından
-        homeSquad = filledSlots as unknown as MatchEnginePlayer[];
+        userSquad = filledSlots as unknown as MatchEnginePlayer[];
       } else if (filledSlots.length >= 7) {
         // Yeterli oyuncu var ama 11 değil — eksikleri otomatik doldur
-        const autoFilled = pickStartingXIByFormation(home.players, formation) as unknown as MatchEnginePlayer[];
+        const userPlayers = isHome ? home.players : away.players;
+        const autoFilled = pickStartingXIByFormation(userPlayers, formation) as unknown as MatchEnginePlayer[];
         const usedIds = new Set(filledSlots.map((p) => p.id));
         const missing = autoFilled.filter((p) => !usedIds.has(p.id)).slice(0, 11 - filledSlots.length);
-        homeSquad = [...filledSlots, ...missing] as unknown as MatchEnginePlayer[];
+        userSquad = [...filledSlots, ...missing] as unknown as MatchEnginePlayer[];
       } else {
         // Çok az oyuncu seçilmiş — tamamen otomatik
-        homeSquad = pickStartingXIByFormation(home.players, formation) as unknown as MatchEnginePlayer[];
+        const userPlayers = isHome ? home.players : away.players;
+        userSquad = pickStartingXIByFormation(userPlayers, formation) as unknown as MatchEnginePlayer[];
       }
-      const awaySquad = pickStartingXIByFormation(away.players, "4-4-2") as unknown as MatchEnginePlayer[];
 
-      // Kullanıcının taktiğini home için kullan, away için default
+      // P0 FIX: home ve away squad'larını isHome'a göre ata
+      const homeSquad = isHome ? userSquad : pickStartingXIByFormation(home.players, "4-4-2") as unknown as MatchEnginePlayer[];
+      const awaySquad = isHome ? pickStartingXIByFormation(away.players, "4-4-2") as unknown as MatchEnginePlayer[] : userSquad;
+
+      // Kullanıcının taktiğini doğru tarafa uygula
       const slotRoles = storeState.tactics.slotRoles;
       // playerRoles map'i oluştur: playerId → roleId
       const playerRoles: Record<string, string> = {};
@@ -466,8 +487,10 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
           playerRoles[p.id] = slotRoles[i];
         }
       });
-      const homeTactic = { ...userTactic, tactic_type: userTactic.formation, playerRoles };
-      const awayTactic = {
+
+      // P0 FIX: taktikleri isHome'a göre ata
+      const userTacticWithRoles = { ...userTactic, tactic_type: userTactic.formation, playerRoles };
+      const defaultTactic = {
         formation: "4-4-2",
         tactic_type: "4-4-2",
         mentality: 3 as const,
@@ -486,6 +509,19 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
         offsideTrap: false,
         playStyle: "balanced",
       };
+      const homeTactic = isHome ? userTacticWithRoles : defaultTactic;
+      const awayTactic = isHome ? defaultTactic : userTacticWithRoles;
+
+      // Tactical instructions modifier'ları da doğru tarafa ver
+      const homeTacticModifiers = isHome
+        ? computeInstructionModifiers(storeState.tactics.activeInstructions ?? {})
+        : computeInstructionModifiers({});
+      const awayTacticModifiers = isHome
+        ? computeInstructionModifiers({})
+        : computeInstructionModifiers(storeState.tactics.activeInstructions ?? {});
+
+      const homePlayerRoles = isHome ? playerRoles : {};
+      const awayPlayerRoles = isHome ? {} : playerRoles;
 
       // Stadyum seviyelerini al (Yerleşke ekranından)
       const facilities = storeState.facilities;
@@ -519,10 +555,7 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
       // Pitch pass accuracy bonus (seviye 0 = 0, seviye 10 = +20%)
       const pitchPassBonus = pitchLevel > 0 ? pitchLevel * 0.02 : undefined;
 
-      // Tactical instructions'ı motora modifier olarak çevir
-      const homeTacticModifiers = computeInstructionModifiers(
-        storeState.tactics.activeInstructions ?? {}
-      );
+      // P0 FIX: homeTacticModifiers ve homePlayerRoles yukarıda isHome'a göre set edildi
 
       const result = simulateEnhancedMatch(
         homeSquad,
@@ -539,10 +572,12 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
           atmosphereScore,
           // Pitch pass bonus (stadiumMatrix.getPitchPassAccuracyBonus)
           pitchPassBonus,
-          // Tactical instructions (20 talimat → modifier)
+          // Tactical instructions (20 talimat → modifier) — doğru tarafa uygula
           homeTacticModifiers,
+          awayTacticModifiers,
           // P0#4 FIX: Taktik rollerini motora geçir — oyuncu attribute'larını boost eder
-          homePlayerRoles: playerRoles,
+          homePlayerRoles,
+          awayPlayerRoles,
         } as any
       );
       fullResultRef.current = result;
@@ -559,6 +594,7 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
   const reset = useCallback(() => {
     fullResultRef.current = null;
     eventCursorRef.current = 0;
+    postMatchAppliedRef.current = false;
     setIsReplaying(false);
     setReplayIdx(0);
     setReplayEvents([]);
@@ -845,7 +881,8 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
     try {
       if (typeof window !== "undefined") {
         const { checkAchievements } = require("@/components/touchline/achievements");
-        const isHome = result.homePlayerRatings.some((r) => r.playerId === teamId);
+        // P0 FIX: isHome doğru hesapla — teamId takım ID'si, playerId ile karşılaştırma yanlış
+        const isHome = home.id === teamId;
         const won = isHome ? result.homeScore > result.awayScore : result.awayScore > result.homeScore;
         const goalScored = isHome ? result.homeScore > 0 : result.awayScore > 0;
         const cleanSheet = isHome ? result.awayScore === 0 : result.homeScore === 0;
@@ -924,19 +961,6 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
       if (eventCursorRef.current >= allEvents.length) {
         // Tüm event'ler gösterildi — bitir + kondisyon/form güncelle + fikstür güncelle
         setSnapshot((s) => ({ ...s, status: "finished" }));
-        applyPostMatchEffects(result);
-        // P0#2 FIX: Sadece lig maçıysa fikstüre sonucu yaz — hazırlık maçı yazmasın
-        if (!isFriendly) {
-          useAppStore.getState().recordMatchResult(
-            home.id,
-            away.id,
-            result.homeScore,
-            result.awayScore
-          );
-          // TEST/SOLO MOD: Maç bitince otomatik haftayı ilerlet
-          // (scheduler pencere beklemeden sonraki maça geç)
-          useAppStore.getState().advanceMatchday();
-        }
         clearInterval(id);
         return;
       }
@@ -945,6 +969,35 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
     }, TICK_MS);
     return () => clearInterval(id);
   }, [snapshot.status, snapshot.minute, sortedEvents, syncToCursor, applyPostMatchEffects]);
+
+  // FINALIZATION EFFECT — status "finished" olduğunda post-match effect'leri UYGULA
+  // Bu ayrı effect, tick effect'inden bağımsız olarak çalışır.
+  // Ref ile çift-uygulamayı engelliyoruz.
+  const postMatchAppliedRef = useRef(false);
+  useEffect(() => {
+    if (snapshot.status !== "finished") return;
+    if (!fullResultRef.current) return;
+    if (postMatchAppliedRef.current) return;
+    postMatchAppliedRef.current = true;
+
+    const result = fullResultRef.current;
+    applyPostMatchEffects(result);
+    // Sadece lig maçıysa fikstüre sonucu yaz — hazırlık maçı yazmasın
+    if (!isFriendly) {
+      try {
+        useAppStore.getState().recordMatchResult(
+          home.id,
+          away.id,
+          result.homeScore,
+          result.awayScore
+        );
+        // TEST/SOLO MOD: Maç bitince otomatik haftayı ilerlet
+        useAppStore.getState().advanceMatchday();
+      } catch (e) {
+        console.warn("[match-engine] recordMatchResult/advanceMatchday hatası:", e);
+      }
+    }
+  }, [snapshot.status, applyPostMatchEffects, isFriendly, home.id, away.id]);
 
   // DEVRE ARASI geri sayım — 30 saniye sonra ikinci yarıya başla
   useEffect(() => {
@@ -965,11 +1018,12 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
   // Taktik değişikliği — motor zaten simüle edildi, sadece event ekle
   const applyTactics = useCallback((_side: "home" | "away", _newTactics: unknown) => {
     // Yeni motor tüm maç'ı simüle ettiği için taktik değişikliği olayı ekle
+    // P0 FIX: "foul" yerine generic event tipi kullan (faul stats'ını şişirmesin)
     const result = fullResultRef.current;
     if (!result) return;
     const tacticEvent: EnhancedMatchEvent = {
       minute: snapshot.minute,
-      type: "foul", // tactic yerine foul kullanıyoruz (geçici)
+      type: "substitution" as any, // type gerekli, UI'da "substitution" handle ediliyor — ama aslında tactic_change
       team: _side,
       playerName: "Taktik Değişikliği",
       playerId: "",
@@ -1045,9 +1099,32 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
     state: snapshot,
     home,
     away,
+    // P1 FIX: tactics artık store'dan gerçek değerler geliyor (hardcoded değil)
     tactics: {
-      home: { formation: "4-4-2", pressing: 60, defensiveLine: 50, tempo: 60, width: 60 },
-      away: { formation: "4-4-2", pressing: 55, defensiveLine: 55, tempo: 55, width: 55 },
+      home: (() => {
+        const storeState = useAppStore.getState();
+        const isUserHome = home.id === storeState.myTeamId;
+        const active = isUserHome ? storeState.tactics.active : DEFAULT_TACTIC;
+        return {
+          formation: active.formation,
+          pressing: active.pressing ? 70 : 50,
+          defensiveLine: active.lineHeight,
+          tempo: active.passingIntensity,
+          width: active.width,
+        };
+      })(),
+      away: (() => {
+        const storeState = useAppStore.getState();
+        const isUserAway = away.id === storeState.myTeamId;
+        const active = isUserAway ? storeState.tactics.active : DEFAULT_TACTIC;
+        return {
+          formation: active.formation,
+          pressing: active.pressing ? 70 : 50,
+          defensiveLine: active.lineHeight,
+          tempo: active.passingIntensity,
+          width: active.width,
+        };
+      })(),
     },
     start,
     pause,

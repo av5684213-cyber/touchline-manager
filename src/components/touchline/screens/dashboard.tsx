@@ -691,15 +691,10 @@ function DailyTasks() {
 
   const toggleTask = (id: string) => {
     const task = tasks.find((t: any) => t.id === id);
-    if (!task || task.done) {
-      // Geri alma
-      const updated = tasks.map((t: any) => t.id === id ? { ...t, done: !t.done } : t);
-      setTasks(updated);
-      localStorage.setItem(`tm_tasks_${today}`, JSON.stringify(updated));
-      return;
-    }
+    // P0 FIX: Done görev geri alınamaz — exploit önle (tekrar yapıp ödül tekrar alma)
+    if (!task || task.done) return;
 
-    // Ödül uygula
+    // Ödül uygula (sadece ilk geçişte)
     haptic("success");
     if (team && store) {
       const state = useAppStore.getState();

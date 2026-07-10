@@ -331,18 +331,24 @@ export function autoFillLineup(
 
   for (const slot of formation.slots) {
     // Slot pozisyonu + ikincil pozisyonlarla eşleşen en iyi oyuncuyu seç
+    // P1 FIX: Sakat oyuncuları ele
     const candidate = team.players
       .filter(
         (p) =>
           !used.has(p.id) &&
+          !p.is_injured &&
           (p.position === slot.pos ||
             p.secondaryPositions?.includes(slot.pos))
       )
       .sort((a, b) => b.rating - a.rating)[0];
 
-    // Yoksa aynı gruptan en iyiyi al
+    // Yoksa aynı gruptan en iyiyi al (sakatlar hariç)
     const fallback =
       candidate ??
+      team.players
+        .filter((p) => !used.has(p.id) && !p.is_injured)
+        .sort((a, b) => b.rating - a.rating)[0] ??
+      // Son çare: sakat bile olsa birini koy (slot boş kalmasın)
       team.players
         .filter((p) => !used.has(p.id))
         .sort((a, b) => b.rating - a.rating)[0] ??
