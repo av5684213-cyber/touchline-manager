@@ -637,6 +637,11 @@ export function TacticsScreen() {
             haptic("light");
           }}
           onClose={() => setSlotPicker(null)}
+          onShowProfile={(player) => {
+            // P2 FIX: "i" butonuna basınca oyuncu profil modal'ı aç
+            haptic("light");
+            setProfilePlayer(player);
+          }}
         />
       )}
 
