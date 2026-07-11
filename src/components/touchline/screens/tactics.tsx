@@ -1222,12 +1222,15 @@ function SlotPlayerPicker({
   const usedIds = new Set(lineup.filter((p): p is PlayerT => p !== null).map((p) => p.id));
 
   // Ait olduğu gruptaki oyuncular (önerilenler) + diğerleri
-  const sameGroup = team.players
+  // P2 FIX: Store'dan taze team.players al — stale referansı önle
+  const freshTeam = useAppStore((s) => s.clubs.find((c) => c.id === team.id)) ?? team;
+  const freshPlayers = freshTeam.players;
+  const sameGroup = freshPlayers
     .filter((p) => !usedIds.has(p.id) || p.id === current?.id)
     .filter((p) => POSITION_GROUP[p.specificPosition] === slotGroup)
     .sort((a, b) => b.rating - a.rating);
 
-  const otherGroup = team.players
+  const otherGroup = freshPlayers
     .filter((p) => !usedIds.has(p.id) || p.id === current?.id)
     .filter((p) => POSITION_GROUP[p.specificPosition] !== slotGroup)
     .sort((a, b) => b.rating - a.rating);
