@@ -1398,25 +1398,7 @@ function PostMatch({
 
   return (
     <div className="space-y-3">
-      {/* Final score card */}
-      <div className="tm-card p-4 text-center">
-        <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">
-          {t("match.post.final_score")}
-        </div>
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-          <div className="flex flex-col items-center gap-1">
-            <ClubBadge short={homeTeam.shortName} primaryColor={homeTeam.primaryColor} size={44} />
-            <span className="text-[11px] font-semibold truncate max-w-[100px]">{homeTeam.name}</span>
-          </div>
-          <div className="text-4xl font-bold tabular-nums">
-            {state.homeScore}<span className="text-muted-foreground text-2xl mx-1">-</span>{state.awayScore}
-          </div>
-          <div className="flex flex-col items-center gap-1">
-            <ClubBadge short={awayTeam.shortName} primaryColor={awayTeam.primaryColor} size={44} />
-            <span className="text-[11px] font-semibold truncate max-w-[100px]">{awayTeam.name}</span>
-          </div>
-        </div>
-      </div>
+      {/* P2 FIX: Final score card KALDIRILDI — MatchTopBar zaten skoru gösteriyor, tekrar kaldı */}
 
       {/* MOTM card — tıklanabilir, profil aç */}
       {motm && (
