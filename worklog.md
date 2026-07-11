@@ -1887,3 +1887,27 @@ Stage Summary:
 - Yedek kulübesinde artık sadece gerçek yedekler görünür
 - İlk 11'deki oyuncular yedekte görünmez
 - APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.7.3-bench-fix/touchline-manager-v1.7.3-bench-fix-release.apk
+
+---
+Task ID: v1.7.4-ovr-stats-fix
+Agent: main
+Task: OVR noktalı gösterim + transfer stats görünmeyenler
+
+Work Log:
+- RatingBadge (ui-bits.tsx):
+  - 0-100 (OVR/rating) artık tam sayı gösterilir (77 → 77, 7.7 değil)
+  - 0-10 (formRating) 1 ondalık gösterilir (7.5 → 7.5)
+  - isOvr kontrolü ile doğru format seçilir
+- Transfer stats (transfer.tsx):
+  - safeStat() yardımcı fonksiyonu eklendi — güvenli stat okuma
+    - Önce player.stats.statKey
+    - Fallback: player.statKey (eski alan)
+    - Son fallback: 50
+  - StatChip artık undefined/NaN değerleri 50 olarak gösterir
+  - Serbest oyuncular + PlayerCard stat'ları safeStat kullanıyor
+  - stats objesi eksik oyuncularda artık 4 stat da görünür
+
+Stage Summary:
+- OVR artık 77 olarak gösterilir (7.7 değil)
+- Transfer'de tüm oyuncularda 4 stat görünür (stats eksik olsa bile)
+- APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.7.4-ovr-stats-fix/touchline-manager-v1.7.4-ovr-stats-fix-release.apk
