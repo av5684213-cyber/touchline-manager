@@ -363,6 +363,7 @@ export function TacticsScreen() {
             const roleId = tactics.slotRoles[i];
             const role = ROLES.find((r) => r.id === roleId);
             const isSwap = swapSlot === i;
+            const isInjured = p?.is_injured === true;
             return (
               <button
                 key={i}
@@ -375,11 +376,13 @@ export function TacticsScreen() {
               >
                 <span
                   className={cn(
-                    "inline-flex items-center justify-center rounded-full text-[10px] font-bold text-white border-2",
+                    "inline-flex items-center justify-center rounded-full text-[10px] font-bold text-white border-2 relative",
                     slotPicker === i
                       ? "border-amber-400 ring-2 ring-amber-400/50"
                       : p
-                      ? "border-white/70"
+                      ? isInjured
+                        ? "border-red-500 ring-2 ring-red-500/40"
+                        : "border-white/70"
                       : "border-yellow-400/70 border-dashed"
                   )}
                   style={{
@@ -388,6 +391,12 @@ export function TacticsScreen() {
                   }}
                 >
                   {p ? p.rating : slotPos}
+                  {/* P2: Sakat ikonu — sağ üstte küçük 🤕 */}
+                  {isInjured && (
+                    <span className="absolute -top-1 -right-1 text-[9px] bg-red-500 rounded-full w-3.5 h-3.5 flex items-center justify-center" title="Sakat">
+                      🤕
+                    </span>
+                  )}
                 </span>
                 <span className="text-[8px] text-white font-semibold drop-shadow max-w-[60px] truncate text-center">
                   {p ? `${p.firstName} ${p.lastName}` : "Boş"}
@@ -1311,21 +1320,30 @@ function SlotPlayerPicker({
               {candidates.map((p) => {
                 const isCurrent = current?.id === p.id;
                 const isUsed = usedIds.has(p.id) && !isCurrent;
+                const isInjured = p.is_injured === true;
+                const isDisabled = isUsed || isInjured;
                 return (
                   <button
                     key={p.id}
-                    onClick={() => !isUsed && onPick(p.id)}
-                    disabled={isUsed}
+                    onClick={() => !isDisabled && onPick(p.id)}
+                    disabled={isDisabled}
                     className={cn(
                       "tm-tap w-full flex items-center gap-2 py-1.5 px-2 rounded border text-left",
                       isCurrent ? "bg-primary/10 border-primary" : "bg-card border-border",
-                      isUsed && "opacity-40"
+                      isDisabled && "opacity-50",
+                      isInjured && "border-red-500/40"
                     )}
                   >
                     {/* OVR — büyük göster */}
-                    <div className="shrink-0 w-8 h-8 rounded flex items-center justify-center text-xs font-bold text-white"
+                    <div className="shrink-0 w-8 h-8 rounded flex items-center justify-center text-xs font-bold text-white relative"
                       style={{ background: p.rating >= 80 ? "#16a34a" : p.rating >= 70 ? "#0891b2" : p.rating >= 60 ? "#d97706" : "#dc2626" }}>
                       {p.rating}
+                      {/* P2: Sakat rozeti — sağ üstte */}
+                      {isInjured && (
+                        <span className="absolute -top-1 -right-1 text-[8px] bg-red-500 rounded-full w-3.5 h-3.5 flex items-center justify-center" title={`Sakat${p.injury?.remaining_days ? ` · ${p.injury.remaining_days}g` : ""}`}>
+                          🤕
+                        </span>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">
@@ -1334,6 +1352,7 @@ function SlotPlayerPicker({
                         </span>
                         {isCurrent && <span className="text-[7px] px-0.5 py-0 rounded bg-primary text-primary-foreground font-bold">SEÇİLİ</span>}
                         {isUsed && <span className="text-[7px] text-muted-foreground">dolu</span>}
+                        {isInjured && <span className="text-[7px] px-0.5 py-0 rounded bg-red-500/20 text-red-400 font-bold">SAKAT{p.injury?.remaining_days ? ` ${p.injury.remaining_days}g` : ""}</span>}
                       </div>
                       {/* Pozisyon stats — ince satır */}
                       <div className="text-[8px] text-muted-foreground truncate">

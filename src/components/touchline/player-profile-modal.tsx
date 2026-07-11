@@ -113,6 +113,12 @@ export function PlayerProfileModal({
         <div className="flex items-center justify-between px-3 py-2 border-b border-border" style={{ background: "var(--primary)" }}>
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-sm font-bold text-white truncate">{player.firstName} {player.lastName}</span>
+            {/* P2: Sakatlık rozeti — ismin yanında */}
+            {player.is_injured && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-500 text-white shrink-0" title={player.injury?.remaining_days ? `${player.injury.remaining_days} gün sakat` : "Sakat"}>
+                🤕 {player.injury?.remaining_days ? `${player.injury.remaining_days}g` : "Sakat"}
+              </span>
+            )}
             {/* TALİMAT: Takım adı ismin yanına */}
             {(() => {
               const allClubs = useAppStore.getState().clubs;
@@ -283,6 +289,23 @@ function OverviewTab({
               <span className="text-[10px] text-muted-foreground">· {player.height}cm</span>
             )}
           </div>
+          {/* P2: Sakatlık paneli — oyuncu sakatsa kırmızı kutu göster */}
+          {player.is_injured && (
+            <div className="mt-1.5 p-2 rounded-lg bg-red-500/15 border border-red-500/40">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm">🤕</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] font-bold text-red-300">Sakat</div>
+                  <div className="text-[9px] text-red-300/80">
+                    {player.injury?.remaining_days
+                      ? `${player.injury.remaining_days} gün sonra iyileşecek`
+                      : "İyileşme süresi bilinmiyor"}
+                    {player.injury?.type && ` · ${player.injury.type}`}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           {/* Arketip + playStyle — tıklanabilir */}
           {player.archetype && (
             <div className="mt-1.5">

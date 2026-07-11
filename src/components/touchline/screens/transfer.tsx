@@ -559,12 +559,15 @@ function PlayerCard({
           onClick={onOpenProfile}
           className="flex-1 min-w-0 text-left"
         >
-          {/* Satır 1: İsim + pozisyon */}
+          {/* Satır 1: İsim + pozisyon + sakat icon */}
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="text-xs font-semibold truncate">
               {player.firstName} {player.lastName}
             </span>
             <PositionPill label={player.specificPosition} group={POSITION_GROUP[player.specificPosition]} />
+            {player.is_injured && (
+              <span className="text-[9px] shrink-0" title={`Sakat${player.injury?.remaining_days ? ` · ${player.injury.remaining_days}g` : ""}`}>🤕</span>
+            )}
           </div>
           {/* Satır 2: Arketip + yaş */}
           <div className="flex items-center gap-1 text-[9px] text-muted-foreground mt-0.5 min-w-0">

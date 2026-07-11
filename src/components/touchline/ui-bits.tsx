@@ -149,3 +149,19 @@ export function GrowthBadge({ currentRating, playerId }: { currentRating: number
     return null;
   }
 }
+
+// P2: Sakatlık rozeti — sakat oyuncularda kırmızı 🤕 icon + gün sayısı
+export function InjuryBadge({ days, size = "sm" }: { days?: number; size?: "sm" | "md" }) {
+  const sizeCls = size === "md" ? "text-[9px] px-1.5 py-0.5" : "text-[8px] px-1 py-0.5";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-0.5 rounded font-bold bg-red-500/20 text-red-300 border border-red-500/30",
+        sizeCls
+      )}
+      title={days ? `${days} gün sakat` : "Sakat"}
+    >
+      🤕 {days ? `${days}g` : ""}
+    </span>
+  );
+}
