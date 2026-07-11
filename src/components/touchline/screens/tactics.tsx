@@ -97,10 +97,16 @@ export function TacticsScreen() {
   const pitchCoords = FORMATION_PITCH[formation] ?? FORMATION_PITCH["4-4-2"];
 
   // Yedek kulübesi — lineup'ta olmayan tüm oyuncular (rating'e göre sıralı)
-  // FIX: is_injured filtresi kaldırıldı — sakat oyuncular da yedekte görünsün (2D saha ile uyumlu)
+  // P2 FIX: lineup'taki oyuncu ID'lerini Set olarak topla, team.players'tan bu ID'leri çıkar
+  // Referans tutarsızlığını önlemek için ID bazlı kontrol yap
   const benchPlayers = useMemo(() => {
     if (!team) return [];
-    const lineupIds = new Set(tactics.lineup.filter((p): p is PlayerT => p !== null).map((p) => p.id));
+    // tactics.lineup'taki tüm dolu slotların ID'lerini topla
+    const lineupIds = new Set<string>();
+    for (const p of tactics.lineup) {
+      if (p && p.id) lineupIds.add(p.id);
+    }
+    // team.players'tan lineup'ta OLMAYAN oyuncuları al
     return team.players
       .filter((p) => !lineupIds.has(p.id))
       .sort((a, b) => b.rating - a.rating);
@@ -356,9 +362,10 @@ export function TacticsScreen() {
           </div>
           {/* Oyuncular */}
           {pitchCoords.map((coord, i) => {
-            // FIX: lineup'tan ID al, team.players'dan gerçek oyuncuyu bul — referans tutarsızlığını önle
+            // P2 FIX: lineup'tan ID al, team.players'dan gerçek oyuncuyu bul
+            // Eğer find başarısız olursa (stale referans) null göster — "Boş" slot
             const lineupPlayer = tactics.lineup[i];
-            const p = lineupPlayer ? team?.players.find(tp => tp.id === lineupPlayer.id) ?? lineupPlayer : null;
+            const p = lineupPlayer ? team?.players.find(tp => tp.id === lineupPlayer.id) ?? null : null;
             const slotPos = slots[i];
             const roleId = tactics.slotRoles[i];
             const role = ROLES.find((r) => r.id === roleId);
