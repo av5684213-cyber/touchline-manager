@@ -1863,3 +1863,27 @@ Stage Summary:
 - Taktik dizilişe sakat oyuncu seçilemez (filtered)
 - Profil modalında sakatlık detayları görünüyor
 - APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.7.2-injury-icon/touchline-manager-v1.7.2-injury-icon-release.apk
+
+---
+Task ID: v1.7.3-bench-fix
+Agent: main
+Task: Yedek kulübesinde ilk 11 oyuncularının görünme sorunu
+
+Work Log:
+- Sorun: Yedek kulübesinde ilk 11'deki oyuncular da görünüyordu
+- Kök neden: tactics.lineup'taki oyuncu referansları stale olabiliyordu
+  - Maç sonrası team.players güncellenir (yeni nesneler)
+  - tactics.lineup hala eski referansları tutar
+  - 2D saha: team.players.find başarısız olursa lineupPlayer (stale) kullanılıyordu
+  - Yedek kulübesi: ID bazlı kontrol yapıyordu ama lineup referansları stale idi
+- Düzeltme:
+  - 2D saha: team.players.find başarısız olursa null göster (stale fallback kaldırıldı)
+  - Yedek kulübesi: ID bazlı kontrol daha sağlam yapıldı
+    - tactics.lineup'taki tüm dolu slot ID'leri Set olarak toplanır
+    - team.players'tan bu ID'ler çıkarılır
+    - Sadece lineup'ta OLMAYAN oyuncular yedekte gösterilir
+
+Stage Summary:
+- Yedek kulübesinde artık sadece gerçek yedekler görünür
+- İlk 11'deki oyuncular yedekte görünmez
+- APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.7.3-bench-fix/touchline-manager-v1.7.3-bench-fix-release.apk
