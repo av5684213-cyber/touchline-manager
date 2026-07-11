@@ -1495,7 +1495,8 @@ export const useAppStore = create<AppState>()(
         const { fixtures, clubs, myTeamId, transfer } = get();
         const currentMd = SEASON_INFO.matchday;
 
-        // P0 FIX: Kullanıcının currentMd maçı oynanmadıysa otomatik simüle et (kayıp olmasın)
+        // P0 FIX: Kullanıcının currentMd maçı oynanmadıysa OTOMATİK simüle et
+        // Bu, "Haftayı İlerlet" butonuna basıldığında kendi maçının da oynanmasını sağlar
         const userMatch = fixtures.find(
           (f) => f.matchday === currentMd && !f.played && (f.homeId === myTeamId || f.awayId === myTeamId)
         );
@@ -1503,32 +1504,44 @@ export const useAppStore = create<AppState>()(
           const homeTeam = clubs.find((c) => c.id === userMatch.homeId);
           const awayTeam = clubs.find((c) => c.id === userMatch.awayId);
           if (homeTeam && awayTeam) {
-            // Basit simülasyon — rating bazlı
-            const homeStr = [...homeTeam.players]
-              .filter(p => !p.is_injured)
-              .sort((a, b) => b.rating - a.rating)
-              .slice(0, 11)
-              .reduce((s, p) => s + p.rating, 0) / 11;
-            const awayStr = [...awayTeam.players]
-              .filter(p => !p.is_injured)
-              .sort((a, b) => b.rating - a.rating)
-              .slice(0, 11)
-              .reduce((s, p) => s + p.rating, 0) / 11;
-            const diff = homeStr - awayStr;
-            const homeAdv = diff > 5 ? 0.3 : diff < -5 ? -0.3 : 0;
-            const hs = Math.max(0, Math.floor(Math.random() * 4 + homeAdv * 2));
-            const as = Math.max(0, Math.floor(Math.random() * 3 - homeAdv * 2));
-            // Fikstüre sonucu yaz (kullanıcı oynamadıysa bile)
+            // Enhanced motor ile simüle et (rating bazlı basit değil)
             try {
-              get().recordMatchResult(homeTeam.id, awayTeam.id, hs, as);
+              const { simulateEnhancedMatch } = require("@/lib/match/engine/enhancedMatchEngine");
+              const { DEFAULT_TACTIC } = require("@/lib/tactics/types");
+              const userTactic = get().tactics.active ?? DEFAULT_TACTIC;
+              const isHome = homeTeam.id === myTeamId;
+              const homeTactic = isHome ? userTactic : { ...DEFAULT_TACTIC, formation: "4-4-2" };
+              const awayTactic = isHome ? { ...DEFAULT_TACTIC, formation: "4-4-2" } : userTactic;
+              const pickXI = (players: any[]) =>
+                [...players].filter((p) => !p.is_injured).sort((a, b) => b.rating - a.rating).slice(0, 11);
+              const result = simulateEnhancedMatch(
+                pickXI(homeTeam.players),
+                pickXI(awayTeam.players),
+                homeTactic,
+                awayTactic,
+                { homeTeamName: homeTeam.name, awayTeamName: awayTeam.name }
+              );
+              // Fikstüre sonucu yaz — recordMatchResult çağrısı
+              get().recordMatchResult(homeTeam.id, awayTeam.id, result.homeScore, result.awayScore);
+              console.log(`[advanceMatchday] Kullanıcı maçı otomatik simüle edildi: ${homeTeam.name} ${result.homeScore}-${result.awayScore} ${awayTeam.name}`);
             } catch (e) {
-              console.warn("[advanceMatchday] kullanıcı maçı otomatik sim hatası:", e);
+              console.warn("[advanceMatchday] kullanıcı maçı sim hatası, basit sim'a düşülüyor:", e);
+              // Fallback: basit rating bazlı sim
+              const homeStr = [...homeTeam.players].filter(p => !p.is_injured).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+              const awayStr = [...awayTeam.players].filter(p => !p.is_injured).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+              const diff = homeStr - awayStr;
+              const homeAdv = diff > 5 ? 0.3 : diff < -5 ? -0.3 : 0;
+              const hs = Math.max(0, Math.floor(Math.random() * 4 + homeAdv * 2));
+              const as = Math.max(0, Math.floor(Math.random() * 3 - homeAdv * 2));
+              get().recordMatchResult(homeTeam.id, awayTeam.id, hs, as);
             }
           }
         }
 
-        // Bot vs bot maçlarını simüle et (kullanıcının maçları hariç)
-        const updatedFixtures = fixtures.map((f) => {
+        // Bot vs bot maçlarını simüle et (kullanıcının maçları hariç — zaten yukarıda simüle edildi)
+        // NOT: fixtures'ı yeniden get() ile al — recordMatchResult set yapmış olabilir
+        const freshFixtures = get().fixtures;
+        const updatedFixtures = freshFixtures.map((f) => {
           if (f.matchday !== currentMd || f.played) return f;
           if (f.homeId === myTeamId || f.awayId === myTeamId) return f;
           const homeTeam = clubs.find((c) => c.id === f.homeId);
