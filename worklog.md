@@ -1807,3 +1807,28 @@ Stage Summary:
 - Gerçek saat kilidi tamamen kaldırıldı
 - Test modu butonları kaldırıldı (artık normal butonlar)
 - APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.7.0-fmcm/touchline-manager-v1.7.0-fmcm-release.apk
+
+---
+Task ID: v1.7.1-usermatch-fix
+Agent: main
+Task: Kullanıcı maçının otomatik simülasyonu düzeltildi
+
+Work Log:
+- Sorun: "Haftayı İlerlet" butonuna basıldığında bot maçları oynanıyordu ama kullanıcının maçı oynanmıyordu
+- Kök neden: advanceMatchday içindeki P0 fix kodu:
+  1. Basit rating bazlı simülasyon yapıyordu (enhanced motor değil)
+  2. recordMatchResult çağrısından sonra fixtures stale kalıyordu
+  3. Bot maçları simüle edilirken eski fixtures referansı kullanılıyordu
+- Düzeltme:
+  - advanceMatchday içindeki kullanıcı maçı simülasyonu artık enhanced motor (simulateEnhancedMatch) kullanıyor
+  - Kullanıcının taktikleri (tactics.active) doğru uygulanıyor (isHome kontrolü ile)
+  - Sakat oyuncular filtreleniyor
+  - recordMatchResult çağrısından sonra freshFixtures = get().fixtures ile güncel fixtures alınıyor
+  - Bot vs bot maçları artık freshFixtures üzerinde çalışıyor
+  - Fallback: enhanced motor hata verirse basit rating sim'ine düşüyor
+  - Console log eklendi
+
+Stage Summary:
+- "Haftayı İlerlet" artık kullanıcının maçını da enhanced motorla simüle ediyor
+- Bot maçları ve kullanıcı maçı aynı anda oynanıyor
+- APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.7.1-usermatch-fix/touchline-manager-v1.7.1-usermatch-fix-release.apk
