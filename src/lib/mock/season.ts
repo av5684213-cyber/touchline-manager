@@ -342,20 +342,36 @@ export function autoFillLineup(
       )
       .sort((a, b) => b.rating - a.rating)[0];
 
-    // Yoksa aynı gruptan en iyiyi al (sakatlar hariç)
-    const fallback =
-      candidate ??
-      team.players
-        .filter((p) => !used.has(p.id) && !p.is_injured)
-        .sort((a, b) => b.rating - a.rating)[0] ??
-      // Son çare: sakat bile olsa birini koy (slot boş kalmasın)
-      team.players
-        .filter((p) => !used.has(p.id))
-        .sort((a, b) => b.rating - a.rating)[0] ??
-      null;
+    // P0 FIX: Aynı gruptan en iyi oyuncu (kaleci hariç saha slotları için)
+    let fallback = candidate;
+    if (!fallback) {
+      if (slot.pos === "GK") {
+        // GK slotu için kaleci al
+        fallback = team.players
+          .filter((p) => !used.has(p.id) && !p.is_injured && p.specificPosition === "GK")
+          .sort((a, b) => b.rating - a.rating)[0];
+      } else {
+        // Saha slotu için kaleci HARİÇ en yüksek OVR'li oyuncu
+        fallback = team.players
+          .filter((p) => !used.has(p.id) && !p.is_injured && p.specificPosition !== "GK")
+          .sort((a, b) => b.rating - a.rating)[0];
+      }
+    }
+    // Son çare: sakat bile olsa birini koy (ama kaleciyi saha slotuna koyma)
+    if (!fallback) {
+      if (slot.pos === "GK") {
+        fallback = team.players
+          .filter((p) => !used.has(p.id) && p.specificPosition === "GK")
+          .sort((a, b) => b.rating - a.rating)[0] ?? null;
+      } else {
+        fallback = team.players
+          .filter((p) => !used.has(p.id) && p.specificPosition !== "GK")
+          .sort((a, b) => b.rating - a.rating)[0] ?? null;
+      }
+    }
 
     if (fallback) used.add(fallback.id);
-    lineup.push(fallback);
+    lineup.push(fallback ?? null);
   }
 
   return lineup;

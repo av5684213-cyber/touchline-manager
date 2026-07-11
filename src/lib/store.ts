@@ -591,7 +591,7 @@ export const useAppStore = create<AppState>()(
             newLineup = [];
             for (const slotPos of slots) {
               let candidate = team.players
-                .filter((p) => !used.has(p.id) && p.specificPosition === slotPos)
+                .filter((p) => !used.has(p.id) && !p.is_injured && p.specificPosition === slotPos)
                 .sort((a, b) => b.rating - a.rating)[0];
               if (!candidate) {
                 const group = slotPos === "GK" ? "GK"
@@ -602,13 +602,22 @@ export const useAppStore = create<AppState>()(
                   : group === "MID" ? ["CDM", "CM", "CAM", "LM", "RM"]
                   : ["LW", "RW", "ST", "CF"];
                 candidate = team.players
-                  .filter((p) => !used.has(p.id) && groupPositions.includes(p.specificPosition))
+                  .filter((p) => !used.has(p.id) && !p.is_injured && groupPositions.includes(p.specificPosition))
                   .sort((a, b) => b.rating - a.rating)[0];
               }
+              // P0 FIX: Son çare fallback — kaleciyi SADECE GK slotu için al, saha slotu için ASLA
               if (!candidate) {
-                candidate = team.players
-                  .filter((p) => !used.has(p.id))
-                  .sort((a, b) => b.rating - a.rating)[0];
+                if (slotPos === "GK") {
+                  // GK slotu için kaleci al
+                  candidate = team.players
+                    .filter((p) => !used.has(p.id) && p.specificPosition === "GK")
+                    .sort((a, b) => b.rating - a.rating)[0];
+                } else {
+                  // Saha slotu için kaleci HARİÇ en yüksek OVR'li oyuncu
+                  candidate = team.players
+                    .filter((p) => !used.has(p.id) && !p.is_injured && p.specificPosition !== "GK")
+                    .sort((a, b) => b.rating - a.rating)[0];
+                }
               }
               if (candidate) used.add(candidate.id);
               newLineup.push(candidate ?? null);
