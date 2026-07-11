@@ -109,9 +109,12 @@ export function PositionPill({
 }
 
 export function RatingBadge({ value }: { value: number }) {
-  // Hem 0-10 (formRating) hem 0-100 (rating) kabul et
-  // 50+ değerler 0-100 aralığı kabul edilir, /10 ile normalize
-  const v = value > 10 ? Math.max(0, Math.min(100, value)) / 10 : Math.max(0, Math.min(10, value));
+  // P2 FIX: 0-100 (OVR/rating) tam sayı gösterilir, 0-10 (formRating) 1 ondalık gösterilir
+  // 50+ değerler 0-100 aralığı kabul edilir (OVR), 10 ve altı 0-10 (formRating)
+  const isOvr = value > 10;
+  const ovrVal = isOvr ? Math.max(0, Math.min(100, Math.round(value))) : Math.round(value * 10);
+  const formVal = isOvr ? value / 10 : Math.max(0, Math.min(10, value));
+  const v = isOvr ? ovrVal / 10 : formVal; // renk tonu için normalize
   const tone =
     v >= 8 ? "bg-emerald-600 text-white" :
     v >= 7 ? "bg-emerald-500 text-white" :
@@ -125,7 +128,7 @@ export function RatingBadge({ value }: { value: number }) {
         tone
       )}
     >
-      {v.toFixed(1)}
+      {isOvr ? ovrVal : formVal.toFixed(1)}
     </span>
   );
 }

@@ -228,10 +228,10 @@ export function TransferScreen() {
                   </div>
                   {/* Stats — güvenli fallback */}
                   <div className="flex items-center gap-1.5 mt-0.5 text-[9px]">
-                    <StatChip label="Hız" value={p.stats?.pace ?? p.speed ?? 50} />
-                    <StatChip label="Pas" value={p.stats?.passing ?? p.passing ?? 50} />
-                    <StatChip label="Şut" value={p.stats?.shooting ?? p.shooting ?? 50} />
-                    <StatChip label="Def" value={p.stats?.defending ?? p.defending ?? 50} />
+                    <StatChip label="Hız" value={safeStat(p, "pace")} />
+                    <StatChip label="Pas" value={safeStat(p, "passing")} />
+                    <StatChip label="Şut" value={safeStat(p, "shooting")} />
+                    <StatChip label="Def" value={safeStat(p, "defending")} />
                   </div>
                 </button>
                 <div className="flex flex-col items-end gap-1">
@@ -599,10 +599,10 @@ function PlayerCard({
       </div>
       {/* Alt satır: 4 stat chip — tam genişlik, iç içe geçmesin */}
       <div className="flex items-center gap-1 mt-1.5 ml-9 text-[9px]">
-        <StatChip label="Hız" value={player.stats?.pace ?? player.speed ?? 50} />
-        <StatChip label="Pas" value={player.stats?.passing ?? player.passing ?? 50} />
-        <StatChip label="Şut" value={player.stats?.shooting ?? player.shooting ?? 50} />
-        <StatChip label="Def" value={player.stats?.defending ?? player.defending ?? 50} />
+        <StatChip label="Hız" value={safeStat(player, "pace")} />
+        <StatChip label="Pas" value={safeStat(player, "passing")} />
+        <StatChip label="Şut" value={safeStat(player, "shooting")} />
+        <StatChip label="Def" value={safeStat(player, "defending")} />
       </div>
     </div>
   );
@@ -952,11 +952,25 @@ function OfferModal({
 
 // Mini stat chip — transfer kartındaki 4 temel stat
 function StatChip({ label, value }: { label: string; value: number }) {
-  const color = value >= 80 ? "text-emerald-400" : value >= 65 ? "text-amber-400" : "text-red-400";
+  // P2 FIX: value undefined/null/NaN ise 50 göster
+  const safeValue = (typeof value === "number" && !isNaN(value)) ? value : 50;
+  const color = safeValue >= 80 ? "text-emerald-400" : safeValue >= 65 ? "text-amber-400" : "text-red-400";
   return (
     <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-muted/40">
       <span className="text-muted-foreground">{label}</span>
-      <span className={cn("font-bold tabular-nums", color)}>{value}</span>
+      <span className={cn("font-bold tabular-nums", color)}>{safeValue}</span>
     </span>
   );
+}
+
+// P2 FIX: Güvenli stat okuma — stats objesi eksikse/undefined ise fallback
+function safeStat(player: any, statKey: "pace" | "passing" | "shooting" | "defending"): number {
+  // Önce player.stats.statKey
+  const fromStats = player?.stats?.[statKey];
+  if (typeof fromStats === "number" && !isNaN(fromStats)) return fromStats;
+  // Fallback: player.statKey (eski alan)
+  const fromPlayer = player?.[statKey];
+  if (typeof fromPlayer === "number" && !isNaN(fromPlayer)) return fromPlayer;
+  // Son fallback: 50
+  return 50;
 }
