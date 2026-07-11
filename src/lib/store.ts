@@ -1492,19 +1492,23 @@ export const useAppStore = create<AppState>()(
 
       // ===== Season actions =====
       advanceMatchday: () => {
-        const { fixtures, clubs, myTeamId, transfer } = get();
+        const { fixtures, clubs, myTeamId, transfer, news } = get();
         const currentMd = SEASON_INFO.matchday;
 
-        // P0 FIX: Kullanıcının currentMd maçı oynanmadıysa OTOMATİK simüle et
-        // Bu, "Haftayı İlerlet" butonuna basıldığında kendi maçının da oynanmasını sağlar
+        // P0 KÖK NEDEN ÇÖZÜMÜ: Kullanıcının maçını BOT maçlarıyla AYNI array'de simüle et
+        // recordMatchResult'a ayrı set() yaptırmak yerine, direkt updatedFixtures'a dahil et
+        // Bu sayede tek bir set() ile tüm haftanın maçları yazılır — veri kaybı olmaz
+
+        // Kullanıcının bu haftaki maçı (henüz oynanmamış)
         const userMatch = fixtures.find(
           (f) => f.matchday === currentMd && !f.played && (f.homeId === myTeamId || f.awayId === myTeamId)
         );
+        let userMatchResult: { homeScore: number; awayScore: number } | null = null;
         if (userMatch) {
           const homeTeam = clubs.find((c) => c.id === userMatch.homeId);
           const awayTeam = clubs.find((c) => c.id === userMatch.awayId);
           if (homeTeam && awayTeam) {
-            // Enhanced motor ile simüle et (rating bazlı basit değil)
+            // Enhanced motor ile simüle et
             try {
               const { simulateEnhancedMatch } = require("@/lib/match/engine/enhancedMatchEngine");
               const { DEFAULT_TACTIC } = require("@/lib/tactics/types");
@@ -1521,33 +1525,32 @@ export const useAppStore = create<AppState>()(
                 awayTactic,
                 { homeTeamName: homeTeam.name, awayTeamName: awayTeam.name }
               );
-              // Fikstüre sonucu yaz — recordMatchResult çağrısı
-              get().recordMatchResult(homeTeam.id, awayTeam.id, result.homeScore, result.awayScore);
-              console.log(`[advanceMatchday] Kullanıcı maçı otomatik simüle edildi: ${homeTeam.name} ${result.homeScore}-${result.awayScore} ${awayTeam.name}`);
+              userMatchResult = { homeScore: result.homeScore, awayScore: result.awayScore };
             } catch (e) {
-              console.warn("[advanceMatchday] kullanıcı maçı sim hatası, basit sim'a düşülüyor:", e);
-              // Fallback: basit rating bazlı sim
+              console.warn("[advanceMatchday] enhanced sim hatası, basit sim:", e);
               const homeStr = [...homeTeam.players].filter(p => !p.is_injured).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
               const awayStr = [...awayTeam.players].filter(p => !p.is_injured).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
               const diff = homeStr - awayStr;
               const homeAdv = diff > 5 ? 0.3 : diff < -5 ? -0.3 : 0;
-              const hs = Math.max(0, Math.floor(Math.random() * 4 + homeAdv * 2));
-              const as = Math.max(0, Math.floor(Math.random() * 3 - homeAdv * 2));
-              get().recordMatchResult(homeTeam.id, awayTeam.id, hs, as);
+              userMatchResult = {
+                homeScore: Math.max(0, Math.floor(Math.random() * 4 + homeAdv * 2)),
+                awayScore: Math.max(0, Math.floor(Math.random() * 3 - homeAdv * 2)),
+              };
             }
           }
         }
 
-        // Bot vs bot maçlarını simüle et (kullanıcının maçları hariç — zaten yukarıda simüle edildi)
-        // NOT: fixtures'ı yeniden get() ile al — recordMatchResult set yapmış olabilir
-        const freshFixtures = get().fixtures;
-        const updatedFixtures = freshFixtures.map((f) => {
+        // TÜM maçları tek array'de simüle et — kullanıcı maçı + bot maçları
+        const updatedFixtures = fixtures.map((f) => {
           if (f.matchday !== currentMd || f.played) return f;
-          if (f.homeId === myTeamId || f.awayId === myTeamId) return f;
+          // Kullanıcının maçı — yukarıda simüle edilmiş sonucu kullan
+          if (userMatch && f.id === userMatch.id && userMatchResult) {
+            return { ...f, homeScore: userMatchResult.homeScore, awayScore: userMatchResult.awayScore, played: true };
+          }
+          // Bot vs bot maçı — basit sim
           const homeTeam = clubs.find((c) => c.id === f.homeId);
           const awayTeam = clubs.find((c) => c.id === f.awayId);
           if (!homeTeam || !awayTeam) return f;
-          // P0 FIX: İlk 11'i rating'e göre seç, sakatları ele
           const homeStr = [...homeTeam.players].filter(p => !p.is_injured).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
           const awayStr = [...awayTeam.players].filter(p => !p.is_injured).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
           const diff = homeStr - awayStr;
@@ -1556,6 +1559,35 @@ export const useAppStore = create<AppState>()(
           const as = Math.max(0, Math.floor(Math.random() * 3 - homeAdv * 2));
           return { ...f, homeScore: hs, awayScore: as, played: true };
         });
+
+        // Kullanıcı maçı haberini hazırla (set'e eklenecek)
+        const newNewsItems: NewsItem[] = [];
+        if (userMatch && userMatchResult) {
+          const homeTeam = clubs.find((c) => c.id === userMatch.homeId);
+          const awayTeam = clubs.find((c) => c.id === userMatch.awayId);
+          if (homeTeam && awayTeam) {
+            const isHome = userMatch.homeId === myTeamId;
+            const myScore = isHome ? userMatchResult.homeScore : userMatchResult.awayScore;
+            const oppScore = isHome ? userMatchResult.awayScore : userMatchResult.homeScore;
+            const oppName = isHome ? awayTeam.name : homeTeam.name;
+            const result = myScore > oppScore ? "galibiyet" : myScore < oppScore ? "mağlubiyet" : "beraberlik";
+            const headlineMap = { galibiyet: "Maç Sonucu: Galibiyet! 🎉", mağlubiyet: "Maç Sonucu: Mağlubiyet", beraberlik: "Maç Sonucu: Beraberlik" };
+            const bodyMap = {
+              galibiyet: `${myScore}-${oppScore} ${oppName} karşısında galip geldiniz!`,
+              mağlubiyet: `${myScore}-${oppScore} ${oppName} karşısında mağlup oldunuz.`,
+              beraberlik: `${myScore}-${oppScore} ${oppName} ile berabere kaldınız.`,
+            };
+            newNewsItems.push({
+              id: `news_match_${currentMd}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              category: "match",
+              headline: headlineMap[result],
+              body: bodyMap[result],
+              timestamp: Date.now(),
+              importance: result === "galibiyet" ? 2 : 1,
+              read: false,
+            });
+          }
+        }
 
         // Bot maçlarında oyunculara gol/assist dağıt — Gol Kralı yarışması için
         const pickScorer = (players: any[]) => {
@@ -1569,7 +1601,7 @@ export const useAppStore = create<AppState>()(
 
         for (const f of updatedFixtures) {
           if (f.matchday !== currentMd || !f.played) continue;
-          if (f.homeId === myTeamId || f.awayId === myTeamId) continue;
+          // P0 FIX: Kullanıcı maçı DAHIL tüm maçlarda gol/assist dağıt
           const homeTeam = clubs.find((c) => c.id === f.homeId);
           const awayTeam = clubs.find((c) => c.id === f.awayId);
           if (!homeTeam || !awayTeam) continue;
@@ -1783,7 +1815,9 @@ export const useAppStore = create<AppState>()(
         const updatedTransferFinal = { ...transfer, incomingOffers: finalOffers };
 
         // P1 FIX: seasonMatchday state alanını da güncelle (cloud-save doğru kaydetsin)
-        set({ fixtures: updatedFixtures, clubs: updatedClubs, transfer: updatedTransferFinal, seasonMatchday: nextMd });
+        // P0 KÖK NEDEN: Tek set() ile fixtures + clubs + news + seasonMatchday yazılır
+        const finalNews = newNewsItems.length > 0 ? [...newNewsItems, ...news] : news;
+        set({ fixtures: updatedFixtures, clubs: updatedClubs, transfer: updatedTransferFinal, news: finalNews, seasonMatchday: nextMd });
       },
 
       endSeason: () => {

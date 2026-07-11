@@ -382,7 +382,7 @@ export function DashboardScreen() {
         </div>
       </section>
 
-      {/* Next match countdown */}
+      {/* Next match — FM/CM mantığı: gerçek saat yok, hafta bilgisi + Maçı Oyna */}
       {next && opponent && (
         <section>
           <SectionTitle icon={Clock} title={t("dash.next_match")} />
@@ -399,18 +399,13 @@ export function DashboardScreen() {
               </div>
               <div className="px-2 text-center">
                 <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-                  {t("dash.kickoff_in")}
+                  Hafta
                 </div>
                 <div className="text-lg font-bold tabular-nums">
-                  {countdownParts(target, locale)}
+                  {next.matchday}
                 </div>
                 <div className="text-[10px] text-muted-foreground">
-                  {new Intl.DateTimeFormat(locale === "tr" ? "tr-TR" : "en-US", {
-                    day: "2-digit",
-                    month: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }).format(target)}
+                  / {SEASON_INFO.totalMatchdays}
                 </div>
               </div>
               <div className="flex flex-col items-center gap-1 flex-1">
@@ -438,7 +433,7 @@ export function DashboardScreen() {
       {/* Rozetler — TALİMAT: en alta taşındı */}
       <AchievementsCard />
 
-      {/* Advance matchday button — bot maçlarını oynar + haftayı ilerletir */}
+      {/* Advance matchday button — kullanıcının maçını + bot maçlarını oynar + haftayı ilerletir */}
       {!allPlayed && (
         <button
           onClick={() => {
@@ -447,7 +442,7 @@ export function DashboardScreen() {
           }}
           className="tm-tap w-full py-3 rounded-lg bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center gap-2"
         >
-          <ChevronRight size={16} /> Haftayı İlerlet (Bot Maçlarını Oyna)
+          <ChevronRight size={16} /> Haftayı İlerlet
         </button>
       )}
 
