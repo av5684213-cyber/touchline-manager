@@ -1911,3 +1911,24 @@ Stage Summary:
 - OVR artık 77 olarak gösterilir (7.7 değil)
 - Transfer'de tüm oyuncularda 4 stat görünür (stats eksik olsa bile)
 - APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.7.4-ovr-stats-fix/touchline-manager-v1.7.4-ovr-stats-fix-release.apk
+
+---
+Task ID: v1.7.5-i-button
+Agent: main
+Task: SlotPlayerPicker'da 'i' butonu profil açıyor
+
+Work Log:
+- Sorun: Taktik ekranında slota tıklayınca açılan oyuncu seçim listesinde 'i' butonu görünmüyordu
+- Kök neden: SlotPlayerPicker component'i onShowProfile prop'unu bekliyordu ama parent TacticsScreen bunu geçmiyordu
+  - {onShowProfile && (...)} koşulu false oluyor
+  - i butonu render edilmiyordu
+- Düzeltme:
+  - TacticsScreen artık SlotPlayerPicker'a onShowProfile prop'unu geçiriyor
+  - i butonuna basınca setProfilePlayer(player) çağrılıyor
+  - PlayerProfileModal açılıyor (oyuncu profil ekranı)
+  - haptic('light') feedback eklendi
+
+Stage Summary:
+- Taktik ekranı oyuncu seçim listesinde i butonu artık görünüyor ve çalışıyor
+- i'ye basınca oyuncu profil modal'ı açılıyor
+- APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.7.5-i-button/touchline-manager-v1.7.5-i-button-release.apk
