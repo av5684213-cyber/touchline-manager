@@ -1832,3 +1832,34 @@ Stage Summary:
 - "Haftayı İlerlet" artık kullanıcının maçını da enhanced motorla simüle ediyor
 - Bot maçları ve kullanıcı maçı aynı anda oynanıyor
 - APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.7.1-usermatch-fix/touchline-manager-v1.7.1-usermatch-fix-release.apk
+
+---
+Task ID: v1.7.2-injury-icon
+Agent: main
+Task: Sakat oyuncular için icon + filtreleme
+
+Work Log:
+- ui-bits.tsx'e InjuryBadge bileşeni eklendi (🤕 + gün sayısı)
+- Taktik ekranı 2D saha:
+  - Sakat oyuncular kırmızı çerçeve (border-red-500 ring-2)
+  - OVR daire'sinde sağ üstte küçük 🤕 rozet
+- Taktik ekranı slot picker (oyuncu seçim listesi):
+  - Sakat oyuncular disabled (seçilemez)
+  - OVR kutusunda 🤕 rozet
+  - İsim yanında 'SAKAT Xg' etiketi (kırmızı arka plan)
+  - Kırmızı kenarlık görsel uyarı
+- Oyuncu profil modal:
+  - Header'da ismin yanında 🤕 rozet + gün sayısı
+  - Genel Bakış sekmesinde sakatlık paneli:
+    - Kırmızı kutu (bg-red-500/15 border-red-500/40)
+    - 🤕 icon + "Sakat" başlık
+    - "X gün sonra iyileşecek" metni
+    - Sakatlık türü (player.injury.type)
+- Transfer kartları:
+  - PlayerCard'da ismin yanında 🤕 icon (sakat oyuncular için)
+
+Stage Summary:
+- Sakat oyuncular artık her ekranda görsel olarak belirgin
+- Taktik dizilişe sakat oyuncu seçilemez (filtered)
+- Profil modalında sakatlık detayları görünüyor
+- APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.7.2-injury-icon/touchline-manager-v1.7.2-injury-icon-release.apk
