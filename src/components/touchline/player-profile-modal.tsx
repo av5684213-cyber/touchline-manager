@@ -1359,45 +1359,9 @@ function ActionsTab({
               </div>
             </div>
 
-            {/* Haftalık maaş */}
-            <div className="mb-2">
-              <div className="text-[10px] text-muted-foreground mb-1">Haftalık Maaş (€)</div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setOfferWage(Math.max(0, offerWage - 5000))}
-                  className="tm-tap w-7 h-7 rounded-md border border-border text-sm font-bold"
-                >−</button>
-                <input
-                  type="number"
-                  value={offerWage}
-                  onChange={(e) => setOfferWage(Number(e.target.value))}
-                  className="flex-1 bg-card border border-border rounded-md px-2 py-1 text-xs font-bold tabular-nums text-center"
-                />
-                <button
-                  onClick={() => setOfferWage(offerWage + 5000)}
-                  className="tm-tap w-7 h-7 rounded-md border border-border text-sm font-bold"
-                >+</button>
-              </div>
-            </div>
+            {/* P2: Maaş input KALDIRILDI — oyunda maaş yok */}
 
-            {/* Sözleşme süresi */}
-            <div className="mb-2">
-              {/* sözleşme kaldırıldı */}
-              <div className="flex gap-1">
-                {[1, 2, 3, 4, 5].map((y) => (
-                  <button
-                    key={y}
-                    onClick={() => setOfferYears(y)}
-                    className={cn(
-                      "tm-tap flex-1 py-1 rounded text-[10px] font-bold border",
-                      offerYears === y ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border"
-                    )}
-                  >
-                    {y} yıl
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* P2: Sözleşme süresi KALDIRILDI — oyunda sözleşme yok */}
 
             {/* Toplam maliyet özeti */}
             <div className="mb-2 p-2 bg-muted/30 rounded text-[10px] space-y-0.5">
@@ -1614,9 +1578,8 @@ function ActionsTab({
         <div className="text-[9px] text-muted-foreground uppercase mb-1.5">Hızlı Bilgi</div>
         <div className="grid grid-cols-2 gap-1.5 text-[10px]">
           <div className="flex justify-between"><span className="text-muted-foreground">Piyasa Değeri</span><span className="font-bold tabular-nums">{formatEuro(player.marketValue, locale)}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Haftalık Maaş</span><span className="font-bold tabular-nums">{formatEuro(player.weeklyWage, locale)}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground">Potansiyel</span><span className="font-bold tabular-nums">{player.potential}</span></div>
-          {/* sözleşme kaldırıldı */}
+          {/* P2: Haftalık Maaş KALDIRILDI — oyunda maaş yok */}
         </div>
       </div>
     </div>

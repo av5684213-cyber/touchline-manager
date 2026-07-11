@@ -236,7 +236,7 @@ export function TransferScreen() {
                 </button>
                 <div className="flex flex-col items-end gap-1">
                   <RatingBadge value={p.rating} />
-                  <div className="text-[9px] text-muted-foreground">{formatEuro(listing.wageDemand)}/hafta</div>
+                  {/* P2: Maaş göstergesi kaldırıldı — oyunda maaş yok */}
                 </div>
                 <button
                   onClick={() => {
@@ -673,25 +673,13 @@ function IncomingOfferCard({
         <span className="text-xs font-medium">{offer.buyerTeamName}</span>
       </div>
 
-      {/* Offer details */}
-      <div className="grid grid-cols-3 gap-2 mb-3 text-center">
+      {/* Offer details — P2: Sadece transfer ücreti, maaş/sözleşme yok */}
+      <div className="mb-3 text-center">
         <div>
           <div className="text-[9px] uppercase tracking-wide text-muted-foreground">
             {t("transfer.offer_modal.transfer_fee")}
           </div>
           <div className="text-sm font-bold tabular-nums">{formatEuro(offer.offerAmount)}</div>
-        </div>
-        <div>
-          <div className="text-[9px] uppercase tracking-wide text-muted-foreground">
-            {t("transfer.offer_modal.wage")}
-          </div>
-          <div className="text-sm font-bold tabular-nums">{formatEuro(offer.wageOffer)}</div>
-        </div>
-        <div>
-          <div className="text-[9px] uppercase tracking-wide text-muted-foreground">
-            {t("transfer.offer_modal.contract")}
-          </div>
-          {/* sözleşme kaldırıldı */}
         </div>
       </div>
 
@@ -735,8 +723,9 @@ function OfferModal({
 
   const initialFee = listing?.askingPrice ?? player.marketValue;
   const [fee, setFee] = useState(initialFee);
-  const [wage, setWage] = useState(player.weeklyWage);
-  const [years, setYears] = useState(3);
+  // P2: Maaş ve sözleşme yılı artık kullanıcıdan alınmıyor — sabit değerler
+  const wage = player.weeklyWage ?? 0;
+  const years = 3;
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
   if (!team || !listing) return null;
@@ -839,41 +828,9 @@ function OfferModal({
             </div>
           </div>
 
-          {/* Wage */}
-          <div>
-            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-              {t("transfer.offer_modal.wage")}
-            </label>
-            <input
-              type="number"
-              value={wage}
-              onChange={(e) => setWage(Number(e.target.value))}
-              className="mt-1 w-full bg-card border border-border rounded-md px-3 py-2 text-sm font-bold tabular-nums"
-            />
-          </div>
+          {/* P2: Maaş input KALDIRILDI — oyunda maaş yok */}
 
-          {/* Contract years */}
-          <div>
-            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-              {t("transfer.offer_modal.contract")}
-            </label>
-            <div className="mt-1 flex gap-1.5">
-              {[2, 3, 4, 5].map((y) => (
-                <button
-                  key={y}
-                  onClick={() => setYears(y)}
-                  className={cn(
-                    "tm-tap flex-1 py-2 rounded-md text-sm font-bold border",
-                    years === y
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card border-border"
-                  )}
-                >
-                  {y}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* P2: Sözleşme yılı KALDIRILDI — oyunda sözleşme yok */}
 
           {/* Cost breakdown */}
           <div className="tm-card p-3 space-y-1.5 bg-muted/30">
