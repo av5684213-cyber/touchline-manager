@@ -34,7 +34,7 @@ import {
   type PassingStyle,
   type InstructionCategory,
 } from "@/lib/tactics/types";
-import { PositionPill, RatingBadge, GrowthBadge } from "../ui-bits";
+import { PositionPill, RatingBadge, GrowthBadge, StatGrowth } from "../ui-bits";
 import { PlayerProfileModal } from "../player-profile-modal";
 import { TrainingScreen } from "./training";
 import { formatEuro } from "@/lib/format";
@@ -1350,6 +1350,8 @@ function SlotPlayerPicker({
                     <div className="shrink-0 w-8 h-8 rounded flex items-center justify-center text-xs font-bold text-white relative"
                       style={{ background: p.rating >= 80 ? "#16a34a" : p.rating >= 70 ? "#0891b2" : p.rating >= 60 ? "#d97706" : "#dc2626" }}>
                       {p.rating}
+                      {/* P2: Rating gelişimi — sezon başına göre */}
+                      <StatGrowth playerId={p.id} statKey="rating" currentValue={p.rating} />
                       {/* P2: Sakat rozeti — sağ üstte */}
                       {isInjured && (
                         <span className="absolute -top-1 -right-1 text-[8px] bg-red-500 rounded-full w-3.5 h-3.5 flex items-center justify-center" title={`Sakat${p.injury?.remaining_days ? ` · ${p.injury.remaining_days}g` : ""}`}>

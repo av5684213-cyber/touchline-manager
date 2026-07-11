@@ -153,6 +153,27 @@ export function GrowthBadge({ currentRating, playerId }: { currentRating: number
   }
 }
 
+// P2: Stat gelişim rozeti — belirli bir stat için sezon başına göre artış gösterir
+// Örnek: pace 50→52 ise "+2" gösterir
+export function StatGrowth({ playerId, statKey, currentValue }: { playerId: string; statKey: string; currentValue: number }) {
+  try {
+    const store = require("@/lib/store").useAppStore.getState();
+    const startStats = store.seasonStartStats?.[playerId];
+    if (!startStats) return null;
+    const startValue = startStats[statKey];
+    if (startValue === undefined) return null;
+    const diff = currentValue - startValue;
+    if (diff <= 0) return null;
+    return (
+      <span className="text-[7px] font-bold text-emerald-400 leading-none ml-0.5">
+        +{diff}
+      </span>
+    );
+  } catch {
+    return null;
+  }
+}
+
 // P2: Sakatlık rozeti — sakat oyuncularda kırmızı 🤕 icon + gün sayısı
 export function InjuryBadge({ days, size = "sm" }: { days?: number; size?: "sm" | "md" }) {
   const sizeCls = size === "md" ? "text-[9px] px-1.5 py-0.5" : "text-[8px] px-1 py-0.5";

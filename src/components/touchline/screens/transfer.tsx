@@ -29,7 +29,7 @@ import {
   type Player,
   type PositionGroup,
 } from "@/lib/mock/data";
-import { ClubBadge, PlayerAvatar, PositionPill, RatingBadge } from "../ui-bits";
+import { ClubBadge, PlayerAvatar, PositionPill, RatingBadge, StatGrowth } from "../ui-bits";
 import { PlayerProfileModal } from "../player-profile-modal";
 // ADDED: Gelişmiş pazarlık modal'ı
 import { TransferNegotiationModal } from "../transfer-negotiation-modal";
@@ -228,10 +228,10 @@ export function TransferScreen() {
                   </div>
                   {/* Stats — güvenli fallback */}
                   <div className="flex items-center gap-1.5 mt-0.5 text-[9px]">
-                    <StatChip label="Hız" value={safeStat(p, "pace")} />
-                    <StatChip label="Pas" value={safeStat(p, "passing")} />
-                    <StatChip label="Şut" value={safeStat(p, "shooting")} />
-                    <StatChip label="Def" value={safeStat(p, "defending")} />
+                    <StatChip label="Hız" value={safeStat(p, "pace")} growth={<StatGrowth playerId={p.id} statKey="speed" currentValue={safeStat(p, "pace")} />} />
+                    <StatChip label="Pas" value={safeStat(p, "passing")} growth={<StatGrowth playerId={p.id} statKey="passing" currentValue={safeStat(p, "passing")} />} />
+                    <StatChip label="Şut" value={safeStat(p, "shooting")} growth={<StatGrowth playerId={p.id} statKey="shooting" currentValue={safeStat(p, "shooting")} />} />
+                    <StatChip label="Def" value={safeStat(p, "defending")} growth={<StatGrowth playerId={p.id} statKey="defending" currentValue={safeStat(p, "defending")} />} />
                   </div>
                 </button>
                 <div className="flex flex-col items-end gap-1">
@@ -599,10 +599,10 @@ function PlayerCard({
       </div>
       {/* Alt satır: 4 stat chip — tam genişlik, iç içe geçmesin */}
       <div className="flex items-center gap-1 mt-1.5 ml-9 text-[9px]">
-        <StatChip label="Hız" value={safeStat(player, "pace")} />
-        <StatChip label="Pas" value={safeStat(player, "passing")} />
-        <StatChip label="Şut" value={safeStat(player, "shooting")} />
-        <StatChip label="Def" value={safeStat(player, "defending")} />
+        <StatChip label="Hız" value={safeStat(player, "pace")} growth={<StatGrowth playerId={player.id} statKey="speed" currentValue={safeStat(player, "pace")} />} />
+        <StatChip label="Pas" value={safeStat(player, "passing")} growth={<StatGrowth playerId={player.id} statKey="passing" currentValue={safeStat(player, "passing")} />} />
+        <StatChip label="Şut" value={safeStat(player, "shooting")} growth={<StatGrowth playerId={player.id} statKey="shooting" currentValue={safeStat(player, "shooting")} />} />
+        <StatChip label="Def" value={safeStat(player, "defending")} growth={<StatGrowth playerId={player.id} statKey="defending" currentValue={safeStat(player, "defending")} />} />
       </div>
     </div>
   );
@@ -908,7 +908,7 @@ function OfferModal({
 }
 
 // Mini stat chip — transfer kartındaki 4 temel stat
-function StatChip({ label, value }: { label: string; value: number }) {
+function StatChip({ label, value, growth }: { label: string; value: number; growth?: React.ReactNode }) {
   // P2 FIX: value undefined/null/NaN ise 50 göster
   const safeValue = (typeof value === "number" && !isNaN(value)) ? value : 50;
   const color = safeValue >= 80 ? "text-emerald-400" : safeValue >= 65 ? "text-amber-400" : "text-red-400";
@@ -916,6 +916,7 @@ function StatChip({ label, value }: { label: string; value: number }) {
     <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-muted/40">
       <span className="text-muted-foreground">{label}</span>
       <span className={cn("font-bold tabular-nums", color)}>{safeValue}</span>
+      {growth}
     </span>
   );
 }
