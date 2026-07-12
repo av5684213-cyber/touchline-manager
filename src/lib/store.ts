@@ -1999,6 +1999,21 @@ export const useAppStore = create<AppState>()(
             myUpdatedTeam.department = newDept;
             newLeagueClubs[0] = myUpdatedTeam;
           }
+          // P0 FIX: Kullanıcının takımıyla AYNI ADI taşıyan bot takımları yeniden adlandır
+          if (myUpdatedTeam) {
+            const myTeamName = myUpdatedTeam.name;
+            const suffixes = [" SK", " FC", "spor", " GK", " AS"];
+            for (let i = 1; i < newLeagueClubs.length; i++) {
+              if (newLeagueClubs[i].name === myTeamName) {
+                const suffix = suffixes[i % suffixes.length];
+                newLeagueClubs[i] = {
+                  ...newLeagueClubs[i],
+                  name: myTeamName + suffix,
+                  shortName: newLeagueClubs[i].shortName + (i % 10),
+                };
+              }
+            }
+          }
           updatedClubs.length = 0;
           (updatedClubs as Team[]).push(...newLeagueClubs);
         }
