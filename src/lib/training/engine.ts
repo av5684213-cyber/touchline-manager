@@ -289,7 +289,15 @@ export function applyResultsToSquad(squad: Player[], results: TrainingSessionRes
       cond: newCond,
       condition: newCond,
       morale: Math.max(0, Math.min(100, p.morale + r.moraleChange)),
-      rating: Math.min(99, Math.round(p.rating + r.ratingChange * 10)),
+      // P0 FIX: rating = 6 stat'ın ortalaması, ratingChange değil
+      rating: Math.min(99, Math.round((
+        Math.min(99, (p.stats?.pace ?? p.speed ?? 50) + paceGain) +
+        Math.min(99, (p.stats?.shooting ?? p.shooting ?? 50) + shootingGain) +
+        Math.min(99, (p.stats?.passing ?? p.passing ?? 50) + passingGain) +
+        Math.min(99, (p.stats?.defending ?? p.defending ?? 50) + defendingGain) +
+        Math.min(99, (p.stats?.physical ?? p.power ?? 50) + physicalGain) +
+        Math.min(99, (p.stats?.dribbling ?? p.dribbling ?? 50) + dribblingGain)
+      ) / 6)),
     } as any;
   });
 }

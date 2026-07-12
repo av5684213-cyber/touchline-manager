@@ -1563,6 +1563,10 @@ export const useAppStore = create<AppState>()(
         // P0 FIX: Kullanıcı maçı sonrası kondisyon/form/morale/sakatlık güncelle
         // (Sadece canlı maçta applyPostMatchEffects çağrılıyordu, Turu İlerlet'te çağrılmıyordu)
         if (userMatchResult) {
+          // P0 FIX: tacticsLineupIds'i burada tanımla — aşağıda pickStartingXI'da da kullanılıyor
+          const _tacticsLineupIds = new Set(
+            get().tactics.lineup.filter(p => p !== null).map(p => p!.id)
+          );
           const myClub = clubs.find(c => c.id === myTeamId);
           if (myClub) {
             const isHome = userMatch!.homeId === myTeamId;
@@ -1572,13 +1576,13 @@ export const useAppStore = create<AppState>()(
             const lost = myScore < oppScore;
             myClub.players = myClub.players.map(p => {
               // Kullanıcının lineup'ındaki oyunculara kondisyon düş
-              const inLineup = tacticsLineupIds.size > 0 ? tacticsLineupIds.has(p.id) : true;
+              const inLineup = _tacticsLineupIds.size > 0 ? _tacticsLineupIds.has(p.id) : true;
               const condDrain = inLineup ? Math.floor(8 + Math.random() * 8) : 0;
               const newCond = Math.max(20, Math.min(100, p.cond - condDrain));
               const formChange = won ? 2 : lost ? -3 : 0;
               const moraleChange = won ? 3 : lost ? -3 : 0;
-              // %5 sakatlık şansı (lineup'ta ise)
-              const willInjure = inLineup && Math.random() < 0.05;
+              // P1 FIX: %10 sakatlık şansı (lineup'ta ise)
+              const willInjure = inLineup && Math.random() < 0.10;
               const injuryDuration = willInjure ? Math.floor(Math.random() * 14) + 3 : 0;
               return {
                 ...p,
@@ -1650,7 +1654,12 @@ export const useAppStore = create<AppState>()(
         const pickStartingXI = (players: any[], teamId: string) => {
           // Kullanıcının takımı ise tactics.lineup'tan seç
           if (teamId === myTeamId && tacticsLineupIds.size > 0) {
-            return players.filter(p => !p.is_injured && p.specificPosition !== "GK" && tacticsLineupIds.has(p.id));
+            const lineup = players.filter(p => !p.is_injured && p.specificPosition !== "GK" && tacticsLineupIds.has(p.id));
+            // P0 FIX: lineup boşsa fallback — en yüksek OVR'li 10 (tactics.lineup stale olabilir)
+            if (lineup.length === 0) {
+              console.warn(`[pickStartingXI] tactics.lineup stale! tacticsLineupIds=${tacticsLineupIds.size} ama players'ta eşleşen yok. Fallback: en yüksek OVR'li 10`);
+            }
+            if (lineup.length > 0) return lineup;
           }
           // Bot takımı — en yüksek OVR'li 10 saha oyuncusu
           return [...players]
@@ -1668,9 +1677,12 @@ export const useAppStore = create<AppState>()(
 
         for (const f of updatedFixtures) {
           if (f.matchday !== currentMd || !f.played) continue;
-          // P0 FIX: Kullanıcı maçı DAHIL tüm maçlarda gol/assist dağıt
-          const homeTeam = clubs.find((c) => c.id === f.homeId);
-          const awayTeam = clubs.find((c) => c.id === f.awayId);
+          // P0 FIX: updatedClubs henüz tanımlı değil ama myClub yukarıda güncellendi
+          // Kullanıcının takımı için myClub kullan, botlar için clubs kullan
+          const isHomeUser = f.homeId === myTeamId;
+          const isAwayUser = f.awayId === myTeamId;
+          const homeTeam = isHomeUser ? (clubs.find(c => c.id === myTeamId) ?? null) : clubs.find((c) => c.id === f.homeId);
+          const awayTeam = isAwayUser ? (clubs.find(c => c.id === myTeamId) ?? null) : clubs.find((c) => c.id === f.awayId);
           if (!homeTeam || !awayTeam) continue;
 
           // P0 FIX: Sadece ilk 11'e gol/assist dağıt
@@ -1902,11 +1914,16 @@ export const useAppStore = create<AppState>()(
                   const idx2 = (idx1 + 1 + Math.floor(Math.random() * 5)) % 6;
                   newStats[statKeys[idx1]] = Math.min(99, Math.round((newStats[statKeys[idx1]] + gain) * 10) / 10);
                   newStats[statKeys[idx2]] = Math.min(99, Math.round((newStats[statKeys[idx2]] + gain * 0.5) * 10) / 10);
+                  // P0 FIX: rating = 6 stat'ın ortalaması
+                  const newRating = Math.min(99, Math.round(
+                    (newStats.pace + newStats.shooting + newStats.passing + newStats.defending + newStats.physical + newStats.dribbling) / 6
+                  ));
                   return {
                     ...p,
                     stats: newStats,
                     [statKeys[idx1]]: Math.min(99, (p[statKeys[idx1]] ?? 50) + gain),
                     [statKeys[idx2]]: Math.min(99, (p[statKeys[idx2]] ?? 50) + gain * 0.5),
+                    rating: newRating,
                   } as any;
                 });
                 const teamIdx = updatedClubs.findIndex(c => c.id === myTeamId);

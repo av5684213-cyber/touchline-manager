@@ -175,6 +175,13 @@ function runFullGameTest() {
     console.log(`Benim gol kralım: ${myTopScorer?.firstName} ${myTopScorer?.lastName} (${myTopScorer?.goals ?? 0} gol)`);
 
     if ((myTopScorer?.goals ?? 0) === 0 && goalsFor > 0) {
+      // Debug: tacticsLineupIds vs players ID'leri
+      const tacticsLineup = useAppStore.getState().tactics.lineup;
+      const tacticsIds = tacticsLineup.filter(p => p !== null).map(p => p!.id);
+      const playerIds = team.players.map(p => p.id);
+      const match = tacticsIds.filter(id => playerIds.includes(id));
+      console.log(`DEBUG: tacticsIds=${tacticsIds.length}, playerIds=${playerIds.length}, eşleşen=${match.length}`);
+      console.log(`DEBUG: tacticsIds[0]=${tacticsIds[0]}, playerIds contains=${playerIds.includes(tacticsIds[0])}`);
       issues.push(`Sezon ${season}: ${goalsFor} gol atıldı ama benim oyuncumda 0 gol!`);
     }
 
