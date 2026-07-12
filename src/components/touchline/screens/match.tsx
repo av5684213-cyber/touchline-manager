@@ -1365,35 +1365,46 @@ function PostMatch({
     LW: 11, RW: 12, CF: 13, ST: 14,
   };
 
-  // P0 FIX: İlk 11'de maksimum 1 kaleci — formasyon bazlı seç
-  const pickRatedXI = (players: typeof homeTeam.players, ratings: typeof state.playerRatings, matchStats: typeof state.playerMatchStats) => {
-    const used = new Set<string>();
-    const result: { player: typeof players[0]; rating: number; stats: any }[] = [];
+  // P0 FIX: Kullanıcının TAKTİKTE SEÇTİĞİ ilk 11'i kullan — auto-select yapma
+  const tacticsLineup = useAppStore.getState().tactics.lineup;
+  const tacticsPlayerIds = new Set(tacticsLineup.filter(p => p !== null).map(p => p!.id));
 
-    // Önce 1 kaleci (en yüksek rating)
-    const gks = players
-      .filter(p => p.specificPosition === "GK")
-      .map(p => ({ player: p, rating: ratings[p.id] ?? 6.5, stats: matchStats[p.id] ?? { goals: 0, assists: 0, yellow: 0, red: 0 } }))
-      .sort((a, b) => b.rating - a.rating);
-    if (gks[0]) { result.push(gks[0]); used.add(gks[0].player.id); }
+  const buildRatedList = (players: typeof homeTeam.players, isUserTeam: boolean) => {
+    let selectedPlayers: typeof players;
 
-    // Sonra 10 saha oyuncusu (rating'e göre, pozisyon sırası)
-    const field = players
-      .filter(p => !used.has(p.id) && p.specificPosition !== "GK")
-      .map(p => ({ player: p, rating: ratings[p.id] ?? 6.5, stats: matchStats[p.id] ?? { goals: 0, assists: 0, yellow: 0, red: 0 } }))
+    if (isUserTeam && tacticsPlayerIds.size > 0) {
+      // Kullanıcının takımı — tactics.lineup'taki oyuncuları kullan
+      selectedPlayers = players.filter(p => tacticsPlayerIds.has(p.id));
+    } else {
+      // Rakip takım — en yüksek OVR'li 11 (kaleci hariç sadece 1)
+      const used = new Set<string>();
+      const gk = players
+        .filter(p => p.specificPosition === "GK")
+        .sort((a, b) => b.rating - a.rating)[0];
+      if (gk) used.add(gk.id);
+      const field = players
+        .filter(p => !used.has(p.id) && p.specificPosition !== "GK")
+        .sort((a, b) => b.rating - a.rating)
+        .slice(0, 10);
+      selectedPlayers = gk ? [gk, ...field] : field;
+    }
+
+    return selectedPlayers
+      .map(p => ({
+        player: p,
+        rating: state.playerRatings[p.id] ?? 6.5,
+        stats: state.playerMatchStats[p.id] ?? { goals: 0, assists: 0, yellow: 0, red: 0 },
+      }))
       .sort((a, b) => {
         const pa = POSITION_ORDER[a.player.specificPosition] ?? 99;
         const pb = POSITION_ORDER[b.player.specificPosition] ?? 99;
         if (pa !== pb) return pa - pb;
         return b.rating - a.rating;
-      })
-      .slice(0, 10);
-
-    return [...result, ...field];
+      });
   };
 
-  const homeRated = pickRatedXI(homeTeam.players, state.playerRatings, state.playerMatchStats);
-  const awayRated = pickRatedXI(awayTeam.players, state.playerRatings, state.playerMatchStats);
+  const homeRated = buildRatedList(homeTeam.players, isUserHome);
+  const awayRated = buildRatedList(awayTeam.players, !isUserHome);
 
   const activeRated = ratingsTab === "home" ? homeRated : awayRated;
 
