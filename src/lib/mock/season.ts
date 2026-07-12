@@ -206,12 +206,14 @@ export function computeStandings(
   }
 
   return Array.from(map.values()).sort((a, b) => {
+    // P0 FIX: Önce puan, sonra averaj, sonra atılan gol, sonra isim
     if (b.points !== a.points) return b.points - a.points;
     const gdA = a.goalsFor - a.goalsAgainst;
     const gdB = b.goalsFor - b.goalsAgainst;
     if (gdB !== gdA) return gdB - gdA;
     if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
-    return a.teamId.localeCompare(b.teamId);
+    if (b.won !== a.won) return b.won - a.won; // galibiyet sayısı tiebreaker
+    return a.teamName.localeCompare(b.teamName);
   });
 }
 

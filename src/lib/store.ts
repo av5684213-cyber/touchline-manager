@@ -1560,6 +1560,39 @@ export const useAppStore = create<AppState>()(
           }
         }
 
+        // P0 FIX: Kullanıcı maçı sonrası kondisyon/form/morale/sakatlık güncelle
+        // (Sadece canlı maçta applyPostMatchEffects çağrılıyordu, Turu İlerlet'te çağrılmıyordu)
+        if (userMatchResult) {
+          const myClub = clubs.find(c => c.id === myTeamId);
+          if (myClub) {
+            const isHome = userMatch!.homeId === myTeamId;
+            const myScore = isHome ? userMatchResult.homeScore : userMatchResult.awayScore;
+            const oppScore = isHome ? userMatchResult.awayScore : userMatchResult.homeScore;
+            const won = myScore > oppScore;
+            const lost = myScore < oppScore;
+            myClub.players = myClub.players.map(p => {
+              // Kullanıcının lineup'ındaki oyunculara kondisyon düş
+              const inLineup = tacticsLineupIds.size > 0 ? tacticsLineupIds.has(p.id) : true;
+              const condDrain = inLineup ? Math.floor(8 + Math.random() * 8) : 0;
+              const newCond = Math.max(20, Math.min(100, p.cond - condDrain));
+              const formChange = won ? 2 : lost ? -3 : 0;
+              const moraleChange = won ? 3 : lost ? -3 : 0;
+              // %5 sakatlık şansı (lineup'ta ise)
+              const willInjure = inLineup && Math.random() < 0.05;
+              const injuryDuration = willInjure ? Math.floor(Math.random() * 14) + 3 : 0;
+              return {
+                ...p,
+                cond: newCond,
+                condition: newCond,
+                form: Math.max(30, Math.min(100, p.form + formChange)),
+                morale: Math.max(20, Math.min(100, p.morale + moraleChange)),
+                is_injured: willInjure ? true : p.is_injured,
+                injury: willInjure ? { type: "light" as const, remaining_days: injuryDuration, severity: Math.floor(Math.random() * 5) + 1 } : p.injury,
+              };
+            });
+          }
+        }
+
         // TÜM maçları tek array'de simüle et — kullanıcı maçı + bot maçları
         const updatedFixtures = fixtures.map((f) => {
           if (f.matchday !== currentMd || f.played) return f;
@@ -1609,13 +1642,21 @@ export const useAppStore = create<AppState>()(
           }
         }
 
-        // Bot maçlarında oyunculara gol/assist dağıt — Gol Kralı yarışması için
-        // P0 FIX: Gol/assist SADECE ilk 11'e (en yüksek OVR'li 11) dağıt — yedeklere değil
-        const pickStartingXI = (players: any[]) => {
+        // P0 FIX: Gol/assist dağıtımı — kullanıcının takımı için tactics.lineup kullan
+        // Bot takımlar için en yüksek OVR'li 11 kullan
+        const tacticsLineupIds = new Set(
+          get().tactics.lineup.filter(p => p !== null).map(p => p!.id)
+        );
+        const pickStartingXI = (players: any[], teamId: string) => {
+          // Kullanıcının takımı ise tactics.lineup'tan seç
+          if (teamId === myTeamId && tacticsLineupIds.size > 0) {
+            return players.filter(p => !p.is_injured && p.specificPosition !== "GK" && tacticsLineupIds.has(p.id));
+          }
+          // Bot takımı — en yüksek OVR'li 10 saha oyuncusu
           return [...players]
             .filter(p => !p.is_injured && p.specificPosition !== "GK")
             .sort((a, b) => b.rating - a.rating)
-            .slice(0, 10); // 10 saha oyuncusu (kaleci hariç)
+            .slice(0, 10);
         };
         const pickScorer = (startingXI: any[]) => {
           if (startingXI.length === 0) return null;
@@ -1633,8 +1674,8 @@ export const useAppStore = create<AppState>()(
           if (!homeTeam || !awayTeam) continue;
 
           // P0 FIX: Sadece ilk 11'e gol/assist dağıt
-          const homeXI = pickStartingXI(homeTeam.players);
-          const awayXI = pickStartingXI(awayTeam.players);
+          const homeXI = pickStartingXI(homeTeam.players, f.homeId);
+          const awayXI = pickStartingXI(awayTeam.players, f.awayId);
 
           // Home goals dağıt
           for (let i = 0; i < (f.homeScore ?? 0); i++) {
@@ -1691,10 +1732,30 @@ export const useAppStore = create<AppState>()(
         const updatedClubs = [...clubs];
 
         for (const bot of botTeams) {
+          // P2 FIX: Botlar her tur %5 ihtimalle 1 tesis yükselt
+          if (Math.random() < 0.05) {
+            const botIdx = updatedClubs.findIndex(c => c.id === bot.id);
+            if (botIdx >= 0) {
+              const levels = (updatedClubs[botIdx] as any).facilities?.levels;
+              if (levels) {
+                const facilityKeys = Object.keys(levels);
+                if (facilityKeys.length > 0) {
+                  const randomKey = facilityKeys[Math.floor(Math.random() * facilityKeys.length)];
+                  const currentLevel = levels[randomKey] ?? 0;
+                  if (currentLevel < 10) {
+                    (updatedClubs[botIdx] as any).facilities = {
+                      ...(updatedClubs[botIdx] as any).facilities,
+                      levels: { ...levels, [randomKey]: currentLevel + 1 },
+                    };
+                  }
+                }
+              }
+            }
+          }
           // P0 FIX: Stale referans yerine updatedClubs'tan taze değer oku
           const currentBot = updatedClubs.find((c) => c.id === bot.id)!;
-          // %30 ihtimalle serbest oyuncu al
-          if (Math.random() < 0.3 && updatedTransfer.freeAgents.length > 0 && currentBot.budget > 500000) {
+          // P1 FIX: %15 ihtimalle serbest oyuncu al (önce %30 idi)
+          if (Math.random() < 0.15 && updatedTransfer.freeAgents.length > 0 && currentBot.budget > 500000) {
             const idx = Math.floor(Math.random() * Math.min(5, updatedTransfer.freeAgents.length));
             const listing = updatedTransfer.freeAgents[idx];
             if (listing.askingPrice < currentBot.budget && currentBot.players.length < 25) {
@@ -1708,9 +1769,9 @@ export const useAppStore = create<AppState>()(
             }
           }
 
-          // %15 ihtimalle oyuncu sat (en düşük OVR'li) — taze currentBot.players kullan
+          // P1 FIX: %10 ihtimalle oyuncu sat (önce %15 idi, çok şişiyordu)
           const currentBot2 = updatedClubs.find((c) => c.id === bot.id)!;
-          if (Math.random() < 0.15 && currentBot2.players.length > 18) {
+          if (Math.random() < 0.10 && currentBot2.players.length > 18) {
             const weakest = [...currentBot2.players].sort((a, b) => a.rating - b.rating)[0];
             if (weakest) {
               const botIdx = updatedClubs.findIndex((c) => c.id === bot.id);
@@ -1736,13 +1797,13 @@ export const useAppStore = create<AppState>()(
         if (myTeam) {
           const facilitiesState = get().facilities;
           // Gelir
-          const stadiumCap = 5000 + facilitiesState.levels.stadium * 10000;
-          // P1#6 FIX: stadiumMult ekle — Finance ekranıyla tutarlı
-          const stadiumMult = 1 + facilitiesState.levels.stadium * 0.1;
-          const ticketRev = Math.round(stadiumCap * 0.6 * facilitiesState.ticketPrice * stadiumMult);
-          const sponsor = 200_000 + facilitiesState.levels.stadium * 30_000;
-          const tv = 150_000;
-          const merch = Math.round(stadiumCap * 0.4 * 2);
+          // P1 FIX: Gelirleri düşür — bütçe kontrolden çıkmıştı
+          const stadiumCap = 5000 + facilitiesState.levels.stadium * 5000;
+          const stadiumMult = 1 + facilitiesState.levels.stadium * 0.05;
+          const ticketRev = Math.round(stadiumCap * 0.4 * facilitiesState.ticketPrice * stadiumMult);
+          const sponsor = 50_000 + facilitiesState.levels.stadium * 10_000;
+          const tv = 50_000;
+          const merch = Math.round(stadiumCap * 0.2 * 1);
           const totalIncome = ticketRev + sponsor + tv + merch;
           // Gider — P0 FIX: Futbolcu maaşları tamamen kaldırıldı, sadece personel + tesis
           const staffWages = facilitiesState.staff.reduce((s, st) => s + st.weeklyWage, 0);
@@ -1832,8 +1893,8 @@ export const useAppStore = create<AppState>()(
               if (myClub) {
                 const updatedPlayers = myClub.players.map(p => {
                   // 21 altı %15 bonus, 30 üstü %25 ceza
-                  const ageMult = p.age < 21 ? 1.15 : p.age > 30 ? 0.75 : 1.0;
-                  const gain = Math.random() * 0.3 * ageMult;
+                  const ageMult = p.age < 21 ? 1.3 : p.age > 30 ? 0.5 : 1.0;
+                  const gain = Math.random() * 1.0 * ageMult;
                   const newStats = { ...p.stats };
                   // Rastgele 2 stat artır
                   const statKeys = ["pace", "shooting", "passing", "defending", "physical", "dribbling"] as const;
@@ -1867,19 +1928,36 @@ export const useAppStore = create<AppState>()(
           console.warn("[advanceMatchday] auto-training failed:", e);
         }
 
+        // P2 FIX: Loan listings yenile — 0 ise yeni üret
+        if ((transfer.loanListings ?? []).length === 0) {
+          try {
+            const { generateLoanListings } = require("@/lib/mock/transfer");
+            const newLoans = generateLoanListings(clubs);
+            updatedTransfer.loanListings = newLoans;
+          } catch (e) { /* ignore */ }
+        }
+
+        // P1 FIX: Kupa turlarını ilerlet — her 5 turda bir kupa turu oyna
+        if (currentMd % 5 === 0) {
+          try {
+            get().playCupRound();
+          } catch (e) { /* ignore */ }
+        }
+
         // P7 FIX: Stale incoming offers temizle — artık kadroda olmayan oyunculara teklifleri kaldır
         const myCurrentTeam = updatedClubs.find((c) => c.id === myTeamId);
         const currentPlayerIds = new Set(myCurrentTeam?.players.map((p) => p.id) ?? []);
         const validOffers = transfer.incomingOffers.filter((o) => currentPlayerIds.has(o.myPlayerId));
-        // Eğer teklif sayısı azaldıysa veya 2'den azsa, yeni teklifler üret
+        // P1 FIX: Her tur incoming offers yenile — 2'den azsa yeni üret
         let finalOffers = validOffers;
-        if (myCurrentTeam && validOffers.length < 2) {
-          const { generateIncomingOffers } = require("@/lib/mock/transfer");
-          const freshOffers = generateIncomingOffers(myCurrentTeam.players);
-          // Mevcut teklif ID'leri ile çakışmasın
-          const existingIds = new Set(validOffers.map((o) => o.id));
-          const newOffers = freshOffers.filter((o) => !existingIds.has(o.id));
-          finalOffers = [...validOffers, ...newOffers].slice(0, 5);
+        if (myCurrentTeam && validOffers.length < 3) {
+          try {
+            const { generateIncomingOffers } = require("@/lib/mock/transfer");
+            const freshOffers = generateIncomingOffers(myCurrentTeam.players);
+            const existingIds = new Set(validOffers.map((o) => o.id));
+            const newOffers = freshOffers.filter((o) => !existingIds.has(o.id));
+            finalOffers = [...validOffers, ...newOffers].slice(0, 5);
+          } catch (e) { /* ignore */ }
         }
         const updatedTransferFinal = { ...transfer, incomingOffers: finalOffers };
 

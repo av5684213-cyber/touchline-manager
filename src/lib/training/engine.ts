@@ -230,7 +230,7 @@ export function runTrainingSession(
     for (const stat of program.targetStats) {
       const current = player.stats[stat];
       const ceilingFactor = Math.max(0.05, (100 - current) / 100);
-      const gain = Math.random() * 0.5 * cappedMult * ceilingFactor;
+      const gain = Math.random() * 1.5 * cappedMult * ceilingFactor;
       statGains[stat] = Math.round(gain * 10) / 10;
     }
 

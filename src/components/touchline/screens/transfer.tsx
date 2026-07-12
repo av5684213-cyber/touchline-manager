@@ -244,6 +244,26 @@ export function TransferScreen() {
                     // Bedelsiz transfer — sadece maaş öde, serbest listeden çıkar, bildirim ekle
                     if (team) {
                       const state = useAppStore.getState();
+                      // P0 FIX: Kadro limiti kontrolü
+                      if (team.players.length >= 25) {
+                        useAppStore.setState({
+                          transfer: {
+                            ...state.transfer,
+                            messages: [
+                              {
+                                id: `msg-${Date.now()}`,
+                                kind: "transfer_rejected",
+                                fromTeamName: "Serbest Oyuncu",
+                                message: `Kadro dolu (25/25). ${p.firstName} ${p.lastName} imzalanamadı.`,
+                                at: Date.now(),
+                                read: false,
+                              },
+                              ...state.transfer.messages,
+                            ],
+                          },
+                        });
+                        return;
+                      }
                       const signingFee = (listing.wageDemand ?? 0) * 4; // 4 haftalık maaş = imza bonusu
                       if (signingFee > team.budget) {
                         // Bütçe yetersiz — bildirim
