@@ -5,6 +5,8 @@ import { Newspaper, RefreshCw } from "lucide-react";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
+import { PlayerProfileModal } from "../player-profile-modal";
+import type { Player } from "@/lib/mock/data";
 
 const CATEGORY_STYLE: Record<string, { color: string; bg: string; label: string }> = {
   headline: { color: "text-sky-400", bg: "bg-sky-500/10 border-sky-500/30", label: "MANŞET" },
@@ -26,13 +28,24 @@ function relativeTime(ts: number): string {
 export function NewsScreen() {
   const team = useMyTeam();
   const news = useAppStore((s) => s.news) ?? [];
+  const clubs = useAppStore((s) => s.clubs);
   const [filter, setFilter] = useState<string>("ALL");
   const [generating, setGenerating] = useState(false);
+  const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
 
   const filteredNews = useMemo(() => {
     if (filter === "ALL") return news;
     return news.filter((n: any) => n.category === filter);
   }, [news, filter]);
+
+  // playerId'ye göre oyuncu bul
+  const findPlayer = (playerId: string): Player | null => {
+    for (const club of clubs) {
+      const p = club.players.find(p => p.id === playerId);
+      if (p) return p;
+    }
+    return null;
+  };
 
   if (!team) return null;
 
@@ -98,16 +111,26 @@ export function NewsScreen() {
         <div className="space-y-2">
           {filteredNews.map((article: any) => {
             const style = CATEGORY_STYLE[article.category] ?? CATEGORY_STYLE.headline;
+            const hasPlayer = !!article.playerId;
+            const player = hasPlayer ? findPlayer(article.playerId) : null;
             return (
               <div
                 key={article.id}
                 className={cn(
                   "tm-card w-full text-left p-3 border-l-4 transition-colors",
                   style.bg,
-                  !article.read && "ring-1 ring-primary/20"
+                  !article.read && "ring-1 ring-primary/20",
+                  hasPlayer && player && "cursor-pointer hover:bg-accent/20"
                 )}
                 style={{ borderLeftColor: "currentColor" }}
-                onClick={() => { haptic("light"); useAppStore.getState().markNewsRead(article.id); }}
+                onClick={() => {
+                  haptic("light");
+                  useAppStore.getState().markNewsRead(article.id);
+                  // P2: playerId varsa ve oyuncu bulunursa profil aç
+                  if (hasPlayer && player) {
+                    setProfilePlayer(player);
+                  }
+                }}
               >
                 <div className="flex items-center gap-1.5 mb-1">
                   <span className={cn("text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded", style.bg)}>
@@ -129,6 +152,15 @@ export function NewsScreen() {
             );
           })}
         </div>
+      )}
+
+      {/* P2: Oyuncu profil modal — habere tıklayınca açılır */}
+      {profilePlayer && (
+        <PlayerProfileModal
+          player={profilePlayer}
+          teamColor="#1a3a2a"
+          onClose={() => setProfilePlayer(null)}
+        />
       )}
     </div>
   );

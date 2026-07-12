@@ -493,6 +493,17 @@ export const useAppStore = create<AppState>()(
           })(),
         });
 
+        // P2: Sezon başında otomatik sponsor teklifleri üret
+        try {
+          const myTeam2 = clubs.find((c) => c.id === myTeamId);
+          if (myTeam2) {
+            const { generateSponsorOffers: genOffers } = require("@/lib/sponsorSystem");
+            const avgOvr2 = myTeam2.players.reduce((s, p) => s + p.rating, 0) / myTeam2.players.length;
+            const offers = genOffers(myTeam2.leagueTier ?? 2, avgOvr2);
+            useAppStore.setState({ sponsors: { active: [], offers } });
+          }
+        } catch (e) { /* sponsorSystem yoksa ignore */ }
+
         // ADDED: Başarım tetikleyici — login sonrası first_login başarımı
         try {
           if (typeof window !== "undefined") {
@@ -1599,12 +1610,18 @@ export const useAppStore = create<AppState>()(
         }
 
         // Bot maçlarında oyunculara gol/assist dağıt — Gol Kralı yarışması için
-        const pickScorer = (players: any[]) => {
-          const attackers = players.filter(p => p.specificPosition !== "GK" && !p.is_injured);
-          if (attackers.length === 0) return null;
+        // P0 FIX: Gol/assist SADECE ilk 11'e (en yüksek OVR'li 11) dağıt — yedeklere değil
+        const pickStartingXI = (players: any[]) => {
+          return [...players]
+            .filter(p => !p.is_injured && p.specificPosition !== "GK")
+            .sort((a, b) => b.rating - a.rating)
+            .slice(0, 10); // 10 saha oyuncusu (kaleci hariç)
+        };
+        const pickScorer = (startingXI: any[]) => {
+          if (startingXI.length === 0) return null;
           // Forvetler daha çok gol atar
-          const forwards = attackers.filter(p => ["ST", "CF", "LW", "RW", "LM", "RM", "CAM"].includes(p.specificPosition));
-          const pool = forwards.length > 0 && Math.random() > 0.3 ? forwards : attackers;
+          const forwards = startingXI.filter(p => ["ST", "CF", "LW", "RW", "LM", "RM", "CAM"].includes(p.specificPosition));
+          const pool = forwards.length > 0 && Math.random() > 0.3 ? forwards : startingXI;
           return pool[Math.floor(Math.random() * pool.length)];
         };
 
@@ -1615,14 +1632,16 @@ export const useAppStore = create<AppState>()(
           const awayTeam = clubs.find((c) => c.id === f.awayId);
           if (!homeTeam || !awayTeam) continue;
 
+          // P0 FIX: Sadece ilk 11'e gol/assist dağıt
+          const homeXI = pickStartingXI(homeTeam.players);
+          const awayXI = pickStartingXI(awayTeam.players);
+
           // Home goals dağıt
           for (let i = 0; i < (f.homeScore ?? 0); i++) {
-            const scorer = pickScorer(homeTeam.players);
+            const scorer = pickScorer(homeXI);
             if (scorer) {
               scorer.goals = (scorer.goals ?? 0) + 1;
-              // P0 FIX: appearances gol başına +1 değil, maç başına +1 (aşağıda)
-              // Asistçi
-              const assistPool = homeTeam.players.filter(p => p.id !== scorer?.id && p.specificPosition !== "GK");
+              const assistPool = homeXI.filter(p => p.id !== scorer?.id);
               if (assistPool.length > 0 && Math.random() > 0.4) {
                 const assister = assistPool[Math.floor(Math.random() * assistPool.length)];
                 assister.assists = (assister.assists ?? 0) + 1;
@@ -1631,25 +1650,37 @@ export const useAppStore = create<AppState>()(
           }
           // Away goals dağıt
           for (let i = 0; i < (f.awayScore ?? 0); i++) {
-            const scorer = pickScorer(awayTeam.players);
+            const scorer = pickScorer(awayXI);
             if (scorer) {
               scorer.goals = (scorer.goals ?? 0) + 1;
-              const assistPool = awayTeam.players.filter(p => p.id !== scorer?.id && p.specificPosition !== "GK");
+              const assistPool = awayXI.filter(p => p.id !== scorer?.id);
               if (assistPool.length > 0 && Math.random() > 0.4) {
                 const assister = assistPool[Math.floor(Math.random() * assistPool.length)];
                 assister.assists = (assister.assists ?? 0) + 1;
               }
             }
           }
-          // P0 FIX: appearances gol başına +1 DEĞİL, maç başına +1 — oynayan her oyuncuya 1 kez
-          for (const p of homeTeam.players) {
-            if (p.specificPosition !== "GK" && !p.is_injured) {
-              p.appearances = (p.appearances ?? 0) + 1;
-            }
+          // P0 FIX: appearances SADECE ilk 11'e +1
+          for (const p of homeXI) {
+            p.appearances = (p.appearances ?? 0) + 1;
           }
-          for (const p of awayTeam.players) {
-            if (p.specificPosition !== "GK" && !p.is_injured) {
-              p.appearances = (p.appearances ?? 0) + 1;
+          for (const p of awayXI) {
+            p.appearances = (p.appearances ?? 0) + 1;
+          }
+
+          // P0 FIX: Maç sonu para ödülü — kazanan 800K, beraberlik 400K, yenilgi 300K
+          const isUserHome = f.homeId === myTeamId;
+          const isUserAway = f.awayId === myTeamId;
+          if (isUserHome || isUserAway) {
+            const myScore = isUserHome ? (f.homeScore ?? 0) : (f.awayScore ?? 0);
+            const oppScore = isUserHome ? (f.awayScore ?? 0) : (f.homeScore ?? 0);
+            let bonus = 0;
+            if (myScore > oppScore) bonus = 800_000;
+            else if (myScore === oppScore) bonus = 400_000;
+            else bonus = 300_000;
+            const myClub = clubs.find(c => c.id === myTeamId);
+            if (myClub) {
+              myClub.budget += bonus;
             }
           }
         }
@@ -2168,6 +2199,9 @@ export const useAppStore = create<AppState>()(
         const { clubs, myTeamId, sponsors } = get();
         const myTeam = clubs.find((c) => c.id === myTeamId);
         if (!myTeam) return;
+        // P2 FIX: Zaten aktif sponsor varsa veya teklifler varsa yeni üretme
+        if (sponsors.active?.some((s: any) => s.isActive)) return;
+        if (sponsors.offers && sponsors.offers.length > 0) return;
         const avgOvr = myTeam.players.reduce((s, p) => s + p.rating, 0) / myTeam.players.length;
         try {
           const { generateSponsorOffers } = require("@/lib/sponsorSystem");
