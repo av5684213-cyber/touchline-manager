@@ -324,7 +324,8 @@ export function TransferScreen() {
           {(transfer.loanListings ?? []).map((listing, idx) => {
             const p = listing.player;
             return (
-              <div key={`${p.id}-${idx}`} className="py-1.5 px-3 flex items-center gap-2.5">
+              <div key={`${p.id}-${idx}`} className="py-2 px-3">
+                <div className="flex items-center gap-2.5">
                 <button
                   onClick={() => setProfilePlayer(p)}
                   className="tm-tap shrink-0"
@@ -356,6 +357,14 @@ export function TransferScreen() {
                 </button>
                 <div className="flex flex-col items-end gap-1 shrink-0">
                   <RatingBadge value={p.rating} />
+                </div>
+                </div>
+                {/* P2 FIX: Kiralık oyuncular için stat chip'ler */}
+                <div className="flex items-center gap-1 mt-1.5 ml-9 text-[9px]">
+                  <StatChip label="Hız" value={safeStat(p, "pace")} />
+                  <StatChip label="Pas" value={safeStat(p, "passing")} />
+                  <StatChip label="Şut" value={safeStat(p, "shooting")} />
+                  <StatChip label="Def" value={safeStat(p, "defending")} />
                 </div>
                 <button
                   onClick={() => {
@@ -446,7 +455,7 @@ export function TransferScreen() {
             const player = team.players.find((p) => p.id === listed.playerId);
             if (!player) return null;
             return (
-              <div key={listed.playerId} className="tm-card py-2.5 px-3">
+              <div key={listed.playerId} className="tm-card py-2 px-3">
                 <div className="flex items-center gap-3">
                   <PlayerAvatar
                     initials={player.specificPosition ?? "—"}
@@ -473,6 +482,13 @@ export function TransferScreen() {
                   >
                     {t("transfer.mylisted.unlist")}
                   </button>
+                </div>
+                {/* P2 FIX: My listed için stat chip'ler */}
+                <div className="flex items-center gap-1 mt-1.5 ml-9 text-[9px]">
+                  <StatChip label="Hız" value={safeStat(player, "pace")} />
+                  <StatChip label="Pas" value={safeStat(player, "passing")} />
+                  <StatChip label="Şut" value={safeStat(player, "shooting")} />
+                  <StatChip label="Def" value={safeStat(player, "defending")} />
                 </div>
               </div>
             );
