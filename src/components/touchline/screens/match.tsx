@@ -522,7 +522,7 @@ function ScheduleWidget({
       <div className="text-center">
         <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold mb-2">
           <Trophy size={11} />
-          HAFTA {seasonMatchday} / {totalMatchdays}
+          TUR {seasonMatchday} / {totalMatchdays}
         </div>
         <div className="text-[11px] text-muted-foreground mt-0.5">
           Sıradaki maçın
@@ -561,10 +561,10 @@ function ScheduleWidget({
         className="tm-tap w-full py-2.5 rounded-lg bg-muted text-foreground text-xs font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform border border-border"
       >
         <FastForward size={14} />
-        HAFTAYI İLERLET
+        TURU İLERLET
       </button>
       <div className="text-[8px] text-muted-foreground text-center -mt-1">
-        Maçını oynamadan haftayı ilerletirsen, sonucu otomatik simüle edilir
+        Maçını oynamadan turu ilerletirsen, sonucu otomatik simüle edilir
       </div>
     </div>
   );

@@ -1820,18 +1820,47 @@ export const useAppStore = create<AppState>()(
         }
         SEASON_INFO.matchday = nextMd;
 
-        // BUG-004 FIX: Otomatik antrenman — kullanıcı manuel tıklamak zorunda kalmasın
-        // Her hafta hafif bir antrenman seansı çalıştır (multiplier=0.7, daha az kondisyon düşüşü)
+        // P0 FIX: Otomatik antrenman — kullanıcı atama yapmasa bile varsayılan gelişim
         try {
           const trainingState = get().training;
           const facilitiesState = get().facilities;
-          if (myTeam && trainingState.assignments.length > 0) {
-            const facilityLevel = facilitiesState.levels.pitch;
-            const results = runTrainingSession(myTeam.players, trainingState, facilityLevel, 0.7);
-            const updatedPlayers = applyResultsToSquad(myTeam.players, results);
-            const teamIdx = updatedClubs.findIndex((c) => c.id === myTeamId);
-            if (teamIdx >= 0) {
-              updatedClubs[teamIdx] = { ...updatedClubs[teamIdx], players: updatedPlayers };
+          if (myTeam) {
+            // Atama yoksa varsayılan "genel" antrenman uygula
+            if (trainingState.assignments.length === 0) {
+              // Basit gelişim — her oyuncuya küçük random boost
+              const myClub = updatedClubs.find(c => c.id === myTeamId);
+              if (myClub) {
+                const updatedPlayers = myClub.players.map(p => {
+                  // 21 altı %15 bonus, 30 üstü %25 ceza
+                  const ageMult = p.age < 21 ? 1.15 : p.age > 30 ? 0.75 : 1.0;
+                  const gain = Math.random() * 0.3 * ageMult;
+                  const newStats = { ...p.stats };
+                  // Rastgele 2 stat artır
+                  const statKeys = ["pace", "shooting", "passing", "defending", "physical", "dribbling"] as const;
+                  const idx1 = Math.floor(Math.random() * 6);
+                  const idx2 = (idx1 + 1 + Math.floor(Math.random() * 5)) % 6;
+                  newStats[statKeys[idx1]] = Math.min(99, Math.round((newStats[statKeys[idx1]] + gain) * 10) / 10);
+                  newStats[statKeys[idx2]] = Math.min(99, Math.round((newStats[statKeys[idx2]] + gain * 0.5) * 10) / 10);
+                  return {
+                    ...p,
+                    stats: newStats,
+                    [statKeys[idx1]]: Math.min(99, (p[statKeys[idx1]] ?? 50) + gain),
+                    [statKeys[idx2]]: Math.min(99, (p[statKeys[idx2]] ?? 50) + gain * 0.5),
+                  } as any;
+                });
+                const teamIdx = updatedClubs.findIndex(c => c.id === myTeamId);
+                if (teamIdx >= 0) {
+                  updatedClubs[teamIdx] = { ...updatedClubs[teamIdx], players: updatedPlayers };
+                }
+              }
+            } else {
+              const facilityLevel = facilitiesState.levels.pitch;
+              const results = runTrainingSession(myTeam.players, trainingState, facilityLevel, 0.7);
+              const updatedPlayers = applyResultsToSquad(myTeam.players, results);
+              const teamIdx = updatedClubs.findIndex(c => c.id === myTeamId);
+              if (teamIdx >= 0) {
+                updatedClubs[teamIdx] = { ...updatedClubs[teamIdx], players: updatedPlayers };
+              }
             }
           }
         } catch (e) {

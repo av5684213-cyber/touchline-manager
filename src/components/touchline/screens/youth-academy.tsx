@@ -129,7 +129,7 @@ export function YouthAcademyScreen() {
                   </span>
                 </div>
               </button>
-              <RatingBadge value={p.formRating} />
+              <RatingBadge value={p.rating} />
               <button
                 onClick={() => handlePromote(p)}
                 className="tm-tap px-2 py-1.5 rounded text-[10px] font-bold bg-emerald-600 text-white flex items-center gap-1"

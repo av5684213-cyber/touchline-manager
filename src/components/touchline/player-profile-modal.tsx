@@ -364,9 +364,9 @@ function OverviewTab({
 
       {/* Stats — 3 sütun kompakt */}
       <div className="grid grid-cols-3 gap-2">
-        <StatColumn title="Teknik" stats={technical} />
-        <StatColumn title="Zihinsel" stats={mental} />
-        <StatColumn title="Fiziksel" stats={physical} />
+        <StatColumn title="Teknik" stats={technical} playerId={player.id} statKeys={["goalkeeping","goalkeeping","goalkeeping","heading","positioning","passing","goalkeeping","leadership","concentration","agility","finishing","dribbling","firstTouch","heading","marking","crossing","passing","technique","tackling","longShots"]} />
+        <StatColumn title="Zihinsel" stats={mental} playerId={player.id} statKeys={["aggression","bravery","workRate","decisions","determination","concentration","leadership","anticipation","flair","positioning","composure","teamwork","vision"]} />
+        <StatColumn title="Fiziksel" stats={physical} playerId={player.id} statKeys={["agility","stamina","balance","strength","speed","acceleration","jumping","leftFoot","rightFoot"]} />
       </div>
 
       {/* Match stats */}
@@ -1085,18 +1085,22 @@ function SeasonCell({ label, value, color }: { label: string; value: number; col
 function StatColumn({
   title,
   stats,
+  playerId,
+  statKeys,
 }: {
   title: string;
   stats: { label: string; value: number | undefined }[];
+  playerId: string;
+  statKeys: string[];
 }) {
   return (
     <div>
       <div className="text-[9px] text-muted-foreground uppercase tracking-wide mb-1 font-bold">{title}</div>
       <div className="space-y-0.5">
-        {stats.map((s) => (
+        {stats.map((s, i) => (
           <div key={s.label} className="flex justify-between items-center text-[9px]">
             <span className="text-muted-foreground truncate flex-1 mr-1">{s.label}</span>
-            <StatValue value={s.value} />
+            <StatValue value={s.value} playerId={playerId} statKey={statKeys[i]} />
           </div>
         ))}
       </div>
@@ -1104,7 +1108,7 @@ function StatColumn({
   );
 }
 
-function StatValue({ value }: { value: number | undefined }) {
+function StatValue({ value, playerId, statKey }: { value: number | undefined; playerId?: string; statKey?: string }) {
   if (value === undefined) return <span className="text-muted-foreground/50">—</span>;
   const cls =
     value >= 80 ? "text-emerald-400"
@@ -1112,7 +1116,33 @@ function StatValue({ value }: { value: number | undefined }) {
     : value >= 50 ? "text-amber-300"
     : value >= 35 ? "text-orange-400"
     : "text-red-400";
-  return <span className={cn("font-bold tabular-nums", cls)}>{value}</span>;
+
+  // P2: Gelişim rozeti — sezon başına göre
+  let growth: number | null = null;
+  if (playerId && statKey) {
+    try {
+      const store = require("@/lib/store").useAppStore.getState();
+      const startStats = store.seasonStartStats?.[playerId];
+      if (startStats) {
+        const startValue = startStats[statKey];
+        if (startValue !== undefined) {
+          const diff = Math.round((value - startValue) * 10) / 10;
+          if (diff > 0) growth = diff;
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  return (
+    <span className="flex items-center gap-0.5">
+      <span className={cn("font-bold tabular-nums", cls)}>{value}</span>
+      {growth !== null && (
+        <span className="text-[7px] font-bold text-emerald-400 leading-none">
+          +{growth}
+        </span>
+      )}
+    </span>
+  );
 }
 
 function MiniBar({ label, value, color }: { label: string; value: number; color: string }) {
@@ -1928,6 +1958,42 @@ const ARKETIP_DESCRIPTIONS: Record<string, {
     weaknesses: ["Bitiricilik"],
     bestPos: "İkinci Forvet",
     playStyle: "Possession / Tiki-Taka",
+  },
+  // P2 FIX: Eksik arketip açıklamaları eklendi
+  "İlk Yarı Oyuncusu": {
+    desc: "Maçın ilk yarısında performansı zirvede olan oyuncu. İlk 45 dakikada gol ve asist üretir, ikinci yarıda etkisi azalır.",
+    strengths: ["İlk yarı performansı", "Hızlı başlangıç", "Erken gol"],
+    weaknesses: ["İkinci yarı", "Dayanıklılık"],
+    bestPos: "Orta Saha / Forvet",
+    playStyle: "Hızlı başlayan takımlar",
+  },
+  "Büyük Maç Oyuncusu": {
+    desc: "Derbi, kupa finali ve büyük maçlarda performansını artıran oyuncu. Baskı altında en iyisini verir.",
+    strengths: ["Baskı altında performans", "Büyük maç", "Konsantrasyon"],
+    weaknesses: ["Sıradan maçlar"],
+    bestPos: "Tüm pozisyonlar",
+    playStyle: "Derbi ve kupa maçları için",
+  },
+  "Kapanma Ustası": {
+    desc: "Maçın son dakikalarında galibiyet golünü atan veya beraberliği kurtaran oyuncu. Kritik anlarda soğukkanlıdır.",
+    strengths: ["Kapanma", "Kritik anlar", "Soğukkanlılık"],
+    weaknesses: ["İlk yarı"],
+    bestPos: "Forvet",
+    playStyle: "Kontrollü takımlar",
+  },
+  "1v1 Ustası": {
+    desc: "Birebir mücadelede üstün olan, rakibini çalım atarak geçen oyuncu. Dar alanda fark yaratır.",
+    strengths: ["Birebir", "Çalım", "Dar alan"],
+    weaknesses: ["Pas oyunu"],
+    bestPos: "Kanat / Forvet",
+    playStyle: "Hızlı hücum",
+  },
+  "Sessiz Suikastçı": {
+    desc: "Maç boyunca görünmez ama bir anda golü atan oyuncu. Az dokunuşla çok şey yapar.",
+    strengths: ["Bitiricilik", "Pozisyon alma", "Az dokunuş"],
+    weaknesses: ["Defansif katkı"],
+    bestPos: "Forvet",
+    playStyle: "Kontra atak",
   },
 };
 

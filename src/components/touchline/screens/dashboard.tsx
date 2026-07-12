@@ -442,7 +442,7 @@ export function DashboardScreen() {
           }}
           className="tm-tap w-full py-3 rounded-lg bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center gap-2"
         >
-          <ChevronRight size={16} /> Haftayı İlerlet
+          <ChevronRight size={16} /> Turu İlerlet
         </button>
       )}
 
