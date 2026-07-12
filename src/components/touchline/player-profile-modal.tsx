@@ -1110,14 +1110,16 @@ function StatColumn({
 
 function StatValue({ value, playerId, statKey }: { value: number | undefined; playerId?: string; statKey?: string }) {
   if (value === undefined) return <span className="text-muted-foreground/50">—</span>;
+  // P0 FIX: Stat değerleri tam sayı göster
+  const displayValue = Math.round(value);
   const cls =
-    value >= 80 ? "text-emerald-400"
-    : value >= 65 ? "text-emerald-300"
-    : value >= 50 ? "text-amber-300"
-    : value >= 35 ? "text-orange-400"
+    displayValue >= 80 ? "text-emerald-400"
+    : displayValue >= 65 ? "text-emerald-300"
+    : displayValue >= 50 ? "text-amber-300"
+    : displayValue >= 35 ? "text-orange-400"
     : "text-red-400";
 
-  // P2: Gelişim rozeti — sezon başına göre
+  // P2: Gelişim rozeti — sezon başına göre, tam sayı
   let growth: number | null = null;
   if (playerId && statKey) {
     try {
@@ -1126,7 +1128,7 @@ function StatValue({ value, playerId, statKey }: { value: number | undefined; pl
       if (startStats) {
         const startValue = startStats[statKey];
         if (startValue !== undefined) {
-          const diff = Math.round((value - startValue) * 10) / 10;
+          const diff = Math.round(value - startValue);
           if (diff > 0) growth = diff;
         }
       }
@@ -1135,12 +1137,12 @@ function StatValue({ value, playerId, statKey }: { value: number | undefined; pl
 
   return (
     <span className="flex items-center gap-0.5">
-      <span className={cn("font-bold tabular-nums", cls)}>{value}</span>
       {growth !== null && (
         <span className="text-[7px] font-bold text-emerald-400 leading-none">
           +{growth}
         </span>
       )}
+      <span className={cn("font-bold tabular-nums", cls)}>{displayValue}</span>
     </span>
   );
 }
