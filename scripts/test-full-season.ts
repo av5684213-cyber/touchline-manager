@@ -17,7 +17,11 @@ function runFullSeasonTest() {
   console.log(`Takım: ${team0.name} (Lig: Tier ${team0.leagueTier})`);
   console.log(`Başlangıç bütçesi: €${team0.budget.toLocaleString()}`);
   console.log(`Kadro: ${team0.players.length} oyuncu`);
-  console.log(`Sezon: ${state0.seasonNumber}, Hafta: ${state0.seasonMatchday}\n`);
+  console.log(`Sezon: ${state0.seasonNumber}, Hafta: ${state0.seasonMatchday}`);
+  console.log(`SEASON_INFO: matchday=${SEASON_INFO.matchday}, totalMatchdays=${SEASON_INFO.totalMatchdays}`);
+  console.log(`Fikstür sayısı: ${state0.fixtures.length}`);
+  const mds = new Set(state0.fixtures.map(f => f.matchday));
+  console.log(`Matchday sayısı: ${mds.size}, max: ${Math.max(...mds)}\n`);
 
   // Sezon öncesi taktik ayarla
   useAppStore.getState().updateActiveTactic({ formation: "4-3-3", mentality: 4 });
@@ -27,8 +31,8 @@ function runFullSeasonTest() {
   let goalsFor = 0, goalsAgainst = 0;
   const matchResults: { md: number; opp: string; score: string; result: string }[] = [];
 
-  // 34 hafta oyna
-  for (let week = 1; week <= 34; week++) {
+  // 34 hafta oyna — ama sadece 1 sezon (14→34 = 20 hafta)
+  for (let week = SEASON_INFO.matchday; week <= SEASON_INFO.totalMatchdays; week++) {
     const beforeState = useAppStore.getState();
     const beforeStandings = computeStandings(beforeState.clubs, beforeState.fixtures);
     const beforeMyStat = beforeStandings.find(s => s.teamId === teamId);
@@ -41,7 +45,8 @@ function runFullSeasonTest() {
     );
 
     if (!userMatch) {
-      console.log(`Hafta ${week}: Kullanıcı maçı yok veya zaten oynanmış`);
+      console.log(`Hafta ${currentMd}: Kullanıcı maçı yok veya zaten oynanmış`);
+      if (currentMd >= SEASON_INFO.totalMatchdays) break;
       useAppStore.getState().advanceMatchday();
       continue;
     }
@@ -79,13 +84,16 @@ function runFullSeasonTest() {
         result,
       });
 
-      // İlk 5 ve son 5 haftayı detaylı logla
-      if (week <= 5 || week >= 30) {
-        const pointsDiff = (afterMyStat?.points ?? 0) - beforePoints;
-        console.log(`Hafta ${currentMd}: ${team0.name} ${myScore}-${oppScore} ${oppTeam?.name ?? "???"} [${result}] | Puan: ${beforePoints}→${afterMyStat?.points} (+${pointsDiff})`);
-      }
+      const pointsDiff = (afterMyStat?.points ?? 0) - beforePoints;
+      console.log(`Hafta ${currentMd}: ${team0.name} ${myScore}-${oppScore} ${oppTeam?.name ?? "???"} [${result}] | Puan: ${beforePoints}→${afterMyStat?.points} (+${pointsDiff})`);
     } else {
       console.log(`Hafta ${currentMd}: HATA — maç oynanmadı!`);
+    }
+
+    // Sezon bitti mi?
+    if (useAppStore.getState().seasonNumber > 1) {
+      console.log(">>> Sezon bitti! <<<\n");
+      break;
     }
   }
 
