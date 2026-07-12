@@ -264,6 +264,29 @@ export function TransferScreen() {
                         });
                         return;
                       }
+                      // P0 FIX: Kaleci limiti — max 3 kaleci
+                      if (p.specificPosition === "GK") {
+                        const gkCount = team.players.filter(pl => pl.specificPosition === "GK").length;
+                        if (gkCount >= 3) {
+                          useAppStore.setState({
+                            transfer: {
+                              ...state.transfer,
+                              messages: [
+                                {
+                                  id: `msg-${Date.now()}`,
+                                  kind: "transfer_rejected",
+                                  fromTeamName: "Serbest Oyuncu",
+                                  message: `3 kaleci zaten var. ${p.firstName} ${p.lastName} imzalanamadı.`,
+                                  at: Date.now(),
+                                  read: false,
+                                },
+                                ...state.transfer.messages,
+                              ],
+                            },
+                          });
+                          return;
+                        }
+                      }
                       const signingFee = (listing.wageDemand ?? 0) * 4; // 4 haftalık maaş = imza bonusu
                       if (signingFee > team.budget) {
                         // Bütçe yetersiz — bildirim

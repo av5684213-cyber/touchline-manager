@@ -1947,13 +1947,18 @@ export const useAppStore = create<AppState>()(
           console.warn("[advanceMatchday] auto-training failed:", e);
         }
 
-        // P2 FIX: Loan listings yenile — 0 ise yeni üret
-        if ((transfer.loanListings ?? []).length === 0) {
+        // P2 FIX: Loan listings yenile — 5'ten az ise yeni üret
+        if ((transfer.loanListings ?? []).length < 5) {
           try {
             const { generateLoanListings } = require("@/lib/mock/transfer");
-            const newLoans = generateLoanListings(clubs);
-            updatedTransfer.loanListings = newLoans;
-          } catch (e) { /* ignore */ }
+            const newLoans = generateLoanListings(clubs, 10);
+            if (newLoans && newLoans.length > 0) {
+              updatedTransfer.loanListings = newLoans;
+              console.log(`[advanceMatchday] Loan listings yenilendi: ${newLoans.length} oyuncu`);
+            }
+          } catch (e) {
+            console.warn("[advanceMatchday] loan listings yenileme hatası:", e);
+          }
         }
 
         // P1 FIX: Kupa turlarını ilerlet — her 5 turda bir kupa turu oyna
@@ -1985,8 +1990,13 @@ export const useAppStore = create<AppState>()(
         // P1 FIX: Kupa turlarını set()'ten SONRA oyna
         if (shouldPlayCup) {
           try {
-            get().playCupRound();
-          } catch (e) { /* ignore */ }
+            const cupResult = get().playCupRound();
+            if (cupResult.success) {
+              console.log(`[advanceMatchday] Kupa turu ${get().cup.currentRound - 1} oynandı`);
+            }
+          } catch (e) {
+            console.warn("[advanceMatchday] playCupRound hatası:", e);
+          }
         }
       },
 
@@ -2176,19 +2186,18 @@ export const useAppStore = create<AppState>()(
           seasonMatchday: 1,
           cup: {
             matches: newCupMatches,
-            currentRound: 2,
+            currentRound: 2, // Çeyrek final = round 2
             champion: undefined,
             eliminated: false,
           },
           // P1 FIX: Transfer state temizle — ghost oyuncu referansları kalmasın
+          // Loan listings'i temizleme — advanceMatchday'de yenileniyor
           transfer: {
             ...get().transfer,
             watchlist: [],
             myListedPlayers: [],
             incomingOffers: [],
-            loanListings: [],
             messages: [],
-            // freeAgents'ı koru ama stale olanları temizle
           },
           // P5: Yeni sezon başı stats'larını kaydet
           seasonStartStats: (() => {
