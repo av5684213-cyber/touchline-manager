@@ -21,7 +21,7 @@ function runFullGameTest() {
   const seasonResults: any[] = [];
 
   // 5 sezon oyna
-  for (let season = 1; season <= 5; season++) {
+  for (let season = 1; season <= 10; season++) {
     console.log(`\n=== SEZON ${season} ===`);
 
     // Taktik değiştir (her sezon farklı)

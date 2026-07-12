@@ -1781,9 +1781,10 @@ export const useAppStore = create<AppState>()(
             }
           }
 
-          // P1 FIX: %10 ihtimalle oyuncu sat (önce %15 idi, çok şişiyordu)
+          // P1 FIX: %5 ihtimalle oyuncu sat (önce %10 idi, hala şişiyordu)
+          // SADECE free agents 50'den az ise sat — şişmeyi önle
           const currentBot2 = updatedClubs.find((c) => c.id === bot.id)!;
-          if (Math.random() < 0.10 && currentBot2.players.length > 18) {
+          if (Math.random() < 0.05 && currentBot2.players.length > 20 && updatedTransfer.freeAgents.length < 50) {
             const weakest = [...currentBot2.players].sort((a, b) => a.rating - b.rating)[0];
             if (weakest) {
               const botIdx = updatedClubs.findIndex((c) => c.id === bot.id);
@@ -1819,7 +1820,8 @@ export const useAppStore = create<AppState>()(
           const totalIncome = ticketRev + sponsor + tv + merch;
           // Gider — P0 FIX: Futbolcu maaşları tamamen kaldırıldı, sadece personel + tesis
           const staffWages = facilitiesState.staff.reduce((s, st) => s + st.weeklyWage, 0);
-          const facilityCost = Object.values(facilitiesState.levels).reduce((s, l) => s + l * 5000, 0);
+          // P1 FIX: Tesis bakım maliyeti artır — bütçe birikmesini önle
+          const facilityCost = Object.values(facilitiesState.levels).reduce((s, l) => s + l * 20000, 0);
           const totalExpense = staffWages + facilityCost;
           const net = totalIncome - totalExpense;
           // P1 FIX: Bütçe negatife düşmesin (clamp 0)
@@ -1955,11 +1957,8 @@ export const useAppStore = create<AppState>()(
         }
 
         // P1 FIX: Kupa turlarını ilerlet — her 5 turda bir kupa turu oyna
-        if (currentMd % 5 === 0) {
-          try {
-            get().playCupRound();
-          } catch (e) { /* ignore */ }
-        }
+        // set()'ten SONRA çağır — yoksa set() tarafından ezilir
+        const shouldPlayCup = currentMd % 5 === 0;
 
         // P7 FIX: Stale incoming offers temizle — artık kadroda olmayan oyunculara teklifleri kaldır
         const myCurrentTeam = updatedClubs.find((c) => c.id === myTeamId);
@@ -1982,6 +1981,13 @@ export const useAppStore = create<AppState>()(
         // P0 KÖK NEDEN: Tek set() ile fixtures + clubs + news + seasonMatchday yazılır
         const finalNews = newNewsItems.length > 0 ? [...newNewsItems, ...news] : news;
         set({ fixtures: updatedFixtures, clubs: updatedClubs, transfer: updatedTransferFinal, news: finalNews, seasonMatchday: nextMd });
+
+        // P1 FIX: Kupa turlarını set()'ten SONRA oyna
+        if (shouldPlayCup) {
+          try {
+            get().playCupRound();
+          } catch (e) { /* ignore */ }
+        }
       },
 
       endSeason: () => {

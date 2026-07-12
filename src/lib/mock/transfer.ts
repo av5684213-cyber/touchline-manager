@@ -249,9 +249,12 @@ export function generateFreeAgents(count = 30): TransferListing[] {
 
 // ===== Gelen teklifler (kullanıcının oyuncularına botlardan) =====
 export function generateIncomingOffers(myPlayers: Player[]): IncomingOffer[] {
-  // FIX: rating + marketValue birlikte sırala — en kaliteli oyunculara teklif gelsin
+  // P1 FIX: rating eşiği düşürüldü — alt liglerde de teklif gelsin
+  const minRating = myPlayers.length > 0
+    ? Math.max(45, Math.floor(Math.max(...myPlayers.map(p => p.rating)) - 10))
+    : 60;
   const top = [...myPlayers]
-    .filter((p) => !p.is_injured && p.rating >= 60) // En az 60 OVR
+    .filter((p) => !p.is_injured && p.rating >= minRating)
     .sort((a, b) => (b.rating * 0.6 + b.marketValue * 0.000001) - (a.rating * 0.6 + a.marketValue * 0.000001))
     .slice(0, 8);
   const target = top.slice(0, rand(2, 4));
