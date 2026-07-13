@@ -368,6 +368,11 @@ export const FORMATION_MODS: Record<string, { attack: number; midfield: number; 
   '5-4-1':   { attack: 0.85, midfield: 1.0,  defense: 1.18 },
   '4-1-4-1': { attack: 0.95, midfield: 1.10, defense: 1.00 },
   '4-4-1-1': { attack: 1.04, midfield: 1.02, defense: 0.98 },
+  // P2 FIX: Eksik 4 formasyon eklendi — sessizce 4-4-2'ye düşmesini önle
+  '4-3-2-1': { attack: 0.98, midfield: 1.05, defense: 1.02 }, // Christmas tree
+  '4-3-1-2': { attack: 1.08, midfield: 1.05, defense: 0.95 }, // diamond
+  '3-1-4-2': { attack: 1.10, midfield: 1.10, defense: 0.85 }, // attack-minded
+  '3-3-3-1': { attack: 1.18, midfield: 1.00, defense: 0.82 }, // ultra attack
 };
 
 // ═══════════════════════════════════════════════════

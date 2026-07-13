@@ -218,6 +218,7 @@ type AppState = {
   // ADDED: Sponsor actions
   generateSponsorOffers: () => void;
   acceptSponsor: (sponsorId: string) => void;
+  rejectSponsor: (sponsorId: string) => void;  // P2 FIX: Reddetme action'ı eklendi
   getSponsorWeeklyIncome: () => number;
   // message actions
   markMessageRead: (msgId: string) => void;
@@ -346,9 +347,10 @@ function defaultTacticsFor(team: Team): Tactics {
   const lineup: (Player | null)[] = [];
 
   for (const slotPos of slots) {
+    // P0 FIX: Sakat oyuncuları ele (!p.is_injured eklendi)
     // Önce tam pozisyon eşleşmesi
     let candidate = team.players
-      .filter((p) => !used.has(p.id) && p.specificPosition === slotPos)
+      .filter((p) => !used.has(p.id) && !p.is_injured && p.specificPosition === slotPos)
       .sort((a, b) => b.rating - a.rating)[0];
 
     // Yoksa aynı gruptan al
@@ -361,15 +363,28 @@ function defaultTacticsFor(team: Team): Tactics {
         : group === "MID" ? ["CDM", "CM", "CAM", "LM", "RM"]
         : ["LW", "RW", "ST", "CF"];
       candidate = team.players
-        .filter((p) => !used.has(p.id) && groupPositions.includes(p.specificPosition))
+        .filter((p) => !used.has(p.id) && !p.is_injured && groupPositions.includes(p.specificPosition))
         .sort((a, b) => b.rating - a.rating)[0];
     }
 
-    // Hala yoksa en yüksek OVR'li boş oyuncu
+    // Hala yoksa en yüksek OVR'li boş oyuncu (sakat olmayan)
     if (!candidate) {
       candidate = team.players
-        .filter((p) => !used.has(p.id))
+        .filter((p) => !used.has(p.id) && !p.is_injured)
         .sort((a, b) => b.rating - a.rating)[0];
+    }
+
+    // Son çare: sakat bile olsa birini koy (kaleci hariç saha slotu için kaleci koyma)
+    if (!candidate) {
+      if (slotPos === "GK") {
+        candidate = team.players
+          .filter((p) => !used.has(p.id) && p.specificPosition === "GK")
+          .sort((a, b) => b.rating - a.rating)[0] ?? null;
+      } else {
+        candidate = team.players
+          .filter((p) => !used.has(p.id) && p.specificPosition !== "GK")
+          .sort((a, b) => b.rating - a.rating)[0] ?? null;
+      }
     }
 
     if (candidate) used.add(candidate.id);
@@ -1029,6 +1044,11 @@ export const useAppStore = create<AppState>()(
         const myTeam = clubs.find((c) => c.id === myTeamId);
         if (!myTeam) return { success: false, reason: "no-team" };
 
+        // P1 FIX: Kadro limiti kontrolü (25 oyuncu)
+        if (myTeam.players.length >= 25) {
+          return { success: false, reason: "squad-full" };
+        }
+
         // Kira maliyeti = loanFee (toplam)
         if (myTeam.budget < loanFee) {
           return { success: false, reason: "budget" };
@@ -1060,9 +1080,16 @@ export const useAppStore = create<AppState>()(
           // Kabul edildi — oyuncuyu kiralık ver
           myTeam.budget -= loanFee;
           sellerTeam.budget += loanFee;
-          // Oyuncu geçici olarak kadroya ekle (kiralık)
-          myTeam.players = [...myTeam.players, { ...player, is_free_agent: false, _loaned: true, _loanWeeks: weeks }];
-          // Satıcıda kalsın ama oynayamaz (basitleştirilmiş: satıcıdan çıkarmıyoruz, sadece kopyalıyoruz)
+          // P0 FIX: Oyuncuyu satıcıdan ÇIKAR (kiralık olduğu için artık oynayamaz)
+          // Yeni takımına ekle, _loaned flag'i ile
+          sellerTeam.players = sellerTeam.players.filter(p => p.id !== playerId);
+          myTeam.players = [...myTeam.players, {
+            ...player,
+            is_free_agent: false,
+            _loaned: true,
+            _loanWeeks: weeks,
+            _loanFrom: sellerTeam.id, // İade için kaynak takım
+          }];
 
           const newNews: NewsItem = {
             id: `news_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -1112,10 +1139,21 @@ export const useAppStore = create<AppState>()(
         const tax = Math.round(offer.offerAmount * 0.025);
         const net = offer.offerAmount - tax;
 
-        // P0 FIX: Alıcı bot takımını bul (buyerTeamId varsa), yoksa rastgele bot seç
-        const buyerTeam = offer.buyerTeamId
+        // P0 FIX: Alıcı bot takımını bul
+        // 1. buyerTeamId varsa ve gerçek kulüp ID'siyle eşleşiyorsa onu kullan
+        // 2. Eşleşmiyorsa (sahte ID) bütçesi yeterli rastgele bir bot seç
+        let buyerTeam = offer.buyerTeamId
           ? clubs.find((c) => c.id === offer.buyerTeamId)
-          : clubs.find((c) => c.id !== myTeamId && c.is_bot && c.budget >= offer.offerAmount);
+          : null;
+        if (!buyerTeam) {
+          // Sahte buyerTeamId veya buyerTeamId yok — bütçesi yeterli rastgele bot seç
+          const candidates = clubs.filter((c) =>
+            c.id !== myTeamId && c.is_bot && c.budget >= offer.offerAmount
+          );
+          if (candidates.length > 0) {
+            buyerTeam = candidates[Math.floor(Math.random() * candidates.length)];
+          }
+        }
 
         const updatedPlayer = {
           ...player,
@@ -1448,9 +1486,18 @@ export const useAppStore = create<AppState>()(
         // Enhanced motor: taktikler, formasyon, sakat filtreleme, kondisyon etkisi
 
         // Basit simülasyon — bot vs bot maçları için (önce tanımla, simulateUserCupMatch fallback olarak kullanır)
+        // P2 FIX: rating sıralaması + sakat filtresi eklendi (advanceMatchday ile tutarlı)
         const simpleCupSim = (home: any, away: any): { hs: number; as: number } => {
-          const homeStr = home.players.slice(0, 11).reduce((s: number, p: any) => s + p.rating, 0) / 11;
-          const awayStr = away.players.slice(0, 11).reduce((s: number, p: any) => s + p.rating, 0) / 11;
+          const homeXI = [...home.players]
+            .filter((p: any) => !p.is_injured)
+            .sort((a: any, b: any) => b.rating - a.rating)
+            .slice(0, 11);
+          const awayXI = [...away.players]
+            .filter((p: any) => !p.is_injured)
+            .sort((a: any, b: any) => b.rating - a.rating)
+            .slice(0, 11);
+          const homeStr = homeXI.reduce((s: number, p: any) => s + p.rating, 0) / Math.max(1, homeXI.length);
+          const awayStr = awayXI.reduce((s: number, p: any) => s + p.rating, 0) / Math.max(1, awayXI.length);
           const diff = homeStr - awayStr;
           const homeAdv = diff > 5 ? 0.3 : diff < -5 ? -0.3 : 0;
           let hs = Math.max(0, Math.floor(Math.random() * 4 + homeAdv * 2));
@@ -1798,6 +1845,35 @@ export const useAppStore = create<AppState>()(
 
         for (const f of updatedFixtures) {
           if (f.matchday !== currentMd || !f.played) continue;
+          // P0 FIX: Çift gol sayımını önle
+          // — Canlı maçta applyPostMatchEffects gol/assist dağıtır (use-match-engine.ts)
+          // — Turu İlerlet'te advanceMatchday gol/assist dağıtmalı (canlı motor çağrılmaz)
+          // — Ayırt etme: canlı maçta recordMatchResult çağrılır, fixture.played=true olur
+          //   Sonra advanceMatchday çağrıldığında userMatch bulunamaz (played=true) → userMatchResult=null
+          //   Turu İlerlet'te userMatch bulunur → userMatchResult set edilir
+          // Dolayısıyla: userMatchResult varsa = Turu İlerlet yolu, gol dağıtımı YAPILMALI
+          // userMatchResult null ise = canlı maçtan gelmiş, applyPostMatchEffects zaten yaptı
+          const isUserMatch = f.homeId === myTeamId || f.awayId === myTeamId;
+          // Maç bonusu her zaman ver (kullanıcının maçıysa)
+          if (isUserMatch) {
+            const isUserHome = f.homeId === myTeamId;
+            const myScore = isUserHome ? (f.homeScore ?? 0) : (f.awayScore ?? 0);
+            const oppScore = isUserHome ? (f.awayScore ?? 0) : (f.homeScore ?? 0);
+            let bonus = 0;
+            if (myScore > oppScore) bonus = 200_000;      // Galibiyet (800K → 200K)
+            else if (myScore === oppScore) bonus = 100_000; // Beraberlik (400K → 100K)
+            else bonus = 50_000;                            // Yenilgi (300K → 50K)
+            const myClub = clubs.find(c => c.id === myTeamId);
+            if (myClub) {
+              myClub.budget += bonus;
+            }
+          }
+          // P0 FIX: userMatchResult null ise = canlı maçtan gelmiş, applyPostMatchEffects gol dağıttı
+          // userMatchResult varsa = Turu İlerlet yolu, gol dağıtımı BURADA yapılmalı
+          if (isUserMatch && !userMatchResult) {
+            // Canlı maçtan gelmiş — gol/assist zaten dağıtıldı, atla
+            continue;
+          }
           // P0 FIX: updatedClubs henüz tanımlı değil ama myClub yukarıda güncellendi
           // Kullanıcının takımı için myClub kullan, botlar için clubs kullan
           const isHomeUser = f.homeId === myTeamId;
@@ -1840,22 +1916,6 @@ export const useAppStore = create<AppState>()(
           }
           for (const p of awayXI) {
             p.appearances = (p.appearances ?? 0) + 1;
-          }
-
-          // P0 FIX: Maç sonu para ödülü — kazanan 800K, beraberlik 400K, yenilgi 300K
-          const isUserHome = f.homeId === myTeamId;
-          const isUserAway = f.awayId === myTeamId;
-          if (isUserHome || isUserAway) {
-            const myScore = isUserHome ? (f.homeScore ?? 0) : (f.awayScore ?? 0);
-            const oppScore = isUserHome ? (f.awayScore ?? 0) : (f.homeScore ?? 0);
-            let bonus = 0;
-            if (myScore > oppScore) bonus = 800_000;
-            else if (myScore === oppScore) bonus = 400_000;
-            else bonus = 300_000;
-            const myClub = clubs.find(c => c.id === myTeamId);
-            if (myClub) {
-              myClub.budget += bonus;
-            }
           }
         }
 
@@ -1930,12 +1990,17 @@ export const useAppStore = create<AppState>()(
         const myTeam = updatedClubs.find((c) => c.id === myTeamId);
         if (myTeam) {
           const facilitiesState = get().facilities;
+          // P0 FIX: Sponsor sistemini gerçekten uygula — getSponsorWeeklyIncome çağrılsın
+          const activeSponsorIncome = get().getSponsorWeeklyIncome();
           // Gelir
           // P1 FIX: Gelirleri düşür — bütçe kontrolden çıkmıştı
           const stadiumCap = 5000 + facilitiesState.levels.stadium * 5000;
           const stadiumMult = 1 + facilitiesState.levels.stadium * 0.05;
-          const ticketRev = Math.round(stadiumCap * 0.4 * facilitiesState.ticketPrice * stadiumMult);
-          const sponsor = 50_000 + facilitiesState.levels.stadium * 10_000;
+          // P1 FIX: Doluluk oranı — bilet fiyatına göre azalsın (yüksek fiyat → düşük doluluk)
+          // 60€ = %60 doluluk, 100€ = %40, 150€ = %20
+          const fillRate = Math.max(0.2, Math.min(0.8, 1 - (facilitiesState.ticketPrice / 250)));
+          const ticketRev = Math.round(stadiumCap * fillRate * facilitiesState.ticketPrice * stadiumMult);
+          const sponsor = 50_000 + facilitiesState.levels.stadium * 10_000 + activeSponsorIncome;
           const tv = 50_000;
           const merch = Math.round(stadiumCap * 0.2 * 1);
           const totalIncome = ticketRev + sponsor + tv + merch;
@@ -1947,6 +2012,46 @@ export const useAppStore = create<AppState>()(
           const net = totalIncome - totalExpense;
           // P1 FIX: Bütçe negatife düşmesin (clamp 0)
           myTeam.budget = Math.max(0, myTeam.budget + net);
+
+          // P0 FIX: Kiralık oyuncuların _loanWeeks değerini azalt — 0 olunca kaynak takıma iade et
+          const playersAfterLoan: Player[] = [];
+          const allClubsForLoanReturn = [...clubs];
+          for (const p of myTeam.players) {
+            if ((p as any)._loaned && (p as any)._loanWeeks !== undefined) {
+              const newWeeks = (p as any)._loanWeeks - 1;
+              if (newWeeks <= 0) {
+                // Kiralık süresi doldu — kaynak takıma iade et
+                const loanFromId = (p as any)._loanFrom;
+                const sellerClub = allClubsForLoanReturn.find(c => c.id === loanFromId);
+                if (sellerClub) {
+                  const { _loaned, _loanWeeks, _loanFrom, ...playerWithoutFlags } = p as any;
+                  sellerClub.players.push(playerWithoutFlags as Player);
+                  console.log(`[advanceMatchday] Kiralık oyuncu iade edildi: ${p.firstName} ${p.lastName} → ${sellerClub.name}`);
+                }
+                // myTeam.players'a ekleme (kaldır)
+                continue;
+              } else {
+                playersAfterLoan.push({ ...p, _loanWeeks: newWeeks } as Player);
+                continue;
+              }
+            }
+            playersAfterLoan.push(p);
+          }
+          myTeam.players = playersAfterLoan;
+          // clubs array'ini güncellenmiş haliyle kullan (loan return için)
+          clubs.splice(0, clubs.length, ...allClubsForLoanReturn);
+
+          // P0 FIX: Sponsor endDate kontrolü — süresi dolan sponsorları kaldır
+          const now = Date.now();
+          const activeSponsors = get().sponsors.active.filter((s: any) => {
+            if (!s.endDate) return true; // endDate yoksa sonsuz
+            return s.endDate > now;
+          });
+          if (activeSponsors.length !== get().sponsors.active.length) {
+            useAppStore.setState({
+              sponsors: { ...get().sponsors, active: activeSponsors },
+            });
+          }
 
           // Oyuncu güncellemesi — kondisyon toparlanma + sakatlık iyileşme + moral
           myTeam.players = myTeam.players.map((p) => {
@@ -2163,10 +2268,14 @@ export const useAppStore = create<AppState>()(
           });
 
           // Regen üret — emekli edilen oyuncu sayısı kadar yeni genç oyuncu
-          const retireCount = c.players.length - remainingPlayers.length;
+          // P2 FIX: Pozisyonu emekli EDİLEN oyuncudan al (rastgele tüm oyunculardan değil)
+          // Bu sayede kaleci emekli olunca kaleci regen üretilir — kadro dengesi korunur
+          const retiredPlayers = c.players.filter(p => p.age >= 40);
+          const retireCount = retiredPlayers.length;
           const regens: Player[] = [];
           for (let i = 0; i < retireCount; i++) {
-            const pos = c.players[Math.floor(Math.random() * c.players.length)].specificPosition;
+            const pos = retiredPlayers[i]?.specificPosition
+              ?? c.players[Math.floor(Math.random() * c.players.length)].specificPosition;
             const regen = generatePlayer(pos, { min: 55, max: 70 });
             regen.age = 17; // Yeni regen
             (regen as any)._isRegen = true;
@@ -2307,12 +2416,43 @@ export const useAppStore = create<AppState>()(
             eliminated: false,
           },
           // P1 FIX: Transfer state temizle — ghost oyuncu referansları kalmasın
-          // Loan listings ve incomingOffers'i temizleme — advanceMatchday'de yenileniyor
-          transfer: {
-            ...get().transfer,
-            watchlist: [],
-            myListedPlayers: [],
-            messages: [],
+          // P0 FIX: Yeni sezonda serbest oyuncuları yaşlandır + 40+ oyuncuları kaldır
+          // P0 FIX: Yeni sezonda sponsor state'i sıfırla
+          transfer: (() => {
+            try {
+              const { generateFreeAgents, generateFreeAgentListings, generateLoanListings } = require("@/lib/mock/transfer");
+              const agedFreeAgents = (get().transfer.freeAgents || []).map((l: any) => ({
+                ...l,
+                player: { ...l.player, age: l.player.age + 1 },
+              })).filter((l: any) => l.player.age < 40);
+              const agedListings = (get().transfer.freeAgentListings || []).map((l: any) => ({
+                ...l,
+                player: { ...l.player, age: l.player.age + 1 },
+              })).filter((l: any) => l.player.age < 40);
+              return {
+                freeAgents: agedFreeAgents.length > 0 ? agedFreeAgents : generateFreeAgents(30),
+                freeAgentListings: agedListings.length > 0 ? agedListings : generateFreeAgentListings(15),
+                loanListings: generateLoanListings(updatedClubs, 10),
+                watchlist: [],
+                myListedPlayers: [],
+                incomingOffers: [], // P0 FIX: eski sezon tekliflerini temizle
+                messages: [],
+              };
+            } catch (e) {
+              console.warn("[endSeason] transfer reset hatası:", e);
+              return {
+                ...get().transfer,
+                watchlist: [],
+                myListedPlayers: [],
+                incomingOffers: [],
+                messages: [],
+              };
+            }
+          })(),
+          // P0 FIX: Sponsor state'i sıfırla — yeni sezonda yeni teklifler üretilecek
+          sponsors: {
+            active: [], // Eski sezon sponsorları biter
+            offers: [],
           },
           // P5: Yeni sezon başı stats'larını kaydet
           seasonStartStats: (() => {
@@ -2400,6 +2540,33 @@ export const useAppStore = create<AppState>()(
         } catch (e) {
           console.warn("[endSeason] achievement/news failed:", e);
         }
+
+        // P0 FIX: Yeni sezon başı incoming offers üret — kullanıcı yeni sezona boş transfer teklifleriyle başlamasın
+        try {
+          const { generateIncomingOffers } = require("@/lib/mock/transfer");
+          const myNewTeam = get().clubs.find(c => c.id === myTeamId);
+          if (myNewTeam) {
+            const newOffers = generateIncomingOffers(myNewTeam.players);
+            if (newOffers && newOffers.length > 0) {
+              set({
+                transfer: { ...get().transfer, incomingOffers: newOffers },
+              });
+            }
+          }
+        } catch (e) {
+          console.warn("[endSeason] incoming offers üretme hatası:", e);
+        }
+
+        // P0 FIX: Yeni sezon başı sponsor teklifleri üret
+        try {
+          const myNewTeam2 = get().clubs.find(c => c.id === myTeamId);
+          if (myNewTeam2) {
+            const { generateSponsorOffers: genOffers } = require("@/lib/sponsorSystem");
+            const avgOvr = myNewTeam2.players.reduce((s, p) => s + p.rating, 0) / myNewTeam2.players.length;
+            const offers = genOffers(myNewTeam2.leagueTier ?? 2, avgOvr);
+            set({ sponsors: { active: [], offers } });
+          }
+        } catch (e) { /* sponsorSystem yoksa ignore */ }
 
         return { success: true, summary };
       },
@@ -2514,6 +2681,17 @@ export const useAppStore = create<AppState>()(
         } catch {
           return 0;
         }
+      },
+
+      // P2 FIX: Sponsor teklifini reddet — offers listesinden kaldır
+      rejectSponsor: (sponsorId) => {
+        const { sponsors } = get();
+        set({
+          sponsors: {
+            ...sponsors,
+            offers: sponsors.offers.filter((s) => s.id !== sponsorId),
+          },
+        });
       },
 
       // ===== Message actions =====

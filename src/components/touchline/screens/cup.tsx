@@ -16,12 +16,15 @@ const ROUND_LABELS: Record<number, string> = {
   4: "cup.round.final",
 };
 
+// P1 FIX: store.ts ile senkronize — tek kaynak
+// Round 2 (Çeyrek): 50K, Round 3 (Yarı): 150K, Round 4 (Final): 400K
+// Şampiyon: ekstra 1M
 const ROUND_REWARD: Record<number, number> = {
-  1: 50_000,
-  2: 150_000,
-  3: 400_000,
-  4: 1_000_000,
+  2: 50_000,
+  3: 150_000,
+  4: 400_000,
 };
+const CHAMPION_REWARD = 1_000_000;
 
 export function CupScreen() {
   const { t } = useI18n();
@@ -95,7 +98,7 @@ export function CupScreen() {
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Şampiyon:</span>
-            <span className="text-amber-300 font-bold">+{formatEuro(ROUND_REWARD[4])}</span>
+            <span className="text-amber-300 font-bold">+{formatEuro(CHAMPION_REWARD)}</span>
           </div>
         </div>
       </div>
@@ -113,7 +116,7 @@ export function CupScreen() {
           <div className="text-2xl mb-1">🏆</div>
           <div className="text-sm font-bold text-amber-300">Şampiyon: {getTeam(cup.champion)?.name}</div>
           {cup.champion === team.id && (
-            <div className="text-[10px] text-emerald-400 mt-1">+{formatEuro(ROUND_REWARD[4])} ödül kazandınız!</div>
+            <div className="text-[10px] text-emerald-400 mt-1">+{formatEuro(CHAMPION_REWARD)} ödül kazandınız!</div>
           )}
         </div>
       )}
