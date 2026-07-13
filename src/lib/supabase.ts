@@ -4,32 +4,22 @@ import { createBrowserClient } from "@supabase/ssr";
 
 /**
  * Browser-side Supabase client.
- *
- * Kullanım:
- *   import { supabase } from "@/lib/supabase";
- *   const { data } = await supabase.from("profiles").select("*");
- *
- * Bu client anon key kullanır — RLS (Row Level Security) ile korunur.
- * Service role key ASLA burada kullanılmaz.
+ * SSR'de (static export) no-op stub döner.
  */
 
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-  console.warn("[supabase] NEXT_PUBLIC_SUPABASE_URL tanımlı değil");
-}
-if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-  console.warn("[supabase] NEXT_PUBLIC_SUPABASE_ANON_KEY tanımlı değil");
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const isConfigured = Boolean(url && anon && !url.includes("YOUR-"));
+
+// SSR'de stub — static export güvenliği
+if (typeof window !== "undefined" && !isConfigured) {
+  console.warn("[supabase] NEXT_PUBLIC_SUPABASE_URL veya ANON_KEY tanımlı değil");
 }
 
-export const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
-);
+export const supabase = isConfigured
+  ? createBrowserClient(url!, anon!)
+  : createBrowserClient("https://placeholder.supabase.co", "placeholder-anon-key");
 
-export const isSupabaseConfigured = (): boolean => {
-  return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
-};
+export const isSupabaseConfigured = (): boolean => isConfigured;
 
 export type { SupabaseClient } from "@supabase/supabase-js";

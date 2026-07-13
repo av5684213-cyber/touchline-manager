@@ -1969,16 +1969,23 @@ export const useAppStore = create<AppState>()(
         const myCurrentTeam = updatedClubs.find((c) => c.id === myTeamId);
         const currentPlayerIds = new Set(myCurrentTeam?.players.map((p) => p.id) ?? []);
         const validOffers = transfer.incomingOffers.filter((o) => currentPlayerIds.has(o.myPlayerId));
-        // P1 FIX: Her tur incoming offers yenile — 2'den azsa yeni üret
+        // P1 FIX: Her tur incoming offers yenile — 3'ten azsa yeni üret
         let finalOffers = validOffers;
         if (myCurrentTeam && validOffers.length < 3) {
           try {
             const { generateIncomingOffers } = require("@/lib/mock/transfer");
-            const freshOffers = generateIncomingOffers(myCurrentTeam.players);
-            const existingIds = new Set(validOffers.map((o) => o.id));
-            const newOffers = freshOffers.filter((o) => !existingIds.has(o.id));
-            finalOffers = [...validOffers, ...newOffers].slice(0, 5);
-          } catch (e) { /* ignore */ }
+            // P1 FIX: get().clubs'tan taze players al — updatedClubs'tan değil
+            const freshTeam = get().clubs.find(c => c.id === myTeamId);
+            const freshPlayers = freshTeam?.players ?? myCurrentTeam.players;
+            const freshOffers = generateIncomingOffers(freshPlayers);
+            if (freshOffers && freshOffers.length > 0) {
+              const existingIds = new Set(validOffers.map((o) => o.id));
+              const newOffers = freshOffers.filter((o) => !existingIds.has(o.id));
+              finalOffers = [...validOffers, ...newOffers].slice(0, 5);
+            }
+          } catch (e) {
+            console.warn("[advanceMatchday] generateIncomingOffers hatası:", e);
+          }
         }
         const updatedTransferFinal = { ...transfer, incomingOffers: finalOffers };
 
@@ -2191,12 +2198,11 @@ export const useAppStore = create<AppState>()(
             eliminated: false,
           },
           // P1 FIX: Transfer state temizle — ghost oyuncu referansları kalmasın
-          // Loan listings'i temizleme — advanceMatchday'de yenileniyor
+          // Loan listings ve incomingOffers'i temizleme — advanceMatchday'de yenileniyor
           transfer: {
             ...get().transfer,
             watchlist: [],
             myListedPlayers: [],
-            incomingOffers: [],
             messages: [],
           },
           // P5: Yeni sezon başı stats'larını kaydet

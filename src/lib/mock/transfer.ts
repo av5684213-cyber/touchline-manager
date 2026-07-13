@@ -250,14 +250,14 @@ export function generateFreeAgents(count = 30): TransferListing[] {
 // ===== Gelen teklifler (kullanıcının oyuncularına botlardan) =====
 export function generateIncomingOffers(myPlayers: Player[]): IncomingOffer[] {
   // P1 FIX: rating eşiği düşürüldü — alt liglerde de teklif gelsin
-  const minRating = myPlayers.length > 0
-    ? Math.max(45, Math.floor(Math.max(...myPlayers.map(p => p.rating)) - 10))
-    : 60;
+  const maxRating = myPlayers.length > 0 ? Math.max(...myPlayers.map(p => p.rating)) : 60;
+  const minRating = Math.max(40, Math.floor(maxRating - 15));
   const top = [...myPlayers]
     .filter((p) => !p.is_injured && p.rating >= minRating)
     .sort((a, b) => (b.rating * 0.6 + b.marketValue * 0.000001) - (a.rating * 0.6 + a.marketValue * 0.000001))
     .slice(0, 8);
   const target = top.slice(0, rand(2, 4));
+  console.log(`[generateIncomingOffers] players=${myPlayers.length} maxRating=${maxRating} minRating=${minRating} top=${top.length} target=${target.length}`);
 
   const buyerNames = [
     { name: "Boğazspor", short: "BGZ", color: "#134e4a" },
