@@ -412,21 +412,20 @@ export function TransferScreen() {
                 <button
                   onClick={() => {
                     haptic("success");
-                    // Kiralık al — kadroya ekle
-                    if (team) {
-                      const state = useAppStore.getState();
-                      const updatedClubs = state.clubs.map((c) =>
-                        c.id === team.id
-                          ? { ...c, players: [...c.players, { ...p, is_free_agent: false }] }
-                          : c
-                      );
-                      useAppStore.setState({
-                        clubs: updatedClubs,
-                        transfer: {
-                          ...state.transfer,
-                          loanListings: (state.transfer.loanListings ?? []).filter((_, i) => i !== idx),
-                        },
-                      });
+                    // P0 FIX: makeLoanOffer action'ını çağır — çift takım bug'ını önler
+                    // Oyuncu satıcıdan çıkartılır, _loaned/_loanWeeks/_loanFrom flag'leri set edilir
+                    // Kadro limiti (25), bütçe kontrolü, kaleci limiti (3) action içinde yapılır
+                    const totalLoanFee = listing.dailyFee * listing.durationWeeks * 7;
+                    const result = useAppStore.getState().makeLoanOffer(p.id, totalLoanFee, listing.durationWeeks);
+                    if (!result.success) {
+                      const reason = result.reason === "budget" ? "Yeterli bütçeniz yok"
+                        : result.reason === "squad-full" ? "Kadro dolu (25/25)"
+                        : result.reason === "free-agent" ? "Serbest oyuncu kiralanamaz"
+                        : result.reason === "not-found" ? "Oyuncu bulunamadı"
+                        : result.reason === "no-team" ? "Takım yok"
+                        : "Kiralama başarısız";
+                      // Basit feedback — toast yerine alert
+                      if (typeof window !== "undefined") alert(reason);
                     }
                   }}
                   className="tm-tap px-2 py-1.5 rounded text-[10px] font-bold bg-sky-600 text-white whitespace-nowrap"

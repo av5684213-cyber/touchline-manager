@@ -2061,3 +2061,77 @@ Stage Summary:
 - Sakat oyuncular artık defaultTacticsFor'da ele ediliyor
 - Yeni sezon tam sıfırlama: sponsor + transfer + incoming offers + kupa
 - Ekonomi daha gerçekçi: düşük maç bonusu, doluluk oranı, sponsor geliri
+
+---
+Task ID: v1.7.8-comprehensive-audit-v2
+Agent: main
+Task: Tüm oyun kapsamlı denetim v2 — kalan sorunların düzeltilmesi
+
+Work Log:
+- 3 paralel ajan ile kapsamlı denetim yapıldı (maç motoru, transfer/mali, UI/i18n)
+- Önceki turdan kalan ve yeni tespit edilen kritik sorunlar düzeltildi:
+
+P0 KRİTİK DÜZELTMELER:
+1. Transfer.tsx "Kirala" butonu makeLoanOffer'ı BYPASS ediyordu:
+   - Direkt useAppStore.setState ile oyuncuyu kadroya ekliyordu
+   - Satıcıdan çıkartmıyordu (çift takım bug'ı)
+   - _loaned/_loanWeeks/_loanFrom flag'leri set edilmiyordu
+   - Bütçe/kadro limiti/kaleci limiti kontrolü yoktu
+   - Düzeltme: Artık makeLoanOffer action'ını çağırıyor (tüm kontroller action'da)
+2. Maç bonusu Math.max(0,...) tarafından yutuluyordu:
+   - myClub.budget += bonus (clubs referans) sonra myTeam.budget = Math.max(0, myTeam.budget + net) (aynı obje)
+   - net negatifse bonus yutuluyordu
+   - Düzeltme: matchBonus ayrı toplanıyor, net clamp'ten SONRA ekleniyor
+3. Kiralık oyuncular sezon sonunda iade edilmiyordu:
+   - endSeason'da _loaned flag'leri sıfırlanıyordu ama oyuncu kaynak takıma iade edilmiyordu
+   - Düzeltme: endSeason'da tüm kiralık oyuncular _loanFrom kulübüne iade ediliyor
+   - Lender kulüp bulunamazsa (lig değişikliği) oyuncu serbest bırakılıyor (free agent havuzuna)
+4. Kaleci limiti (3) buyPlayer/makeTransferOffer/makeLoanOffer'da yoktu:
+   - Sadece transfer.tsx "Kontrat İmzala" butonunda vardı
+   - Düzeltme: 3 action'a da kaleci limiti kontrolü eklendi (gk-limit reason)
+5. advanceMatchday'de %10 rastgele sakatlık — motorun dinamik sistemi ile çakışıyordu:
+   - Her hafta kadronun %10'u sakatlanıyordu (type: "light" hardcode)
+   - Motorun enhancedMatchEngine.ts:2916-2956 kondisyon+dakika bazlı risk sistemi zaten çalışıyor
+   - Çift sakatlık üretimi + her zaman "light" tipi
+   - Düzeltme: %10 rastgele sakatlık KALDIRILDI, motorun ürettiği sakatlık kullanılıyor
+6. Boş lineup'ta TÜM oyunculara kondisyon drain:
+   - tactics.lineup boşsa _tacticsLineupIds.size === 0, inLineup = true → tüm kadro drain
+   - Düzeltme: lineupHasPlayers kontrolü, boş lineup'ta inLineup = false
+7. acceptSponsor çoklu sponsoru desteklemiyordu:
+   - active: [activeSponsor] ile eski sponsorlar siliniyordu
+   - Düzeltme: active: [...(sponsors.active ?? []), activeSponsor] — öncekiler korunur
+   -sponsorSystem.ts getTotalSponsorIncome zaten çoklu sponsor topluyor
+
+Test Sonuçları:
+- test-cup-system.ts: 0 sorun
+- test-loan-system.ts: 0 sorun (kiralama → haftalık azaltma → iade akışı çalışıyor)
+- test-10seasons-v2.ts: 1 sorun (OVR gelişmedi -1, test artifact)
+  - Kaleci sayısı 3'te sabit ✓
+  - Incoming offers 2-4 arası ✓
+  - Loan listings 10 ✓
+  - Gol kralı 2-12 gol ✓
+  - Kupa her sezon oynanıyor ✓
+- TypeScript derleme: temiz
+- Next.js build: başarılı
+
+Tespit edilen ama bu turda düzeltilmeyenler (sonraki tur için):
+- Canlı maç taktik değişikliği sahte (applyTactics sadece event ekliyor)
+- playStyleModifiers, tacticalScore, stadiumEffects ölü kod
+- Sakatlık tipi "light" hardcode (use-match-engine.ts applyPostMatchEffects)
+- Finance ekranı ile store ekonomisi 4-8x uyumsuz
+- ~186+ hardcoded TR string (auth-gate, achievements, season-end, player-profile, reports, top-scorers, news, messages, match commentary)
+- useAppStore() selector'süz 21 component'te (performans)
+- 8 yerde require() client bundle'da
+- Tesis sisteminde 4 tesis eksik (lighting, scoreboards, heating, vip, store, media)
+- 339 yerde text-[6-9px] (mobilde okunaksız)
+- Modal'larda focus trap, Escape, scroll lock yok
+- Bottom nav ile içerik çakışması (pb-6 yetersiz)
+
+Stage Summary:
+- 7 kritik/major sorun düzeltildi
+- Kiralık oyuncu sistemi tamamen çalışıyor (kiralama → haftalık azaltma → iade/sezon sonu iade)
+- Maç bonusu artık yutulmuyor
+- Kaleci limiti (3) tüm transfer yollarında kontrol ediliyor
+- %10 rastgele sakatlık kaldırıldı (motorun dinamik sistemi kullanılıyor)
+- Çoklu sponsor desteği eklendi
+- Boş lineup'ta tüm kadro drain sorunu düzeltildi

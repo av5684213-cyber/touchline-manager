@@ -775,6 +775,15 @@ export const useAppStore = create<AppState>()(
           return { success: false, reason: "squad-full" };
         }
 
+        // P0 FIX: Kaleci limiti (max 3)
+        const targetPlayer = transfer.freeAgents.find((l) => l.player.id === playerId)?.player;
+        if (targetPlayer?.specificPosition === "GK") {
+          const gkCount = team.players.filter(p => p.specificPosition === "GK").length;
+          if (gkCount >= 3) {
+            return { success: false, reason: "gk-limit" };
+          }
+        }
+
         // Listing bul
         const listing = transfer.freeAgents.find((l) => l.player.id === playerId);
         if (!listing) return { success: false, reason: "not-found" };
@@ -820,6 +829,29 @@ export const useAppStore = create<AppState>()(
         const total = fee + Math.round(fee * 0.05) + Math.round(fee * 0.03);
         if (myTeam.budget < total) {
           return { success: false, reason: "budget" };
+        }
+
+        // P0 FIX: Kadro limiti (25 oyuncu)
+        if (myTeam.players.length >= 25) {
+          return { success: false, reason: "squad-full" };
+        }
+
+        // P0 FIX: Kaleci limiti (max 3) — hedef oyuncuyu bul, kaleciyse kontrol et
+        let targetPlayerPos: string | undefined;
+        for (const c of clubs) {
+          if (c.id === myTeamId) continue;
+          const p = c.players.find((p) => p.id === playerId);
+          if (p) { targetPlayerPos = p.specificPosition; break; }
+        }
+        if (!targetPlayerPos) {
+          const faListing = transfer.freeAgents.find((l) => l.player.id === playerId);
+          if (faListing) targetPlayerPos = faListing.player.specificPosition;
+        }
+        if (targetPlayerPos === "GK") {
+          const gkCount = myTeam.players.filter(p => p.specificPosition === "GK").length;
+          if (gkCount >= 3) {
+            return { success: false, reason: "gk-limit" };
+          }
         }
 
         // Oyuncunun sahibi olan takımı bul (kullanıcının takımı hariç)
@@ -1070,6 +1102,14 @@ export const useAppStore = create<AppState>()(
             return { success: false, reason: "free-agent" };
           }
           return { success: false, reason: "not-found" };
+        }
+
+        // P0 FIX: Kaleci limiti (max 3)
+        if (player.specificPosition === "GK") {
+          const gkCount = myTeam.players.filter(p => p.specificPosition === "GK").length;
+          if (gkCount >= 3) {
+            return { success: false, reason: "gk-limit" };
+          }
         }
 
         const marketValue = player.marketValue ?? player.market_value ?? 0;
@@ -1728,7 +1768,7 @@ export const useAppStore = create<AppState>()(
           }
         }
 
-        // P0 FIX: Kullanıcı maçı sonrası kondisyon/form/morale/sakatlık güncelle
+        // P0 FIX: Kullanıcı maçı sonrası kondisyon/form/morale güncelle
         // (Sadece canlı maçta applyPostMatchEffects çağrılıyordu, Turu İlerlet'te çağrılmıyordu)
         if (userMatchResult) {
           // P0 FIX: tacticsLineupIds'i burada tanımla — aşağıda pickStartingXI'da da kullanılıyor
@@ -1742,24 +1782,25 @@ export const useAppStore = create<AppState>()(
             const oppScore = isHome ? userMatchResult.awayScore : userMatchResult.homeScore;
             const won = myScore > oppScore;
             const lost = myScore < oppScore;
+            // P0 FIX: Kondisyon drain sadece lineup'taki oyunculara, boş lineup'ta TÜM oyunculara değil
+            const lineupHasPlayers = _tacticsLineupIds.size > 0;
             myClub.players = myClub.players.map(p => {
               // Kullanıcının lineup'ındaki oyunculara kondisyon düş
-              const inLineup = _tacticsLineupIds.size > 0 ? _tacticsLineupIds.has(p.id) : true;
+              const inLineup = lineupHasPlayers ? _tacticsLineupIds.has(p.id) : false;
               const condDrain = inLineup ? Math.floor(8 + Math.random() * 8) : 0;
               const newCond = Math.max(20, Math.min(100, p.cond - condDrain));
               const formChange = won ? 2 : lost ? -3 : 0;
               const moraleChange = won ? 3 : lost ? -3 : 0;
-              // P1 FIX: %10 sakatlık şansı (lineup'ta ise)
-              const willInjure = inLineup && Math.random() < 0.10;
-              const injuryDuration = willInjure ? Math.floor(Math.random() * 14) + 3 : 0;
+              // P0 FIX: %10 rastgele sakatlık KALDIRILDI — motorun dinamik sakatlık sistemi zaten çalışıyor
+              // (enhancedMatchEngine.ts:2916-2956 kondisyon+dakika bazlı risk hesaplıyor)
+              // Çift sakatlık üretimini önlemek için burada sakatlık ÜRETME
               return {
                 ...p,
                 cond: newCond,
                 condition: newCond,
                 form: Math.max(30, Math.min(100, p.form + formChange)),
                 morale: Math.max(20, Math.min(100, p.morale + moraleChange)),
-                is_injured: willInjure ? true : p.is_injured,
-                injury: willInjure ? { type: "light" as const, remaining_days: injuryDuration, severity: Math.floor(Math.random() * 5) + 1 } : p.injury,
+                // is_injured ve injury alanlarını DOKUNMA — motor/applyPostMatchEffects yönetir
               };
             });
           }
@@ -1843,6 +1884,9 @@ export const useAppStore = create<AppState>()(
           return pool[Math.floor(Math.random() * pool.length)];
         };
 
+        // P0 FIX: Maç bonusunu topla, net clamp'ten SONRA ekle
+        let matchBonus = 0;
+
         for (const f of updatedFixtures) {
           if (f.matchday !== currentMd || !f.played) continue;
           // P0 FIX: Çift gol sayımını önle
@@ -1855,18 +1899,14 @@ export const useAppStore = create<AppState>()(
           // userMatchResult null ise = canlı maçtan gelmiş, applyPostMatchEffects zaten yaptı
           const isUserMatch = f.homeId === myTeamId || f.awayId === myTeamId;
           // Maç bonusu her zaman ver (kullanıcının maçıysa)
+          // P0 FIX: Bonus'u ayrı topla, net clamp'ten SONRA ekle (yutulmasını önle)
           if (isUserMatch) {
             const isUserHome = f.homeId === myTeamId;
             const myScore = isUserHome ? (f.homeScore ?? 0) : (f.awayScore ?? 0);
             const oppScore = isUserHome ? (f.awayScore ?? 0) : (f.homeScore ?? 0);
-            let bonus = 0;
-            if (myScore > oppScore) bonus = 200_000;      // Galibiyet (800K → 200K)
-            else if (myScore === oppScore) bonus = 100_000; // Beraberlik (400K → 100K)
-            else bonus = 50_000;                            // Yenilgi (300K → 50K)
-            const myClub = clubs.find(c => c.id === myTeamId);
-            if (myClub) {
-              myClub.budget += bonus;
-            }
+            if (myScore > oppScore) matchBonus += 200_000;      // Galibiyet
+            else if (myScore === oppScore) matchBonus += 100_000; // Beraberlik
+            else matchBonus += 50_000;                            // Yenilgi
           }
           // P0 FIX: userMatchResult null ise = canlı maçtan gelmiş, applyPostMatchEffects gol dağıttı
           // userMatchResult varsa = Turu İlerlet yolu, gol dağıtımı BURADA yapılmalı
@@ -2010,8 +2050,8 @@ export const useAppStore = create<AppState>()(
           const facilityCost = Object.values(facilitiesState.levels).reduce((s, l) => s + l * 20000, 0);
           const totalExpense = staffWages + facilityCost;
           const net = totalIncome - totalExpense;
-          // P1 FIX: Bütçe negatife düşmesin (clamp 0)
-          myTeam.budget = Math.max(0, myTeam.budget + net);
+          // P0 FIX: Maç bonusunu net clamp'ten SONRA ekle (yutulmasını önle)
+          myTeam.budget = Math.max(0, myTeam.budget + net) + matchBonus;
 
           // P0 FIX: Kiralık oyuncuların _loanWeeks değerini azalt — 0 olunca kaynak takıma iade et
           const playersAfterLoan: Player[] = [];
@@ -2399,6 +2439,47 @@ export const useAppStore = create<AppState>()(
         const updatedTeam = updatedClubs.find((c) => c.id === myTeamId);
         const newTactics = updatedTeam ? defaultTacticsFor(updatedTeam) : get().tactics;
 
+        // P0 FIX: Kiralık oyuncuları sezon sonunda kaynak takımlarına iade et
+        // Kullanıcıdaki _loaned oyuncular → _loanFrom kulübüne geri gönder
+        // Botlardaki _loaned oyuncular → kendi _loanFrom kulüplerine
+        // P0 FIX: Eğer lender kulüp updatedClubs'ta yoksa (lig değişikliği), oyuncuyu serbest bırak
+        for (const club of updatedClubs) {
+          const loanedPlayers = club.players.filter((p: any) => p._loaned === true);
+          if (loanedPlayers.length === 0) continue;
+          // Kiralık oyuncuları bu kulüpten çıkar
+          club.players = club.players.filter((p: any) => p._loaned !== true);
+          // Her birini kaynak kulübüne iade et
+          for (const lp of loanedPlayers) {
+            const { _loaned, _loanWeeks, _loanFrom, ...cleanPlayer } = lp as any;
+            const lenderClub = updatedClubs.find(c => c.id === _loanFrom);
+            if (lenderClub) {
+              lenderClub.players.push(cleanPlayer as any);
+            } else {
+              // P0 FIX: Lender kulüp bulunamadı (lig değişikliği) — oyuncuyu serbest bırak
+              console.warn(`[endSeason] Kiralık oyuncu ${lp.firstName} ${lp.lastName} için kaynak kulüp bulunamadı: ${_loanFrom} — serbest bırakılıyor`);
+              // Serbest oyuncu havuzuna ekle (transfer.freeAgents'a)
+              try {
+                const currentTransfer = get().transfer;
+                const newFreeAgentListing = {
+                  player: cleanPlayer,
+                  askingPrice: (cleanPlayer as any).marketValue ?? (cleanPlayer as any).market_value ?? 500_000,
+                  wageDemand: (cleanPlayer as any).weeklyWage ?? 5000,
+                  daysListed: 1,
+                  offers: 0,
+                };
+                set({
+                  transfer: {
+                    ...currentTransfer,
+                    freeAgents: [newFreeAgentListing, ...(currentTransfer.freeAgents ?? [])],
+                  },
+                });
+              } catch (e) {
+                console.warn("[endSeason] Serbest bırakma hatası:", e);
+              }
+            }
+          }
+        }
+
         // Yeni sezon kupa fikstürünü üret — kullanıcı her zaman kupada
         // P0 FIX: buildCupFixtures kullan — kullanıcı zorunlu dahil
         const newCupMatches = buildCupFixtures(updatedClubs, myTeamId);
@@ -2652,15 +2733,9 @@ export const useAppStore = create<AppState>()(
         const { sponsors, clubs, myTeamId } = get();
         const offer = sponsors.offers.find((s) => s.id === sponsorId);
         if (!offer) return;
-        // Sadece 1 aktif sponsor olabilir — öncekileri pasifleştir
+        // P0 FIX: Çoklu sponsor desteği — önceki aktif sponsorları koru, yenisini ekle
+        // (Tasarım sponsorSystem.ts çoklu sponsor destekliyor — getTotalSponsorIncome tüm aktifleri toplar)
         const activeSponsor = { ...offer, isActive: true };
-        set({
-          sponsors: {
-            active: [activeSponsor],
-            offers: sponsors.offers.filter((s) => s.id !== sponsorId),
-          },
-        });
-        // Haber ekle
         const sponsorNews: NewsItem = {
           id: `news_sponsor_${Date.now()}`,
           category: "transfer",
@@ -2670,7 +2745,14 @@ export const useAppStore = create<AppState>()(
           importance: 3,
           read: false,
         };
-        set({ news: [sponsorNews, ...(get().news ?? [])] });
+        set({
+          sponsors: {
+            // Önceki aktif sponsorları koru + yenisini ekle
+            active: [...(sponsors.active ?? []), activeSponsor],
+            offers: sponsors.offers.filter((s) => s.id !== sponsorId),
+          },
+          news: [sponsorNews, ...(get().news ?? [])],
+        });
       },
 
       getSponsorWeeklyIncome: () => {
