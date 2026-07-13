@@ -1932,3 +1932,55 @@ Stage Summary:
 - Taktik ekranı oyuncu seçim listesinde i butonu artık görünüyor ve çalışıyor
 - i'ye basınca oyuncu profil modal'ı açılıyor
 - APK: https://github.com/av5684213-cyber/touchline-manager/releases/download/v1.7.5-i-button/touchline-manager-v1.7.5-i-button-release.apk
+
+---
+Task ID: v1.7.6-cup-system-fix
+Agent: main
+Task: Kupa sistemi kontrol ve düzeltme
+
+Work Log:
+- Sorun tespiti (test-cup-system.ts ile):
+  1. Kullanıcının takımı top 8'de değilse kupaya HİÇ giremiyordu — izleyici modunda kalıyordu
+  2. Kupa ekranında "Bu Turu Oyna" butonu yoktu — kullanıcı elendikten sonra kupayı izleyemiyordu
+  3. Kupa maçları basit rating simülasyonuyla oynanıyordu (enhanced motor + taktikler kullanılmıyordu)
+  4. Log mesajı yanlıştı: "Kupa turu 3 oynandı" diyor ama aslında 4. tur (final) oynanmış
+  5. Kupa ekranında izleyici modu göstergesi yoktu
+
+- Düzeltmeler (store.ts):
+  1. buildCupFixtures() yardımcı fonksiyonu eklendi — top 7 + kullanıcı zorunlu dahil
+     - loginDemo ve endSeason'da kullanılıyor
+     - Kullanıcının maçı her zaman 4. maç olarak yerleştirildi
+  2. playCupRound() güncellendi:
+     - simulateUserCupMatch(): Kullanıcının maçını enhanced motorla oynar (tactics.active + formasyon + sakat filtreleme)
+     - simpleCupSim(): Bot vs bot maçları için basit rating simülasyonu
+     - Beraberlik durumunda rastgele kazanan (kupa = eleme)
+     - Tur ödülü eklendi: Çeyrek 50K, Yarı 150K, Final 400K (tur atladıkça)
+     - Şampiyon ödülü: 1M (zaten vardı)
+  3. Log mesajı düzeltildi:
+     - Eski: "Kupa turu X oynandı" (X = currentRound-1, yanlış)
+     - Yeni: "Çeyrek Final oynandı → Sonraki: Yarı Final" veya "Final oynandı — Şampiyon: X"
+  4. advanceMatchday'deki çift log kaldırıldı (playCupRound kendi log'unu üretiyor)
+
+- Düzeltmeler (cup.tsx):
+  1. Kupa ödülleri kartı güncellendi — tüm tur ödülleri tablo halinde gösteriliyor
+  2. Kullanıcının maç kartı — tur ödülü göster eklendi, "Senin Maçın" etiketi
+  3. "İzleyici Modu" kartı eklendi — kullanıcı bu turda değilse "Bu Turu Oyna" butonu
+  4. Elenen kullanıcı için "Bu Turu Oyna" butonu eklendi (diğer maçları izlemek için)
+  5. Tur eşleşmeleri — kullanıcı adı kalın, oynanmamış maçlar belirgin
+  6. Önceki turlar — round sırasına göre tersten (en yeni üstte)
+  7. Kupa tamamlandı kartı eklendi
+
+Test Sonuçları:
+- test-cup-system.ts: 0 sorun (kupa turları ilerliyor, şampiyon belirleniyor, sıfırlama çalışıyor)
+- test-cup-champion.ts: Kullanıcı kupayı kazandı, 1.6M ödül (50K+150K+400K+1M) doğru eklendi
+- test-10seasons-v2.ts: 10 sezon kupada sorun yok, her sezon kupa oynanıyor ve sıfırlanıyor
+- TypeScript derleme: temiz
+- Next.js build: başarılı
+
+Stage Summary:
+- Kupa sistemi tamamen çalışıyor ve ilerliyor
+- Kullanıcının takımı her zaman kupada (top 8'de olmasa bile)
+- Kullanıcının kupa maçları enhanced motor + taktiklerle oynanıyor
+- İzleyici modu: kullanıcı elendikten sonra bile kupayı izleyebilir
+- Tur ödülleri + şampiyon ödülü = 1.6M (Çeyrek 50K + Yarı 150K + Final 400K + Şampiyon 1M)
+- Yeni sezonda kupa otomatik sıfırlanıyor

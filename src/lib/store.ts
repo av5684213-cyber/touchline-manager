@@ -272,6 +272,68 @@ function buildInitialFixtures(clubs: Team[]): FixtureRow[] {
   return playFixturesUpTo(fx, SEASON_INFO.matchday);
 }
 
+/**
+ * Kupa fikstürünü üret — çeyrek final (8 takım, 4 maç).
+ * P0 FIX: Kullanıcının takımı HER ZAMAN kupada olur.
+ *  - Top 7 takım rating'e göre seçilir (kullanıcı hariç)
+ *  - Kullanıcının takımı 8. takım olarak eklenir
+ *  - İlk 3 maç bot vs bot, 4. maç kullanıcı vs 7. bot
+ */
+function buildCupFixtures(clubs: Team[], myTeamId: string | null): CupMatch[] {
+  const sorted = [...clubs].sort((a, b) =>
+    b.players.reduce((s, p) => s + p.rating, 0) -
+    a.players.reduce((s, p) => s + p.rating, 0)
+  );
+
+  // Top 7 (kullanıcı hariç)
+  const others = sorted.filter(c => c.id !== myTeamId).slice(0, 7);
+  const myTeam = myTeamId ? clubs.find(c => c.id === myTeamId) : null;
+
+  // Fisher-Yates shuffle — rastgele eşleşme
+  for (let i = others.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [others[i], others[j]] = [others[j], others[i]];
+  }
+
+  const cupMatches: CupMatch[] = [];
+
+  // İlk 3 maç: bot vs bot (others'ın ilk 6'sı)
+  for (let i = 0; i < 3 && others.length >= 6; i++) {
+    cupMatches.push({
+      round: 2,
+      homeId: others[i * 2].id,
+      awayId: others[i * 2 + 1].id,
+      homeScore: null,
+      awayScore: null,
+      played: false,
+    });
+  }
+
+  // 4. maç: myTeam vs others[6]
+  if (myTeam && others[6]) {
+    cupMatches.push({
+      round: 2,
+      homeId: myTeam.id,
+      awayId: others[6].id,
+      homeScore: null,
+      awayScore: null,
+      played: false,
+    });
+  } else if (others[6] && others[7]) {
+    // Fallback: myTeam yoksa 4. maç da bot vs bot
+    cupMatches.push({
+      round: 2,
+      homeId: others[6].id,
+      awayId: others[7].id,
+      homeScore: null,
+      awayScore: null,
+      played: false,
+    });
+  }
+
+  return cupMatches;
+}
+
 function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -432,22 +494,9 @@ export const useAppStore = create<AppState>()(
           };
         }
 
-        // Kupa fikstürünü üret — ilk 8 takım, çeyrek final
-        const top8 = [...clubs].sort((a, b) =>
-          b.players.reduce((s, p) => s + p.rating, 0) -
-          a.players.reduce((s, p) => s + p.rating, 0)
-        ).slice(0, 8);
-        const cupMatches: CupMatch[] = [];
-        for (let i = 0; i < 4; i++) {
-          cupMatches.push({
-            round: 2,
-            homeId: top8[i * 2].id,
-            awayId: top8[i * 2 + 1].id,
-            homeScore: null,
-            awayScore: null,
-            played: false,
-          });
-        }
+        // Kupa fikstürünü üret — top 7 + kullanıcının takımı (zorunlu dahil)
+        // P0 FIX: Kullanıcının takımı her zaman kupada olsun
+        const cupMatches = buildCupFixtures(clubs, myTeamId);
 
         set({
           isAuthed: true,
@@ -1387,19 +1436,72 @@ export const useAppStore = create<AppState>()(
         const currentMatches = cup.matches.filter(m => m.round === cup.currentRound && !m.played);
         if (currentMatches.length === 0) return { success: false };
 
-        // Maçları simüle et
-        const simulateCupMatch = (homeId: string, awayId: string): { hs: number; as: number } => {
-          const home = clubs.find(c => c.id === homeId);
-          const away = clubs.find(c => c.id === awayId);
-          if (!home || !away) return { hs: 0, as: 0 };
-          const homeStr = home.players.slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
-          const awayStr = away.players.slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+        // Tur etiketleri — log ve haber için
+        const ROUND_NAMES: Record<number, string> = {
+          2: "Çeyrek Final",
+          3: "Yarı Final",
+          4: "Final",
+        };
+        const playedRoundLabel = ROUND_NAMES[cup.currentRound] ?? `Tur ${cup.currentRound}`;
+
+        // P1 FIX: Kullanıcının maçını enhanced motorla oyna, diğerlerini basit sim'le
+        // Enhanced motor: taktikler, formasyon, sakat filtreleme, kondisyon etkisi
+
+        // Basit simülasyon — bot vs bot maçları için (önce tanımla, simulateUserCupMatch fallback olarak kullanır)
+        const simpleCupSim = (home: any, away: any): { hs: number; as: number } => {
+          const homeStr = home.players.slice(0, 11).reduce((s: number, p: any) => s + p.rating, 0) / 11;
+          const awayStr = away.players.slice(0, 11).reduce((s: number, p: any) => s + p.rating, 0) / 11;
           const diff = homeStr - awayStr;
           const homeAdv = diff > 5 ? 0.3 : diff < -5 ? -0.3 : 0;
           let hs = Math.max(0, Math.floor(Math.random() * 4 + homeAdv * 2));
           let as = Math.max(0, Math.floor(Math.random() * 3 - homeAdv * 2));
           if (hs === as) hs += 1; // beraberlik olmasın
           return { hs, as };
+        };
+
+        const simulateUserCupMatch = (homeId: string, awayId: string): { hs: number; as: number } => {
+          const home = clubs.find(c => c.id === homeId);
+          const away = clubs.find(c => c.id === awayId);
+          if (!home || !away) return { hs: 0, as: 0 };
+          try {
+            const { simulateEnhancedMatch } = require("@/lib/match/engine/enhancedMatchEngine");
+            const { DEFAULT_TACTIC } = require("@/lib/tactics/types");
+            const userTactic = get().tactics.active ?? DEFAULT_TACTIC;
+            const isHome = homeId === myTeamId;
+            const homeTactic = isHome ? userTactic : { ...DEFAULT_TACTIC, formation: "4-4-2" };
+            const awayTactic = isHome ? { ...DEFAULT_TACTIC, formation: "4-4-2" } : userTactic;
+            const pickXI = (players: any[]) =>
+              [...players].filter((p) => !p.is_injured).sort((a, b) => b.rating - a.rating).slice(0, 11);
+            const result = simulateEnhancedMatch(
+              pickXI(home.players),
+              pickXI(away.players),
+              homeTactic,
+              awayTactic,
+              { homeTeamName: home.name, awayTeamName: away.name }
+            );
+            let hs = result.homeScore;
+            let as = result.awayScore;
+            // Kupa = eleme — beraberlik olamaz, penaltılara gerek yok (rastgele)
+            if (hs === as) {
+              if (Math.random() < 0.5) hs += 1; else as += 1;
+            }
+            return { hs, as };
+          } catch (e) {
+            console.warn("[playCupRound] enhanced sim hatası, basit sim'e düşülüyor:", e);
+            return simpleCupSim(home, away);
+          }
+        };
+
+        const simulateCupMatch = (homeId: string, awayId: string): { hs: number; as: number } => {
+          const home = clubs.find(c => c.id === homeId);
+          const away = clubs.find(c => c.id === awayId);
+          if (!home || !away) return { hs: 0, as: 0 };
+          // Kullanıcının maçı → enhanced motor + taktikler
+          if (homeId === myTeamId || awayId === myTeamId) {
+            return simulateUserCupMatch(homeId, awayId);
+          }
+          // Bot vs bot → basit sim
+          return simpleCupSim(home, away);
         };
 
         const updatedMatches = cup.matches.map(m => {
@@ -1497,6 +1599,19 @@ export const useAppStore = create<AppState>()(
           }
         }
 
+        // P1 FIX: Tur ödülü — tur atladıkça ödül ver (kullanıcı için)
+        if (myMatch && !eliminated) {
+          const ROUND_REWARD: Record<number, number> = { 2: 50_000, 3: 150_000, 4: 400_000 };
+          const reward = ROUND_REWARD[cup.currentRound] ?? 0;
+          if (reward > 0) {
+            const t = allClubsForCup.find(c => c.id === myTeamId);
+            if (t) t.budget += reward;
+          }
+        }
+
+        // P0 FIX: championRound değişkenini sakla — set() sonrası log için
+        const wasChampionSet = !!champion;
+
         set({
           clubs: allClubsForCup,
           cup: {
@@ -1506,6 +1621,12 @@ export const useAppStore = create<AppState>()(
             eliminated,
           },
         });
+
+        // P0 FIX: Log mesajı düzeltildi — currentRound-1 yanlıştı
+        // Şampiyon belirlendiyse final oynanmıştır, currentRound değişmemiştir (4'te kalır)
+        // Şampiyon belirlenmediyse currentRound bir sonraki tura geçmiştir
+        const logRoundLabel = wasChampionSet ? playedRoundLabel : (ROUND_NAMES[cup.currentRound] ?? `Tur ${cup.currentRound}`);
+        console.log(`[playCupRound] ${playedRoundLabel} oynandı${wasChampionSet ? " — Şampiyon: " + (champion ? allClubsForCup.find(c => c.id === champion)?.name : "?") : " → Sonraki: " + (ROUND_NAMES[nextRound] ?? `Tur ${nextRound}`)}`);
 
         return { success: true, myResult, champion };
       },
@@ -1998,8 +2119,9 @@ export const useAppStore = create<AppState>()(
         if (shouldPlayCup) {
           try {
             const cupResult = get().playCupRound();
-            if (cupResult.success) {
-              console.log(`[advanceMatchday] Kupa turu ${get().cup.currentRound - 1} oynandı`);
+            // playCupRound kendi log'unu üretir — burada sadece success kontrolü yap
+            if (!cupResult.success) {
+              // Champion zaten belirlenmiş veya oynanacak maç yok — sessiz geç
             }
           } catch (e) {
             console.warn("[advanceMatchday] playCupRound hatası:", e);
@@ -2168,22 +2290,9 @@ export const useAppStore = create<AppState>()(
         const updatedTeam = updatedClubs.find((c) => c.id === myTeamId);
         const newTactics = updatedTeam ? defaultTacticsFor(updatedTeam) : get().tactics;
 
-        // Yeni sezon kupa fikstürünü üret
-        const newTop8 = [...updatedClubs].sort((a, b) =>
-          b.players.reduce((s, p) => s + p.rating, 0) -
-          a.players.reduce((s, p) => s + p.rating, 0)
-        ).slice(0, 8);
-        const newCupMatches: CupMatch[] = [];
-        for (let i = 0; i < 4; i++) {
-          newCupMatches.push({
-            round: 2,
-            homeId: newTop8[i * 2].id,
-            awayId: newTop8[i * 2 + 1].id,
-            homeScore: null,
-            awayScore: null,
-            played: false,
-          });
-        }
+        // Yeni sezon kupa fikstürünü üret — kullanıcı her zaman kupada
+        // P0 FIX: buildCupFixtures kullan — kullanıcı zorunlu dahil
+        const newCupMatches = buildCupFixtures(updatedClubs, myTeamId);
 
         set({
           clubs: updatedClubs,
