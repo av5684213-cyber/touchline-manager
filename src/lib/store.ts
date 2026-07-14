@@ -1305,18 +1305,19 @@ export const useAppStore = create<AppState>()(
       },
 
       runSession: (multiplier) => {
-        const { clubs, myTeamId, training, facilities } = get();
+        const { clubs, myTeamId, training, facilities, seasonMatchday, seasonNumber } = get();
         const team = clubs.find((c) => c.id === myTeamId);
         if (!team) return { success: false, reason: "no-team" };
 
-        // Günlük limit kontrolü
-        const today = todayKey();
-        let todayCount = training.dailyCount;
-        if (training.lastTrainingDate !== today) {
-          todayCount = 0;
+        // P0 FIX: Matchday bazlı limit — gerçek gün değil
+        const currentMatchdayStr = `md${seasonMatchday}_s${seasonNumber}`;
+        let matchdayCount = training.dailyCount;
+        if (training.lastTrainingDate !== currentMatchdayStr) {
+          matchdayCount = 0;
         }
-        // Günde 2 antrenman (15:00 ve 21:00 penceresinde)
-        if (todayCount >= 2) {
+        // Her matchday 2 seans: 1 auto-training + 1 manuel
+        // Auto-training dailyCount=1 set eder, bu yüzden manuel limit = 2
+        if (matchdayCount >= 2) {
           return { success: false, reason: "daily-limit" };
         }
 
@@ -1337,14 +1338,14 @@ export const useAppStore = create<AppState>()(
         const updatedClubs = clubs.map((c) => (c.id === team.id ? updatedTeam : c));
 
         // Slot güncelle
-        const nextSlot: "morning" | "afternoon" = todayCount === 0 ? "afternoon" : "morning";
+        const nextSlot: "morning" | "afternoon" = matchdayCount === 0 ? "afternoon" : "morning";
 
         set({
           clubs: updatedClubs,
           training: {
             ...training,
-            dailyCount: todayCount + 1,
-            lastTrainingDate: today,
+            dailyCount: matchdayCount + 1,
+            lastTrainingDate: currentMatchdayStr,
             sessionSlot: nextSlot,
             lastSessionResults: results,
           },
@@ -2161,13 +2162,23 @@ export const useAppStore = create<AppState>()(
         }
         SEASON_INFO.matchday = nextMd;
 
-        // P0 FIX: Otomatik antrenman — kullanıcı atama yapmasa bile varsayılan gelişim
+        // P0 FIX: Otomatik antrenman — her "Turu İlerlet" ile antrenman yapılır
+        // P0 FIX: Matchday bazlı — gerçek gün değil, her advanceMatchday yeni antrenman hakkı
         try {
           const trainingState = get().training;
           const facilitiesState = get().facilities;
-          if (myTeam) {
+          // P0 FIX: lastTrainingMatchday yerine lastTrainingDate kontrolü
+          // Eğer son antrenman BU matchday'de yapıldıysa skip (duplicate önleme)
+          const currentMatchdayStr = `md${nextMd}_s${get().seasonNumber}`;
+          const trainedThisMatchday = trainingState.lastTrainingDate === currentMatchdayStr;
+          if (myTeam && !trainedThisMatchday) {
+            // Bu matchday'de antrenman yapılmadıysa auto-training uygula
+            const resetTrainingState = {
+              ...trainingState,
+              dailyCount: 0,
+            };
             // Atama yoksa varsayılan "genel" antrenman uygula
-            if (trainingState.assignments.length === 0) {
+            if (resetTrainingState.assignments.length === 0) {
               // Basit gelişim — her oyuncuya küçük random boost
               const myClub = updatedClubs.find(c => c.id === myTeamId);
               if (myClub) {
@@ -2201,13 +2212,17 @@ export const useAppStore = create<AppState>()(
               }
             } else {
               const facilityLevel = facilitiesState.levels.pitch;
-              const results = runTrainingSession(myTeam.players, trainingState, facilityLevel, 0.7);
+              const results = runTrainingSession(myTeam.players, resetTrainingState, facilityLevel, 0.7);
               const updatedPlayers = applyResultsToSquad(myTeam.players, results);
               const teamIdx = updatedClubs.findIndex(c => c.id === myTeamId);
               if (teamIdx >= 0) {
                 updatedClubs[teamIdx] = { ...updatedClubs[teamIdx], players: updatedPlayers };
               }
             }
+            // P0 FIX: Auto-training yapıldı — lastTrainingDate'i bu matchday set et
+            // Bu sayede aynı matchday'de tekrar auto-training yapılmaz (duplicate önleme)
+            // Kullanıcı manuel antrenman yapsa bile, bu matchday'de auto-training skip edilir
+            set({ training: { ...resetTrainingState, dailyCount: 1, lastTrainingDate: currentMatchdayStr } });
           }
         } catch (e) {
           console.warn("[advanceMatchday] auto-training failed:", e);
