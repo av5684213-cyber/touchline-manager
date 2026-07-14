@@ -842,8 +842,9 @@ export function TacticsScreen() {
           </div>
           <button
             onClick={() => {
+              haptic("light");
               if (compareMode) { setCompareIds([]); }
-              else { setCompareMode_on(); }
+              else { setTopTab("compare"); }
             }}
             className={cn(
               "tm-tap inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border",
@@ -973,10 +974,6 @@ export function TacticsScreen() {
       )}
     </div>
   );
-
-  function setCompareMode_on() {
-    setCompareIds([]);
-  }
 }
 
 // ===== Formation seçici modal =====

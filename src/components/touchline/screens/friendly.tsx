@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Calendar,
@@ -236,8 +236,8 @@ function FriendlyLiveView({
   const { t } = useI18n();
   const s = engine.state;
 
-  // Maç bittiğinde callback
-  useMemo(() => {
+  // P0 FIX: useMemo içinde side-effect YASAK — useEffect kullan
+  useEffect(() => {
     if (s.status === "finished") {
       onFinish(s.homeScore, s.awayScore);
     }

@@ -56,9 +56,27 @@ export function YouthAcademyScreen() {
   if (!team) return null;
 
   const handlePromote = (player: Player) => {
+    // P1 FIX: Kadro limiti (25) ve kaleci limiti (3) kontrolü
+    const state = useAppStore.getState();
+    const myTeam = state.clubs.find(c => c.id === team.id);
+    if (!myTeam) return;
+    if (myTeam.players.length >= 25) {
+      haptic("error");
+      setFeedback("✗ Kadro dolu (25/25) — oyuncu terfi edilemedi");
+      setTimeout(() => setFeedback(null), 2500);
+      return;
+    }
+    if (player.specificPosition === "GK") {
+      const gkCount = myTeam.players.filter(p => p.specificPosition === "GK").length;
+      if (gkCount >= 3) {
+        haptic("error");
+        setFeedback("✗ 3 kaleci zaten var — oyuncu terfi edilemedi");
+        setTimeout(() => setFeedback(null), 2500);
+        return;
+      }
+    }
     haptic("success");
     // Oyuncuyu A takıma ekle — immutable update
-    const state = useAppStore.getState();
     const updatedClubs = state.clubs.map((c) =>
       c.id === team.id
         ? { ...c, players: [...c.players, player] }

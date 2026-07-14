@@ -99,8 +99,15 @@ export function TransferNegotiationModal({
 
     if (aiScore >= 55) {
       haptic("success");
-      setFeedback(`✓ Kiralık anlaşması KABUL EDİLDİ! ${loanWeeks} haftalığına kiralandı.`);
-      setTimeout(() => onClose(), 1500);
+      // P0 FIX: Gerçekten makeLoanOffer çağır — oyuncu kadroya eklensin
+      const result = useAppStore.getState().makeLoanOffer(player.id, loanFee, loanWeeks);
+      if (result.success && result.response === "accepted") {
+        setFeedback(`✓ Kiralık anlaşması KABUL EDİLDİ! ${loanWeeks} haftalığına kiralandı.`);
+        setTimeout(() => onClose(), 1500);
+      } else {
+        haptic("error");
+        setFeedback(`✗ ${result.reason === "budget" ? "Bütçe yetersiz" : result.reason === "squad-full" ? "Kadro dolu" : result.reason === "gk-limit" ? "3 kaleci limiti" : "Kiralık teklif reddedildi"}`);
+      }
     } else {
       haptic("error");
       setFeedback(`✗ Kiralık teklif REDDEDİLDİ. Daha yüksek ücret veya oynatma şartı gerek.`);

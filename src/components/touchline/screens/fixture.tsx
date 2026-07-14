@@ -249,10 +249,19 @@ export function FixtureScreen() {
                 </div>
               ) : (
                 <button
-                  onClick={() => { haptic("medium"); }}
+                  onClick={() => {
+                    haptic("medium");
+                    // P0 FIX: Play butonu no-op değildi — kullanıcının maçını oynat
+                    // Eğer bu kullanıcının maçıysa ve oynanmamışsa, advanceMatchday ile simüle et
+                    if (isCurrent && team && (f.homeId === team.id || f.awayId === team.id) && !f.played) {
+                      useAppStore.getState().advanceMatchday();
+                    }
+                  }}
+                  disabled={!isCurrent || !team || (team && !(f.homeId === team.id || f.awayId === team.id)) || f.played}
                   className={cn(
                     "tm-tap px-2.5 py-1 rounded text-[10px] font-bold shrink-0",
-                    isCurrent ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                    isCurrent ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+                    "disabled:opacity-40 disabled:cursor-not-allowed"
                   )}
                 >
                   {isCurrent ? t("fixture.play") : "—"}

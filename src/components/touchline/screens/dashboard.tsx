@@ -22,6 +22,7 @@ import type { SeasonSummary } from "@/lib/store";
 import type { Player as PlayerT } from "@/lib/mock/data";
 import { SeasonEndModal } from "../season-end-modal";
 import { TeamDetailModal } from "../team-detail-modal";
+import { TeamMessageModal } from "../team-message-modal";
 import { PlayerProfileModal } from "../player-profile-modal";
 import { haptic } from "@/hooks/touchline";
 import {
@@ -84,6 +85,7 @@ export function DashboardScreen() {
   const [profilePlayer, setProfilePlayer] = useState<PlayerT | null>(null);
   const [newAchievements, setNewAchievements] = useState<Achievement[]>([]);
   const [dashboardReplay, setDashboardReplay] = useState<any>(null);
+  const [messageTeam, setMessageTeam] = useState<any>(null);
 
   // Geri sayım her dakika güncelle
   useEffect(() => {
@@ -478,10 +480,15 @@ export function DashboardScreen() {
             team={selected}
             isMyTeam={selected.id === team.id}
             onClose={() => setSelectedTeamId(null)}
-            onMessage={() => {}}
+            onMessage={(t) => { setSelectedTeamId(null); setMessageTeam(t); }}
           />
         );
       })()}
+
+      {/* P0 FIX: Team message modal — dashboard'tan takım mesajı gönder */}
+      {messageTeam && team && (
+        <TeamMessageModal team={messageTeam} myTeam={team} onClose={() => setMessageTeam(null)} />
+      )}
 
       {/* Player profile modal */}
       {profilePlayer && team && (
@@ -516,10 +523,12 @@ function SectionTitle({
   icon: Icon,
   title,
   action,
+  onAction,
 }: {
   icon: typeof Trophy;
   title: string;
   action?: string;
+  onAction?: () => void;
 }) {
   return (
     <div className="flex items-center justify-between mb-2">
@@ -527,8 +536,11 @@ function SectionTitle({
         <Icon size={14} className="text-muted-foreground" />
         <h2 className="text-sm font-bold">{title}</h2>
       </div>
-      {action && (
-        <button className="tm-tap text-[11px] text-primary font-semibold flex items-center gap-0.5">
+      {action && onAction && (
+        <button
+          onClick={() => { haptic("light"); onAction(); }}
+          className="tm-tap text-[11px] text-primary font-semibold flex items-center gap-0.5"
+        >
           {action} <ChevronRight size={12} />
         </button>
       )}

@@ -251,12 +251,20 @@ export function FinanceScreen() {
                     {offer.tier} · {offer.amount.toLocaleString("tr-TR")} €/hafta · {offer.durationWeeks} hafta
                   </div>
                 </div>
-                <button
-                  onClick={() => { haptic("success"); useAppStore.getState().acceptSponsor(offer.id); }}
-                  className="tm-tap text-[10px] px-2 py-1 rounded-md bg-emerald-600 text-white font-bold"
-                >
-                  Kabul Et
-                </button>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => { haptic("success"); useAppStore.getState().acceptSponsor(offer.id); }}
+                    className="tm-tap text-[10px] px-2 py-1 rounded-md bg-emerald-600 text-white font-bold"
+                  >
+                    Kabul Et
+                  </button>
+                  <button
+                    onClick={() => { haptic("light"); useAppStore.getState().rejectSponsor(offer.id); }}
+                    className="tm-tap text-[10px] px-2 py-1 rounded-md bg-muted text-muted-foreground font-bold border border-border"
+                  >
+                    Reddet
+                  </button>
+                </div>
               </div>
             ))}
           </div>

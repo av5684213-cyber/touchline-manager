@@ -1211,6 +1211,23 @@ function ActionsTab({
 
   const handleLoan = () => {
     haptic("success");
+    // P0 FIX: Gerçekten kiralık pazara gönder — myListedPlayers'a loan flag ile ekle
+    // Botlar advanceMatchday'de bu listeden teklif üretir
+    const state = useAppStore.getState();
+    if (!myTeam) return;
+    const loanListing = {
+      playerId: player.id,
+      askingPrice: loanFee * loanWeeks * 7, // toplam kira bedeli
+      isLoan: true,
+      loanWeeks: loanWeeks,
+      loanDailyFee: loanFee,
+    };
+    useAppStore.setState({
+      transfer: {
+        ...state.transfer,
+        myListedPlayers: [...state.transfer.myListedPlayers, loanListing],
+      },
+    });
     setFeedback(`✓ Kiralık pazarına gönderildi (${loanWeeks} hafta, ${formatEuro(loanFee, locale)}/gün)`);
     setTimeout(() => setFeedback(null), 2500);
   };
