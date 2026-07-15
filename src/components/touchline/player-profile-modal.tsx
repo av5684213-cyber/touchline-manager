@@ -108,14 +108,14 @@ export function PlayerProfileModal({
     <div className="fixed inset-0 z-50 flex items-stretch justify-center">
       <div className="absolute inset-0 bg-black/85" onClick={onClose} aria-label="close" />
 
-      <div className="relative w-full max-w-[440px] bg-background h-screen flex flex-col overflow-hidden">
+      <div className="relative w-full max-w-[440px] bg-background h-dvh flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-border" style={{ background: "var(--primary)" }}>
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-sm font-bold text-white truncate">{player.firstName} {player.lastName}</span>
             {/* P2: Sakatlık rozeti — ismin yanında */}
             {player.is_injured && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-500 text-white shrink-0" title={player.injury?.remaining_days ? `${player.injury.remaining_days} gün sakat` : "Sakat"}>
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-bold bg-red-500 text-white shrink-0" title={player.injury?.remaining_days ? `${player.injury.remaining_days} gün sakat` : "Sakat"}>
                 🤕 {player.injury?.remaining_days ? `${player.injury.remaining_days}g` : "Sakat"}
               </span>
             )}
@@ -237,13 +237,13 @@ function OverviewTab({
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <User size={20} className="text-white/30" />
-                <span className="text-[8px] text-amber-300/70 mt-0.5 font-bold">{player.rating}</span>
-                <span className="text-[7px] text-white/30 uppercase">GENEL</span>
+                <span className="text-[10px] text-amber-300/70 mt-0.5 font-bold">{player.rating}</span>
+                <span className="text-[11px] text-white/30 uppercase">GENEL</span>
               </div>
             )}
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center">
               <Upload size={12} className="text-white" />
-              <span className="text-[7px] text-white font-bold mt-0.5">FOTO YÜKLE</span>
+              <span className="text-[11px] text-white font-bold mt-0.5">FOTO YÜKLE</span>
             </div>
             <input
               ref={fileRef}
@@ -277,7 +277,7 @@ function OverviewTab({
               const c = chars[player.match_character];
               if (!c) return null;
               return (
-                <span className={`text-[8px] px-1 py-0.5 rounded font-bold border ${c.color}`} title={c.name}>
+                <span className={`text-[10px] px-1 py-0.5 rounded font-bold border ${c.color}`} title={c.name}>
                   {c.icon} {c.name}
                 </span>
               );
@@ -296,7 +296,7 @@ function OverviewTab({
                 <span className="text-sm">🤕</span>
                 <div className="flex-1 min-w-0">
                   <div className="text-[10px] font-bold text-red-300">Sakat</div>
-                  <div className="text-[9px] text-red-300/80">
+                  <div className="text-[11px] text-red-300/80">
                     {player.injury?.remaining_days
                       ? `${player.injury.remaining_days} gün sonra iyileşecek`
                       : "İyileşme süresi bilinmiyor"}
@@ -311,16 +311,16 @@ function OverviewTab({
             <div className="mt-1.5">
               <button
                 onClick={() => { haptic("light"); onArketipClick?.(player.archetype!); }}
-                className="tm-tap inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-colors"
+                className="tm-tap inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-colors"
               >
                 {player.archetype}
-                <span className="text-[7px] opacity-60">ⓘ</span>
+                <span className="text-[11px] opacity-60">ⓘ</span>
               </button>
             </div>
           )}
           {player.playStyle && (
             <div className="mt-1">
-              <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-sky-500/20 text-sky-300">
+              <span className="inline-block px-1.5 py-0.5 rounded text-[11px] font-bold bg-sky-500/20 text-sky-300">
                 {player.playStyle}
               </span>
             </div>
@@ -330,7 +330,7 @@ function OverviewTab({
         {/* OVR + radar chart altında */}
         <div className="text-right shrink-0 flex flex-col items-center">
           <div className="text-2xl font-bold text-amber-300 tabular-nums leading-none">{player.rating}</div>
-          <div className="text-[8px] text-muted-foreground uppercase">OVR</div>
+          <div className="text-[10px] text-muted-foreground uppercase">OVR</div>
           {/* Radar chart — OVR'ın altında */}
           <StatRadar player={player} compact />
         </div>
@@ -339,15 +339,15 @@ function OverviewTab({
       {/* Traits */}
       {(player.traits.length > 0 || (player.negTraits && player.negTraits.length > 0)) && (
         <div>
-          <div className="text-[9px] text-muted-foreground uppercase tracking-wide mb-1">Yetenekler</div>
+          <div className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">Yetenekler</div>
           <div className="flex flex-wrap gap-1">
             {player.traits.map((tr) => (
-              <span key={tr} className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span key={tr} className="px-1.5 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 {tr}
               </span>
             ))}
             {player.negTraits?.map((tr) => (
-              <span key={tr} className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-red-500/20 text-red-300 border border-red-500/30">
+              <span key={tr} className="px-1.5 py-0.5 rounded text-[11px] font-semibold bg-red-500/20 text-red-300 border border-red-500/30">
                 🚩 {tr}
               </span>
             ))}
@@ -383,14 +383,14 @@ function OverviewTab({
       {/* Gelişim grafiği — son maç rating'leri */}
       {player.match_ratings && player.match_ratings.length > 0 && (
         <div className="pt-2 border-t border-border">
-          <div className="text-[9px] text-muted-foreground uppercase tracking-wide mb-1 font-bold">Son Maç Puanları</div>
+          <div className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1 font-bold">Son Maç Puanları</div>
           <div className="flex items-end gap-1 h-12">
             {player.match_ratings.slice(-10).map((r, i) => {
               const pct = ((r - 3) / 7) * 100; // 3-10 arası → 0-100%
               const color = r >= 7 ? "bg-emerald-500" : r >= 6 ? "bg-amber-400" : "bg-red-500";
               return (
                 <div key={i} className="flex-1 flex flex-col items-center justify-end h-full">
-                  <span className="text-[7px] text-muted-foreground mb-0.5">{r.toFixed(1)}</span>
+                  <span className="text-[11px] text-muted-foreground mb-0.5">{r.toFixed(1)}</span>
                   <div
                     className={cn("w-full rounded-sm", color)}
                     style={{ height: `${Math.max(10, pct)}%` }}
@@ -399,7 +399,7 @@ function OverviewTab({
               );
             })}
           </div>
-          <div className="flex justify-between text-[7px] text-muted-foreground mt-0.5">
+          <div className="flex justify-between text-[11px] text-muted-foreground mt-0.5">
             <span>Eski</span>
             <span>Şimdi</span>
           </div>
@@ -411,7 +411,7 @@ function OverviewTab({
             const oldAvg = old.reduce((s, r) => s + r, 0) / old.length;
             const change = recentAvg - oldAvg;
             return (
-              <div className="flex justify-between text-[9px] mt-1">
+              <div className="flex justify-between text-[11px] mt-1">
                 <span className="text-muted-foreground">Ortalama: {recentAvg.toFixed(1)}</span>
                 <span className={change >= 0 ? "text-emerald-400" : "text-red-400"}>
                   {change >= 0 ? "↑" : "↓"} {Math.abs(change).toFixed(1)}
@@ -476,7 +476,7 @@ function StatsTab({
     <div className="space-y-2.5">
       {/* Kariyer özeti */}
       <div className="tm-card p-2.5">
-        <div className="text-[9px] text-muted-foreground uppercase tracking-wide font-bold mb-2">Kariyer Toplamı</div>
+        <div className="text-[11px] text-muted-foreground uppercase tracking-wide font-bold mb-2">Kariyer Toplamı</div>
         <div className="grid grid-cols-4 gap-1.5">
           <CareerStat label="Maç" value={totals.apps} color="text-sky-400" />
           <CareerStat label="Gol" value={totals.goals} color="text-emerald-400" />
@@ -503,7 +503,7 @@ function StatsTab({
       {/* Sezon sezon listesi — kompakt tek satır */}
       <div className="space-y-0.5">
         {/* Başlık satırı — sola yaslı, sıkışık */}
-        <div className="flex items-center gap-0.5 text-[7px] uppercase text-muted-foreground font-bold px-1">
+        <div className="flex items-center gap-0.5 text-[11px] uppercase text-muted-foreground font-bold px-1">
           <span className="shrink-0 w-9">Sezon</span>
           <span className="shrink-0 w-4 text-center">L</span>
           <span className="flex-1 min-w-0">Kulüp</span>
@@ -544,14 +544,14 @@ function StatsTab({
         if (injuries.length === 0) {
           return (
             <div className="tm-card p-2.5">
-              <div className="text-[9px] text-muted-foreground uppercase tracking-wide font-bold mb-1">🩹 Sakatlık Geçmişi</div>
+              <div className="text-[11px] text-muted-foreground uppercase tracking-wide font-bold mb-1">🩹 Sakatlık Geçmişi</div>
               <div className="text-[10px] text-muted-foreground text-center py-1">Kayıtlı sakatlık yok.</div>
             </div>
           );
         }
         return (
           <div className="tm-card p-2.5">
-            <div className="text-[9px] text-muted-foreground uppercase tracking-wide font-bold mb-2">🩹 Sakatlık Geçmişi</div>
+            <div className="text-[11px] text-muted-foreground uppercase tracking-wide font-bold mb-2">🩹 Sakatlık Geçmişi</div>
             <div className="space-y-1">
               {injuries.map((inj: any, i: number) => (
                 <div key={i} className="flex items-center justify-between text-[10px] py-1 border-b border-border/30 last:border-b-0">
@@ -585,7 +585,7 @@ function GoalDistributionCard({ totals }: {
   return (
     <div className="tm-card p-2.5">
       <div className="flex items-center justify-between mb-2">
-        <div className="text-[9px] text-muted-foreground uppercase tracking-wide font-bold">Kariyer Gol Dağılımı</div>
+        <div className="text-[11px] text-muted-foreground uppercase tracking-wide font-bold">Kariyer Gol Dağılımı</div>
         <div className="text-[10px] font-bold text-emerald-400 tabular-nums">{total} gol</div>
       </div>
       {/* Stacked bar */}
@@ -607,7 +607,7 @@ function GoalDistributionCard({ totals }: {
               <span className={cn("w-1.5 h-1.5 rounded-full", seg.color)} />
             </div>
             <div className={cn("text-[10px] font-bold tabular-nums leading-none", seg.text)}>{seg.value}</div>
-            <div className="text-[7px] text-muted-foreground uppercase leading-none mt-0.5">{seg.label}</div>
+            <div className="text-[11px] text-muted-foreground uppercase leading-none mt-0.5">{seg.label}</div>
           </div>
         ))}
       </div>
@@ -630,12 +630,12 @@ function SeasonGoalBreakdown({ season }: { season: SeasonStat }) {
   return (
     <div className="tm-card px-2 py-1.5 mx-1 mb-1 bg-muted/20 border-l-2 border-amber-500/40">
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-[8px] text-muted-foreground uppercase font-bold shrink-0">Gol Türü:</span>
+        <span className="text-[10px] text-muted-foreground uppercase font-bold shrink-0">Gol Türü:</span>
         {items.map((it) => (
           <div key={it.label} className="flex items-center gap-1">
             <span className={cn("w-1.5 h-1.5 rounded-full", it.dot)} />
-            <span className={cn("text-[9px] font-bold tabular-nums", it.color)}>{it.value}</span>
-            <span className="text-[8px] text-muted-foreground">{it.label}</span>
+            <span className={cn("text-[11px] font-bold tabular-nums", it.color)}>{it.value}</span>
+            <span className="text-[10px] text-muted-foreground">{it.label}</span>
           </div>
         ))}
       </div>
@@ -647,7 +647,7 @@ function CareerStat({ label, value, color }: { label: string; value: number; col
   return (
     <div className="bg-muted/30 rounded px-1 py-1 text-center">
       <div className={cn("text-sm font-bold tabular-nums leading-none", color)}>{value}</div>
-      <div className="text-[8px] text-muted-foreground uppercase mt-0.5">{label}</div>
+      <div className="text-[10px] text-muted-foreground uppercase mt-0.5">{label}</div>
     </div>
   );
 }
@@ -796,8 +796,8 @@ function CurrentSeasonCard({ player, locale }: { player: Player; locale: "tr" | 
     <div className="tm-card p-2.5 space-y-2">
       {/* Başlık */}
       <div className="flex items-center justify-between">
-        <div className="text-[9px] text-muted-foreground uppercase tracking-wide font-bold">Güncel Sezon</div>
-        <div className="text-[9px] text-muted-foreground tabular-nums">
+        <div className="text-[11px] text-muted-foreground uppercase tracking-wide font-bold">Güncel Sezon</div>
+        <div className="text-[11px] text-muted-foreground tabular-nums">
           {SEASON_INFO.year} · {SEASON_INFO.matchday}. {locale === "tr" ? "Hafta" : "GW"}
         </div>
       </div>
@@ -816,8 +816,8 @@ function CurrentSeasonCard({ player, locale }: { player: Player; locale: "tr" | 
       {hasGoals && (
         <div className="pt-1.5 border-t border-border">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[8px] text-muted-foreground uppercase font-bold">Gol Dağılımı</span>
-            <span className="text-[9px] font-bold text-emerald-400 tabular-nums">{goals} gol</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold">Gol Dağılımı</span>
+            <span className="text-[11px] font-bold text-emerald-400 tabular-nums">{goals} gol</span>
           </div>
           {/* Stacked bar */}
           <div className="flex h-2 rounded-full overflow-hidden bg-muted mb-1.5">
@@ -836,8 +836,8 @@ function CurrentSeasonCard({ player, locale }: { player: Player; locale: "tr" | 
                 <div className="flex items-center justify-center gap-0.5 mb-0.5">
                   <span className={cn("w-1 h-1 rounded-full", seg.color)} />
                 </div>
-                <div className={cn("text-[9px] font-bold tabular-nums leading-none", seg.text)}>{seg.value}</div>
-                <div className="text-[6px] text-muted-foreground uppercase leading-none mt-0.5">{seg.label}</div>
+                <div className={cn("text-[11px] font-bold tabular-nums leading-none", seg.text)}>{seg.value}</div>
+                <div className="text-[11px] text-muted-foreground uppercase leading-none mt-0.5">{seg.label}</div>
               </div>
             ))}
           </div>
@@ -851,7 +851,7 @@ function SeasonStatMini({ label, value, color }: { label: string; value: number;
   return (
     <div className="bg-muted/30 rounded px-0.5 py-1 text-center">
       <div className={cn("text-[11px] font-bold tabular-nums leading-none", color)}>{value}</div>
-      <div className="text-[7px] text-muted-foreground uppercase leading-none mt-0.5">{label}</div>
+      <div className="text-[11px] text-muted-foreground uppercase leading-none mt-0.5">{label}</div>
     </div>
   );
 }
@@ -1040,7 +1040,7 @@ function SeasonRow({
       onClick={canExpand ? onToggle : undefined}
       disabled={!canExpand}
       className={cn(
-        "tm-card px-1 py-1 flex items-center gap-0.5 text-[9px] w-full text-left transition-colors",
+        "tm-card px-1 py-1 flex items-center gap-0.5 text-[11px] w-full text-left transition-colors",
         canExpand && "tm-tap hover:bg-accent/50",
         expanded && "bg-amber-500/5 border-amber-500/30"
       )}
@@ -1077,7 +1077,7 @@ function SeasonCell({ label, value, color }: { label: string; value: number; col
   return (
     <div className="flex flex-col items-center justify-center">
       <span className={cn("text-[11px] font-bold tabular-nums leading-none", color)}>{value}</span>
-      <span className="text-[7px] text-muted-foreground uppercase mt-0.5">{label}</span>
+      <span className="text-[11px] text-muted-foreground uppercase mt-0.5">{label}</span>
     </div>
   );
 }
@@ -1095,10 +1095,10 @@ function StatColumn({
 }) {
   return (
     <div>
-      <div className="text-[9px] text-muted-foreground uppercase tracking-wide mb-1 font-bold">{title}</div>
+      <div className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1 font-bold">{title}</div>
       <div className="space-y-0.5">
         {stats.map((s, i) => (
-          <div key={s.label} className="flex justify-between items-center text-[9px]">
+          <div key={s.label} className="flex justify-between items-center text-[11px]">
             <span className="text-muted-foreground truncate flex-1 mr-1">{s.label}</span>
             <StatValue value={s.value} playerId={playerId} statKey={statKeys[i]} />
           </div>
@@ -1138,7 +1138,7 @@ function StatValue({ value, playerId, statKey }: { value: number | undefined; pl
   return (
     <span className="flex items-center gap-0.5">
       {growth !== null && (
-        <span className="text-[7px] font-bold text-emerald-400 leading-none">
+        <span className="text-[11px] font-bold text-emerald-400 leading-none">
           +{growth}
         </span>
       )}
@@ -1150,7 +1150,7 @@ function StatValue({ value, playerId, statKey }: { value: number | undefined; pl
 function MiniBar({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div>
-      <div className="flex justify-between text-[9px] mb-0.5">
+      <div className="flex justify-between text-[11px] mb-0.5">
         <span className="text-muted-foreground">{label}</span>
         <span className="font-bold tabular-nums">{value}</span>
       </div>
@@ -1164,8 +1164,8 @@ function MiniBar({ label, value, color }: { label: string; value: number; color:
 function StatTile({ label, value, small }: { label: string; value: number | string; small?: boolean }) {
   return (
     <div className="tm-card p-1.5 text-center">
-      <div className={cn("font-bold tabular-nums", small ? "text-[9px]" : "text-sm")}>{value}</div>
-      <div className="text-[8px] text-muted-foreground uppercase">{label}</div>
+      <div className={cn("font-bold tabular-nums", small ? "text-[11px]" : "text-sm")}>{value}</div>
+      <div className="text-[10px] text-muted-foreground uppercase">{label}</div>
     </div>
   );
 }
@@ -1400,7 +1400,7 @@ function ActionsTab({
                   <button
                     key={pct}
                     onClick={() => setOfferFee(Math.round(player.marketValue * pct / 100))}
-                    className="tm-tap flex-1 py-0.5 rounded text-[9px] font-semibold border border-border"
+                    className="tm-tap flex-1 py-0.5 rounded text-[11px] font-semibold border border-border"
                   >
                     %{pct}
                   </button>
@@ -1561,7 +1561,7 @@ function ActionsTab({
                   <button
                     key={pct}
                     onClick={() => setLoanFee(Math.round(player.marketValue * pct / 1000))}
-                    className="tm-tap flex-1 py-0.5 rounded text-[9px] font-semibold border border-border"
+                    className="tm-tap flex-1 py-0.5 rounded text-[11px] font-semibold border border-border"
                   >
                     %{pct}
                   </button>
@@ -1624,7 +1624,7 @@ function ActionsTab({
 
       {/* Quick stats summary */}
       <div className="tm-card p-2.5">
-        <div className="text-[9px] text-muted-foreground uppercase mb-1.5">Hızlı Bilgi</div>
+        <div className="text-[11px] text-muted-foreground uppercase mb-1.5">Hızlı Bilgi</div>
         <div className="grid grid-cols-2 gap-1.5 text-[10px]">
           <div className="flex justify-between"><span className="text-muted-foreground">Piyasa Değeri</span><span className="font-bold tabular-nums">{formatEuro(player.marketValue, locale)}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground">Potansiyel</span><span className="font-bold tabular-nums">{player.potential}</span></div>
@@ -2052,7 +2052,7 @@ function ArkInfoModal({
               <div className="text-[10px] text-emerald-400 font-bold uppercase mb-1">Güçlü Yönler</div>
               <div className="flex flex-wrap gap-1">
                 {info.strengths.map((s) => (
-                  <span key={s} className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-semibold">
+                  <span key={s} className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-semibold">
                     {s}
                   </span>
                 ))}
@@ -2063,7 +2063,7 @@ function ArkInfoModal({
               <div className="text-[10px] text-red-400 font-bold uppercase mb-1">Zayıf Yönler</div>
               <div className="flex flex-wrap gap-1">
                 {info.weaknesses.map((s) => (
-                  <span key={s} className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 font-semibold">
+                  <span key={s} className="text-[11px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 font-semibold">
                     {s}
                   </span>
                 ))}
@@ -2072,11 +2072,11 @@ function ArkInfoModal({
 
             <div className="flex items-center justify-between pt-2 border-t border-border">
               <div>
-                <div className="text-[8px] text-muted-foreground uppercase">En İyi Mevki</div>
+                <div className="text-[10px] text-muted-foreground uppercase">En İyi Mevki</div>
                 <div className="text-[10px] font-bold">{info.bestPos}</div>
               </div>
               <div className="text-right">
-                <div className="text-[8px] text-muted-foreground uppercase">Uyumlu Oyun Stili</div>
+                <div className="text-[10px] text-muted-foreground uppercase">Uyumlu Oyun Stili</div>
                 <div className="text-[10px] font-bold text-sky-300">{info.playStyle}</div>
               </div>
             </div>

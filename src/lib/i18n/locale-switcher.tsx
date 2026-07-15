@@ -21,7 +21,7 @@ export function LocaleSwitcher() {
               : "text-muted-foreground hover:text-foreground"
           }`}
           aria-pressed={locale === l}
-          style={{ minHeight: 28, minWidth: 36 }}
+          aria-label={l === "tr" ? "Türkçe" : "English"}
         >
           {l.toUpperCase()}
         </button>

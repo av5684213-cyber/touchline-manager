@@ -407,7 +407,7 @@ export function TrainingScreen() {
                   ? "bg-foreground text-background border-foreground"
                   : "bg-card border-border"
               )}
-              style={{ minHeight: 28 }}
+             
             >
               {g === "ALL" ? t("training.filter.all") : t(`training.filter.${g.toLowerCase()}`)}
             </button>

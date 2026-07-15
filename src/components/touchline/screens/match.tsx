@@ -210,7 +210,7 @@ export function MatchScreen() {
   }
 
   return (
-    <div className="dark text-foreground bg-background min-h-[calc(100dvh-50px)]">
+    <div className="dark text-foreground bg-background min-h-[calc(100dvh-72px)] pb-20">
       <div className="px-3 py-3 space-y-3 pb-6">
         <MatchTopBar
           state={engine.state}
@@ -467,7 +467,7 @@ export function MatchScreen() {
                 <Play size={16} />
                 SONRAKİ MAÇA HAZIRLAN
               </button>
-              <div className="text-[8px] text-emerald-400/70">
+              <div className="text-[10px] text-emerald-400/70">
                 Test modu — sonraki maç için tıkla
               </div>
             </div>
@@ -563,7 +563,7 @@ function ScheduleWidget({
         <FastForward size={14} />
         TURU İLERLET
       </button>
-      <div className="text-[8px] text-muted-foreground text-center -mt-1">
+      <div className="text-[10px] text-muted-foreground text-center -mt-1">
         Maçını oynamadan turu ilerletirsen, sonucu otomatik simüle edilir
       </div>
     </div>
@@ -878,12 +878,12 @@ function HalftimeSubs({ team, homeTeam, engine, mySide }: {
                 >
                   <span className="text-[9px] font-bold w-6 shrink-0">{p.specificPosition}</span>
                   <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
-                  <span className="text-[8px] text-amber-400 font-bold tabular-nums">{p.rating} OVR</span>
-                  <span className={cn("text-[8px] tabular-nums", p.cond < 30 ? "text-red-400" : "text-muted-foreground")}>
+                  <span className="text-[10px] text-amber-400 font-bold tabular-nums">{p.rating} OVR</span>
+                  <span className={cn("text-[10px] tabular-nums", p.cond < 30 ? "text-red-400" : "text-muted-foreground")}>
                     {p.cond}❤
                   </span>
                   {(p.goals > 0 || p.assists > 0) && (
-                    <span className="text-[8px] text-emerald-400 font-bold tabular-nums">
+                    <span className="text-[10px] text-emerald-400 font-bold tabular-nums">
                       {p.goals}G{p.assists > 0 ? `·${p.assists}A` : ""}
                     </span>
                   )}
@@ -908,11 +908,11 @@ function HalftimeSubs({ team, homeTeam, engine, mySide }: {
                   >
                     <span className="text-[9px] font-bold w-6 shrink-0">{p.specificPosition}</span>
                     <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
-                    <span className="text-[8px] text-amber-400 font-bold tabular-nums">{p.rating} OVR</span>
-                    <span className="text-[8px] text-muted-foreground tabular-nums">{p.cond}❤</span>
+                    <span className="text-[10px] text-amber-400 font-bold tabular-nums">{p.rating} OVR</span>
+                    <span className="text-[10px] text-muted-foreground tabular-nums">{p.cond}❤</span>
                     {diff !== 0 && (
                       <span className={cn(
-                        "text-[8px] font-bold tabular-nums px-1 rounded",
+                        "text-[10px] font-bold tabular-nums px-1 rounded",
                         diff > 0 ? "bg-emerald-500/20 text-emerald-300" : "bg-red-500/20 text-red-300"
                       )}>
                         {diff > 0 ? "+" : ""}{diff}
@@ -978,7 +978,7 @@ function LiveCommentaryBanner({ events }: { events: MatchEvent[] }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-0.5">
             <span className="text-[9px] font-bold tabular-nums text-muted-foreground">{minute}</span>
-            <span className={cn("text-[8px] font-bold uppercase tracking-wide", cfg.text)}>
+            <span className={cn("text-[10px] font-bold uppercase tracking-wide", cfg.text)}>
               {latest.type === "goal" ? "GOL!" : latest.type === "red_card" ? "KIRMIZI KART" : latest.type === "yellow_card" ? "SARI KART" : latest.type === "injury" ? "SAKATLIK" : latest.type === "substitution" ? "DEĞİŞİKLİK" : latest.type === "penalty" ? "PENALTI" : latest.type === "var_review" ? "VAR İNCELEMESİ" : latest.type === "chance" ? "FIRSAT" : "OLAY"}
             </span>
           </div>
@@ -1286,7 +1286,7 @@ function SliderRow({
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-full h-2 rounded-full appearance-none cursor-pointer bg-muted accent-primary tm-tap"
-        style={{ minHeight: 28 }}
+       
       />
     </div>
   );

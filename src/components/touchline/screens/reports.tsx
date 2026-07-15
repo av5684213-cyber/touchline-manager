@@ -185,7 +185,7 @@ function MatchReport({
             <Activity size={12} className="text-muted-foreground" />
             <span className="text-xs font-bold">Son Form</span>
           </div>
-          <span className="text-[9px] text-muted-foreground">{myRecent.length} maçlık süreç</span>
+          <span className="text-[11px] text-muted-foreground">{myRecent.length} maçlık süreç</span>
         </div>
         <div className="flex gap-1 mb-2">
           {stats.form.map((r, i) => (
@@ -224,24 +224,24 @@ function MatchReport({
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="bg-emerald-500/10 rounded p-2 text-center">
-            <div className="text-[8px] text-muted-foreground uppercase">Atılan Gol</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Atılan Gol</div>
             <div className="text-lg font-bold text-emerald-400 tabular-nums">{stats.goalsFor}</div>
-            <div className="text-[8px] text-muted-foreground">maç başı {stats.avgGoalsFor.toFixed(2)}</div>
+            <div className="text-[10px] text-muted-foreground">maç başı {stats.avgGoalsFor.toFixed(2)}</div>
           </div>
           <div className="bg-red-500/10 rounded p-2 text-center">
-            <div className="text-[8px] text-muted-foreground uppercase">Yenilen Gol</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Yenilen Gol</div>
             <div className="text-lg font-bold text-red-400 tabular-nums">{stats.goalsAgainst}</div>
-            <div className="text-[8px] text-muted-foreground">maç başı {stats.avgGoalsAgainst.toFixed(2)}</div>
+            <div className="text-[10px] text-muted-foreground">maç başı {stats.avgGoalsAgainst.toFixed(2)}</div>
           </div>
           <div className="bg-sky-500/10 rounded p-2 text-center">
-            <div className="text-[8px] text-muted-foreground uppercase">Gol Yemedi</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Gol Yemedi</div>
             <div className="text-lg font-bold text-sky-400 tabular-nums">{stats.cleanSheets}</div>
-            <div className="text-[8px] text-muted-foreground">%{((stats.cleanSheets / myRecent.length) * 100).toFixed(0)}</div>
+            <div className="text-[10px] text-muted-foreground">%{((stats.cleanSheets / myRecent.length) * 100).toFixed(0)}</div>
           </div>
           <div className="bg-orange-500/10 rounded p-2 text-center">
-            <div className="text-[8px] text-muted-foreground uppercase">Golsüz Maç</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Golsüz Maç</div>
             <div className="text-lg font-bold text-orange-400 tabular-nums">{stats.failedToScore}</div>
-            <div className="text-[8px] text-muted-foreground">%{((stats.failedToScore / myRecent.length) * 100).toFixed(0)}</div>
+            <div className="text-[10px] text-muted-foreground">%{((stats.failedToScore / myRecent.length) * 100).toFixed(0)}</div>
           </div>
         </div>
       </div>
@@ -256,7 +256,7 @@ function MatchReport({
           <div className="bg-muted/20 rounded p-2">
             <div className="flex items-center gap-1 mb-1">
               <Home size={10} className="text-emerald-400" />
-              <span className="text-[9px] font-bold uppercase">Ev Sahibi</span>
+              <span className="text-[11px] font-bold uppercase">Ev Sahibi</span>
             </div>
             {/* P2 FIX: "G-değil" yerine net G/B/M formatı */}
             <div className="text-[10px] text-muted-foreground">
@@ -266,14 +266,14 @@ function MatchReport({
               <div className="h-full bg-emerald-500 rounded-full"
                 style={{ width: `${stats.homeGames > 0 ? (stats.homeWins / stats.homeGames) * 100 : 0}%` }} />
             </div>
-            <div className="text-[9px] text-muted-foreground mt-0.5">
+            <div className="text-[11px] text-muted-foreground mt-0.5">
               %{stats.homeGames > 0 ? ((stats.homeWins / stats.homeGames) * 100).toFixed(0) : 0} galibiyet
             </div>
           </div>
           <div className="bg-muted/20 rounded p-2">
             <div className="flex items-center gap-1 mb-1">
               <Footprints size={10} className="text-sky-400" />
-              <span className="text-[9px] font-bold uppercase">Deplasman</span>
+              <span className="text-[11px] font-bold uppercase">Deplasman</span>
             </div>
             <div className="text-[10px] text-muted-foreground">
               {stats.awayWins}G · {stats.awayDraws ?? 0}B · {(stats.awayGames ?? 0) - (stats.awayWins ?? 0) - (stats.awayDraws ?? 0)}M
@@ -282,7 +282,7 @@ function MatchReport({
               <div className="h-full bg-sky-500 rounded-full"
                 style={{ width: `${stats.awayGames > 0 ? (stats.awayWins / stats.awayGames) * 100 : 0}%` }} />
             </div>
-            <div className="text-[9px] text-muted-foreground mt-0.5">
+            <div className="text-[11px] text-muted-foreground mt-0.5">
               %{stats.awayGames > 0 ? ((stats.awayWins / stats.awayGames) * 100).toFixed(0) : 0} galibiyet
             </div>
           </div>
@@ -312,12 +312,12 @@ function MatchReport({
                 : lost ? "border-l-red-500 bg-red-500/5"
                 : "border-l-amber-500 bg-amber-500/5"
               )}>
-                <div className="text-[9px] text-muted-foreground w-8 shrink-0">H{f.matchday}</div>
+                <div className="text-[11px] text-muted-foreground w-8 shrink-0">H{f.matchday}</div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[10px] font-semibold truncate">
                     {isHome ? "Ev" : "Dep"} vs {opp?.shortName ?? "—"}
                   </div>
-                  <div className="text-[8px] text-muted-foreground">
+                  <div className="text-[10px] text-muted-foreground">
                     {isHome ? "Ev sahibi" : "Deplasman"} · {won ? "G" : lost ? "M" : "B"}
                     {gd !== 0 && ` · averaj ${gd > 0 ? "+" : ""}${gd}`}
                   </div>
@@ -385,7 +385,7 @@ function FinancialReport({
           <DollarSign size={12} className="text-muted-foreground" />
         </div>
         <div className="text-2xl font-bold tabular-nums">{formatEuro(team.budget, locale)}</div>
-        <div className="text-[9px] text-muted-foreground mt-0.5">
+        <div className="text-[11px] text-muted-foreground mt-0.5">
           Sezon sonu tahmini: {formatEuro(projectedBudget, locale)}
         </div>
       </div>
@@ -399,7 +399,7 @@ function FinancialReport({
           {net >= 0 ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
           {net >= 0 ? "+" : ""}{formatEuro(net, locale)}
         </div>
-        <div className="text-[9px] text-muted-foreground mt-0.5">
+        <div className="text-[11px] text-muted-foreground mt-0.5">
           Sezonluk projeksiyon: {net >= 0 ? "+" : ""}{formatEuro(seasonalNet, locale)}
         </div>
       </div>
@@ -444,11 +444,11 @@ function FinancialReport({
         </div>
         <div className="grid grid-cols-2 gap-2 text-center">
           <div className="bg-muted/20 rounded p-2">
-            <div className="text-[8px] text-muted-foreground uppercase">Toplam Değer</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Toplam Değer</div>
             <div className="text-base font-bold tabular-nums text-amber-300">{formatEuro(squadValue, locale)}</div>
           </div>
           <div className="bg-muted/20 rounded p-2">
-            <div className="text-[8px] text-muted-foreground uppercase">Oyuncu Başına</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Oyuncu Başına</div>
             <div className="text-base font-bold tabular-nums">
               {formatEuro(squadValue / team.players.length, locale)}
             </div>
@@ -464,15 +464,15 @@ function FinancialReport({
         </div>
         <div className="grid grid-cols-3 gap-1.5 text-center">
           <div className="bg-muted/20 rounded p-1.5">
-            <div className="text-[8px] text-muted-foreground uppercase">Serbest</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Serbest</div>
             <div className="text-sm font-bold">{transfer.freeAgents.length}</div>
           </div>
           <div className="bg-muted/20 rounded p-1.5">
-            <div className="text-[8px] text-muted-foreground uppercase">İzleme</div>
+            <div className="text-[10px] text-muted-foreground uppercase">İzleme</div>
             <div className="text-sm font-bold">{transfer.watchlist?.length ?? 0}</div>
           </div>
           <div className="bg-muted/20 rounded p-1.5">
-            <div className="text-[8px] text-muted-foreground uppercase">Gelen Teklif</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Gelen Teklif</div>
             <div className="text-sm font-bold">{transfer.incomingOffers.length}</div>
           </div>
         </div>
@@ -639,7 +639,7 @@ function PerformanceReport({
               <PlayerStatRow key={p.id} rank={i + 1} name={`${p.firstName} ${p.lastName}`} pos={p.specificPosition} value={p.goals ?? 0} valueLabel="G" color="emerald" />
             ))}
             {topScorers.length === 0 && (
-              <div className="text-[9px] text-muted-foreground text-center py-1">Gol yok</div>
+              <div className="text-[11px] text-muted-foreground text-center py-1">Gol yok</div>
             )}
           </div>
         </div>
@@ -653,7 +653,7 @@ function PerformanceReport({
               <PlayerStatRow key={p.id} rank={i + 1} name={`${p.firstName} ${p.lastName}`} pos={p.specificPosition} value={p.assists ?? 0} valueLabel="A" color="sky" />
             ))}
             {topAssists.length === 0 && (
-              <div className="text-[9px] text-muted-foreground text-center py-1">Asist yok</div>
+              <div className="text-[11px] text-muted-foreground text-center py-1">Asist yok</div>
             )}
           </div>
         </div>
@@ -697,8 +697,8 @@ function PerformanceReport({
               <div key={p.id} className="flex items-center gap-2 py-1 px-1.5 rounded bg-red-500/5">
                 <span className="text-base">🚑</span>
                 <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
-                <span className="text-[8px] text-muted-foreground">{p.specificPosition}</span>
-                <span className="text-[9px] text-red-400 font-bold">
+                <span className="text-[10px] text-muted-foreground">{p.specificPosition}</span>
+                <span className="text-[11px] text-red-400 font-bold">
                   {p.injury?.remaining_days ?? 0}g
                 </span>
               </div>
@@ -797,15 +797,15 @@ function ScoutReport({
         </div>
         <div className="grid grid-cols-3 gap-1.5 text-center">
           <div className="bg-muted/20 rounded p-1.5">
-            <div className="text-[8px] text-muted-foreground uppercase">Scout</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Scout</div>
             <div className="text-sm font-bold">{scoutCount}</div>
           </div>
           <div className="bg-muted/20 rounded p-1.5">
-            <div className="text-[8px] text-muted-foreground uppercase">Toplam Yıldız</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Toplam Yıldız</div>
             <div className="text-sm font-bold text-amber-300">{"★".repeat(scoutStars) || "—"}</div>
           </div>
           <div className="bg-muted/20 rounded p-1.5">
-            <div className="text-[8px] text-muted-foreground uppercase">Gelen Teklif</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Gelen Teklif</div>
             <div className="text-sm font-bold">{incomingOffers.length}</div>
           </div>
         </div>
@@ -819,11 +819,11 @@ function ScoutReport({
         </div>
         <div className="grid grid-cols-2 gap-1.5 text-center">
           <div className="bg-emerald-500/10 rounded p-2">
-            <div className="text-[8px] text-muted-foreground uppercase">Serbest Oyuncu</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Serbest Oyuncu</div>
             <div className="text-lg font-bold text-emerald-400">{freeAgents.length}</div>
           </div>
           <div className="bg-sky-500/10 rounded p-2">
-            <div className="text-[8px] text-muted-foreground uppercase">İzleme Listem</div>
+            <div className="text-[10px] text-muted-foreground uppercase">İzleme Listem</div>
             <div className="text-lg font-bold text-sky-400">{watchlist.length}</div>
           </div>
         </div>
@@ -848,12 +848,12 @@ function ScoutReport({
                 <span className="text-base">{icon}</span>
                 <div className="flex-1">
                   <div className="text-[10px] font-bold">{label}</div>
-                  <div className="text-[8px] text-muted-foreground">
+                  <div className="text-[10px] text-muted-foreground">
                     {need.current}/{need.ideal} oyuncu
                   </div>
                 </div>
                 <div className={cn(
-                  "text-[9px] px-1.5 py-0.5 rounded font-bold",
+                  "text-[11px] px-1.5 py-0.5 rounded font-bold",
                   need.severity === "high" ? "bg-red-500/20 text-red-300"
                   : need.severity === "medium" ? "bg-amber-500/20 text-amber-300"
                   : "bg-emerald-500/20 text-emerald-300"
@@ -919,7 +919,7 @@ function ScoutReport({
                     <div className="text-[10px] font-semibold truncate">
                       {p ? `${p.firstName} ${p.lastName}` : "Oyuncu"}
                     </div>
-                    <div className="text-[8px] text-muted-foreground">
+                    <div className="text-[10px] text-muted-foreground">
                       {o.fromTeamName ?? "Takım"} · {o.amount ? formatEuroShort(o.amount) : "—"}
                     </div>
                   </div>
@@ -1013,7 +1013,7 @@ function SeasonReport({
           <span className="text-xs font-bold">Sezon {seasonNumber} İlerlemesi</span>
         </div>
         <div className="mb-1">
-          <div className="flex justify-between text-[9px] text-muted-foreground mb-0.5">
+          <div className="flex justify-between text-[11px] text-muted-foreground mb-0.5">
             <span>Hafta {currentMd}/{totalMd}</span>
             <span>{myFixtures.length} maç oynandı · {totalMd - myFixtures.length} maç kaldı</span>
           </div>
@@ -1021,7 +1021,7 @@ function SeasonReport({
             <div className="h-full bg-primary rounded-full" style={{ width: `${(currentMd / totalMd) * 100}%` }} />
           </div>
         </div>
-        <div className="text-[9px] text-muted-foreground mt-1">
+        <div className="text-[11px] text-muted-foreground mt-1">
           {currentMd <= halfMark ? "İlk yarı" : "İkinci yarı"} · %{((currentMd / totalMd) * 100).toFixed(0)} tamamlandı
         </div>
       </div>
@@ -1033,7 +1033,7 @@ function SeasonReport({
           <Trophy size={12} />
           {currentTarget.label}
         </div>
-        <div className="text-[9px] text-muted-foreground mt-1">
+        <div className="text-[11px] text-muted-foreground mt-1">
           {myPos}. sıradasın · hedefe {currentTarget.pos - myPos > 0 ? `${currentTarget.pos - myPos} sıra` : "ulaşıldı"}
         </div>
       </div>
@@ -1046,15 +1046,15 @@ function SeasonReport({
         </div>
         <div className="grid grid-cols-3 gap-1.5">
           <div className="bg-muted/20 rounded p-2 text-center">
-            <div className="text-[8px] text-muted-foreground uppercase">Sıra</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Sıra</div>
             <div className="text-xl font-bold">{myPos}<span className="text-[10px] text-muted-foreground">/18</span></div>
           </div>
           <div className="bg-muted/20 rounded p-2 text-center">
-            <div className="text-[8px] text-muted-foreground uppercase">Puan</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Puan</div>
             <div className="text-xl font-bold tabular-nums">{allStats.pts}</div>
           </div>
           <div className="bg-muted/20 rounded p-2 text-center">
-            <div className="text-[8px] text-muted-foreground uppercase">Averaj</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Averaj</div>
             <div className={cn("text-xl font-bold tabular-nums",
               allStats.gf - allStats.ga > 0 ? "text-emerald-400"
               : allStats.gf - allStats.ga < 0 ? "text-red-400" : "")}>
@@ -1062,15 +1062,15 @@ function SeasonReport({
             </div>
           </div>
           <div className="bg-emerald-500/10 rounded p-2 text-center">
-            <div className="text-[8px] text-muted-foreground uppercase">Galibiyet</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Galibiyet</div>
             <div className="text-lg font-bold text-emerald-400">{allStats.w}</div>
           </div>
           <div className="bg-amber-500/10 rounded p-2 text-center">
-            <div className="text-[8px] text-muted-foreground uppercase">Beraberlik</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Beraberlik</div>
             <div className="text-lg font-bold text-amber-400">{allStats.d}</div>
           </div>
           <div className="bg-red-500/10 rounded p-2 text-center">
-            <div className="text-[8px] text-muted-foreground uppercase">Mağlubiyet</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Mağlubiyet</div>
             <div className="text-lg font-bold text-red-400">{allStats.l}</div>
           </div>
         </div>
@@ -1085,13 +1085,13 @@ function SeasonReport({
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-muted/20 rounded p-2">
-              <div className="text-[9px] font-bold mb-1">İlk Yarı</div>
+              <div className="text-[11px] font-bold mb-1">İlk Yarı</div>
               <div className="text-[10px] text-muted-foreground">{firstStats.w}G {firstStats.d}B {firstStats.l}M</div>
               <div className="text-[10px] text-muted-foreground">{firstStats.gf}-{firstStats.ga} gol</div>
               <div className="text-sm font-bold text-emerald-400 mt-0.5">{firstStats.pts} puan</div>
             </div>
             <div className="bg-muted/20 rounded p-2">
-              <div className="text-[9px] font-bold mb-1">İkinci Yarı</div>
+              <div className="text-[11px] font-bold mb-1">İkinci Yarı</div>
               {secondHalf.length > 0 ? (
                 <>
                   <div className="text-[10px] text-muted-foreground">{secondStats.w}G {secondStats.d}B {secondStats.l}M</div>
@@ -1099,7 +1099,7 @@ function SeasonReport({
                   <div className="text-sm font-bold text-sky-400 mt-0.5">{secondStats.pts} puan</div>
                 </>
               ) : (
-                <div className="text-[9px] text-muted-foreground">Henüz başlamadı</div>
+                <div className="text-[11px] text-muted-foreground">Henüz başlamadı</div>
               )}
             </div>
           </div>
@@ -1115,16 +1115,16 @@ function SeasonReport({
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-muted/20 rounded p-2 text-center">
-              <div className="text-[8px] text-muted-foreground uppercase">Puan</div>
+              <div className="text-[10px] text-muted-foreground uppercase">Puan</div>
               <div className="text-lg font-bold text-amber-400">{last5Stats.pts}</div>
-              <div className="text-[8px] text-muted-foreground">/ 15</div>
+              <div className="text-[10px] text-muted-foreground">/ 15</div>
             </div>
             <div className="bg-muted/20 rounded p-2 text-center">
-              <div className="text-[8px] text-muted-foreground uppercase">Form</div>
+              <div className="text-[10px] text-muted-foreground uppercase">Form</div>
               <div className="text-lg font-bold">
                 {last5Stats.w}-{last5Stats.d}-{last5Stats.l}
               </div>
-              <div className="text-[8px] text-muted-foreground">G-B-M</div>
+              <div className="text-[10px] text-muted-foreground">G-B-M</div>
             </div>
           </div>
         </div>
@@ -1161,12 +1161,12 @@ function SeasonReport({
                 "flex items-center gap-2 py-1 px-1.5 rounded",
                 isMe ? "bg-primary/15 border border-primary/30" : "bg-muted/20"
               )}>
-                <span className="text-[9px] text-muted-foreground w-4 tabular-nums">{idx}</span>
+                <span className="text-[11px] text-muted-foreground w-4 tabular-nums">{idx}</span>
                 <span className="text-[10px] font-semibold flex-1 truncate">
                   {isMe ? "★ " : ""}{s.shortName}
                 </span>
-                <span className="text-[8px] text-muted-foreground">{s.played}m</span>
-                <span className="text-[8px] text-muted-foreground">{s.goalsFor}-{s.goalsAgainst}</span>
+                <span className="text-[10px] text-muted-foreground">{s.played}m</span>
+                <span className="text-[10px] text-muted-foreground">{s.goalsFor}-{s.goalsAgainst}</span>
                 <span className="text-[10px] font-bold tabular-nums">{s.points}</span>
               </div>
             );
@@ -1201,7 +1201,7 @@ function SummaryTile({
   return (
     <div className={cn("rounded p-1.5 text-center", colors[color])}>
       <Icon size={12} className="mx-auto mb-0.5" />
-      <div className="text-[8px] uppercase opacity-80">{label}</div>
+      <div className="text-[10px] uppercase opacity-80">{label}</div>
       <div className="text-base font-bold tabular-nums">{value}</div>
     </div>
   );
@@ -1223,7 +1223,7 @@ function StatTile({
   };
   return (
     <div className="bg-muted/20 rounded p-1.5">
-      <div className="text-[8px] text-muted-foreground uppercase">{label}</div>
+      <div className="text-[10px] text-muted-foreground uppercase">{label}</div>
       <div className={cn("text-sm font-bold", color ? colors[color] : "")}>{value}</div>
     </div>
   );
@@ -1280,15 +1280,15 @@ function PlayerStatRow({
   };
   return (
     <div className="flex items-center gap-2 py-1 px-1.5 rounded bg-muted/20">
-      <span className="text-[9px] text-muted-foreground w-4">{rank}</span>
+      <span className="text-[11px] text-muted-foreground w-4">{rank}</span>
       <div className="flex-1 min-w-0">
         <div className="text-[10px] font-semibold truncate">{name}</div>
-        {extra && <div className="text-[8px] text-muted-foreground">{extra}</div>}
+        {extra && <div className="text-[10px] text-muted-foreground">{extra}</div>}
       </div>
-      <span className="text-[8px] text-muted-foreground">{pos}</span>
+      <span className="text-[10px] text-muted-foreground">{pos}</span>
       <span className={cn("text-[10px] font-bold tabular-nums", colors[color])}>
         {value.toFixed(decimals)}
-        <span className="text-[8px] opacity-70 ml-0.5">{valueLabel}</span>
+        <span className="text-[10px] opacity-70 ml-0.5">{valueLabel}</span>
       </span>
     </div>
   );
@@ -1305,15 +1305,15 @@ function ScoutPlayerRow({
 }) {
   return (
     <div className="flex items-center gap-2 py-1 px-1.5 rounded bg-muted/20">
-      <span className="text-[9px] text-muted-foreground w-4">{rank}</span>
+      <span className="text-[11px] text-muted-foreground w-4">{rank}</span>
       <div className="flex-1 min-w-0">
         <div className="text-[10px] font-semibold truncate">{player.firstName} {player.lastName}</div>
         {price && (
-          <div className="text-[8px] text-muted-foreground">{formatEuroShort(price)}</div>
+          <div className="text-[10px] text-muted-foreground">{formatEuroShort(price)}</div>
         )}
       </div>
-      <span className="text-[8px] text-muted-foreground">{player.specificPosition}</span>
-      <span className="text-[8px] text-muted-foreground">{player.age}yaş</span>
+      <span className="text-[10px] text-muted-foreground">{player.specificPosition}</span>
+      <span className="text-[10px] text-muted-foreground">{player.age}yaş</span>
       <span className="text-[10px] font-bold tabular-nums">{player.rating}</span>
     </div>
   );

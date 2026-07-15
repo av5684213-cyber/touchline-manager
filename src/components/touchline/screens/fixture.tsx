@@ -106,7 +106,7 @@ export function FixtureScreen() {
                   <span className={cn("inline-flex items-center justify-center w-7 h-7 rounded text-[10px] font-bold text-white", cls)}>
                     {outcome === "W" ? "G" : outcome === "D" ? "B" : "M"}
                   </span>
-                  <span className="text-[7px] text-muted-foreground truncate max-w-[60px]">{opp?.name ?? "—"}</span>
+                  <span className="text-[9px] text-muted-foreground truncate max-w-[60px]">{opp?.name ?? "—"}</span>
                 </div>
               );
             })}
@@ -155,7 +155,7 @@ export function FixtureScreen() {
               "tm-tap flex-1 py-1.5 rounded-full text-[11px] font-semibold border",
               filter === f ? "bg-foreground text-background border-foreground" : "bg-card border-border"
             )}
-            style={{ minHeight: 28 }}
+           
           >
             {t(`fixture.filter.${f}`)}
           </button>

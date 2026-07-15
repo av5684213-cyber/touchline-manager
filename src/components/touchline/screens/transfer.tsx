@@ -121,7 +121,7 @@ export function TransferScreen() {
                 ? "bg-primary text-primary-foreground border-primary"
                 : "bg-card border-border hover:bg-accent"
             )}
-            style={{ minHeight: 32 }}
+           
           >
             {tab.label}
             {tab.count > 0 && (
@@ -153,7 +153,7 @@ export function TransferScreen() {
                     ? "bg-foreground text-background border-foreground"
                     : "bg-card border-border"
                 )}
-                style={{ minHeight: 28 }}
+               
               >
                 {g === "ALL" ? t("transfer.filter.all") : t(`transfer.filter.${g.toLowerCase()}`)}
               </button>

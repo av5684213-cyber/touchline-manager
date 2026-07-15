@@ -79,15 +79,15 @@ export function TopScorersScreen() {
         )}
         <div className="grid grid-cols-3 gap-1.5">
           <div className="bg-emerald-500/10 border border-emerald-500/20 rounded p-1.5 text-center">
-            <div className="text-[8px] text-muted-foreground uppercase">Toplam Gol</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Toplam Gol</div>
             <div className="text-sm font-bold text-emerald-400 tabular-nums">{totalGoals}</div>
           </div>
           <div className="bg-amber-500/10 border border-amber-500/20 rounded p-1.5 text-center">
-            <div className="text-[8px] text-muted-foreground uppercase">En İyi Benim</div>
+            <div className="text-[10px] text-muted-foreground uppercase">En İyi Benim</div>
             <div className="text-sm font-bold text-amber-400 tabular-nums">{myRank ? `#${myRank}` : "—"}</div>
           </div>
           <div className="bg-sky-500/10 border border-sky-500/20 rounded p-1.5 text-center">
-            <div className="text-[8px] text-muted-foreground uppercase">Oyuncu</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Oyuncu</div>
             <div className="text-sm font-bold text-sky-400 tabular-nums">{allPlayers.length}</div>
           </div>
         </div>
@@ -141,9 +141,9 @@ export function TopScorersScreen() {
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-bold truncate flex items-center gap-1.5">
                   {p.firstName} {p.lastName}
-                  {isMyPlayer && <span className="text-[8px] px-1 py-0.5 rounded bg-primary text-primary-foreground font-bold">SENİN</span>}
-                  {p.form_streak === "hot" && <span className="text-[8px] px-1 py-0.5 rounded bg-orange-500/20 text-orange-300 font-bold">🔥</span>}
-                  {p.form_streak === "cold" && <span className="text-[8px] px-1 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">❄️</span>}
+                  {isMyPlayer && <span className="text-[10px] px-1 py-0.5 rounded bg-primary text-primary-foreground font-bold">SENİN</span>}
+                  {p.form_streak === "hot" && <span className="text-[10px] px-1 py-0.5 rounded bg-orange-500/20 text-orange-300 font-bold">🔥</span>}
+                  {p.form_streak === "cold" && <span className="text-[10px] px-1 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">❄️</span>}
                 </div>
                 <div className="text-[10px] text-muted-foreground flex items-center gap-1.5">
                   <span className="font-semibold" style={{ color: entry.team.primaryColor }}>{entry.team.shortName}</span>
@@ -161,7 +161,7 @@ export function TopScorersScreen() {
                    sortKey === "rating" ? (p.formRating ?? 0).toFixed(1) :
                    sortKey === "motm" ? (p.motmAwards ?? 0) : (p.appearances ?? 0)}
                 </div>
-                <div className="text-[8px] text-muted-foreground uppercase">
+                <div className="text-[10px] text-muted-foreground uppercase">
                   {sortKey === "goals" ? "Gol" : sortKey === "assists" ? "Asist" :
                    sortKey === "rating" ? "Rating" : sortKey === "motm" ? "MOTM" : "Maç"}
                 </div>

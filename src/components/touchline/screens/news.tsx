@@ -92,7 +92,7 @@ export function NewsScreen() {
               "tm-tap px-3 py-1 rounded-full text-[10px] font-semibold whitespace-nowrap border",
               filter === cat ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border"
             )}
-            style={{ minHeight: 26 }}
+           
           >
             {cat === "ALL" ? "Tümü" : (CATEGORY_STYLE[cat]?.label ?? cat)}
           </button>

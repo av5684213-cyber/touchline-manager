@@ -330,10 +330,10 @@ function PlayerDot({
         )}
         {/* Kaptan */}
         {player.isCaptain && (
-          <span className="absolute -top-1 -left-1 text-[7px] font-bold text-amber-300">C</span>
+          <span className="absolute -top-1 -left-1 text-[9px] font-bold text-amber-300">C</span>
         )}
       </div>
-      <span className="text-[7px] text-white font-semibold drop-shadow max-w-[40px] truncate text-center">
+      <span className="text-[9px] text-white font-semibold drop-shadow max-w-[40px] truncate text-center">
         {player.name.split(" ").pop()}
       </span>
     </div>

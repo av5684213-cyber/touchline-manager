@@ -137,13 +137,13 @@ export function PreMatchScreen({
           <div className="flex flex-col items-center gap-1">
             <ClubBadge short={homeTeam.shortName} primaryColor={homeTeam.primaryColor} size={40} />
             <span className="text-[10px] font-bold truncate max-w-[100px]">{homeTeam.name}</span>
-            <span className="text-[9px] text-muted-foreground">{isHome ? t("dash.home") : t("dash.away")}</span>
+            <span className="text-[11px] text-muted-foreground">{isHome ? t("dash.home") : t("dash.away")}</span>
           </div>
           <span className="text-[10px] text-muted-foreground font-bold">{t("dash.vs")}</span>
           <div className="flex flex-col items-center gap-1">
             <ClubBadge short={awayTeam.shortName} primaryColor={awayTeam.primaryColor} size={40} />
             <span className="text-[10px] font-bold truncate max-w-[100px]">{awayTeam.name}</span>
-            <span className="text-[9px] text-muted-foreground">{!isHome ? t("dash.home") : t("dash.away")}</span>
+            <span className="text-[11px] text-muted-foreground">{!isHome ? t("dash.home") : t("dash.away")}</span>
           </div>
         </div>
       </div>
@@ -153,18 +153,18 @@ export function PreMatchScreen({
         <div className="tm-card p-2.5 flex items-center gap-2">
           <Shield size={16} className="text-amber-400 shrink-0" />
           <div className="min-w-0">
-            <div className="text-[9px] text-muted-foreground uppercase">{t("match.referee")}</div>
+            <div className="text-[11px] text-muted-foreground uppercase">{t("match.referee")}</div>
             <div className="text-[10px] font-bold truncate">{refereeName}</div>
-            <div className="text-[8px] text-muted-foreground">{t(`match.ref.${refereePersonality}`)}</div>
+            <div className="text-[10px] text-muted-foreground">{t(`match.ref.${refereePersonality}`)}</div>
           </div>
         </div>
         <div className="tm-card p-2.5 flex items-center gap-2">
           <WeatherIcon size={16} className="text-sky-400 shrink-0" />
           <div className="min-w-0">
-            <div className="text-[9px] text-muted-foreground uppercase">{t("match.weather")}</div>
+            <div className="text-[11px] text-muted-foreground uppercase">{t("match.weather")}</div>
             <div className="text-[10px] font-bold">{weatherLabel}</div>
             {weather !== "sunny" && (
-              <div className="text-[8px] text-amber-400">{t(`match.banner.${weather}`)}</div>
+              <div className="text-[10px] text-amber-400">{t(`match.banner.${weather}`)}</div>
             )}
           </div>
         </div>
@@ -175,13 +175,13 @@ export function PreMatchScreen({
         <div className="text-[10px] text-muted-foreground uppercase font-bold mb-2">{t("fixture.form")}</div>
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col items-center gap-1">
-            <span className="text-[9px] text-muted-foreground truncate max-w-[80px]">{homeTeam.name}</span>
+            <span className="text-[11px] text-muted-foreground truncate max-w-[80px]">{homeTeam.name}</span>
             <div className="flex gap-0.5">
               {homeForm.length === 0 ? (
-                <span className="text-[9px] text-muted-foreground">—</span>
+                <span className="text-[11px] text-muted-foreground">—</span>
               ) : homeForm.map((f, i) => (
                 <span key={i} className={cn(
-                  "inline-flex items-center justify-center w-5 h-5 rounded text-[8px] font-bold text-white",
+                  "inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold text-white",
                   f === "W" ? "bg-emerald-500" : f === "D" ? "bg-amber-400" : "bg-red-500"
                 )}>
                   {f === "W" ? "G" : f === "D" ? "B" : "M"}
@@ -190,13 +190,13 @@ export function PreMatchScreen({
             </div>
           </div>
           <div className="flex flex-col items-center gap-1">
-            <span className="text-[9px] text-muted-foreground truncate max-w-[80px]">{awayTeam.name}</span>
+            <span className="text-[11px] text-muted-foreground truncate max-w-[80px]">{awayTeam.name}</span>
             <div className="flex gap-0.5">
               {awayForm.length === 0 ? (
-                <span className="text-[9px] text-muted-foreground">—</span>
+                <span className="text-[11px] text-muted-foreground">—</span>
               ) : awayForm.map((f, i) => (
                 <span key={i} className={cn(
-                  "inline-flex items-center justify-center w-5 h-5 rounded text-[8px] font-bold text-white",
+                  "inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold text-white",
                   f === "W" ? "bg-emerald-500" : f === "D" ? "bg-amber-400" : "bg-red-500"
                 )}>
                   {f === "W" ? "G" : f === "D" ? "B" : "M"}
@@ -213,11 +213,11 @@ export function PreMatchScreen({
         <div className="grid grid-cols-2 gap-3">
           <div className="text-center">
             <div className="text-2xl font-bold tabular-nums text-primary">{homeAvg}</div>
-            <div className="text-[8px] text-muted-foreground">Ort. OVR</div>
+            <div className="text-[10px] text-muted-foreground">Ort. OVR</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold tabular-nums text-primary">{awayAvg}</div>
-            <div className="text-[8px] text-muted-foreground">Ort. OVR</div>
+            <div className="text-[10px] text-muted-foreground">Ort. OVR</div>
           </div>
         </div>
         {/* Güç barı */}
@@ -235,7 +235,7 @@ export function PreMatchScreen({
             <div className="flex items-center gap-2">
               <div className="flex-1 min-w-0">
                 <div className="text-[10px] font-bold truncate">{homeBest.firstName} {homeBest.lastName}</div>
-                <div className="text-[8px] text-muted-foreground">{homeBest.specificPosition} · {homeBest.archetype}</div>
+                <div className="text-[10px] text-muted-foreground">{homeBest.specificPosition} · {homeBest.archetype}</div>
               </div>
               <RatingBadge value={homeBest.formRating} />
             </div>
@@ -244,7 +244,7 @@ export function PreMatchScreen({
             <div className="flex items-center gap-2">
               <div className="flex-1 min-w-0">
                 <div className="text-[10px] font-bold truncate">{awayBest.firstName} {awayBest.lastName}</div>
-                <div className="text-[8px] text-muted-foreground">{awayBest.specificPosition} · {awayBest.archetype}</div>
+                <div className="text-[10px] text-muted-foreground">{awayBest.specificPosition} · {awayBest.archetype}</div>
               </div>
               <RatingBadge value={awayBest.formRating} />
             </div>
@@ -256,7 +256,7 @@ export function PreMatchScreen({
       <div className="tm-card p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="text-[10px] text-muted-foreground uppercase font-bold">{homeTeam.name} — İlk 11</div>
-          <div className="text-[9px] font-bold text-amber-300 tabular-nums">Ort: {homeAvg}</div>
+          <div className="text-[11px] font-bold text-amber-300 tabular-nums">Ort: {homeAvg}</div>
         </div>
         <div className="space-y-0.5">
           {homeXI.map((p, i) => {
@@ -265,7 +265,7 @@ export function PreMatchScreen({
               <div key={p.id} className={cn("flex items-center gap-2 py-1 px-1.5 rounded", POSITION_ROW_BG[group])}>
                 <PositionPill label={p.specificPosition} group={group} />
                 <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
-                <span className="text-[9px] font-bold tabular-nums w-6 text-right">{p.rating}</span>
+                <span className="text-[11px] font-bold tabular-nums w-6 text-right">{p.rating}</span>
               </div>
             );
           })}
@@ -276,7 +276,7 @@ export function PreMatchScreen({
       <div className="tm-card p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="text-[10px] text-muted-foreground uppercase font-bold">{awayTeam.name} — İlk 11</div>
-          <div className="text-[9px] font-bold text-amber-300 tabular-nums">Ort: {awayAvg}</div>
+          <div className="text-[11px] font-bold text-amber-300 tabular-nums">Ort: {awayAvg}</div>
         </div>
         <div className="space-y-0.5">
           {awayXI.map((p, i) => {
@@ -285,7 +285,7 @@ export function PreMatchScreen({
               <div key={p.id} className={cn("flex items-center gap-2 py-1 px-1.5 rounded", POSITION_ROW_BG[group])}>
                 <PositionPill label={p.specificPosition} group={group} />
                 <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
-                <span className="text-[9px] font-bold tabular-nums w-6 text-right">{p.rating}</span>
+                <span className="text-[11px] font-bold tabular-nums w-6 text-right">{p.rating}</span>
               </div>
             );
           })}

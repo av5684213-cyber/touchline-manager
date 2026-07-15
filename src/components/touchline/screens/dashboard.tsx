@@ -355,7 +355,7 @@ export function DashboardScreen() {
                 </div>
                 <span
                   className={cn(
-                    "text-[8px] px-1 py-0.5 rounded font-bold shrink-0",
+                    "text-[10px] px-1 py-0.5 rounded font-bold shrink-0",
                     isHome ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
                   )}
                 >
@@ -588,7 +588,7 @@ function InflationIndicator() {
         <div className="text-sm font-bold text-yellow-400 tabular-nums">
           +%{pct}
         </div>
-        <div className="text-[8px] text-muted-foreground uppercase">
+        <div className="text-[10px] text-muted-foreground uppercase">
           ×{mult.toFixed(2)}
         </div>
       </div>
@@ -758,7 +758,7 @@ function DailyTasks() {
               "w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center",
               task.done ? "bg-emerald-500 border-emerald-500" : "border-border"
             )}>
-              {task.done && <span className="text-[8px] text-white">✓</span>}
+              {task.done && <span className="text-[10px] text-white">✓</span>}
             </span>
             <span className="text-base shrink-0">{task.icon}</span>
             <span className={cn("flex-1 text-[11px] font-medium", task.done && "line-through text-muted-foreground")}>
@@ -845,7 +845,7 @@ function InfoBadge({ text }: { text: string }) {
     <span className="relative inline-flex">
       <button
         onClick={(e) => { e.stopPropagation(); setShow(!show); }}
-        className="tm-tap w-3.5 h-3.5 rounded-full bg-muted text-muted-foreground text-[8px] font-bold flex items-center justify-center"
+        className="tm-tap w-3.5 h-3.5 rounded-full bg-muted text-muted-foreground text-[10px] font-bold flex items-center justify-center"
       >
         i
       </button>
@@ -855,7 +855,7 @@ function InfoBadge({ text }: { text: string }) {
           onClick={(e) => e.stopPropagation()}
         >
           {text}
-          <button onClick={() => setShow(false)} className="block mt-1 text-[8px] text-muted-foreground">kapat</button>
+          <button onClick={() => setShow(false)} className="block mt-1 text-[10px] text-muted-foreground">kapat</button>
         </span>
       )}
     </span>

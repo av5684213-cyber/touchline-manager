@@ -165,7 +165,7 @@ export function StatGrowth({ playerId, statKey, currentValue }: { playerId: stri
     const diff = currentValue - startValue;
     if (diff <= 0) return null;
     return (
-      <span className="text-[7px] font-bold text-emerald-400 leading-none ml-0.5">
+      <span className="text-[9px] font-bold text-emerald-400 leading-none ml-0.5">
         +{diff}
       </span>
     );

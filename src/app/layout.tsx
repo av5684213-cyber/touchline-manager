@@ -41,8 +41,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // P0 FIX: userScalable: false KALDIRILDI — WCAG 1.4.4 ihlali, App Store reddi riski
+  // Görme engelli kullanıcılar pinch-to-zoom yapabilmeli
+  maximumScale: 5,
+  userScalable: true,
   themeColor: "#1a3a2a",
   viewportFit: "cover",
 };

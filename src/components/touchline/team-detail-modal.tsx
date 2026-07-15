@@ -168,26 +168,26 @@ export function TeamDetailModal({
       <div className="grid grid-cols-4 gap-1.5 p-2.5 shrink-0">
         <div className="tm-card p-1.5 text-center">
           <div className="text-base font-bold tabular-nums text-amber-400">{myPosition || "—"}</div>
-          <div className="text-[7px] text-muted-foreground uppercase">Sıra</div>
+          <div className="text-[11px] text-muted-foreground uppercase">Sıra</div>
         </div>
         <div className="tm-card p-1.5 text-center">
           <div className="text-base font-bold tabular-nums text-emerald-400">{points}</div>
-          <div className="text-[7px] text-muted-foreground uppercase">Puan</div>
+          <div className="text-[11px] text-muted-foreground uppercase">Puan</div>
         </div>
         <div className="tm-card p-1.5 text-center">
           <div className="text-base font-bold tabular-nums">{avgOvr}</div>
-          <div className="text-[7px] text-muted-foreground uppercase">OVR</div>
+          <div className="text-[11px] text-muted-foreground uppercase">OVR</div>
         </div>
         <div className="tm-card p-1.5 text-center">
           <div className="text-[10px] font-bold tabular-nums">{formatEuro(totalValue, locale)}</div>
-          <div className="text-[7px] text-muted-foreground uppercase">Değer</div>
+          <div className="text-[11px] text-muted-foreground uppercase">Değer</div>
         </div>
       </div>
 
       {/* ===== Form bar — son 5 maç ===== */}
       <div className="px-2.5 pb-2 shrink-0">
         <div className="tm-card p-2 flex items-center gap-2">
-          <span className="text-[9px] text-muted-foreground uppercase font-bold shrink-0">Form</span>
+          <span className="text-[11px] text-muted-foreground uppercase font-bold shrink-0">Form</span>
           <div className="flex gap-1 flex-1">
             {recentForm.length > 0 ? recentForm.map((r, i) => (
               <span key={i} className={cn(
@@ -199,7 +199,7 @@ export function TeamDetailModal({
                 {r === "W" ? "G" : r === "D" ? "B" : "M"}
               </span>
             )) : (
-              <span className="text-[9px] text-muted-foreground">Henüz maç oynanmadı</span>
+              <span className="text-[11px] text-muted-foreground">Henüz maç oynanmadı</span>
             )}
           </div>
         </div>
@@ -268,10 +268,10 @@ export function TeamDetailModal({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">
                         <span className="text-[11px] font-semibold truncate">{p.firstName} {p.lastName}</span>
-                        {p.is_injured && <span className="text-[8px]">🤕</span>}
-                        {p.archetype && <span className="text-[8px] text-amber-300 truncate">{p.archetype}</span>}
+                        {p.is_injured && <span className="text-[10px]">🤕</span>}
+                        {p.archetype && <span className="text-[10px] text-amber-300 truncate">{p.archetype}</span>}
                       </div>
-                      <div className="text-[9px] text-muted-foreground">
+                      <div className="text-[11px] text-muted-foreground">
                         {p.age}{t("common.year")} · {p.nationality === "TR" ? "🇹🇷" : "🌍"} · {p.specificPosition === "GK" ? `${p.saves ?? 0}K` : `${p.goals ?? 0}G·${p.assists ?? 0}A`}
                       </div>
                     </div>
@@ -302,11 +302,11 @@ export function TeamDetailModal({
               return (
                 <div key={f.id} className="tm-card p-2 flex items-center gap-2">
                   <div className="w-7 text-center shrink-0">
-                    <div className="text-[7px] uppercase text-muted-foreground">Hf</div>
+                    <div className="text-[11px] uppercase text-muted-foreground">Hf</div>
                     <div className="text-[10px] font-bold tabular-nums">{f.matchday}</div>
                   </div>
                   <span className={cn(
-                    "text-[8px] px-1 py-0.5 rounded font-bold shrink-0 w-6 text-center",
+                    "text-[10px] px-1 py-0.5 rounded font-bold shrink-0 w-6 text-center",
                     isHome ? "bg-emerald-500/20 text-emerald-300" : "bg-sky-500/20 text-sky-300"
                   )}>
                     {isHome ? "Ev" : "Dep"}
@@ -346,15 +346,15 @@ export function TeamDetailModal({
               <div className="grid grid-cols-3 gap-2">
                 <div className="bg-emerald-500/10 rounded p-2 text-center">
                   <div className="text-lg font-bold text-emerald-400">{wins}</div>
-                  <div className="text-[8px] text-muted-foreground uppercase">Galibiyet</div>
+                  <div className="text-[10px] text-muted-foreground uppercase">Galibiyet</div>
                 </div>
                 <div className="bg-amber-500/10 rounded p-2 text-center">
                   <div className="text-lg font-bold text-amber-400">{draws}</div>
-                  <div className="text-[8px] text-muted-foreground uppercase">Beraberlik</div>
+                  <div className="text-[10px] text-muted-foreground uppercase">Beraberlik</div>
                 </div>
                 <div className="bg-red-500/10 rounded p-2 text-center">
                   <div className="text-lg font-bold text-red-400">{losses}</div>
-                  <div className="text-[8px] text-muted-foreground uppercase">Mağlubiyet</div>
+                  <div className="text-[10px] text-muted-foreground uppercase">Mağlubiyet</div>
                 </div>
               </div>
               <div className="mt-2 pt-2 border-t border-border flex justify-between text-[10px]">
@@ -404,7 +404,7 @@ export function TeamDetailModal({
                     onClick={() => { haptic("light"); setProfilePlayer(p); }}
                     className="tm-tap w-full flex items-center gap-2 py-1 px-1.5 rounded bg-muted/20 hover:bg-accent/30 transition-colors"
                   >
-                    <span className="text-[9px] text-muted-foreground w-4">{i + 1}</span>
+                    <span className="text-[11px] text-muted-foreground w-4">{i + 1}</span>
                     <PlayerAvatar initials={p.specificPosition} color={team.primaryColor} size={24} />
                     <span className="text-[10px] font-semibold flex-1 truncate text-left">{p.firstName} {p.lastName}</span>
                     <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
@@ -418,27 +418,27 @@ export function TeamDetailModal({
             <div className="grid grid-cols-2 gap-2">
               {topScorer && (
                 <div className="tm-card p-2.5 text-center">
-                  <div className="text-[8px] text-muted-foreground uppercase mb-1">⚽ Gol Kralı</div>
+                  <div className="text-[10px] text-muted-foreground uppercase mb-1">⚽ Gol Kralı</div>
                   <button
                     onClick={() => { haptic("light"); setProfilePlayer(topScorer); }}
                     className="tm-tap"
                   >
                     <div className="text-[11px] font-bold truncate">{topScorer.firstName} {topScorer.lastName}</div>
                     <div className="text-lg font-bold text-emerald-400 tabular-nums">{topScorer.goals ?? 0}</div>
-                    <div className="text-[8px] text-muted-foreground">gol</div>
+                    <div className="text-[10px] text-muted-foreground">gol</div>
                   </button>
                 </div>
               )}
               {topAssister && (
                 <div className="tm-card p-2.5 text-center">
-                  <div className="text-[8px] text-muted-foreground uppercase mb-1">🅰 Asist Kralı</div>
+                  <div className="text-[10px] text-muted-foreground uppercase mb-1">🅰 Asist Kralı</div>
                   <button
                     onClick={() => { haptic("light"); setProfilePlayer(topAssister); }}
                     className="tm-tap"
                   >
                     <div className="text-[11px] font-bold truncate">{topAssister.firstName} {topAssister.lastName}</div>
                     <div className="text-lg font-bold text-sky-400 tabular-nums">{topAssister.assists ?? 0}</div>
-                    <div className="text-[8px] text-muted-foreground">asist</div>
+                    <div className="text-[10px] text-muted-foreground">asist</div>
                   </button>
                 </div>
               )}
@@ -447,7 +447,7 @@ export function TeamDetailModal({
             {/* Sakat oyuncular */}
             {injuredCount > 0 && (
               <div className="tm-card p-2.5 border-red-500/30 bg-red-500/5">
-                <div className="text-[9px] text-red-400 font-bold uppercase">🤕 Sakat Oyuncular: {injuredCount}</div>
+                <div className="text-[11px] text-red-400 font-bold uppercase">🤕 Sakat Oyuncular: {injuredCount}</div>
               </div>
             )}
           </div>

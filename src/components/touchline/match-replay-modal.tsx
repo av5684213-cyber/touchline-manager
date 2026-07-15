@@ -213,7 +213,7 @@ export function MatchReplayModal({
     <div className="fixed inset-0 z-[60] flex items-stretch justify-center">
       <div className="absolute inset-0 bg-black/90" onClick={onClose} />
 
-      <div className="relative w-full max-w-[440px] bg-background h-screen flex flex-col overflow-hidden">
+      <div className="relative w-full max-w-[440px] bg-background h-dvh flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-border" style={{ background: "var(--primary)" }}>
           <div className="flex items-center gap-2">

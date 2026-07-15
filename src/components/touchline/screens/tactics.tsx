@@ -262,12 +262,12 @@ export function TacticsScreen() {
               key={m}
               onClick={() => updateActiveTactic({ mentality: m })}
               className={cn(
-                "tm-tap flex-1 py-1 rounded text-[9px] font-bold transition-colors",
+                "tm-tap flex-1 py-1 rounded text-[11px] font-bold transition-colors",
                 active.mentality === m
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground"
               )}
-              style={{ minHeight: 28 }}
+             
             >
               {MENTALITY_LABELS[m][locale].split(" ")[0]}
             </button>
@@ -287,7 +287,7 @@ export function TacticsScreen() {
             {strengths.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {strengths.map((s, i) => (
-                  <span key={i} className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-semibold">
+                  <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-semibold">
                     ✓ {s}
                   </span>
                 ))}
@@ -296,7 +296,7 @@ export function TacticsScreen() {
             {weaknesses.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {weaknesses.map((w, i) => (
-                  <span key={i} className="text-[8px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 font-semibold">
+                  <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 font-semibold">
                     ⚠ {w}
                   </span>
                 ))}
@@ -400,16 +400,16 @@ export function TacticsScreen() {
                   {p ? p.rating : slotPos}
                   {/* P2: Sakat ikonu — sağ üstte küçük 🤕 */}
                   {isInjured && (
-                    <span className="absolute -top-1 -right-1 text-[9px] bg-red-500 rounded-full w-3.5 h-3.5 flex items-center justify-center" title="Sakat">
+                    <span className="absolute -top-1 -right-1 text-[11px] bg-red-500 rounded-full w-3.5 h-3.5 flex items-center justify-center" title="Sakat">
                       🤕
                     </span>
                   )}
                 </span>
-                <span className="text-[8px] text-white font-semibold drop-shadow max-w-[60px] truncate text-center">
+                <span className="text-[10px] text-white font-semibold drop-shadow max-w-[60px] truncate text-center">
                   {p ? `${p.firstName} ${p.lastName}` : "Boş"}
                 </span>
                 {role && (
-                  <span className="text-[7px] text-amber-300 font-semibold">
+                  <span className="text-[11px] text-amber-300 font-semibold">
                     {role.icon}
                   </span>
                 )}
@@ -469,22 +469,22 @@ export function TacticsScreen() {
                     <div className="flex items-center gap-2">
                       <span className="text-base">{r.icon}</span>
                       <span className="flex-1">{r.name}</span>
-                      {isSel && <span className="text-[9px]">✓</span>}
+                      {isSel && <span className="text-[11px]">✓</span>}
                     </div>
                     {/* Maç motoru faydaları */}
                     <div className={cn("mt-1.5 flex flex-wrap gap-1.5", isSel ? "text-primary-foreground/80" : "text-muted-foreground")}>
-                      <span className="text-[8px] flex items-center gap-0.5">
+                      <span className="text-[10px] flex items-center gap-0.5">
                         <span>⚔️</span>
                         <span className={cn("font-bold", !isSel && attColor)}>{attLabel}</span>
                         <span className="opacity-60">hücum</span>
                       </span>
-                      <span className="text-[8px] flex items-center gap-0.5">
+                      <span className="text-[10px] flex items-center gap-0.5">
                         <span>🛡️</span>
                         <span className={cn("font-bold", !isSel && defColor)}>{defLabel}</span>
                         <span className="opacity-60">savunma</span>
                       </span>
                       {benefit.style.map((s) => (
-                        <span key={s.name} className={cn("text-[8px] flex items-center gap-0.5", s.val > 0 ? "" : "opacity-50")}>
+                        <span key={s.name} className={cn("text-[10px] flex items-center gap-0.5", s.val > 0 ? "" : "opacity-50")}>
                           <span>{s.val > 0 ? "+" : ""}{s.val}%</span>
                           <span className="opacity-60">{s.name}</span>
                         </span>
@@ -492,7 +492,7 @@ export function TacticsScreen() {
                     </div>
                     {/* Kısa açıklama */}
                     {benefit.desc && (
-                      <div className={cn("mt-1 text-[9px] leading-tight", isSel ? "text-primary-foreground/70" : "text-muted-foreground/80")}>
+                      <div className={cn("mt-1 text-[11px] leading-tight", isSel ? "text-primary-foreground/70" : "text-muted-foreground/80")}>
                         {benefit.desc}
                       </div>
                     )}
@@ -511,7 +511,7 @@ export function TacticsScreen() {
             <Users size={12} className="text-muted-foreground" />
             <span className="text-xs font-bold">Yedek Kulübesi</span>
           </div>
-          <span className="text-[9px] text-muted-foreground">
+          <span className="text-[11px] text-muted-foreground">
             {benchPlayers.length} oyuncu · tıkla → slota yerleştir
           </span>
         </div>
@@ -529,7 +529,7 @@ export function TacticsScreen() {
                 ✕ İptal
               </button>
             </div>
-            <div className="text-[9px] text-muted-foreground mb-2">
+            <div className="text-[11px] text-muted-foreground mb-2">
               İlk 11'den bir slota tıkla, oyuncu oraya yerleşsin (mevcut oyuncu yedeğe düşer).
             </div>
             {/* Hızlı slot seçimi — 11 slot buton olarak */}
@@ -546,14 +546,14 @@ export function TacticsScreen() {
                       swapLineupSlot(i, benchModeSlot);
                       setBenchModeSlot(null);
                     }}
-                    className="tm-tap py-1 px-1 rounded text-[9px] font-bold border bg-card border-border hover:bg-accent/50 transition-colors flex flex-col items-center gap-0.5"
+                    className="tm-tap py-1 px-1 rounded text-[11px] font-bold border bg-card border-border hover:bg-accent/50 transition-colors flex flex-col items-center gap-0.5"
                   >
-                    <span className="text-[8px] text-muted-foreground">{slotPos}</span>
-                    <span className="text-[9px] truncate max-w-[50px]">
+                    <span className="text-[10px] text-muted-foreground">{slotPos}</span>
+                    <span className="text-[11px] truncate max-w-[50px]">
                       {current ? `${current.firstName} ${current.lastName}` : "Boş"}
                     </span>
                     {current && (
-                      <span className="text-[8px] tabular-nums text-amber-300">{current.rating}</span>
+                      <span className="text-[10px] tabular-nums text-amber-300">{current.rating}</span>
                     )}
                   </button>
                 );
@@ -591,15 +591,15 @@ export function TacticsScreen() {
                     >
                       {p.rating}
                     </span>
-                    <span className="text-[8px] font-semibold truncate w-full text-center">
+                    <span className="text-[10px] font-semibold truncate w-full text-center">
                       {p.firstName} {p.lastName}
                     </span>
-                    <span className="text-[7px] text-muted-foreground">{p.specificPosition}</span>
+                    <span className="text-[11px] text-muted-foreground">{p.specificPosition}</span>
                     {(p.cond ?? 100) < 50 && (
-                      <span className="text-[7px] text-red-400 font-bold">{p.cond}❤</span>
+                      <span className="text-[11px] text-red-400 font-bold">{p.cond}❤</span>
                     )}
                     {p.is_injured && (
-                      <span className="text-[7px] text-red-400 font-bold">🤕</span>
+                      <span className="text-[11px] text-red-400 font-bold">🤕</span>
                     )}
                   </button>
                 );
@@ -657,7 +657,7 @@ export function TacticsScreen() {
           </div>
           <div className="flex items-center gap-2">
             {/* Aktif ayar sayısı özeti */}
-            <span className="text-[9px] text-muted-foreground">
+            <span className="text-[11px] text-muted-foreground">
               {(active.pressing ? 1 : 0) + (active.parkTheBus ? 1 : 0) + (active.offsideTrap ? 1 : 0) +
                (active.crossGame ? 1 : 0) + (active.screenKeeper ? 1 : 0) + (active.wasteTime ? 1 : 0) +
                (active.loneStrikerCounter ? 1 : 0)} aktif
@@ -746,7 +746,7 @@ export function TacticsScreen() {
             <span className="text-xs font-bold">{t("tactics.instructions")}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[9px] text-muted-foreground">
+            <span className="text-[11px] text-muted-foreground">
               {Object.keys(tactics.activeInstructions ?? {}).length} aktif
             </span>
             <ChevronDown
@@ -777,7 +777,7 @@ export function TacticsScreen() {
                       <span className="text-sm">{cat.icon}</span>
                       <span className="text-[11px] font-bold uppercase tracking-wide">{cat.label[locale]}</span>
                       {activeCount > 0 && (
-                        <span className="text-[8px] px-1 py-0.5 rounded bg-primary/20 text-primary font-bold">
+                        <span className="text-[10px] px-1 py-0.5 rounded bg-primary/20 text-primary font-bold">
                           {activeCount}
                         </span>
                       )}
@@ -793,7 +793,7 @@ export function TacticsScreen() {
                         const selected = tactics.activeInstructions?.[inst.name];
                         return (
                           <div key={inst.name} className="flex flex-col">
-                            <div className="text-[9px] text-foreground/80 mb-0.5 truncate">{inst.name}</div>
+                            <div className="text-[11px] text-foreground/80 mb-0.5 truncate">{inst.name}</div>
                             <div className="flex gap-0.5">
                               {inst.options.map((opt) => (
                                 <button
@@ -807,7 +807,7 @@ export function TacticsScreen() {
                                     }
                                   }}
                                   className={cn(
-                                    "tm-tap flex-1 px-1 py-1 rounded text-[8px] font-bold border transition-colors",
+                                    "tm-tap flex-1 px-1 py-1 rounded text-[10px] font-bold border transition-colors",
                                     selected === opt
                                       ? "bg-primary text-primary-foreground border-primary"
                                       : "bg-card border-border text-muted-foreground"
@@ -866,7 +866,7 @@ export function TacticsScreen() {
                 "tm-tap px-3 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap border",
                 filter === g ? "bg-foreground text-background border-foreground" : "bg-card border-border"
               )}
-              style={{ minHeight: 28 }}
+             
             >
               {g === "ALL" ? t("common.all") : t(`pos.${g.toLowerCase()}`)}
             </button>
@@ -905,7 +905,7 @@ export function TacticsScreen() {
                       <span className="text-xs font-semibold truncate">{p.firstName} {p.lastName}</span>
                       <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
                       {p.archetype && (
-                        <span className="text-[9px] text-amber-300 truncate">{p.archetype}</span>
+                        <span className="text-[11px] text-amber-300 truncate">{p.archetype}</span>
                       )}
                     </div>
                     <div className="text-[10px] text-muted-foreground">
@@ -917,7 +917,7 @@ export function TacticsScreen() {
                       <RatingBadge value={p.formRating} />
                       <GrowthBadge currentRating={p.rating} playerId={p.id} />
                     </div>
-                    <div className="text-[9px] text-muted-foreground mt-0.5">
+                    <div className="text-[11px] text-muted-foreground mt-0.5">
                       {p.specificPosition === "GK" ? `${p.saves}K` : `${p.goals}G·${p.assists}A`}
                     </div>
                   </div>
@@ -1013,7 +1013,7 @@ function FormationPickerModal({
                 >
                   <span className="text-base">{f}</span>
                   {isSelected && (
-                    <span className="text-[8px] font-semibold opacity-80">SEÇİLİ</span>
+                    <span className="text-[10px] font-semibold opacity-80">SEÇİLİ</span>
                   )}
                 </button>
               );
@@ -1076,7 +1076,7 @@ function CompareTab({
               "tm-tap px-3 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap border",
               filter === g ? "bg-foreground text-background border-foreground" : "bg-card border-border"
             )}
-            style={{ minHeight: 28 }}
+           
           >
             {g === "ALL" ? t("common.all") : t(`pos.${g.toLowerCase()}`)}
           </button>
@@ -1104,7 +1104,7 @@ function CompareTab({
                     </div>
                     <div className="flex items-center gap-1 mt-0.5">
                       <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
-                      <span className="text-[9px] text-muted-foreground">{p.age}{t("common.year")}</span>
+                      <span className="text-[11px] text-muted-foreground">{p.age}{t("common.year")}</span>
                     </div>
                     <div className="text-xs font-bold text-amber-300 mt-0.5">{p.rating}</div>
                   </div>
@@ -1147,7 +1147,7 @@ function CompareTab({
                   <span className="text-xs font-semibold truncate">{p.firstName} {p.lastName}</span>
                   <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
                   {p.archetype && (
-                    <span className="text-[9px] text-amber-300 truncate">{p.archetype}</span>
+                    <span className="text-[11px] text-amber-300 truncate">{p.archetype}</span>
                   )}
                 </div>
                 <div className="text-[10px] text-muted-foreground">
@@ -1166,7 +1166,7 @@ function CompareTab({
                   </div>
                 )}
                 {!isSelected && (
-                  <div className="text-[9px] text-muted-foreground mt-0.5">
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
                     {p.specificPosition === "GK" ? `${p.saves}K` : `${p.goals}G·${p.assists}A`}
                   </div>
                 )}
@@ -1307,7 +1307,7 @@ function SlotPlayerPicker({
               {current && (
                 <button
                   onClick={onClear}
-                  className="tm-tap flex-1 py-1 rounded text-[9px] font-bold border border-red-500/30 bg-red-500/10 text-red-400"
+                  className="tm-tap flex-1 py-1 rounded text-[11px] font-bold border border-red-500/30 bg-red-500/10 text-red-400"
                 >
                   ✕ Boşalt
                 </button>
@@ -1315,7 +1315,7 @@ function SlotPlayerPicker({
               <button
                 onClick={() => setShowAll(!showAll)}
                 className={cn(
-                  "tm-tap flex-1 py-1 rounded text-[9px] font-bold border",
+                  "tm-tap flex-1 py-1 rounded text-[11px] font-bold border",
                   showAll ? "bg-primary text-primary-foreground border-primary" : "border-border bg-card"
                 )}
               >
@@ -1354,7 +1354,7 @@ function SlotPlayerPicker({
                       <StatGrowth playerId={p.id} statKey="rating" currentValue={p.rating} />
                       {/* P2: Sakat rozeti — sağ üstte */}
                       {isInjured && (
-                        <span className="absolute -top-1 -right-1 text-[8px] bg-red-500 rounded-full w-3.5 h-3.5 flex items-center justify-center" title={`Sakat${p.injury?.remaining_days ? ` · ${p.injury.remaining_days}g` : ""}`}>
+                        <span className="absolute -top-1 -right-1 text-[10px] bg-red-500 rounded-full w-3.5 h-3.5 flex items-center justify-center" title={`Sakat${p.injury?.remaining_days ? ` · ${p.injury.remaining_days}g` : ""}`}>
                           🤕
                         </span>
                       )}
@@ -1364,25 +1364,25 @@ function SlotPlayerPicker({
                         <span className="text-[11px] font-semibold truncate">
                           {p.firstName} {p.lastName}
                         </span>
-                        {isCurrent && <span className="text-[7px] px-0.5 py-0 rounded bg-primary text-primary-foreground font-bold">SEÇİLİ</span>}
-                        {isUsed && <span className="text-[7px] text-muted-foreground">dolu</span>}
-                        {isInjured && <span className="text-[7px] px-0.5 py-0 rounded bg-red-500/20 text-red-400 font-bold">SAKAT{p.injury?.remaining_days ? ` ${p.injury.remaining_days}g` : ""}</span>}
+                        {isCurrent && <span className="text-[11px] px-0.5 py-0 rounded bg-primary text-primary-foreground font-bold">SEÇİLİ</span>}
+                        {isUsed && <span className="text-[11px] text-muted-foreground">dolu</span>}
+                        {isInjured && <span className="text-[11px] px-0.5 py-0 rounded bg-red-500/20 text-red-400 font-bold">SAKAT{p.injury?.remaining_days ? ` ${p.injury.remaining_days}g` : ""}</span>}
                       </div>
                       {/* Pozisyon stats — ince satır */}
-                      <div className="text-[8px] text-muted-foreground truncate">
+                      <div className="text-[10px] text-muted-foreground truncate">
                         {p.specificPosition} · {getPosStats(p)} · {p.cond}%
                       </div>
                     </div>
                     {/* Form rating */}
                     <div className="shrink-0 text-right">
-                      <div className="text-[9px] font-bold tabular-nums text-muted-foreground">{(p.formRating ?? 0).toFixed(1)}</div>
-                      <div className="text-[7px] text-muted-foreground">form</div>
+                      <div className="text-[11px] font-bold tabular-nums text-muted-foreground">{(p.formRating ?? 0).toFixed(1)}</div>
+                      <div className="text-[11px] text-muted-foreground">form</div>
                     </div>
-                    {/* "i" butonu — profil kartı aç */}
+                    {/* "i" butonu — profil kartı aç — P0 FIX: 44x44px touch target */}
                     {onShowProfile && (
                       <button
                         onClick={(e) => { e.stopPropagation(); haptic("light"); onShowProfile(p); }}
-                        className="shrink-0 w-5 h-5 rounded-full border border-border text-[9px] font-bold text-muted-foreground hover:text-primary hover:border-primary/50 flex items-center justify-center"
+                        className="tm-tap shrink-0 w-9 h-9 rounded-full border border-border text-[11px] font-bold text-muted-foreground hover:text-primary hover:border-primary/50 flex items-center justify-center"
                         aria-label="Profil"
                       >
                         i
@@ -1407,7 +1407,7 @@ function SlotPlayerPicker({
             >
               <span className="text-base">🚫</span>
               <span>Rol Yok</span>
-              {!currentRole && <span className="ml-auto text-[9px]">✓</span>}
+              {!currentRole && <span className="ml-auto text-[11px]">✓</span>}
             </button>
             {getCompatibleRoles(slotPos).map((r) => {
               const isSel = currentRole === r.id;
@@ -1430,25 +1430,25 @@ function SlotPlayerPicker({
                   <div className="flex items-center gap-2">
                     <span className="text-base">{r.icon}</span>
                     <span className="flex-1">{r.name}</span>
-                    {isSel && <span className="text-[9px]">✓</span>}
+                    {isSel && <span className="text-[11px]">✓</span>}
                   </div>
                   <div className={cn("mt-0.5 flex flex-wrap gap-1.5", isSel ? "text-primary-foreground/80" : "text-muted-foreground")}>
-                    <span className="text-[8px] flex items-center gap-0.5">
+                    <span className="text-[10px] flex items-center gap-0.5">
                       <span>⚔️</span>
                       <span className={cn("font-bold", !isSel && attColor)}>{attLabel}</span>
                     </span>
-                    <span className="text-[8px] flex items-center gap-0.5">
+                    <span className="text-[10px] flex items-center gap-0.5">
                       <span>🛡️</span>
                       <span className={cn("font-bold", !isSel && defColor)}>{defLabel}</span>
                     </span>
                     {benefit.style.map((s) => (
-                      <span key={s.name} className={cn("text-[8px]", s.val > 0 ? "" : "opacity-50")}>
+                      <span key={s.name} className={cn("text-[10px]", s.val > 0 ? "" : "opacity-50")}>
                         {s.val > 0 ? "+" : ""}{s.val}% {s.name}
                       </span>
                     ))}
                   </div>
                   {benefit.desc && (
-                    <div className={cn("mt-0.5 text-[9px] leading-tight", isSel ? "text-primary-foreground/70" : "text-muted-foreground/80")}>
+                    <div className={cn("mt-0.5 text-[11px] leading-tight", isSel ? "text-primary-foreground/70" : "text-muted-foreground/80")}>
                       {benefit.desc}
                     </div>
                   )}
@@ -1467,7 +1467,7 @@ function SubScore({ label, value }: { label: string; value: number }) {
   const barColor = value >= 70 ? "bg-emerald-500" : value >= 50 ? "bg-amber-400" : "bg-red-500";
   return (
     <div className="text-center">
-      <div className="text-[8px] text-muted-foreground uppercase mb-0.5">{label}</div>
+      <div className="text-[10px] text-muted-foreground uppercase mb-0.5">{label}</div>
       <div className={cn("text-lg font-bold tabular-nums", color)}>{value}</div>
       <div className="h-1 rounded-full bg-muted overflow-hidden mt-0.5">
         <div className={cn("h-full rounded-full", barColor)} style={{ width: `${value}%` }} />
@@ -1498,7 +1498,7 @@ function SliderMini({
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-muted accent-primary tm-tap"
-        style={{ minHeight: 24 }}
+       
       />
     </div>
   );

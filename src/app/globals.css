@@ -61,7 +61,8 @@
   --secondary: oklch(0.32 0.04 260);
   --secondary-foreground: oklch(0.98 0 0);
   --muted: oklch(0.32 0.04 260);
-  --muted-foreground: oklch(0.75 0.02 260);
+  /* P1 FIX: Kontrast artırıldı — 0.75 → 0.82 (WCAG AA ~6:1) */
+  --muted-foreground: oklch(0.82 0.02 260);
   --accent: oklch(0.36 0.05 260);
   --accent-foreground: oklch(0.98 0 0);
   --destructive: oklch(0.65 0.22 25);
@@ -100,7 +101,8 @@
   --secondary: oklch(0.32 0.04 260);
   --secondary-foreground: oklch(0.98 0 0);
   --muted: oklch(0.32 0.04 260);
-  --muted-foreground: oklch(0.7 0.02 260);
+  /* P1 FIX: Dark mode kontrast artırıldı — 0.7 → 0.78 (WCAG AA) */
+  --muted-foreground: oklch(0.78 0.02 260);
   --accent: oklch(0.36 0.05 260);
   --accent-foreground: oklch(0.98 0 0);
   --destructive: oklch(0.7 0.19 22);
