@@ -2658,6 +2658,20 @@ export const useAppStore = create<AppState>()(
           }
         } catch (e) { /* sponsorSystem yoksa ignore */ }
 
+        // P0: Sezon sonu kredi bonusu — performans bazlı
+        try {
+          const finalPos = myIdx + 1;
+          let seasonBonus = 20; // temel bonus
+          if (finalPos === 1) seasonBonus += 80; // şampiyon
+          else if (finalPos <= 3) seasonBonus += 40; // ilk 3
+          else if (finalPos <= 6) seasonBonus += 20; // ilk 6
+          if (summary.promoted) seasonBonus += 30; // yükselme
+          if (get().cup.champion === myTeamId) seasonBonus += 50; // kupa şampiyonu
+          const currentCredits = get().credits;
+          set({ credits: currentCredits + seasonBonus });
+          console.log(`[endSeason] Kredi bonusu: +${seasonBonus} (sezon sonu)`);
+        } catch (e) { /* ignore */ }
+
         return { success: true, summary };
       },
 

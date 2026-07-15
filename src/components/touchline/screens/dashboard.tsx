@@ -685,12 +685,12 @@ function DailyTasks() {
     if (saved) {
       try { return JSON.parse(saved); } catch {}
     }
-    // Yeni gün — görevleri sıfırla
+    // Yeni gün — görevleri sıfırla (P0: kredi ödülü eklendi)
     const fresh = [
-      { id: "train", icon: "🏋️", label: "1 antrenman yap", reward: "+5 moral", done: false },
-      { id: "tactics", icon: "📋", label: "Taktik düzenle", reward: "+3 kondisyon", done: false },
-      { id: "transfer", icon: "💰", label: "Transfer/teklif yap", reward: "+10K €", done: false },
-      { id: "match", icon: "⚽", label: "Maçını izle", reward: "+5 form", done: false },
+      { id: "train", icon: "🏋️", label: "1 antrenman yap", reward: "+5 moral +2 kredi", done: false, credits: 2 },
+      { id: "tactics", icon: "📋", label: "Taktik düzenle", reward: "+3 kondisyon +2 kredi", done: false, credits: 2 },
+      { id: "transfer", icon: "💰", label: "Transfer/teklif yap", reward: "+10K € +2 kredi", done: false, credits: 2 },
+      { id: "match", icon: "⚽", label: "Maçını izle", reward: "+5 form +2 kredi", done: false, credits: 2 },
     ];
     localStorage.setItem(key, JSON.stringify(fresh));
     return fresh;
@@ -723,11 +723,20 @@ function DailyTasks() {
         }
         useAppStore.setState({ clubs });
       }
+      // P0: Kredi ödülü — her görev için +2 kredi
+      const taskCredits = (task as any).credits ?? 2;
+      useAppStore.getState().addCredits(taskCredits);
     }
 
     const updated = tasks.map((t: any) => t.id === id ? { ...t, done: true } : t);
     setTasks(updated);
     localStorage.setItem(`tm_tasks_${today}`, JSON.stringify(updated));
+
+    // P0: Tüm görevler tamamlandıysa +5 bonus kredi
+    if (updated.every((t: any) => t.done)) {
+      haptic("success");
+      useAppStore.getState().addCredits(5);
+    }
   };
 
   const completedCount = tasks.filter((t: any) => t.done).length;

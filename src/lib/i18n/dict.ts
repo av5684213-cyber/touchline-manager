@@ -42,6 +42,7 @@ export const dict: Dict = {
   "nav.other": { tr: "Diğer", en: "More" },
   "nav.topscorers": { tr: "Gol Kralları", en: "Top Scorers" },
   "nav.shop": { tr: "Mağaza", en: "Shop" },
+  "nav.market": { tr: "Market", en: "Market" },
 
   // ---- common ----
   "common.loading": { tr: "Yükleniyor…", en: "Loading…" },

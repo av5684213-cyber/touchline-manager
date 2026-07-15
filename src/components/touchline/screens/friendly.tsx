@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
   ArrowLeft,
   Calendar,
@@ -21,6 +21,8 @@ import { POSITION_GROUP } from "@/lib/mock/data";
 import { ClubBadge, PositionPill, RatingBadge } from "../ui-bits";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
+import { joinFriendlyQueue, type QueueUser, type MatchmakingCallbacks } from "@/lib/matchmaking";
+import { useSupabaseAuth } from "@/lib/auth/auth-context";
 import type { TabKey } from "../bottom-nav";
 
 /**
@@ -34,13 +36,16 @@ import type { TabKey } from "../bottom-nav";
 export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
   const { t, locale } = useI18n();
   const team = useMyTeam();
-  const { clubs, credits, spendCredits } = useAppStore();
+  const { clubs, credits, spendCredits, managerName } = useAppStore();
+  const { user } = useSupabaseAuth();
   const [selectedOppId, setSelectedOppId] = useState<string | null>(null);
   const [matchStarted, setMatchStarted] = useState(false);
   const [matchResult, setMatchResult] = useState<{ home: number; away: number } | null>(null);
   const [search, setSearch] = useState("");
   const [queueStatus, setQueueStatus] = useState<"idle" | "searching" | "matched">("idle");
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [onlineCount, setOnlineCount] = useState(0);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
   const opponents = useMemo(() => {
     if (!team) return [];
@@ -62,34 +67,121 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
     true // P0#2 FIX: Hazırlık maçı — fikstüre yazma
   );
 
-  // P0: Sıraya gir — ücretsiz, 2-3 saniye sonra rastgele bot eşleşmesi
+  // P0: Sıraya gir — multiplayer eşleşme (kullanıcı-kullanıcı)
+  // Supabase yoksa veya timeout olursa bot fallback
   const handleJoinQueue = () => {
     haptic("medium");
     setQueueStatus("searching");
     setFeedback(null);
-    // 2-3 saniye bekle, sonra rastgele bot ile eşleş
-    const delay = 2000 + Math.random() * 1500;
-    setTimeout(() => {
-      const randomOpp = opponents[Math.floor(Math.random() * opponents.length)];
-      if (randomOpp) {
-        setSelectedOppId(randomOpp.id);
-        setQueueStatus("matched");
+
+    // Kullanıcı bilgisi hazırla
+    const userId = user?.id ?? `guest_${Date.now()}`;
+    const queueUser: QueueUser = {
+      userId,
+      managerName: managerName || "Menajer",
+      teamName: team?.name ?? "Takım",
+      teamShort: team?.shortName ?? "TM",
+      teamColor: team?.primaryColor ?? "#1a3a2a",
+      teamOvr: team ? Math.round(team.players.reduce((s, p) => s + p.rating, 0) / team.players.length) : 70,
+      joinedAt: Date.now(),
+    };
+
+    const callbacks: MatchmakingCallbacks = {
+      onSearching: () => {
+        setFeedback("Sırada rakip aranıyor... Diğer kullanıcılar ile eşleşme bekleniyor.");
+      },
+      onMatched: (oppUser: QueueUser) => {
         haptic("success");
-        setFeedback(`✓ Eşleşme bulundu: ${randomOpp.name}`);
-        // Maçı başlat
-        setTimeout(() => {
-          setMatchStarted(true);
-          engine.reset();
-          engine.start();
-        }, 800);
-      } else {
-        setQueueStatus("idle");
-        setFeedback("Rakip bulunamadı, tekrar dene.");
-      }
-    }, delay);
+        setFeedback(`✓ Eşleşme bulundu: ${oppUser.teamName} (OVR ${oppUser.teamOvr})`);
+        setQueueStatus("matched");
+        // Eşleşilen kullanıcının takımını oluştur (geçici bot takım olarak)
+        // Gerçek senaryoda Supabase'den rakip takım verisi çekilir
+        // Şimdilik rastgele bot takım ile simüle et
+        const randomOpp = opponents[Math.floor(Math.random() * opponents.length)];
+        if (randomOpp) {
+          setSelectedOppId(randomOpp.id);
+          setTimeout(() => {
+            setMatchStarted(true);
+            engine.reset();
+            engine.start();
+          }, 800);
+        }
+      },
+      onTimeout: () => {
+        // 30 saniye sonra eşleşme yoksa bot fallback
+        haptic("light");
+        setFeedback("Online kullanıcı bulunamadı — bot ile eşleşiliyor...");
+        const randomOpp = opponents[Math.floor(Math.random() * opponents.length)];
+        if (randomOpp) {
+          setSelectedOppId(randomOpp.id);
+          setQueueStatus("matched");
+          setTimeout(() => {
+            setMatchStarted(true);
+            engine.reset();
+            engine.start();
+          }, 600);
+        } else {
+          setQueueStatus("idle");
+          setFeedback("Rakip bulunamadı, tekrar dene.");
+        }
+      },
+      onError: (msg) => {
+        // Supabase yoksa bot fallback
+        if (msg === "NO_SUPABASE") {
+          setFeedback("Online mod kullanılamıyor — bot ile eşleşiliyor...");
+          const delay = 2000 + Math.random() * 1500;
+          setTimeout(() => {
+            const randomOpp = opponents[Math.floor(Math.random() * opponents.length)];
+            if (randomOpp) {
+              setSelectedOppId(randomOpp.id);
+              setQueueStatus("matched");
+              haptic("success");
+              setFeedback(`✓ Eşleşme bulundu: ${randomOpp.name}`);
+              setTimeout(() => {
+                setMatchStarted(true);
+                engine.reset();
+                engine.start();
+              }, 800);
+            } else {
+              setQueueStatus("idle");
+              setFeedback("Rakip bulunamadı, tekrar dene.");
+            }
+          }, delay);
+        } else {
+          setQueueStatus("idle");
+          setFeedback(`Hata: ${msg}`);
+        }
+      },
+    };
+
+    // Multiplayer queue'ya katıl
+    joinFriendlyQueue(queueUser, callbacks).then((cleanup) => {
+      cleanupRef.current = cleanup;
+    });
   };
 
-  // P0: Maç teklifi ver — 2 kredi, anında rastgele bot ile maç
+  // Cleanup — component unmount olursa queue'dan çık
+  useEffect(() => {
+    return () => {
+      if (cleanupRef.current) {
+        cleanupRef.current();
+        cleanupRef.current = null;
+      }
+    };
+  }, []);
+
+  // Cancel queue
+  const handleCancelQueue = () => {
+    haptic("light");
+    if (cleanupRef.current) {
+      cleanupRef.current();
+      cleanupRef.current = null;
+    }
+    setQueueStatus("idle");
+    setFeedback(null);
+  };
+
+  // P0: Hemen Maç — 2 kredi, anında rastgele rakip
   const handleInstantMatch = () => {
     haptic("medium");
     const ok = spendCredits(2);
@@ -190,7 +282,7 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
           className="tm-tap flex flex-col items-center gap-1 p-3 rounded-lg bg-emerald-600 text-white text-xs font-bold active:scale-[0.98] transition-transform disabled:opacity-50"
         >
           <Users size={20} />
-          {queueStatus === "searching" ? "Eşleşme aranıyor..." : "Sıraya Gir (Ücretsiz)"}
+          {queueStatus === "searching" ? "Aranıyor..." : "Online Sıraya Gir"}
         </button>
         <button
           onClick={handleInstantMatch}
@@ -215,8 +307,14 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
             <div className="w-3 h-3 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: "150ms" }} />
             <div className="w-3 h-3 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: "300ms" }} />
           </div>
-          <div className="text-xs font-bold text-emerald-700">Sırada rakip aranıyor...</div>
-          <div className="text-[10px] text-muted-foreground mt-1">Ücretsiz eşleşme — biraz beklemen gerekebilir</div>
+          <div className="text-xs font-bold text-emerald-700">Online kullanıcı aranıyor...</div>
+          <div className="text-[10px] text-muted-foreground mt-1">Diğer kullanıcılar ile eşleşme bekleniyor (max 30 sn)</div>
+          <button
+            onClick={handleCancelQueue}
+            className="tm-tap mt-3 px-4 py-1.5 rounded-md bg-muted text-muted-foreground text-xs font-bold border border-border"
+          >
+            İptal Et
+          </button>
         </div>
       )}
 

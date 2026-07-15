@@ -27,6 +27,7 @@ import { ReportsScreen } from "@/components/touchline/screens/reports";
 import { ComingSoonScreen } from "@/components/touchline/screens/coming-soon";
 import { FriendlyScreen } from "@/components/touchline/screens/friendly";
 import { ShopScreen } from "@/components/touchline/screens/shop";
+import { MarketScreen } from "@/components/touchline/screens/market";
 import { OtherDrawer } from "@/components/touchline/other-drawer";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useBodyScrollLock } from "@/hooks/touchline";
@@ -78,6 +79,7 @@ export default function Home() {
           {tab === "cup" && <CupScreen />}
           {tab === "friendly" && <FriendlyScreen />}
           {tab === "shop" && <ShopScreen />}
+          {tab === "market" && <MarketScreen />}
           {tab === "reports" && <ReportsScreen />}
         </main>
         <BottomNav

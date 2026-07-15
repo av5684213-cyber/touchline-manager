@@ -15,6 +15,7 @@ import {
   Wallet,
   Crown,
   ShoppingBag,
+  Palette,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { haptic } from "@/hooks/touchline";
@@ -38,6 +39,7 @@ export type TabKey =
   | "cup"
   | "topscorers"
   | "shop" // P0: Mağaza sekmesi
+  | "market" // P0: Market sekmesi (kozmetik)
   // Üst şerit sekmesi — coming-soon
   | "friendly";
 
@@ -51,6 +53,7 @@ export const MAIN_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: s
 
 export const OTHER_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: string }[] = [
   { key: "shop", icon: ShoppingBag, labelKey: "nav.shop" },
+  { key: "market", icon: Palette, labelKey: "nav.market" },
   { key: "youth", icon: GraduationCap, labelKey: "nav.youth" },
   { key: "topscorers", icon: Crown, labelKey: "nav.topscorers" },
   { key: "awards", icon: Award, labelKey: "nav.awards" },
