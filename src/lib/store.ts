@@ -171,6 +171,8 @@ type AppState = {
     active: any[]; // aktif imzalı sponsorlar
     offers: any[]; // bekleyen teklifler
   };
+  // P0: Kredi sistemi — paket satın alma, hazırlık maçı için
+  credits: number;
 
   // actions
   loginDemo: (name?: string) => void;
@@ -220,6 +222,10 @@ type AppState = {
   acceptSponsor: (sponsorId: string) => void;
   rejectSponsor: (sponsorId: string) => void;  // P2 FIX: Reddetme action'ı eklendi
   getSponsorWeeklyIncome: () => number;
+  // P0: Kredi sistemi actions
+  addCredits: (amount: number) => void;
+  spendCredits: (amount: number) => boolean;
+  buyPlayerPack: (packType: "bronze" | "silver" | "gold" | "platinum") => { success: boolean; players?: any[]; reason?: string };
   // message actions
   markMessageRead: (msgId: string) => void;
   markAllMessagesRead: () => void;
@@ -463,6 +469,9 @@ export const useAppStore = create<AppState>()(
         active: [],
         offers: [],
       },
+
+      // P0: Kredi sistemi — başlangıçta 50 kredi (2 hazırlık maçı bedava)
+      credits: 50,
 
       loginDemo: (name) => {
         // Already-initialized clubs varsa yeniden üretme
@@ -2774,6 +2783,66 @@ export const useAppStore = create<AppState>()(
             offers: sponsors.offers.filter((s) => s.id !== sponsorId),
           },
         });
+      },
+
+      // P0: ===== Kredi sistemi actions =====
+      addCredits: (amount) => {
+        const { credits } = get();
+        set({ credits: credits + amount });
+      },
+
+      spendCredits: (amount) => {
+        const { credits } = get();
+        if (credits < amount) return false;
+        set({ credits: credits - amount });
+        return true;
+      },
+
+      buyPlayerPack: (packType) => {
+        const { credits, clubs, myTeamId, transfer } = get();
+        const PACK_PRICES = { bronze: 10, silver: 25, gold: 50, platinum: 100 };
+        const PACK_OVR = {
+          bronze: { min: 50, max: 65 },
+          silver: { min: 60, max: 75 },
+          gold: { min: 70, max: 85 },
+          platinum: { min: 78, max: 92 },
+        };
+        const price = PACK_PRICES[packType];
+        if (credits < price) {
+          return { success: false, reason: "Yetersiz kredi" };
+        }
+
+        // 3 oyuncu üret
+        const { generatePlayer } = require("@/lib/mock/data");
+        const ovrRange = PACK_OVR[packType];
+        const positions = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
+        const pulledPlayers: any[] = [];
+        for (let i = 0; i < 3; i++) {
+          const pos = positions[Math.floor(Math.random() * positions.length)];
+          const player = generatePlayer(pos as any, ovrRange);
+          // Paketten gelen oyuncuları serbest ajan listesine ekle
+          // Kullanıcı normal bütçeyle imzalamak zorunda — pay-to-win değil
+          pulledPlayers.push(player);
+        }
+
+        // Serbest ajan listesine ekle
+        const newFreeAgents = pulledPlayers.map(p => ({
+          player: p,
+          askingPrice: Math.round((p.marketValue ?? p.market_value ?? 500_000) * 0.8), // %20 indirim
+          wageDemand: Math.round((p.weeklyWage ?? 5000) * 0.8),
+          daysListed: 1,
+          offers: 0,
+        }));
+
+        set({
+          credits: credits - price,
+          transfer: {
+            ...transfer,
+            freeAgents: [...newFreeAgents, ...(transfer.freeAgents ?? [])],
+          },
+        });
+
+        return { success: true, players: pulledPlayers };
       },
 
       // ===== Message actions =====

@@ -6,6 +6,7 @@ import {
   Calendar,
   ChevronRight,
   Clock,
+  Coins,
   Play,
   RotateCcw,
   Search,
@@ -33,11 +34,13 @@ import type { TabKey } from "../bottom-nav";
 export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
   const { t, locale } = useI18n();
   const team = useMyTeam();
-  const { clubs } = useAppStore();
+  const { clubs, credits, spendCredits } = useAppStore();
   const [selectedOppId, setSelectedOppId] = useState<string | null>(null);
   const [matchStarted, setMatchStarted] = useState(false);
   const [matchResult, setMatchResult] = useState<{ home: number; away: number } | null>(null);
   const [search, setSearch] = useState("");
+  const [queueStatus, setQueueStatus] = useState<"idle" | "searching" | "matched">("idle");
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   const opponents = useMemo(() => {
     if (!team) return [];
@@ -58,6 +61,57 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
     locale,
     true // P0#2 FIX: Hazırlık maçı — fikstüre yazma
   );
+
+  // P0: Sıraya gir — ücretsiz, 2-3 saniye sonra rastgele bot eşleşmesi
+  const handleJoinQueue = () => {
+    haptic("medium");
+    setQueueStatus("searching");
+    setFeedback(null);
+    // 2-3 saniye bekle, sonra rastgele bot ile eşleş
+    const delay = 2000 + Math.random() * 1500;
+    setTimeout(() => {
+      const randomOpp = opponents[Math.floor(Math.random() * opponents.length)];
+      if (randomOpp) {
+        setSelectedOppId(randomOpp.id);
+        setQueueStatus("matched");
+        haptic("success");
+        setFeedback(`✓ Eşleşme bulundu: ${randomOpp.name}`);
+        // Maçı başlat
+        setTimeout(() => {
+          setMatchStarted(true);
+          engine.reset();
+          engine.start();
+        }, 800);
+      } else {
+        setQueueStatus("idle");
+        setFeedback("Rakip bulunamadı, tekrar dene.");
+      }
+    }, delay);
+  };
+
+  // P0: Maç teklifi ver — 2 kredi, anında rastgele bot ile maç
+  const handleInstantMatch = () => {
+    haptic("medium");
+    const ok = spendCredits(2);
+    if (!ok) {
+      haptic("error");
+      setFeedback("✗ Yetersiz kredi! Sıraya girerek ücretsiz maç yapabilirsin.");
+      setTimeout(() => setFeedback(null), 3000);
+      return;
+    }
+    // Anında rastgele rakip seç ve başlat
+    const randomOpp = opponents[Math.floor(Math.random() * opponents.length)];
+    if (randomOpp) {
+      setSelectedOppId(randomOpp.id);
+      setFeedback(`✓ 2 kredi harcandı — ${randomOpp.name} ile maç başlıyor!`);
+      haptic("success");
+      setTimeout(() => {
+        setMatchStarted(true);
+        engine.reset();
+        engine.start();
+      }, 600);
+    }
+  };
 
   if (!team) {
     return (
@@ -121,23 +175,50 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
         </p>
       </div>
 
+      {/* Feedback mesajı */}
+      {feedback && (
+        <div className="tm-card p-2.5 text-center text-xs font-bold bg-amber-50 border-amber-200 text-amber-800">
+          {feedback}
+        </div>
+      )}
+
       {/* İki ana buton */}
       <div className="grid grid-cols-2 gap-2">
         <button
-          onClick={() => { haptic("light"); /* Sıraya gir — matchmaking */ }}
-          className="tm-tap flex flex-col items-center gap-1 p-3 rounded-lg bg-emerald-600 text-white text-xs font-bold active:scale-[0.98] transition-transform"
+          onClick={handleJoinQueue}
+          disabled={queueStatus === "searching"}
+          className="tm-tap flex flex-col items-center gap-1 p-3 rounded-lg bg-emerald-600 text-white text-xs font-bold active:scale-[0.98] transition-transform disabled:opacity-50"
         >
           <Users size={20} />
-          Hazırlık Maçı Sırasına Gir
+          {queueStatus === "searching" ? "Eşleşme aranıyor..." : "Sıraya Gir (Ücretsiz)"}
         </button>
         <button
-          onClick={() => { haptic("light"); /* Aşağıdaki rakip seçim listesi */ }}
-          className="tm-tap flex flex-col items-center gap-1 p-3 rounded-lg bg-sky-600 text-white text-xs font-bold active:scale-[0.98] transition-transform"
+          onClick={handleInstantMatch}
+          disabled={queueStatus === "searching"}
+          className="tm-tap flex flex-col items-center gap-1 p-3 rounded-lg bg-sky-600 text-white text-xs font-bold active:scale-[0.98] transition-transform disabled:opacity-50"
         >
           <Search size={20} />
-          Hazırlık Maçı Teklifi Ver
+          <span className="flex items-center gap-1">
+            Hemen Maç
+            <span className="flex items-center gap-0.5 px-1 py-0.5 rounded-full bg-amber-500/30">
+              <Coins size={10} /> 2
+            </span>
+          </span>
         </button>
       </div>
+
+      {/* Queue searching indicator */}
+      {queueStatus === "searching" && (
+        <div className="tm-card p-4 text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <div className="w-3 h-3 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+            <div className="w-3 h-3 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+            <div className="w-3 h-3 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+          </div>
+          <div className="text-xs font-bold text-emerald-700">Sırada rakip aranıyor...</div>
+          <div className="text-[10px] text-muted-foreground mt-1">Ücretsiz eşleşme — biraz beklemen gerekebilir</div>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative">

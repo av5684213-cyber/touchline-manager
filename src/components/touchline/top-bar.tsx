@@ -6,10 +6,11 @@ import { useAppStore } from "@/lib/store";
 import { LEAGUE_NAMES, type LeagueTier } from "@/lib/mock/data";
 import { ClubBadge } from "./ui-bits";
 import { formatEuro } from "@/lib/format";
+import { Coins } from "lucide-react";
 
 export function TopBar({ compact = false }: { compact?: boolean }) {
   const { t, locale } = useI18n();
-  const { clubs, myTeamId, managerName } = useAppStore();
+  const { clubs, myTeamId, managerName, credits } = useAppStore();
   const team = clubs.find((c) => c.id === myTeamId);
 
   if (compact) {
@@ -30,12 +31,17 @@ export function TopBar({ compact = false }: { compact?: boolean }) {
                 {team.name}
               </span>
               <span className="text-[11px] opacity-80">
-                2025–26 · {team.leagueTier ? LEAGUE_NAMES[team.leagueTier][locale] : t("dash.1lig")}
+                {team.leagueTier ? LEAGUE_NAMES[team.leagueTier][locale] : t("dash.1lig")}
                 {team.department ? ` D${team.department}` : ""}
               </span>
               <span className="text-xs font-bold tabular-nums opacity-90">
                 {formatEuro(team.budget, locale)}
               </span>
+              {/* Kredi göstergesi */}
+              <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/30 border border-amber-400/40">
+                <Coins size={11} className="text-amber-300" />
+                <span className="text-[11px] font-bold text-amber-200 tabular-nums">{credits}</span>
+              </div>
             </>
           )}
           {!team && (
@@ -83,6 +89,14 @@ export function TopBar({ compact = false }: { compact?: boolean }) {
                 </div>
                 <div className="text-sm font-bold tabular-nums">
                   {formatEuro(team.budget, locale)}
+                </div>
+              </div>
+              {/* Kredi göstergesi */}
+              <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-amber-500/25 border border-amber-400/40">
+                <Coins size={16} className="text-amber-300" />
+                <div>
+                  <div className="text-[9px] text-amber-200/70 uppercase font-bold leading-none">Kredi</div>
+                  <div className="text-sm font-bold text-amber-100 tabular-nums leading-tight">{credits}</div>
                 </div>
               </div>
             </>
