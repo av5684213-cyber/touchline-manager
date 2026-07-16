@@ -201,7 +201,7 @@ export function TrainingScreen() {
   const windowRemaining = schedule.windowEndsAt ? schedule.windowEndsAt - Date.now() : 0;
 
   return (
-    <div className="px-4 py-4 pb-6 space-y-3">
+    <div className="px-4 py-4 pb-24 space-y-3">
       {/* Header */}
       <div className="tm-card p-3">
         <div className="flex items-center justify-between mb-2">

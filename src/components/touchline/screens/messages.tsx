@@ -41,7 +41,7 @@ export function MessagesScreen() {
   if (!team) return null;
 
   return (
-    <div className="px-3 py-3 pb-6 space-y-3">
+    <div className="px-3 py-3 pb-24 space-y-3">
       <div className="tm-card p-3 flex items-center justify-between">
         <div>
           <h1 className="text-base font-bold flex items-center gap-2">

@@ -6,7 +6,7 @@ import type { Team } from "@/lib/mock/data";
 import { simulateEnhancedMatch } from "@/lib/match/engine/enhancedMatchEngine";
 import { DEFAULT_TACTIC } from "@/lib/tactics/types";
 import { cn } from "@/lib/utils";
-import { haptic } from "@/hooks/touchline";
+import { haptic, useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline"  // P0: escape + scroll lock;
 
 type Event = {
   minute: number;
@@ -50,6 +50,8 @@ export function MatchReplayModal({
   onClose: () => void;
 }) {
   const [watching, setWatching] = useState(false);
+  useEscapeToClose(onClose);
+  useBodyScrollLock(true);
   const [visibleCount, setVisibleCount] = useState(0);
   const [currentScore, setCurrentScore] = useState({ home: 0, away: 0 });
   const scrollRef = useRef<HTMLDivElement>(null);

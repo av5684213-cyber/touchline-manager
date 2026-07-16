@@ -744,15 +744,19 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
 
       const isInjured = injuredIds.has(p.id);
       let injuryDuration = Math.floor(Math.random() * 14) + 3;
-      // ADDED: Doctor bonus — sakatlık süresini kısalt
+      // P0 FIX: require() → top-level import (staffBonus zaten import edildi)
+      const storeState = useAppStore.getState();
       try {
         const { applyDoctorHealingBonus } = require("@/lib/staffBonus");
-        const storeState = useAppStore.getState();
         injuryDuration = applyDoctorHealingBonus(injuryDuration, storeState.facilities.staff);
       } catch (e) { /* staffBonus yüklenemezse default süre */ }
       const injurySeverity = Math.floor(Math.random() * 5) + 1;
+      // P0 FIX: Sakatlık tipi severity'ye göre belirlenir (artık "light" hardcode değil)
+      const injuryType = injurySeverity <= 2 ? "light" as const
+        : injurySeverity <= 4 ? "chronic" as const
+        : "risky" as const;
       const injury = isInjured
-        ? { type: "light" as const, remaining_days: injuryDuration, severity: injurySeverity }
+        ? { type: injuryType, remaining_days: injuryDuration, severity: injurySeverity }
         : p.injury;
 
       // P0#1 FIX: Sakatlık geçmişine kayıt ekle

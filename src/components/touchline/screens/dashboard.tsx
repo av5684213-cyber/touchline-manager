@@ -202,7 +202,7 @@ export function DashboardScreen() {
     : null;
 
   return (
-    <div className="px-4 py-4 space-y-4 pb-6">
+    <div className="px-4 py-4 space-y-4 pb-24">
       {/* Team summary compact row */}
       <div className="tm-card p-3 grid grid-cols-3 gap-2 text-center">
         <div>

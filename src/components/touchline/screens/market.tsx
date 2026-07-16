@@ -157,7 +157,7 @@ export function MarketScreen() {
   };
 
   return (
-    <div className="px-4 py-4 pb-6 space-y-3">
+    <div className="px-4 py-4 pb-24 space-y-3">
       {/* Header */}
       <div className="tm-card p-3 bg-gradient-to-br from-purple-900/20 to-pink-900/10 border-purple-500/30">
         <div className="flex items-center justify-between mb-1">

@@ -84,3 +84,21 @@ export function useSwipe(opts: {
     };
   }, [onLeft, onRight, threshold]);
 }
+
+/**
+ * P0 FIX: Escape tuşu ile modal kapatma hook'u.
+ * Tüm modal'larda kullanılmalı — klavye erişilebilirliği artırır.
+ */
+export function useEscapeToClose(onClose: () => void, active: boolean = true) {
+  useEffect(() => {
+    if (!active) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose, active]);
+}

@@ -31,29 +31,31 @@ export function FinanceScreen() {
   const computed = useMemo(() => {
     if (!team) return null;
 
+    // P0 FIX: store.ts advanceMatchday ekonomisi ile BIREBIR senkronize
     // Personel maaşları
     const totalStaffWages = facilities.staff.reduce((s, st) => s + st.weeklyWage, 0);
 
-    // Tesis bakım maliyeti (seviye başına 5K/hafta)
+    // Tesis bakım maliyeti — store ile aynı: seviye başına 20K/hafta
     const totalFacilityLevels = Object.values(facilities.levels).reduce((s, l) => s + l, 0);
-    const facilityMaintenance = totalFacilityLevels * 5000;
+    const facilityMaintenance = totalFacilityLevels * 20000;
 
-    // Haftalık gelir — haftada 1 maç varsayımıyla
-    // Bilet: doluluk × capacity × ticketPrice × stadiumMult (haftada 1 maç)
-    const stadiumCapacity = 5000 + facilities.levels.stadium * 10000;
-    const stadiumMult = 1 + facilities.levels.stadium * 0.1;
+    // Haftalık gelir — store advanceMatchday ile BIREBIR AYNI formüller
+    // Bilet: doluluk × capacity × ticketPrice × stadiumMult
+    const stadiumCapacity = 5000 + facilities.levels.stadium * 5000;
+    const stadiumMult = 1 + facilities.levels.stadium * 0.05;
+    // P0 FIX: Doluluk oranı — bilet fiyatına göre azalır (store ile aynı)
+    const fillRate = Math.max(0.2, Math.min(0.8, 1 - (facilities.ticketPrice / 250)));
     const ticketRevenue = Math.round(
-      stadiumCapacity * 0.6 * facilities.ticketPrice * stadiumMult
+      stadiumCapacity * fillRate * facilities.ticketPrice * stadiumMult
     );
-    // Sponsor: 1. Lig için sabit + tesis seviyesi bonusu
-    // ADDED: Dinamik sponsor — aktif sponsor varsa onu kullan
+    // Sponsor: store base + aktif sponsor geliri
     const dynamicSponsorIncome = activeSponsor?.amount ?? 0;
-    const baseSponsor = 200_000 + facilities.levels.stadium * 30_000;
+    const baseSponsor = 50_000 + facilities.levels.stadium * 10_000;
     const sponsor = baseSponsor + dynamicSponsorIncome;
-    // TV: 1. Lig için sabit
-    const tv = 150_000;
-    // Lisans: doluluk × 2€ / seyirci
-    const merch = Math.round(stadiumCapacity * 0.4 * 2);
+    // TV: store ile aynı
+    const tv = 50_000;
+    // Merch: store ile aynı
+    const merch = Math.round(stadiumCapacity * 0.2 * 1);
 
     const totalIncome = ticketRevenue + sponsor + tv + merch;
     // P0 FIX: Futbolcu maaşları tamamen kaldırıldı — sadece personel + tesis
@@ -75,13 +77,14 @@ export function FinanceScreen() {
       totalExpense,
       net,
       health,
+      fillRate,
     };
-  }, [team, facilities]);
+  }, [team, facilities, activeSponsor]);
 
   if (!team || !computed) return null;
 
   return (
-    <div className="px-4 py-4 pb-6 space-y-3">
+    <div className="px-4 py-4 pb-24 space-y-3">
       <h1 className="text-base font-bold">{t("finance.title")}</h1>
 
       {/* Budget breakdown */}

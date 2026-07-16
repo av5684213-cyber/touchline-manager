@@ -212,7 +212,7 @@ export function MatchScreen() {
 
   return (
     <div className="dark text-foreground bg-background min-h-[calc(100dvh-72px)] pb-20">
-      <div className="px-3 py-3 space-y-3 pb-6">
+      <div className="px-3 py-3 space-y-3 pb-24">
         <MatchTopBar
           state={engine.state}
           homeTeam={homeTeam}

@@ -62,7 +62,7 @@ export function FixtureScreen() {
   const getTeam = (id: string) => clubs.find((c) => c.id === id);
 
   return (
-    <div className="px-4 py-4 pb-6 space-y-3">
+    <div className="px-4 py-4 pb-24 space-y-3">
       {/* Header — sezon ilerlemesi */}
       <div className="tm-card p-3">
         <div className="flex items-center justify-between mb-2">

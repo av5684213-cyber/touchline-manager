@@ -8,7 +8,7 @@ import { X, ArrowLeftRight } from "lucide-react";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { formatEuro } from "@/lib/format";
-import { haptic } from "@/hooks/touchline";
+import { haptic, useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline"  // P0: escape + scroll lock;
 import { cn } from "@/lib/utils";
 import type { Player } from "@/lib/mock/data";
 
@@ -24,6 +24,8 @@ export function TransferNegotiationModal({
   const myTeam = useMyTeam();
   const { t, locale } = useI18n();
   const [isLoan, setIsLoan] = useState(false);
+  useEscapeToClose(onClose);
+  useBodyScrollLock(true);
 
   // Transfer argümanları
   const [sellOnPercent, setSellOnPercent] = useState(0);

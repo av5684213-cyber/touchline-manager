@@ -135,7 +135,7 @@ export function FacilitiesScreen() {
     : 0;
 
   return (
-    <div className="px-4 py-4 pb-6 space-y-3">
+    <div className="px-4 py-4 pb-24 space-y-3">
       <h1 className="text-base font-bold">{t("facilities.title")}</h1>
 
       {/* Budget header */}

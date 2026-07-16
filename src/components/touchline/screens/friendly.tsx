@@ -258,7 +258,7 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
 
   // Rakip seçim ekranı
   return (
-    <div className="px-4 py-4 pb-6 space-y-3">
+    <div className="px-4 py-4 pb-24 space-y-3">
       {/* Header */}
       <div className="tm-card p-3 bg-amber-50/40 border-amber-200">
         <div className="flex items-center gap-2 mb-1">
@@ -426,7 +426,7 @@ function FriendlyLiveView({
   }, [s.status, s.homeScore, s.awayScore, onFinish]);
 
   return (
-    <div className="px-3 py-3 pb-6 space-y-3">
+    <div className="px-3 py-3 pb-24 space-y-3">
       {/* Top bar — takımlar + skor */}
       <div className="tm-card p-3">
         <div className="flex items-center justify-between mb-2">
@@ -541,7 +541,7 @@ function FriendlyResultView({
     : "text-red-600 bg-red-50 border-red-200";
 
   return (
-    <div className="px-4 py-4 pb-6 space-y-3">
+    <div className="px-4 py-4 pb-24 space-y-3">
       {/* Sonuç kartı */}
       <div className={cn("tm-card p-5 text-center border-2", resultColor)}>
         <div className="text-[10px] font-bold uppercase tracking-wide mb-2 opacity-70">

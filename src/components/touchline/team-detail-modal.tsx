@@ -20,7 +20,7 @@ import { PlayerProfileModal } from "./player-profile-modal";
 import { MatchReplayModal } from "./match-replay-modal";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { haptic } from "@/hooks/touchline";
+import { haptic, useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline"  // P0: escape + scroll lock;
 
 // Mevki sıralaması
 const POSITION_ORDER: Record<string, number> = {
@@ -56,6 +56,8 @@ export function TeamDetailModal({
 }) {
   const { t, locale } = useI18n();
   const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
+  useEscapeToClose(onClose);
+  useBodyScrollLock(true);
   const [posFilter, setPosFilter] = useState<"ALL" | "GK" | "DEF" | "MID" | "FWD">("ALL");
   const [detailTab, setDetailTab] = useState<"squad" | "matches" | "stats">("squad");
   const [replayMatch, setReplayMatch] = useState<{ homeId: string; awayId: string; homeScore: number; awayScore: number; matchday: number } | null>(null);

@@ -6,7 +6,7 @@ import { useI18n } from "@/lib/i18n/locale-provider";
 import { ClubBadge } from "./ui-bits";
 import type { Team } from "@/lib/mock/data";
 import { cn } from "@/lib/utils";
-import { haptic } from "@/hooks/touchline";
+import { haptic, useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline";
 
 type Message = {
   id: string;
@@ -39,6 +39,9 @@ export function TeamMessageModal({
   onClose: () => void;
 }) {
   const { t } = useI18n();
+  // P0 FIX: Escape tuşu + body scroll lock
+  useEscapeToClose(onClose);
+  useBodyScrollLock(true);
   const [messages, setMessages] = useState<Message[]>(() => [
     {
       id: "init",

@@ -197,7 +197,7 @@ export function TacticsScreen() {
     : [];
 
   return (
-    <div className="px-3 py-3 space-y-3 pb-6">
+    <div className="px-3 py-3 space-y-3 pb-24">
       {/* ===== Üst sekme nav — Diziliş / Oyuncularım / Karşılaştır / Antrenman ===== */}
       <div className="flex border-b border-border bg-card rounded-t-lg">
         {([

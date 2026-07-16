@@ -95,7 +95,7 @@ export function AwardsScreen() {
   if (!team || !awards) return null;
 
   return (
-    <div className="px-4 py-4 pb-6 space-y-3">
+    <div className="px-4 py-4 pb-24 space-y-3">
       <h1 className="text-base font-bold">Ödüller</h1>
 
       {/* Lig Durumu */}

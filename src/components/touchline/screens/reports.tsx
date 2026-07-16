@@ -60,7 +60,7 @@ export function ReportsScreen() {
   ];
 
   return (
-    <div className="px-4 py-4 pb-6 space-y-3">
+    <div className="px-4 py-4 pb-24 space-y-3">
       {/* Başlık kartı */}
       <div className="tm-card p-3 flex items-center justify-between">
         <div>

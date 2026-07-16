@@ -1,11 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, User, Upload, ArrowLeftRight, Banknote } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { POSITION_GROUP, type Player, type SeasonStat } from "@/lib/mock/data";
 import { TIER_TEAM_NAMES, TEAM_NAME_BANK } from "@/lib/match/engine/constants";
 import { SEASON_INFO } from "@/lib/mock/season";
+import { useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline";
 
 // Oyun içi takım havuzu — Supabase'den gelen oyuncular için fallback
 const FALLBACK_CLUBS: string[] = Array.from(new Set([
@@ -35,6 +36,10 @@ export function PlayerProfileModal({
   const [photo, setPhoto] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [arkModal, setArkModal] = useState<string | null>(null);
+
+  // P0 FIX: Escape tuşu + body scroll lock
+  useEscapeToClose(onClose);
+  useBodyScrollLock(true);
 
   const isGK = player.specificPosition === "GK";
 

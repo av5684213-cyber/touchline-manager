@@ -5,7 +5,7 @@ import { Check, Trophy, TrendingDown, TrendingUp, X, Sparkles, PartyPopper, Arro
 import { useI18n } from "@/lib/i18n/locale-provider";
 import type { SeasonSummary } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { haptic } from "@/hooks/touchline";
+import { haptic, useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline"  // P0: escape + scroll lock;
 
 export function SeasonEndModal({
   summary,
@@ -16,6 +16,8 @@ export function SeasonEndModal({
 }) {
   const { t } = useI18n();
   const [phase, setPhase] = useState<"summary" | "transition" | "ready">("summary");
+  useEscapeToClose(onClose);
+  useBodyScrollLock(true);
 
   // P2: Faz geçişlerinde titreşim
   useEffect(() => {

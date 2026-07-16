@@ -65,7 +65,7 @@ export function WeeklyReportScreen() {
   const lost = (us ?? 0) < (them ?? 0);
 
   return (
-    <div className="px-4 py-4 pb-6 space-y-3">
+    <div className="px-4 py-4 pb-24 space-y-3">
       <div className="tm-card p-3 flex items-center justify-between">
         <div>
           <h1 className="text-base font-bold">{t("reports.title")}</h1>
