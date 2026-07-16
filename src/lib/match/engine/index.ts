@@ -8,12 +8,12 @@
  * - Returns: events array + player ratings + man of the match
  *
  * Eski useMatchEngine hook'u bu motoru çağırır.
+ *
+ * P0: runUnifiedMatch, generateMatchReport, convertEnhancedToLegacy ölü kod olarak temizlendi.
  */
 
 export {
   simulateEnhancedMatch,
-  runUnifiedMatch,
-  matchEngine,
   applyRoleBonuses,
 } from "./enhancedMatchEngine";
 
@@ -22,7 +22,6 @@ export type {
   MatchEvent as EnhancedMatchEvent,
   PlayerMatchRating,
   SimulationOptions,
-  UnifiedMatchOptions,
 } from "./enhancedMatchEngine";
 
 export type { Player as MatchEnginePlayer, ActiveTactic, MatchResult, GameTactics } from "./types";

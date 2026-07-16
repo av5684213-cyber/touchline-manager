@@ -365,9 +365,11 @@ export function MatchScreen() {
             )}
             <button
               onClick={() => { haptic("light"); setDrawerOpen(true); }}
-              className="tm-tap px-4 inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold"
+              disabled
+              className="tm-tap px-4 inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-muted text-muted-foreground text-sm font-semibold opacity-50 cursor-not-allowed"
+              aria-label="Taktik değişikliği sadece devre arası"
             >
-              <Settings size={16} /> {t("match.tactics")}
+              <Settings size={16} /> {t("match.tactics")} (Devre Arası)
             </button>
           </div>
         )}

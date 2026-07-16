@@ -1019,26 +1019,150 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
     return () => clearInterval(id);
   }, [snapshot.status]);
 
-  // Taktik değişikliği — motor zaten simüle edildi, sadece event ekle
+  // Taktik değişikliği — P0 FIX: Devre arası gerçek re-simülasyon
+  // Sadece devre arası (status === "halftime") çağrıldığında 2. yarıyı yeni taktiklerle yeniden simüle eder
   const applyTactics = useCallback((_side: "home" | "away", _newTactics: unknown) => {
-    // Yeni motor tüm maç'ı simüle ettiği için taktik değişikliği olayı ekle
-    // P0 FIX: "foul" yerine generic event tipi kullan (faul stats'ını şişirmesin)
     const result = fullResultRef.current;
     if (!result) return;
-    const tacticEvent: EnhancedMatchEvent = {
-      minute: snapshot.minute,
-      type: "substitution" as any, // type gerekli, UI'da "substitution" handle ediliyor — ama aslında tactic_change
-      team: _side,
-      playerName: "Taktik Değişikliği",
-      playerId: "",
-      description: `Taktik değişikliği — formasyon ${(_newTactics as any)?.formation ?? "4-4-2"}`,
-      x: 50,
-      y: 50,
-      ratingImpact: 0,
-    };
-    result.events.push(tacticEvent);
-    syncToCursor();
-  }, [snapshot.minute, syncToCursor]);
+
+    // Sadece devre arası çalışır — canlı maç sırasında taktik değişikliği yok
+    if (snapshot.status !== "halftime") {
+      // Canlı maç sırasında taktik değişikliği devre dışı — sadece event ekle (geri uyumluluk)
+      const tacticEvent: EnhancedMatchEvent = {
+        minute: snapshot.minute,
+        type: "substitution" as any,
+        team: _side,
+        playerName: "Taktik Değişikliği",
+        playerId: "",
+        description: `Taktik değişikliği — devre arası uygulanacak`,
+        x: 50,
+        y: 50,
+        ratingImpact: 0,
+      };
+      result.events.push(tacticEvent);
+      syncToCursor();
+      return;
+    }
+
+    // P0 FIX: DEVRE ARASI — 2. yarıyı yeni taktiklerle yeniden simüle et
+    // 1. İlk yarı event'lerini koru (minute <= 45)
+    // 2. 2. yarıyı yeni taktiklerle simüle et (minute 46-90)
+    // 3. Skorları birleştir
+    const firstHalfEvents = result.events.filter(e => e.minute <= 45);
+    const firstHalfHomeScore = firstHalfEvents.filter(e => e.type === "goal" && e.team === "home").length;
+    const firstHalfAwayScore = firstHalfEvents.filter(e => e.type === "goal" && e.team === "away").length;
+
+    // Yeni taktikleri al
+    const newTactics = _newTactics as any;
+    const storeState = useAppStore.getState();
+    const myTeamId = storeState.myTeamId;
+    const isHome = home.id === myTeamId;
+
+    // Yeni formasyon ve taktik
+    const newFormation = newTactics?.formation ?? "4-4-2";
+    const newTactic = { ...newTactics, tactic_type: newFormation };
+
+    // Yeni ilk 11 — kullanıcı taktik ekranında değişiklik yapmış olabilir
+    const lineupFromTactics = storeState.tactics.lineup;
+    const filledSlots = lineupFromTactics.filter((p): p is Player => p !== null);
+    let newUserSquad: MatchEnginePlayer[];
+    if (filledSlots.length === 11) {
+      newUserSquad = filledSlots as unknown as MatchEnginePlayer[];
+    } else {
+      const userPlayers = isHome ? home.players : away.players;
+      newUserSquad = pickStartingXIByFormation(userPlayers, newFormation) as unknown as MatchEnginePlayer[];
+    }
+
+    const homeSquad = isHome ? newUserSquad : pickStartingXIByFormation(home.players, "4-4-2") as unknown as MatchEnginePlayer[];
+    const awaySquad = isHome ? pickStartingXIByFormation(away.players, "4-4-2") as unknown as MatchEnginePlayer[] : newUserSquad;
+
+    const homeTactic = isHome ? newTactic : { formation: "4-4-2", tactic_type: "4-4-2", mentality: 3, pressing: false, passingStyle: "Karışık", intensity: "normal", aggression: 50, width: 50, passingIntensity: 50, lineHeight: 50, screenKeeper: false, wasteTime: false, parkTheBus: false, crossGame: false, loneStrikerCounter: false, offsideTrap: false, playStyle: "balanced" };
+    const awayTactic = isHome ? { formation: "4-4-2", tactic_type: "4-4-2", mentality: 3, pressing: false, passingStyle: "Karışık", intensity: "normal", aggression: 50, width: 50, passingIntensity: 50, lineHeight: 50, screenKeeper: false, wasteTime: false, parkTheBus: false, crossGame: false, loneStrikerCounter: false, offsideTrap: false, playStyle: "balanced" } : newTactic;
+
+    // Slot rolleri
+    const slotRoles = storeState.tactics.slotRoles;
+    const playerRoles: Record<string, string> = {};
+    storeState.tactics.lineup.forEach((p, i) => {
+      if (p && slotRoles[i]) {
+        playerRoles[p.id] = slotRoles[i];
+      }
+    });
+    const homePlayerRoles = isHome ? playerRoles : {};
+    const awayPlayerRoles = isHome ? {} : playerRoles;
+
+    const homeTacticModifiers = isHome
+      ? computeInstructionModifiers(storeState.tactics.activeInstructions ?? {})
+      : computeInstructionModifiers({});
+    const awayTacticModifiers = isHome
+      ? computeInstructionModifiers({})
+      : computeInstructionModifiers(storeState.tactics.activeInstructions ?? {});
+
+    // 2. yarıyı simüle et — startMinute=46, initialHomeScore/AwayScore ile
+    try {
+      const secondHalfResult = simulateEnhancedMatch(
+        homeSquad,
+        awaySquad,
+        homeTactic as any,
+        awayTactic as any,
+        {
+          homeTeamName: home.name,
+          awayTeamName: away.name,
+          refereePersonality: result.refereePersonality as any,
+          refereeName: result.refereeName,
+          atmosphereScore: 50, // default — store'tan tekrar hesaplanmaz
+          pitchPassBonus: undefined,
+          homeTacticModifiers,
+          awayTacticModifiers,
+          homePlayerRoles,
+          awayPlayerRoles,
+          // P0 FIX: Incremental simulation — 2. yarı için başlangıç skoru
+          startMinute: 46,
+          initialHomeScore: firstHalfHomeScore,
+          initialAwayScore: firstHalfAwayScore,
+        } as any
+      );
+
+      // 2. yarı event'lerini al (minute > 45 olanlar)
+      const secondHalfEvents = secondHalfResult.events.filter(e => e.minute > 45);
+
+      // Birleştir: ilk yarı + 2. yarı
+      result.events = [...firstHalfEvents, ...secondHalfEvents];
+      result.homeScore = firstHalfHomeScore + secondHalfResult.events.filter(e => e.type === "goal" && e.team === "home" && e.minute > 45).length;
+      result.awayScore = firstHalfAwayScore + secondHalfResult.events.filter(e => e.type === "goal" && e.team === "away" && e.minute > 45).length;
+
+      // Taktik değişiklik event'i ekle
+      const tacticEvent: EnhancedMatchEvent = {
+        minute: 45,
+        type: "substitution" as any,
+        team: _side,
+        playerName: "Taktik Değişikliği",
+        playerId: "",
+        description: `Devre arası taktik değişikliği — formasyon ${newFormation}`,
+        x: 50,
+        y: 50,
+        ratingImpact: 0,
+      };
+      result.events.push(tacticEvent);
+
+      // Event'leri yeniden sırala
+      result.events.sort((a, b) => a.minute - b.minute);
+
+      // Cursor'u ilk yarı sonuna set et
+      eventCursorRef.current = firstHalfEvents.length;
+      fullResultRef.current = result;
+      syncToCursor();
+
+      // Snapshot'ı güncelle
+      setSnapshot(s => ({
+        ...s,
+        homeScore: result.homeScore,
+        awayScore: result.awayScore,
+        events: [...result.events].reverse(),
+      }));
+    } catch (e) {
+      console.warn("[applyTactics] 2. yarı re-simülasyon hatası:", e);
+    }
+  }, [snapshot.status, snapshot.minute, syncToCursor, home, away]);
 
   // Oyuncu değişikliği — event ekle
   const makeSub = useCallback(

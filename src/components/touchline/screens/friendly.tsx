@@ -24,6 +24,7 @@ import { haptic } from "@/hooks/touchline";
 import { joinFriendlyQueue, type QueueUser, type MatchmakingCallbacks } from "@/lib/matchmaking";
 import { useSupabaseAuth } from "@/lib/auth/auth-context";
 import type { TabKey } from "../bottom-nav";
+import { MatchChatPanel } from "../match-chat";
 
 /**
  * Hazırlık Maçı sekmesi.
@@ -417,6 +418,9 @@ function FriendlyLiveView({
 }) {
   const { t } = useI18n();
   const s = engine.state;
+  const { user } = useSupabaseAuth();
+  const [showChat, setShowChat] = useState(false);
+  const matchId = `friendly_${team.id}_${opponent.id}_${Date.now()}`;
 
   // P0 FIX: useMemo içinde side-effect YASAK — useEffect kullan
   useEffect(() => {
@@ -511,6 +515,28 @@ function FriendlyLiveView({
           ))}
         </div>
       </div>
+
+      {/* P0: Sohbet — rakip ile mesajlaşma */}
+      {s.status !== "finished" && (
+        <div>
+          <button
+            onClick={() => { haptic("light"); setShowChat(!showChat); }}
+            className="tm-tap w-full py-2 rounded-md bg-sky-600/20 text-sky-400 text-xs font-bold border border-sky-500/30 flex items-center justify-center gap-1.5"
+          >
+            {showChat ? "Sohbeti Gizle" : "💬 Rakip ile Sohbet"}
+          </button>
+          {showChat && (
+            <div className="mt-2">
+              <MatchChatPanel
+                matchId={matchId}
+                userId={user?.id ?? `guest_${Date.now()}`}
+                userName={team?.name ?? "Menajer"}
+                onClose={() => setShowChat(false)}
+              />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
