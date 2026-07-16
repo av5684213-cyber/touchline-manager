@@ -42,7 +42,7 @@ type SubTab = "market" | "freeagents" | "loan" | "watchlist" | "incoming" | "myl
 export function TransferScreen() {
   const { t } = useI18n();
   const team = useMyTeam();
-  const { transfer } = useAppStore();
+  const transfer = useAppStore((s) => s.transfer);
   const [sub, setSub] = useState<SubTab>("market");
   const [filter, setFilter] = useState<PositionGroup | "ALL">("ALL");
   const [offerModal, setOfferModal] = useState<Player | null>(null);
@@ -127,7 +127,7 @@ export function TransferScreen() {
             {tab.count > 0 && (
               <span
                 className={cn(
-                  "px-1 py-0 rounded text-[9px] tabular-nums",
+                  "px-1 py-0 rounded text-[11px] tabular-nums",
                   sub === tab.key ? "bg-white/20" : "bg-muted"
                 )}
               >
@@ -218,7 +218,7 @@ export function TransferScreen() {
                     <span className="text-sm font-semibold truncate">{p.firstName} {p.lastName}</span>
                     <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
                     <span className="text-xs">{p.nationality === "TR" ? "🇹🇷" : "🌍"}</span>
-                    <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">TAKIMSIZ</span>
+                    <span className="text-[10px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">TAKIMSIZ</span>
                   </div>
                   <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
                     <span>{p.age}{t("common.year")}</span>
@@ -227,7 +227,7 @@ export function TransferScreen() {
                     <span className="text-emerald-400 font-bold">Bedelsiz</span>
                   </div>
                   {/* Stats — güvenli fallback */}
-                  <div className="flex items-center gap-1.5 mt-0.5 text-[9px]">
+                  <div className="flex items-center gap-1.5 mt-0.5 text-[11px]">
                     <StatChip label="Hız" value={safeStat(p, "pace")} growth={<StatGrowth playerId={p.id} statKey="speed" currentValue={safeStat(p, "pace")} />} />
                     <StatChip label="Pas" value={safeStat(p, "passing")} growth={<StatGrowth playerId={p.id} statKey="passing" currentValue={safeStat(p, "passing")} />} />
                     <StatChip label="Şut" value={safeStat(p, "shooting")} growth={<StatGrowth playerId={p.id} statKey="shooting" currentValue={safeStat(p, "shooting")} />} />
@@ -383,7 +383,7 @@ export function TransferScreen() {
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-sm font-semibold truncate">{p.firstName} {p.lastName}</span>
                     <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
-                    <span className="text-[8px] px-1 py-0.5 rounded font-bold" style={{ background: listing.lenderTeamColor, color: "#fff" }}>
+                    <span className="text-[10px] px-1 py-0.5 rounded font-bold" style={{ background: listing.lenderTeamColor, color: "#fff" }}>
                       {listing.lenderTeamShort}
                     </span>
                   </div>
@@ -403,7 +403,7 @@ export function TransferScreen() {
                 </div>
                 </div>
                 {/* P2 FIX: Kiralık oyuncular için stat chip'ler */}
-                <div className="flex items-center gap-1 mt-1.5 ml-9 text-[9px]">
+                <div className="flex items-center gap-1 mt-1.5 ml-9 text-[11px]">
                   <StatChip label="Hız" value={safeStat(p, "pace")} />
                   <StatChip label="Pas" value={safeStat(p, "passing")} />
                   <StatChip label="Şut" value={safeStat(p, "shooting")} />
@@ -526,7 +526,7 @@ export function TransferScreen() {
                   </button>
                 </div>
                 {/* P2 FIX: My listed için stat chip'ler */}
-                <div className="flex items-center gap-1 mt-1.5 ml-9 text-[9px]">
+                <div className="flex items-center gap-1 mt-1.5 ml-9 text-[11px]">
                   <StatChip label="Hız" value={safeStat(player, "pace")} />
                   <StatChip label="Pas" value={safeStat(player, "passing")} />
                   <StatChip label="Şut" value={safeStat(player, "shooting")} />
@@ -624,11 +624,11 @@ function PlayerCard({
             </span>
             <PositionPill label={player.specificPosition} group={POSITION_GROUP[player.specificPosition]} />
             {player.is_injured && (
-              <span className="text-[9px] shrink-0" title={`Sakat${player.injury?.remaining_days ? ` · ${player.injury.remaining_days}g` : ""}`}>🤕</span>
+              <span className="text-[11px] shrink-0" title={`Sakat${player.injury?.remaining_days ? ` · ${player.injury.remaining_days}g` : ""}`}>🤕</span>
             )}
           </div>
           {/* Satır 2: Arketip + yaş */}
-          <div className="flex items-center gap-1 text-[9px] text-muted-foreground mt-0.5 min-w-0">
+          <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5 min-w-0">
             {player.archetype && <span className="text-amber-300 truncate max-w-[80px]">{player.archetype}</span>}
             {player.archetype && <span className="shrink-0">·</span>}
             <span className="shrink-0">{player.age}{t("common.year")}</span>
@@ -636,7 +636,7 @@ function PlayerCard({
         </button>
         <div className="flex flex-col items-end gap-0.5 shrink-0">
           <RatingBadge value={player.rating} />
-          <div className="text-[9px] font-bold tabular-nums text-emerald-400">{formatEuro(askingPrice)}</div>
+          <div className="text-[11px] font-bold tabular-nums text-emerald-400">{formatEuro(askingPrice)}</div>
         </div>
         <button
           onClick={onToggleWatch}
@@ -656,7 +656,7 @@ function PlayerCard({
         </button>
       </div>
       {/* Alt satır: 4 stat chip — tam genişlik, iç içe geçmesin */}
-      <div className="flex items-center gap-1 mt-1.5 ml-9 text-[9px]">
+      <div className="flex items-center gap-1 mt-1.5 ml-9 text-[11px]">
         <StatChip label="Hız" value={safeStat(player, "pace")} growth={<StatGrowth playerId={player.id} statKey="speed" currentValue={safeStat(player, "pace")} />} />
         <StatChip label="Pas" value={safeStat(player, "passing")} growth={<StatGrowth playerId={player.id} statKey="passing" currentValue={safeStat(player, "passing")} />} />
         <StatChip label="Şut" value={safeStat(player, "shooting")} growth={<StatGrowth playerId={player.id} statKey="shooting" currentValue={safeStat(player, "shooting")} />} />
@@ -734,7 +734,7 @@ function IncomingOfferCard({
       {/* Offer details — P2: Sadece transfer ücreti, maaş/sözleşme yok */}
       <div className="mb-3 text-center">
         <div>
-          <div className="text-[9px] uppercase tracking-wide text-muted-foreground">
+          <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
             {t("transfer.offer_modal.transfer_fee")}
           </div>
           <div className="text-sm font-bold tabular-nums">{formatEuro(offer.offerAmount)}</div>
@@ -776,7 +776,7 @@ function OfferModal({
 }) {
   const { t } = useI18n();
   const team = useMyTeam();
-  const { transfer } = useAppStore();
+  const transfer = useAppStore((s) => s.transfer);
   const listing = transfer.freeAgents.find((l) => l.player.id === player.id);
 
   const initialFee = listing?.askingPrice ?? player.marketValue;
@@ -855,7 +855,7 @@ function OfferModal({
                 if (mult <= 1.0) return null;
                 const baseValue = removeInflation(player.marketValue, seasonNumber);
                 return (
-                  <div className="text-[8px] text-yellow-400/70 mt-0.5">
+                  <div className="text-[10px] text-yellow-400/70 mt-0.5">
                     Baz: {formatEuro(baseValue)} · +%{Math.round((mult - 1) * 100)} enflasyon
                   </div>
                 );

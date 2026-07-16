@@ -41,6 +41,13 @@ import {
   type TrainingState,
 } from "@/lib/training/engine";
 import { DEFAULT_TACTIC, FORMATION_SLOTS, type ActiveTactic } from "@/lib/tactics/types";
+// P1: require() → top-level ES import (circular dependency riski yok, Next.js 16 Turbopack)
+import { TIER_BASE_BUDGETS } from "@/lib/match/engine/constants";
+import { simulateEnhancedMatch } from "@/lib/match/engine/enhancedMatchEngine";
+import { getInflationMultiplier } from "@/lib/fm/inflation";
+import { applyCoachTrainingBoost } from "@/lib/staffBonus";
+import { generateSponsorOffers, getTotalSponsorIncome } from "@/lib/sponsorSystem";
+import { checkAndAwardBadges, checkAchievements } from "@/components/touchline/achievements";
 
 type Tactics = {
   // Yeni şema — eski oyunun ActiveTactic'i ile birebir
@@ -494,7 +501,7 @@ export const useAppStore = create<AppState>()(
         // P2 FIX: Gerçekçi başlangıç bütçesi — lig tier'ına göre
         // 500M yerine: Süper Lig 25M, 1. Lig 12M, 2. Lig 6M, 3. Lig 3M
         // (test modu kaldırıldı, gerçek menajerlik hissi için)
-        const { TIER_BASE_BUDGETS } = require("@/lib/match/engine/constants");
+        TIER_BASE_BUDGETS
         const tier = team.leagueTier ?? 2;
         const baseBudget = TIER_BASE_BUDGETS[tier] ?? TIER_BASE_BUDGETS[2];
         const realisticBudget = Math.round(baseBudget * 1.2); // %20 ekstra başlangıç
@@ -570,7 +577,7 @@ export const useAppStore = create<AppState>()(
         try {
           const myTeam2 = clubs.find((c) => c.id === myTeamId);
           if (myTeam2) {
-            const { generateSponsorOffers: genOffers } = require("@/lib/sponsorSystem");
+            const genOffers = generateSponsorOffers;
             const avgOvr2 = myTeam2.players.reduce((s, p) => s + p.rating, 0) / myTeam2.players.length;
             const offers = genOffers(myTeam2.leagueTier ?? 2, avgOvr2);
             useAppStore.setState({ sponsors: { active: [], offers } });
@@ -580,8 +587,7 @@ export const useAppStore = create<AppState>()(
         // ADDED: Başarım tetikleyici — login sonrası first_login başarımı
         try {
           if (typeof window !== "undefined") {
-            const { checkAndAwardBadges } = require("@/components/touchline/achievements");
-            checkAndAwardBadges({ firstLogin: true });
+            checkAndAwardBadges({});
           }
         } catch (e) {
           console.warn("[achievements] login tetikleyici hatası:", e);
@@ -1333,7 +1339,7 @@ export const useAppStore = create<AppState>()(
         // ADDED: Coach bonus — antrenman çarpanını artır
         let effectiveMultiplier = multiplier;
         try {
-          const { applyCoachTrainingBoost } = require("@/lib/staffBonus");
+          
           // multiplier'ı coach bonus ile artır (örn: 1.0 → 1.0 * (1 + 0.10) = 1.10)
           const boosted = applyCoachTrainingBoost(multiplier, facilities.staff);
           effectiveMultiplier = boosted;
@@ -1560,8 +1566,8 @@ export const useAppStore = create<AppState>()(
           const away = clubs.find(c => c.id === awayId);
           if (!home || !away) return { hs: 0, as: 0 };
           try {
-            const { simulateEnhancedMatch } = require("@/lib/match/engine/enhancedMatchEngine");
-            const { DEFAULT_TACTIC } = require("@/lib/tactics/types");
+            
+            
             const userTactic = get().tactics.active ?? DEFAULT_TACTIC;
             const isHome = homeId === myTeamId;
             const homeTactic = isHome ? userTactic : { ...DEFAULT_TACTIC, formation: "4-4-2" };
@@ -1747,8 +1753,8 @@ export const useAppStore = create<AppState>()(
           if (homeTeam && awayTeam) {
             // Enhanced motor ile simüle et
             try {
-              const { simulateEnhancedMatch } = require("@/lib/match/engine/enhancedMatchEngine");
-              const { DEFAULT_TACTIC } = require("@/lib/tactics/types");
+              
+              
               const userTactic = get().tactics.active ?? DEFAULT_TACTIC;
               const isHome = homeTeam.id === myTeamId;
               const homeTactic = isHome ? userTactic : { ...DEFAULT_TACTIC, formation: "4-4-2" };
@@ -2152,7 +2158,7 @@ export const useAppStore = create<AppState>()(
           let finalOffersPre = validOffersPre;
           if (myCurrentTeamPre && validOffersPre.length < 2) {
             try {
-              const { generateIncomingOffers } = require("@/lib/mock/transfer");
+              
               const freshOffers = generateIncomingOffers(myCurrentTeamPre.players);
               const existingIds = new Set(validOffersPre.map((o) => o.id));
               const newOffers = freshOffers.filter((o) => !existingIds.has(o.id));
@@ -2225,7 +2231,7 @@ export const useAppStore = create<AppState>()(
         // P2 FIX: Loan listings yenile — 5'ten az ise yeni üret
         if ((transfer.loanListings ?? []).length < 5) {
           try {
-            const { generateLoanListings } = require("@/lib/mock/transfer");
+            
             const newLoans = generateLoanListings(clubs, 10);
             if (newLoans && newLoans.length > 0) {
               updatedTransfer.loanListings = newLoans;
@@ -2248,7 +2254,7 @@ export const useAppStore = create<AppState>()(
         let finalOffers = validOffers;
         if (myCurrentTeam && validOffers.length < 3) {
           try {
-            const { generateIncomingOffers } = require("@/lib/mock/transfer");
+            
             // P1 FIX: get().clubs'tan taze players al — updatedClubs'tan değil
             const freshTeam = get().clubs.find(c => c.id === myTeamId);
             const freshPlayers = freshTeam?.players ?? myCurrentTeam.players;
@@ -2425,8 +2431,8 @@ export const useAppStore = create<AppState>()(
         SEASON_INFO.matchday = 1;
 
         // Enflasyon uygula — bütçeleri yeni sezona göre güncelle
-        const { getInflationMultiplier } = require("@/lib/fm/inflation");
-        const { TIER_BASE_BUDGETS } = require("@/lib/match/engine/constants");
+        
+        TIER_BASE_BUDGETS
         const newBudgetMultiplier = getInflationMultiplier(newSeasonNumber);
         updatedClubs.forEach((c) => {
           // P1 FIX: Kullanıcının takımının bütçesini SIFIRLAMA — biriktirilen para korunsun
@@ -2510,7 +2516,7 @@ export const useAppStore = create<AppState>()(
           // P0 FIX: Yeni sezonda sponsor state'i sıfırla
           transfer: (() => {
             try {
-              const { generateFreeAgents, generateFreeAgentListings, generateLoanListings } = require("@/lib/mock/transfer");
+              
               const agedFreeAgents = (get().transfer.freeAgents || []).map((l: any) => ({
                 ...l,
                 player: { ...l.player, age: l.player.age + 1 },
@@ -2611,8 +2617,7 @@ export const useAppStore = create<AppState>()(
           // Achievement kontrolü — client-side localStorage
           if (typeof window !== "undefined") {
             try {
-              const achMod = require("@/components/touchline/achievements");
-              const newlyUnlocked = achMod.checkAchievements({
+              const newlyUnlocked = checkAchievements({
                 leaguePosition: myIdx + 1,
                 promoted: summary.promoted,
                 seasonsPlayed: newSeasonNumber - 1,
@@ -2633,7 +2638,7 @@ export const useAppStore = create<AppState>()(
 
         // P0 FIX: Yeni sezon başı incoming offers üret — kullanıcı yeni sezona boş transfer teklifleriyle başlamasın
         try {
-          const { generateIncomingOffers } = require("@/lib/mock/transfer");
+          
           const myNewTeam = get().clubs.find(c => c.id === myTeamId);
           if (myNewTeam) {
             const newOffers = generateIncomingOffers(myNewTeam.players);
@@ -2651,7 +2656,7 @@ export const useAppStore = create<AppState>()(
         try {
           const myNewTeam2 = get().clubs.find(c => c.id === myTeamId);
           if (myNewTeam2) {
-            const { generateSponsorOffers: genOffers } = require("@/lib/sponsorSystem");
+            const genOffers = generateSponsorOffers;
             const avgOvr = myNewTeam2.players.reduce((s, p) => s + p.rating, 0) / myNewTeam2.players.length;
             const offers = genOffers(myNewTeam2.leagueTier ?? 2, avgOvr);
             set({ sponsors: { active: [], offers } });
@@ -2744,7 +2749,7 @@ export const useAppStore = create<AppState>()(
         if (sponsors.offers && sponsors.offers.length > 0) return;
         const avgOvr = myTeam.players.reduce((s, p) => s + p.rating, 0) / myTeam.players.length;
         try {
-          const { generateSponsorOffers } = require("@/lib/sponsorSystem");
+          
           const offers = generateSponsorOffers(myTeam.leagueTier ?? 2, avgOvr);
           set({ sponsors: { ...sponsors, offers } });
         } catch (e) {
@@ -2781,7 +2786,7 @@ export const useAppStore = create<AppState>()(
       getSponsorWeeklyIncome: () => {
         const { sponsors } = get();
         try {
-          const { getTotalSponsorIncome } = require("@/lib/sponsorSystem");
+          
           return getTotalSponsorIncome(sponsors.active);
         } catch {
           return 0;
@@ -2827,7 +2832,7 @@ export const useAppStore = create<AppState>()(
         }
 
         // 3 oyuncu üret
-        const { generatePlayer } = require("@/lib/mock/data");
+        
         const ovrRange = PACK_OVR[packType];
         const positions = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
         const pulledPlayers: any[] = [];

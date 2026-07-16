@@ -66,12 +66,12 @@ export function SponsorCard({ sponsor, selected, onSelect }: {
     >
       <div className="flex items-center justify-between mb-1">
         <span className="text-sm font-bold">{sponsor.name}</span>
-        <span className={cn("text-[8px] px-1.5 py-0.5 rounded font-bold", selected ? "bg-emerald-500/20 text-emerald-300" : "bg-muted text-muted-foreground")}>
+        <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold", selected ? "bg-emerald-500/20 text-emerald-300" : "bg-muted text-muted-foreground")}>
           {sponsor.type}
         </span>
       </div>
-      <div className="text-lg font-bold text-emerald-400">{formatEuro(sponsor.baseIncome, "tr")}<span className="text-[9px] text-muted-foreground font-normal">/sezon</span></div>
-      <div className="text-[9px] text-muted-foreground mt-1">📋 {sponsor.condition}</div>
+      <div className="text-lg font-bold text-emerald-400">{formatEuro(sponsor.baseIncome, "tr")}<span className="text-[11px] text-muted-foreground font-normal">/sezon</span></div>
+      <div className="text-[11px] text-muted-foreground mt-1">📋 {sponsor.condition}</div>
     </button>
   );
 }

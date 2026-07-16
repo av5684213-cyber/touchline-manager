@@ -92,7 +92,7 @@ export function TeamMessageModal({
             <ClubBadge short={team.shortName} primaryColor={team.primaryColor} size={28} />
             <div>
               <div className="text-sm font-bold text-white">{team.name}</div>
-              <div className="text-[9px] text-white/70">Menajer görüşmesi</div>
+              <div className="text-[11px] text-white/70">Menajer görüşmesi</div>
             </div>
           </div>
           <button onClick={onClose} className="tm-tap p-1 text-white/80">

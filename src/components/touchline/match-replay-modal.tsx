@@ -266,7 +266,7 @@ export function MatchReplayModal({
 
             {motm && (!watching || visibleCount >= sortedEvents.length) && (
               <div className="mt-3 pt-3 border-t border-border">
-                <div className="text-[9px] text-muted-foreground uppercase">Maçın Oyuncusu</div>
+                <div className="text-[11px] text-muted-foreground uppercase">Maçın Oyuncusu</div>
                 <div className="text-xs font-bold text-amber-300">
                   ⭐ {motm.firstName} {motm.lastName}
                 </div>
@@ -313,7 +313,7 @@ export function MatchReplayModal({
                       <span className="font-bold tabular-nums text-muted-foreground w-8">{g.minute}'</span>
                       <span className="text-base">⚽</span>
                       <span className="font-semibold flex-1 truncate">{g.player || "Bilinmiyor"}</span>
-                      <span className={cn("text-[9px] px-1 py-0.5 rounded font-bold", isHome ? "bg-sky-500/20 text-sky-300" : "bg-rose-500/20 text-rose-300")}>
+                      <span className={cn("text-[11px] px-1 py-0.5 rounded font-bold", isHome ? "bg-sky-500/20 text-sky-300" : "bg-rose-500/20 text-rose-300")}>
                         {isHome ? homeTeam.shortName : awayTeam.shortName}
                       </span>
                     </div>
@@ -399,10 +399,10 @@ export function MatchReplayModal({
                           isInjury && "text-orange-300",
                           !isGoal && !isCard && !isInjury && "text-muted-foreground"
                         )}>{commentary.title}</span>
-                        <p className="text-[9px] text-muted-foreground/70 mt-0.5 leading-tight">{commentary.detail}</p>
+                        <p className="text-[11px] text-muted-foreground/70 mt-0.5 leading-tight">{commentary.detail}</p>
                       </div>
                       {teamShort && (
-                        <span className={cn("text-[8px] px-1 py-0.5 rounded font-bold shrink-0", isHome ? "bg-emerald-500/20 text-emerald-300" : "bg-sky-500/20 text-sky-300")}>{teamShort}</span>
+                        <span className={cn("text-[10px] px-1 py-0.5 rounded font-bold shrink-0", isHome ? "bg-emerald-500/20 text-emerald-300" : "bg-sky-500/20 text-sky-300")}>{teamShort}</span>
                       )}
                     </div>
                   );
@@ -433,7 +433,7 @@ export function MatchReplayModal({
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-bold truncate">{motm.firstName} {motm.lastName}</div>
-                      <div className="text-[9px] text-muted-foreground">{motm.specificPosition} · {homeTeam.players.some((p) => p.id === motm.id) ? homeTeam.name : awayTeam.name}</div>
+                      <div className="text-[11px] text-muted-foreground">{motm.specificPosition} · {homeTeam.players.some((p) => p.id === motm.id) ? homeTeam.name : awayTeam.name}</div>
                     </div>
                     <div className="text-lg font-bold tabular-nums text-amber-300">{(displayScore as any).playerRatings?.[motm.id]?.toFixed(1) ?? "8.0"}</div>
                   </div>

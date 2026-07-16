@@ -46,7 +46,7 @@ export function StickyQuickBar({
                 onChange(tab.key as TabKey);
               }}
               className={cn(
-                "tm-tap flex flex-col items-center justify-center gap-0.5 py-1.5 text-[9px] font-semibold transition-colors",
+                "tm-tap flex flex-col items-center justify-center gap-0.5 py-1.5 text-[11px] font-semibold transition-colors",
                 isActive
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"

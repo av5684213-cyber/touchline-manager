@@ -29,7 +29,8 @@ const CHAMPION_REWARD = 1_000_000;
 export function CupScreen() {
   const { t } = useI18n();
   const team = useMyTeam();
-  const { clubs, cup } = useAppStore();
+  const clubs = useAppStore((s) => s.clubs);
+  const cup = useAppStore((s) => s.cup);
   const playCupRound = useAppStore((s) => s.playCupRound);
   const [lastResult, setLastResult] = useState<string | null>(null);
 
@@ -135,19 +136,19 @@ export function CupScreen() {
                 <>
                   <div className="flex flex-col items-center gap-1">
                     {home && <ClubBadge short={home.shortName} primaryColor={home.primaryColor} size={36} />}
-                    <span className="text-[9px] font-bold">{home?.shortName}</span>
+                    <span className="text-[11px] font-bold">{home?.shortName}</span>
                   </div>
                   <span className="text-[10px] text-muted-foreground font-bold">{t("dash.vs")}</span>
                   <div className="flex flex-col items-center gap-1">
                     {away && <ClubBadge short={away.shortName} primaryColor={away.primaryColor} size={36} />}
-                    <span className="text-[9px] font-bold">{away?.shortName}</span>
+                    <span className="text-[11px] font-bold">{away?.shortName}</span>
                   </div>
                 </>
               );
             })()}
           </div>
           {/* Tur ödülü göster */}
-          <div className="text-[9px] text-center text-amber-400 mb-2">
+          <div className="text-[11px] text-center text-amber-400 mb-2">
             Tur atlarsan: +{formatEuro(ROUND_REWARD[currentRound] ?? 0)}
           </div>
           <button

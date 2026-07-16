@@ -132,7 +132,9 @@ function getTrainingSchedule(now: Date = new Date()): TrainingScheduleStatus {
 export function TrainingScreen() {
   const { t, locale } = useI18n();
   const team = useMyTeam();
-  const { training, facilities, runSession } = useAppStore();
+  const training = useAppStore((s) => s.training);
+  const facilities = useAppStore((s) => s.facilities);
+  const runSession = useAppStore((s) => s.runSession);
   const [filter, setFilter] = useState<PositionGroup | "ALL">("ALL");
   const [pickerFor, setPickerFor] = useState<Player | null>(null);
   const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
@@ -225,14 +227,14 @@ export function TrainingScreen() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 {!allDone && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold animate-pulse">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[11px] font-bold animate-pulse">
                     <span className="w-1 h-1 rounded-full bg-white" />
                     ANTRENMAN SAATİ
                   </span>
                 )}
                 <span className="text-sm font-bold tabular-nums">{schedule.nextTimeTr}</span>
                 {todayCount > 0 && !allDone && (
-                  <span className="text-[9px] font-bold text-emerald-600">
+                  <span className="text-[11px] font-bold text-emerald-600">
                     {todayCount}/2 tamam
                   </span>
                 )}
@@ -267,7 +269,7 @@ export function TrainingScreen() {
               </button>
             )}
             {training.assignments.length === 0 && !allDone && (
-              <div className="text-[9px] text-amber-700 text-center">
+              <div className="text-[11px] text-amber-700 text-center">
                 En az 1 oyuncuya program ata, sonra antrenmanı başlat.
               </div>
             )}
@@ -286,13 +288,13 @@ export function TrainingScreen() {
                 <span className="text-[10px] text-muted-foreground ml-2">{schedule.nextDateTr}</span>
               </div>
               <div className="text-right">
-                <div className="text-[9px] text-muted-foreground uppercase">Başlangıca</div>
+                <div className="text-[11px] text-muted-foreground uppercase">Başlangıca</div>
                 <div className="text-sm font-bold tabular-nums text-primary">
                   {formatCountdown(schedule.msUntilNext)}
                 </div>
               </div>
             </div>
-            <div className="text-[9px] text-muted-foreground leading-relaxed pt-1 border-t border-border">
+            <div className="text-[11px] text-muted-foreground leading-relaxed pt-1 border-t border-border">
               Antrenmanlar hafta içi (Pzt-Cum) TR saatiyle 15:00 ve 21:00'de (maçlar 12:00 ve 18:00'de). Hafta sonu antrenman yok. Saat gelince "Antrenmanı Başlat" butonu aktif olur.
             </div>
           </div>
@@ -528,7 +530,7 @@ function ProgramCard({
     <div className="tm-card p-2.5">
       <div className="flex items-start justify-between mb-1">
         <span className="text-xl">{program.icon}</span>
-        <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-bold", catColor[category])}>
+        <span className={cn("px-1.5 py-0.5 rounded text-[11px] font-bold", catColor[category])}>
           {CATEGORY_LABELS[category][locale]}
         </span>
       </div>
@@ -536,7 +538,7 @@ function ProgramCard({
       <div className="text-[10px] text-muted-foreground leading-tight mb-1.5">
         {program.desc[locale]}
       </div>
-      <div className="flex items-center justify-between text-[9px]">
+      <div className="flex items-center justify-between text-[11px]">
         <span className="text-muted-foreground">
           {t("training.facility_bonus") === "çarpan" ? "Yoğunluk" : "Intensity"}: {program.intensity}
         </span>
@@ -556,7 +558,7 @@ function ProgramPicker({
   onClose: () => void;
 }) {
   const { t, locale } = useI18n();
-  const { assignProgram } = useAppStore();
+  const assignProgram = useAppStore((s) => s.assignProgram);
 
   // Hangi programlar bu oyuncu için uygun?
   const eligible = TRAINING_PROGRAMS.filter((p) => {
@@ -608,7 +610,9 @@ function ProgramPicker({
 function MentorModal({ onClose }: { onClose: () => void }) {
   const { t, locale } = useI18n();
   const team = useMyTeam()!;
-  const { training, assignMentor, removeMentor } = useAppStore();
+  const training = useAppStore((s) => s.training);
+  const assignMentor = useAppStore((s) => s.assignMentor);
+  const removeMentor = useAppStore((s) => s.removeMentor);
   const [selectedMentor, setSelectedMentor] = useState<string | null>(null);
   const [selectedMentee, setSelectedMentee] = useState<string | null>(null);
 
@@ -689,7 +693,7 @@ function MentorModal({ onClose }: { onClose: () => void }) {
                       />
                       <div className="min-w-0">
                         <div className="text-[11px] font-semibold truncate">{m.firstName} {m.lastName}</div>
-                        <div className="text-[9px] text-muted-foreground">{m.age}{t("common.year")}</div>
+                        <div className="text-[11px] text-muted-foreground">{m.age}{t("common.year")}</div>
                       </div>
                     </button>
                   ))}
@@ -717,7 +721,7 @@ function MentorModal({ onClose }: { onClose: () => void }) {
                       />
                       <div className="min-w-0">
                         <div className="text-[11px] font-semibold truncate">{m.firstName} {m.lastName}</div>
-                        <div className="text-[9px] text-muted-foreground">{m.age}{t("common.year")}</div>
+                        <div className="text-[11px] text-muted-foreground">{m.age}{t("common.year")}</div>
                       </div>
                     </button>
                   ))}

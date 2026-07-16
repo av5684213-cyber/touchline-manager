@@ -11,7 +11,9 @@ import { cn } from "@/lib/utils";
 export function WeeklyReportScreen() {
   const { t, locale } = useI18n();
   const team = useMyTeam();
-  const { clubs, fixtures, facilities } = useAppStore();
+  const clubs = useAppStore((s) => s.clubs);
+  const fixtures = useAppStore((s) => s.fixtures);
+  const facilities = useAppStore((s) => s.facilities);
 
   const report = useMemo(() => {
     if (!team) return null;
@@ -81,7 +83,7 @@ export function WeeklyReportScreen() {
         <div className="tm-card p-3 text-center">
           <div className="text-[10px] uppercase text-muted-foreground">{t("reports.league_pos")}</div>
           <div className="text-2xl font-bold tabular-nums">{report.myPos}</div>
-          <div className="text-[9px] text-muted-foreground">/ 18</div>
+          <div className="text-[11px] text-muted-foreground">/ 18</div>
         </div>
         <div className="tm-card p-3 text-center">
           <div className="text-[10px] uppercase text-muted-foreground">{t("reports.matches")}</div>
@@ -91,7 +93,7 @@ export function WeeklyReportScreen() {
           )}>
             {us}-{them}
           </div>
-          <div className="text-[9px] text-muted-foreground">
+          <div className="text-[11px] text-muted-foreground">
             {won ? "Kazandı" : lost ? "Kaybetti" : "Berabere"}
           </div>
         </div>

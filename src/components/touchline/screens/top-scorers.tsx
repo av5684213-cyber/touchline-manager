@@ -223,7 +223,7 @@ function PodiumItem({ rank, entry, onClick }: { rank: number; entry: any; onClic
       <div className="text-xl mb-1">{medal}</div>
       <PlayerAvatar initials={p.specificPosition} color={t.primaryColor} size={36} />
       <div className="text-[10px] font-bold mt-1 truncate">{p.lastName}</div>
-      <div className="text-[9px] text-muted-foreground truncate">{t.shortName}</div>
+      <div className="text-[11px] text-muted-foreground truncate">{t.shortName}</div>
       <div className="text-sm font-bold text-foreground tabular-nums mt-0.5">{p.goals}⚽</div>
     </button>
   );

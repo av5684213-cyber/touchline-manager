@@ -10,7 +10,10 @@ import { Coins } from "lucide-react";
 
 export function TopBar({ compact = false }: { compact?: boolean }) {
   const { t, locale } = useI18n();
-  const { clubs, myTeamId, managerName, credits } = useAppStore();
+  const clubs = useAppStore((s) => s.clubs);
+  const myTeamId = useAppStore((s) => s.myTeamId);
+  const managerName = useAppStore((s) => s.managerName);
+  const credits = useAppStore((s) => s.credits);
   const team = clubs.find((c) => c.id === myTeamId);
 
   if (compact) {
@@ -95,7 +98,7 @@ export function TopBar({ compact = false }: { compact?: boolean }) {
               <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-amber-500/25 border border-amber-400/40">
                 <Coins size={16} className="text-amber-300" />
                 <div>
-                  <div className="text-[9px] text-amber-200/70 uppercase font-bold leading-none">Kredi</div>
+                  <div className="text-[11px] text-amber-200/70 uppercase font-bold leading-none">Kredi</div>
                   <div className="text-sm font-bold text-amber-100 tabular-nums leading-tight">{credits}</div>
                 </div>
               </div>

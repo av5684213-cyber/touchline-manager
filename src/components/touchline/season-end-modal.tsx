@@ -117,12 +117,12 @@ export function SeasonEndModal({
               <div className="text-[10px] text-muted-foreground uppercase mb-1">Emekli Olan Oyuncular</div>
               <div className="flex flex-wrap gap-1">
                 {summary.retiredPlayers.slice(0, 5).map((name, i) => (
-                  <span key={i} className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                  <span key={i} className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                     {name}
                   </span>
                 ))}
                 {summary.retiredPlayers.length > 5 && (
-                  <span className="text-[9px] text-muted-foreground">
+                  <span className="text-[11px] text-muted-foreground">
                     +{summary.retiredPlayers.length - 5} daha
                   </span>
                 )}
@@ -254,7 +254,7 @@ function StatBox({ label, value, color }: { label: string; value: number; color?
   return (
     <div className="tm-card p-2 text-center">
       <div className={cn("text-lg font-bold tabular-nums", color)}>{value}</div>
-      <div className="text-[9px] text-muted-foreground uppercase">{label}</div>
+      <div className="text-[11px] text-muted-foreground uppercase">{label}</div>
     </div>
   );
 }

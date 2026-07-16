@@ -93,7 +93,8 @@ function silentlySimulateMatch(home: Team, away: Team) {
 export function MatchScreen() {
   const { t, locale } = useI18n();
   const team = useMyTeam();
-  const { clubs, fixtures } = useAppStore();
+  const clubs = useAppStore((s) => s.clubs);
+  const fixtures = useAppStore((s) => s.fixtures);
 
   // Rakip seçimi — bir sonraki oynanmamış maç
   const opponent = useMemo(() => {
@@ -857,7 +858,7 @@ function HalftimeSubs({ team, homeTeam, engine, mySide }: {
     <div className="bg-muted/30 rounded-lg p-2 space-y-2 text-left">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase text-muted-foreground">🔄 Oyuncu Değişikliği</span>
-        <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded", subsDone >= maxSubs ? "bg-red-500/20 text-red-300" : "bg-emerald-500/20 text-emerald-300")}>
+        <span className={cn("text-[11px] font-bold px-1.5 py-0.5 rounded", subsDone >= maxSubs ? "bg-red-500/20 text-red-300" : "bg-emerald-500/20 text-emerald-300")}>
           {subsDone}/{maxSubs}
         </span>
       </div>
@@ -866,7 +867,7 @@ function HalftimeSubs({ team, homeTeam, engine, mySide }: {
         <>
           {!selectOut ? (
             <div className="space-y-1">
-              <div className="text-[9px] text-muted-foreground mb-1">Çıkacak oyuncuyu seç:</div>
+              <div className="text-[11px] text-muted-foreground mb-1">Çıkacak oyuncuyu seç:</div>
               {startingXI.map((p: any) => (
                 <button
                   key={p.id}
@@ -876,7 +877,7 @@ function HalftimeSubs({ team, homeTeam, engine, mySide }: {
                     p.cond < 30 ? "bg-red-500/10 border border-red-500/30" : "bg-card border border-border hover:bg-accent/50"
                   )}
                 >
-                  <span className="text-[9px] font-bold w-6 shrink-0">{p.specificPosition}</span>
+                  <span className="text-[11px] font-bold w-6 shrink-0">{p.specificPosition}</span>
                   <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
                   <span className="text-[10px] text-amber-400 font-bold tabular-nums">{p.rating} OVR</span>
                   <span className={cn("text-[10px] tabular-nums", p.cond < 30 ? "text-red-400" : "text-muted-foreground")}>
@@ -893,8 +894,8 @@ function HalftimeSubs({ team, homeTeam, engine, mySide }: {
           ) : (
             <div className="space-y-1">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[9px] text-muted-foreground">Girecek oyuncuyu seç:</span>
-                <button onClick={() => setSelectOut(null)} className="text-[9px] text-muted-foreground">← Geri</button>
+                <span className="text-[11px] text-muted-foreground">Girecek oyuncuyu seç:</span>
+                <button onClick={() => setSelectOut(null)} className="text-[11px] text-muted-foreground">← Geri</button>
               </div>
               {subs.map((p: any) => {
                 // Çıkacak oyuncunun OVR'ı ile girecek oyuncunun OVR'ı arasındaki fark
@@ -906,7 +907,7 @@ function HalftimeSubs({ team, homeTeam, engine, mySide }: {
                     onClick={() => handleSub(selectOut, p.id)}
                     className="tm-tap w-full flex items-center gap-2 p-1.5 rounded text-left bg-card border border-border hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-colors"
                   >
-                    <span className="text-[9px] font-bold w-6 shrink-0">{p.specificPosition}</span>
+                    <span className="text-[11px] font-bold w-6 shrink-0">{p.specificPosition}</span>
                     <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
                     <span className="text-[10px] text-amber-400 font-bold tabular-nums">{p.rating} OVR</span>
                     <span className="text-[10px] text-muted-foreground tabular-nums">{p.cond}❤</span>
@@ -977,7 +978,7 @@ function LiveCommentaryBanner({ events }: { events: MatchEvent[] }) {
         <span className="text-lg shrink-0">{cfg.icon}</span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-0.5">
-            <span className="text-[9px] font-bold tabular-nums text-muted-foreground">{minute}</span>
+            <span className="text-[11px] font-bold tabular-nums text-muted-foreground">{minute}</span>
             <span className={cn("text-[10px] font-bold uppercase tracking-wide", cfg.text)}>
               {latest.type === "goal" ? "GOL!" : latest.type === "red_card" ? "KIRMIZI KART" : latest.type === "yellow_card" ? "SARI KART" : latest.type === "injury" ? "SAKATLIK" : latest.type === "substitution" ? "DEĞİŞİKLİK" : latest.type === "penalty" ? "PENALTI" : latest.type === "var_review" ? "VAR İNCELEMESİ" : latest.type === "chance" ? "FIRSAT" : "OLAY"}
             </span>
@@ -1320,7 +1321,7 @@ function SubPicker({
         <div className="text-[11px] font-semibold truncate">
           {player.firstName} {player.lastName}
         </div>
-        <div className="text-[9px] text-muted-foreground">
+        <div className="text-[11px] text-muted-foreground">
           {player.specificPosition} · {player.rating}
         </div>
       </div>
@@ -1433,7 +1434,7 @@ function PostMatch({
               <div className="text-2xl font-bold tabular-nums text-amber-700">
                 {(state.playerRatings[motm.id] ?? 6.5).toFixed(1)}
               </div>
-              <div className="text-[9px] text-muted-foreground uppercase">{t("match.post.col.rating")}</div>
+              <div className="text-[11px] text-muted-foreground uppercase">{t("match.post.col.rating")}</div>
             </div>
           </div>
         </button>
@@ -1453,7 +1454,7 @@ function PostMatch({
                 return (
                   <div key={i} className="flex items-center gap-2 text-[10px]">
                     <span className="font-bold tabular-nums w-6">{ev.minute}'</span>
-                    <span className="text-[9px] px-1 py-0.5 rounded font-bold"
+                    <span className="text-[11px] px-1 py-0.5 rounded font-bold"
                       style={{ background: side === "home" ? homeTeam.primaryColor : side === "away" ? awayTeam.primaryColor : "#666", color: "#fff" }}>
                       {teamName}
                     </span>

@@ -13,7 +13,7 @@ import { haptic } from "@/hooks/touchline";
 export function YouthAcademyScreen() {
   const { t } = useI18n();
   const team = useMyTeam();
-  const { facilities } = useAppStore();
+  const facilities = useAppStore((s) => s.facilities);
   const academyLevel = facilities.levels.academy || 0;
 
   // P1#9 FIX: Store'da sakla — her açılışta YENİ oyuncular üretme
@@ -139,7 +139,7 @@ export function YouthAcademyScreen() {
                   <span className="text-xs font-semibold truncate">{p.firstName} {p.lastName}</span>
                   <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
                 </div>
-                <div className="text-[9px] text-muted-foreground flex items-center gap-2">
+                <div className="text-[11px] text-muted-foreground flex items-center gap-2">
                   <span>{p.age}{t("common.year")}</span>
                   <span>· OVR {p.rating}</span>
                   <span className="flex items-center gap-0.5 text-amber-300">

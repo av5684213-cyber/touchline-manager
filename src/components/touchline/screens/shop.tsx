@@ -63,7 +63,8 @@ const PACKS: Record<PackType, {
 };
 
 export function ShopScreen() {
-  const { credits, buyPlayerPack } = useAppStore();
+  const credits = useAppStore((s) => s.credits);
+  const buyPlayerPack = useAppStore((s) => s.buyPlayerPack);
   const [opening, setOpening] = useState<PackType | null>(null);
   const [phase, setPhase] = useState<"idle" | "shaking" | "revealing" | "done">("idle");
   const [pulledPlayers, setPulledPlayers] = useState<any[]>([]);
@@ -181,7 +182,7 @@ export function ShopScreen() {
               <div className="text-[10px] text-muted-foreground font-semibold">{pack.ovrRange}</div>
 
               {/* Description */}
-              <div className="text-[9px] text-muted-foreground text-center leading-tight">{pack.desc}</div>
+              <div className="text-[11px] text-muted-foreground text-center leading-tight">{pack.desc}</div>
 
               {/* Price */}
               <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 mt-1">
@@ -350,7 +351,7 @@ function PackOpeningAnimation({
 
                 {/* OVR */}
                 <div className={cn("px-4 py-2 rounded-xl border-2", pack.borderColor)}>
-                  <div className="text-[9px] text-muted-foreground uppercase font-bold text-center">OVR</div>
+                  <div className="text-[11px] text-muted-foreground uppercase font-bold text-center">OVR</div>
                   <div className={cn("text-2xl font-bold tabular-nums text-center", pack.color)}>
                     {currentPlayer.rating}
                   </div>
@@ -416,7 +417,7 @@ function StatBox({ label, value }: { label: string; value: number }) {
   const color = value >= 80 ? "text-emerald-400" : value >= 65 ? "text-yellow-400" : "text-orange-400";
   return (
     <div className="bg-muted/30 rounded p-1.5 text-center">
-      <div className="text-[9px] text-muted-foreground uppercase font-bold">{label}</div>
+      <div className="text-[11px] text-muted-foreground uppercase font-bold">{label}</div>
       <div className={cn("text-sm font-bold tabular-nums", color)}>{Math.round(value)}</div>
     </div>
   );

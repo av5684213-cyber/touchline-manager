@@ -1183,7 +1183,10 @@ function ActionsTab({
   t: (key: string, params?: Record<string, string | number>) => string;
   locale: "tr" | "en";
 }) {
-  const { listPlayerForSale, transfer, makeTransferOffer, makeLoanOffer } = useAppStore();
+  const listPlayerForSale = useAppStore((s) => s.listPlayerForSale);
+  const transfer = useAppStore((s) => s.transfer);
+  const makeTransferOffer = useAppStore((s) => s.makeTransferOffer);
+  const makeLoanOffer = useAppStore((s) => s.makeLoanOffer);
   const myTeam = useMyTeam();
   const [listPrice, setListPrice] = useState(player.marketValue);
   const [loanFee, setLoanFee] = useState(Math.round(player.marketValue * 0.05));

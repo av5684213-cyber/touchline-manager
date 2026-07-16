@@ -141,7 +141,7 @@ export function TransferNegotiationModal({
               </div>
             </div>
             <div className="text-right">
-              <div className="text-[9px] text-muted-foreground">Bonservis</div>
+              <div className="text-[11px] text-muted-foreground">Bonservis</div>
               <div className="text-sm font-bold tabular-nums">{formatEuro(askingPrice, locale)}</div>
             </div>
           </div>
@@ -177,7 +177,7 @@ export function TransferNegotiationModal({
                     onChange={(e) => setSellOnPercent(Number(e.target.value))}
                     className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-muted accent-primary"
                   />
-                  <div className="text-[9px] text-muted-foreground">Gelecekte satarsan %'si rakibe gider</div>
+                  <div className="text-[11px] text-muted-foreground">Gelecekte satarsan %'si rakibe gider</div>
                 </div>
 
                 {/* Performance bonus */}
@@ -191,7 +191,7 @@ export function TransferNegotiationModal({
                     onChange={(e) => setPerformanceBonusGoals(Number(e.target.value))}
                     className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-muted accent-primary"
                   />
-                  <div className="text-[9px] text-muted-foreground">{performanceBonusGoals > 0 ? `${performanceBonusGoals} golde ${formatEuro(askingPrice * 0.1, locale)} bonus` : "Bonus yok"}</div>
+                  <div className="text-[11px] text-muted-foreground">{performanceBonusGoals > 0 ? `${performanceBonusGoals} golde ${formatEuro(askingPrice * 0.1, locale)} bonus` : "Bonus yok"}</div>
                 </div>
 
                 {/* Buy-back */}
@@ -206,7 +206,7 @@ export function TransferNegotiationModal({
                     onChange={(e) => setBuyBackAmount(Number(e.target.value))}
                     className="w-full bg-card border border-border rounded-md px-2 py-1 text-xs font-bold tabular-nums mt-1"
                   />
-                  <div className="text-[9px] text-muted-foreground">Bu fiyattan geri alabilirsin</div>
+                  <div className="text-[11px] text-muted-foreground">Bu fiyattan geri alabilirsin</div>
                 </div>
 
                 {/* Exchange player */}
@@ -290,7 +290,7 @@ export function TransferNegotiationModal({
                     onChange={(e) => setMinAppearances(Number(e.target.value))}
                     className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-muted accent-primary"
                   />
-                  <div className="text-[9px] text-muted-foreground">
+                  <div className="text-[11px] text-muted-foreground">
                     {minAppearances > 0
                       ? `${minAppearances} maçta ilk 11'de oynamazsan ceza ödersin`
                       : "Şart yok — serbest oynatma"}

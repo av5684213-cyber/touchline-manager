@@ -33,7 +33,9 @@ const ARCHETYPE_OPTIONS = [
 export function ScoutingScreen() {
   const { t } = useI18n();
   const team = useMyTeam();
-  const { facilities, transfer, toggleWatchlist } = useAppStore();
+  const facilities = useAppStore((s) => s.facilities);
+  const transfer = useAppStore((s) => s.transfer);
+  const toggleWatchlist = useAppStore((s) => s.toggleWatchlist);
   const [scoutLevel, setScoutLevel] = useState(1);
   const [results, setResults] = useState<TransferListing[]>([]);
   const [searching, setSearching] = useState(false);
@@ -165,9 +167,9 @@ export function ScoutingScreen() {
                     {s.label}
                     {locked && <Lock size={10} />}
                   </div>
-                  <div className="text-[9px] text-muted-foreground">{s.desc}</div>
+                  <div className="text-[11px] text-muted-foreground">{s.desc}</div>
                 </div>
-                <span className="text-[9px] font-bold text-muted-foreground">Lv.{s.level}</span>
+                <span className="text-[11px] font-bold text-muted-foreground">Lv.{s.level}</span>
               </button>
             );
           })}
@@ -191,7 +193,7 @@ export function ScoutingScreen() {
           <div className="space-y-2 pt-1">
             {/* İsim — seviye 1 */}
             <div>
-              <div className="text-[9px] text-muted-foreground mb-0.5">İsim</div>
+              <div className="text-[11px] text-muted-foreground mb-0.5">İsim</div>
               <input
                 type="text"
                 value={nameFilter}
@@ -203,7 +205,7 @@ export function ScoutingScreen() {
 
             {/* Pozisyon — seviye 1 */}
             <div>
-              <div className="text-[9px] text-muted-foreground mb-0.5">Pozisyon</div>
+              <div className="text-[11px] text-muted-foreground mb-0.5">Pozisyon</div>
               <div className="flex gap-1 overflow-x-auto tm-no-scrollbar">
                 {(["ALL", "GK", "DEF", "MID", "FWD"] as const).map((g) => (
                   <button
@@ -223,7 +225,7 @@ export function ScoutingScreen() {
             {/* Yaş aralığı — seviye 1 */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <div className="text-[9px] text-muted-foreground mb-0.5">Min. Yaş</div>
+                <div className="text-[11px] text-muted-foreground mb-0.5">Min. Yaş</div>
                 <input
                   type="number"
                   value={ageMin || ""}
@@ -233,7 +235,7 @@ export function ScoutingScreen() {
                 />
               </div>
               <div>
-                <div className="text-[9px] text-muted-foreground mb-0.5">Maks. Yaş</div>
+                <div className="text-[11px] text-muted-foreground mb-0.5">Maks. Yaş</div>
                 <input
                   type="number"
                   value={ageMax || ""}
@@ -248,7 +250,7 @@ export function ScoutingScreen() {
             {scoutLevel >= 2 && (
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <div className="text-[9px] text-muted-foreground mb-0.5">Min. OVR</div>
+                  <div className="text-[11px] text-muted-foreground mb-0.5">Min. OVR</div>
                   <input
                     type="number"
                     value={ovrMin || ""}
@@ -258,7 +260,7 @@ export function ScoutingScreen() {
                   />
                 </div>
                 <div>
-                  <div className="text-[9px] text-muted-foreground mb-0.5">Maks. OVR</div>
+                  <div className="text-[11px] text-muted-foreground mb-0.5">Maks. OVR</div>
                   <input
                     type="number"
                     value={ovrMax || ""}
@@ -273,7 +275,7 @@ export function ScoutingScreen() {
             {/* Arketip — seviye 3 */}
             {scoutLevel >= 3 && (
               <div>
-                <div className="text-[9px] text-muted-foreground mb-0.5">Arketip</div>
+                <div className="text-[11px] text-muted-foreground mb-0.5">Arketip</div>
                 <select
                   value={archetypeFilter}
                   onChange={(e) => setArchetypeFilter(e.target.value)}
@@ -332,12 +334,12 @@ export function ScoutingScreen() {
                     </span>
                     <PositionPill label={listing.player.specificPosition} group={POSITION_GROUP[listing.player.specificPosition]} />
                     {isHidden && (
-                      <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold flex items-center gap-0.5">
+                      <span className="text-[10px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold flex items-center gap-0.5">
                         <Sparkles size={8} /> {t("scouting.hidden_gem")}
                       </span>
                     )}
                   </div>
-                  <div className="text-[9px] text-muted-foreground">
+                  <div className="text-[11px] text-muted-foreground">
                     {listing.player.age}{t("common.year")} · OVR {listing.player.rating}
                     {listing.player.archetype && ` · ${listing.player.archetype}`}
                     {" · "}{formatEuro(listing.askingPrice)}

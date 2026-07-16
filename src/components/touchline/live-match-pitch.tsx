@@ -169,7 +169,7 @@ export function LiveMatchPitch({
 
       {/* Dakika */}
       <div className="text-center mb-1.5">
-        <span className="text-[9px] font-bold text-amber-400 tabular-nums">
+        <span className="text-[11px] font-bold text-amber-400 tabular-nums">
           {minute > 90 ? `90+${minute - 90}'` : `${minute}'`}
         </span>
       </div>
@@ -272,7 +272,7 @@ export function LiveMatchPitch({
       </div>
 
       {/* Açıklama */}
-      <div className="text-[8px] text-muted-foreground text-center mt-1">
+      <div className="text-[10px] text-muted-foreground text-center mt-1">
         Üst: {awayShort} · Alt: {homeShort} ({homeFormation} vs {awayFormation})
       </div>
     </div>
@@ -313,7 +313,7 @@ function PlayerDot({
       <div className="relative">
         <div
           className={cn(
-            "w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-bold text-white border-2",
+            "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white border-2",
             isGK ? "border-amber-300" : "border-white/60",
             hasRed && "ring-2 ring-red-500"
           )}
@@ -330,10 +330,10 @@ function PlayerDot({
         )}
         {/* Kaptan */}
         {player.isCaptain && (
-          <span className="absolute -top-1 -left-1 text-[9px] font-bold text-amber-300">C</span>
+          <span className="absolute -top-1 -left-1 text-[11px] font-bold text-amber-300">C</span>
         )}
       </div>
-      <span className="text-[9px] text-white font-semibold drop-shadow max-w-[40px] truncate text-center">
+      <span className="text-[11px] text-white font-semibold drop-shadow max-w-[40px] truncate text-center">
         {player.name.split(" ").pop()}
       </span>
     </div>

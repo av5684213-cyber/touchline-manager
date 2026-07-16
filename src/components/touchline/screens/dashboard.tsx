@@ -74,7 +74,8 @@ function StatCard({
 
 export function DashboardScreen() {
   const { t, locale } = useI18n();
-  const { clubs, fixtures } = useAppStore();
+  const clubs = useAppStore((s) => s.clubs);
+  const fixtures = useAppStore((s) => s.fixtures);
   const team = useMyTeam();
 
   const [notifs] = useState<Notification[]>(() => seedNotifications(clubs, team?.id ?? ""));
@@ -350,7 +351,7 @@ export function DashboardScreen() {
               (us ?? 0) > (them ?? 0) ? "win" : (us ?? 0) < (them ?? 0) ? "loss" : "draw";
             return (
               <div key={f.id} className="flex items-center gap-2 p-2.5">
-                <div className="text-[9px] w-5 text-center font-bold text-muted-foreground shrink-0">
+                <div className="text-[11px] w-5 text-center font-bold text-muted-foreground shrink-0">
                   {f.matchday}
                 </div>
                 <span
@@ -362,7 +363,7 @@ export function DashboardScreen() {
                   {isHome ? "Ev" : "Dep"}
                 </span>
                 <span className="text-[10px] font-semibold truncate shrink-0 max-w-[70px]">{team.name}</span>
-                <span className="text-[9px] text-muted-foreground shrink-0">vs</span>
+                <span className="text-[11px] text-muted-foreground shrink-0">vs</span>
                 {opp && (
                   <button
                     onClick={() => { haptic("light"); setSelectedTeamId(opp.id); }}
@@ -395,7 +396,7 @@ export function DashboardScreen() {
                 <span className="text-[11px] font-semibold truncate max-w-[100px]">
                   {team.name}
                 </span>
-                <span className="text-[9px] text-muted-foreground">
+                <span className="text-[11px] text-muted-foreground">
                   {next.homeId === team.id ? t("dash.home") : t("dash.away")}
                 </span>
               </div>
@@ -423,7 +424,7 @@ export function DashboardScreen() {
                 >
                   {opponent.name}
                 </button>
-                <span className="text-[9px] text-muted-foreground">
+                <span className="text-[11px] text-muted-foreground">
                   {next.awayId === opponent.id ? t("dash.away") : t("dash.home")}
                 </span>
               </div>
@@ -579,7 +580,7 @@ function InflationIndicator() {
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-bold">
             Sezon {seasonNumber} Enflasyonu
           </div>
-          <div className="text-[9px] text-muted-foreground">
+          <div className="text-[11px] text-muted-foreground">
             Piyasa değerleri, maaşlar ve maliyetler buna göre
           </div>
         </div>
@@ -657,7 +658,7 @@ function SeasonGoals({ team, myStat, standings }: { team: any; myStat: any; stan
             <span className="text-base shrink-0">{g.icon}</span>
             <div className="flex-1 min-w-0">
               <div className="font-semibold truncate">{g.label}</div>
-              <div className="text-[9px] text-muted-foreground">{g.target}</div>
+              <div className="text-[11px] text-muted-foreground">{g.target}</div>
             </div>
             <div className="text-right shrink-0">
               <div className={cn("font-bold text-[10px]", statusColor[g.status])}>
@@ -773,7 +774,7 @@ function DailyTasks() {
             <span className={cn("flex-1 text-[11px] font-medium", task.done && "line-through text-muted-foreground")}>
               {task.label}
             </span>
-            <span className="text-[9px] text-amber-400 font-bold shrink-0">{task.reward}</span>
+            <span className="text-[11px] text-amber-400 font-bold shrink-0">{task.reward}</span>
           </button>
         ))}
       </div>
@@ -829,14 +830,14 @@ function StreakIndicator({ fixtures, teamId }: { fixtures: any[]; teamId: string
         )}>
           {isWinStreak ? `${streak} maçlık galibiyet serisi!` : isLoseStreak ? `${streak} maçlık mağlubiyet serisi` : `${streak} beraberlik`}
         </div>
-        <div className="text-[9px] text-muted-foreground">
+        <div className="text-[11px] text-muted-foreground">
           {isWinStreak && streak >= 3 ? "Takım morali yüksek! 📈" : isLoseStreak && streak >= 3 ? "Takım morali düşük ⚠️" : "Son 5 maç"}
         </div>
       </div>
       <div className="flex gap-0.5">
         {results.map((r, i) => (
           <span key={i} className={cn(
-            "inline-flex items-center justify-center w-5 h-5 rounded text-[9px] font-bold",
+            "inline-flex items-center justify-center w-5 h-5 rounded text-[11px] font-bold",
             r === "W" ? "bg-emerald-500 text-white" : r === "L" ? "bg-red-500 text-white" : "bg-amber-400 text-amber-900"
           )}>
             {r === "W" ? "G" : r === "L" ? "M" : "B"}
@@ -860,7 +861,7 @@ function InfoBadge({ text }: { text: string }) {
       </button>
       {show && (
         <span
-          className="absolute top-5 left-1/2 -translate-x-1/2 z-50 w-40 p-2 rounded-lg bg-popover border border-border text-[9px] text-foreground shadow-lg"
+          className="absolute top-5 left-1/2 -translate-x-1/2 z-50 w-40 p-2 rounded-lg bg-popover border border-border text-[11px] text-foreground shadow-lg"
           onClick={(e) => e.stopPropagation()}
         >
           {text}

@@ -133,10 +133,10 @@ export function NewsScreen() {
                 }}
               >
                 <div className="flex items-center gap-1.5 mb-1">
-                  <span className={cn("text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded", style.bg)}>
+                  <span className={cn("text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded", style.bg)}>
                     {style.label}
                   </span>
-                  <span className="text-[8px] text-amber-400">{"★".repeat(Math.min(5, article.importance))}</span>
+                  <span className="text-[10px] text-amber-400">{"★".repeat(Math.min(5, article.importance))}</span>
                   {!article.read && <span className="w-1.5 h-1.5 rounded-full bg-red-500 ml-auto shrink-0" />}
                 </div>
                 <h3 className={cn("text-xs font-bold leading-tight mb-1", !article.read && "text-primary")}>
@@ -145,7 +145,7 @@ export function NewsScreen() {
                 <p className="text-[10px] text-muted-foreground leading-relaxed line-clamp-3">
                   {article.body}
                 </p>
-                <div className="text-[9px] text-muted-foreground/70 mt-1.5">
+                <div className="text-[11px] text-muted-foreground/70 mt-1.5">
                   {relativeTime(article.timestamp)}
                 </div>
               </div>

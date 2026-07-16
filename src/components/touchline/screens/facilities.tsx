@@ -86,7 +86,11 @@ function facilityEffectValue(key: FacilityKey, level: number): string {
 export function FacilitiesScreen() {
   const { t } = useI18n();
   const team = useMyTeam();
-  const { facilities, upgradeFacility, cancelUpgrade, completeUpgradeIfDue, setTicketPrice } = useAppStore();
+  const facilities = useAppStore((s) => s.facilities);
+  const upgradeFacility = useAppStore((s) => s.upgradeFacility);
+  const cancelUpgrade = useAppStore((s) => s.cancelUpgrade);
+  const completeUpgradeIfDue = useAppStore((s) => s.completeUpgradeIfDue);
+  const setTicketPrice = useAppStore((s) => s.setTicketPrice);
   const [staffModal, setStaffModal] = useState<StaffMember["type"] | null>(null);
   const [ticketInput, setTicketInput] = useState(facilities.ticketPrice);
   const [, force] = useState(0);
@@ -343,7 +347,7 @@ export function FacilitiesScreen() {
               >
                 <div className="flex items-center justify-between mb-1">
                   <Icon size={14} className="text-primary" />
-                  <span className="text-[9px] font-bold text-muted-foreground">
+                  <span className="text-[11px] font-bold text-muted-foreground">
                     {count}/{meta.maxCount}
                   </span>
                 </div>
@@ -362,7 +366,7 @@ export function FacilitiesScreen() {
         {/* ADDED: Personel bonus özeti — Scout/Doctor/Coach etkileri tooltip */}
         {facilities.staff.length > 0 && (
           <div className="tm-card p-2.5 bg-primary/5 border-primary/20 mb-2">
-            <div className="text-[9px] font-bold text-muted-foreground uppercase mb-1.5">Personel Faydaları</div>
+            <div className="text-[11px] font-bold text-muted-foreground uppercase mb-1.5">Personel Faydaları</div>
             <div className="space-y-1">
               {(() => {
                 try {
@@ -380,7 +384,7 @@ export function FacilitiesScreen() {
                     </div>
                   ));
                 } catch {
-                  return <div className="text-[9px] text-muted-foreground">Personel bonusları yüklenemedi</div>;
+                  return <div className="text-[11px] text-muted-foreground">Personel bonusları yüklenemedi</div>;
                 }
               })()}
             </div>
@@ -449,7 +453,8 @@ function StaffHireModal({
 }) {
   const { t } = useI18n();
   const team = useMyTeam()!;
-  const { facilities, hireStaff } = useAppStore();
+  const facilities = useAppStore((s) => s.facilities);
+  const hireStaff = useAppStore((s) => s.hireStaff);
   const [stars, setStars] = useState(2);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 

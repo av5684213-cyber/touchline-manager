@@ -59,7 +59,8 @@ export function TeamDetailModal({
   const [posFilter, setPosFilter] = useState<"ALL" | "GK" | "DEF" | "MID" | "FWD">("ALL");
   const [detailTab, setDetailTab] = useState<"squad" | "matches" | "stats">("squad");
   const [replayMatch, setReplayMatch] = useState<{ homeId: string; awayId: string; homeScore: number; awayScore: number; matchday: number } | null>(null);
-  const { clubs, fixtures } = useAppStore();
+  const clubs = useAppStore((s) => s.clubs);
+  const fixtures = useAppStore((s) => s.fixtures);
 
   // Takım fikstürü
   const teamFixtures = useMemo(() => {

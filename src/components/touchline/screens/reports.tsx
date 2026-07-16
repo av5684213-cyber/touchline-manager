@@ -43,7 +43,10 @@ type ReportTab = "match" | "financial" | "performance" | "scout" | "season";
 export function ReportsScreen() {
   const { t, locale } = useI18n();
   const team = useMyTeam();
-  const { clubs, fixtures, facilities, seasonNumber } = useAppStore();
+  const clubs = useAppStore((s) => s.clubs);
+  const fixtures = useAppStore((s) => s.fixtures);
+  const facilities = useAppStore((s) => s.facilities);
+  const seasonNumber = useAppStore((s) => s.seasonNumber);
   const [activeReport, setActiveReport] = useState<ReportTab>("match");
 
   if (!team) return null;

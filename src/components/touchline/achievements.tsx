@@ -184,7 +184,7 @@ export function AchievementToast({ achievements, onClose }: {
         >
           <span className="text-3xl">{ach.icon}</span>
           <div className="flex-1">
-            <div className="text-[9px] text-amber-400 font-bold uppercase tracking-wide">🏆 Rozet Açıldı!</div>
+            <div className="text-[11px] text-amber-400 font-bold uppercase tracking-wide">🏆 Rozet Açıldı!</div>
             <div className="text-sm font-bold text-foreground">{ach.name}</div>
             <div className="text-[10px] text-muted-foreground">{ach.description}</div>
           </div>

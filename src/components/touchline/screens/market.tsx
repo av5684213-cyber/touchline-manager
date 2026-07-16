@@ -97,7 +97,8 @@ const RARITY_TEXT: Record<string, string> = {
 };
 
 export function MarketScreen() {
-  const { credits, spendCredits } = useAppStore();
+  const credits = useAppStore((s) => s.credits);
+  const spendCredits = useAppStore((s) => s.spendCredits);
   const [ownedItems, setOwnedItems] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
     const saved = localStorage.getItem("tm_owned_cosmetics");
@@ -220,7 +221,7 @@ export function MarketScreen() {
             >
               {/* Rarity badge */}
               <div className={cn(
-                "absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full text-[8px] font-bold uppercase",
+                "absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase",
                 rarity === "legendary" ? "bg-amber-500/30 text-amber-300" :
                 rarity === "epic" ? "bg-purple-500/30 text-purple-300" :
                 rarity === "rare" ? "bg-sky-500/30 text-sky-300" :
@@ -239,7 +240,7 @@ export function MarketScreen() {
 
               {/* Name */}
               <div className="text-xs font-bold text-center">{item.name}</div>
-              <div className="text-[9px] text-muted-foreground text-center leading-tight">{item.desc}</div>
+              <div className="text-[11px] text-muted-foreground text-center leading-tight">{item.desc}</div>
 
               {/* Action button */}
               {isEquipped ? (

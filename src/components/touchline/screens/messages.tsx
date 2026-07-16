@@ -109,14 +109,14 @@ export function MessagesScreen() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-1">
-                      <span className={cn("text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded", style.bg, style.text)}>
+                      <span className={cn("text-[11px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded", style.bg, style.text)}>
                         {style.label}
                       </span>
-                      <span className="text-[9px] text-muted-foreground truncate">{m.fromTeamName}</span>
+                      <span className="text-[11px] text-muted-foreground truncate">{m.fromTeamName}</span>
                       {!m.read && <span className="w-1.5 h-1.5 rounded-full bg-red-500 ml-auto shrink-0" />}
                     </div>
                     <p className="text-[11px] leading-relaxed mb-1.5">{m.message}</p>
-                    <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                       <span>{relativeTime(m.at)}</span>
                       {m.amount && (
                         <span className="font-bold text-emerald-400">{formatEuro(m.amount)}</span>

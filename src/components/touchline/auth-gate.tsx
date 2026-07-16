@@ -16,7 +16,8 @@ const ADMIN_EMAILS = [
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const { t } = useI18n();
-  const { isAuthed, loginDemo } = useAppStore();
+  const isAuthed = useAppStore((s) => s.isAuthed);
+  const loginDemo = useAppStore((s) => s.loginDemo);
   const { user, session, loading, signUp, signIn, signOut } = useSupabaseAuth();
 
   const [mode, setMode] = useState<"landing" | "login" | "register" | "demo">("landing");

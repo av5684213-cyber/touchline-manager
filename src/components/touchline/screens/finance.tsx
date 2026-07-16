@@ -23,7 +23,8 @@ import { cn } from "@/lib/utils";
 export function FinanceScreen() {
   const { t, locale } = useI18n();
   const team = useMyTeam();
-  const { facilities, sponsors } = useAppStore();
+  const facilities = useAppStore((s) => s.facilities);
+  const sponsors = useAppStore((s) => s.sponsors);
   // ADDED: Aktif sponsor — useMemo dışında hesapla ki render'da erişilebilsin
   const activeSponsor = sponsors?.active?.find((s: any) => s.isActive) ?? null;
 
@@ -225,7 +226,7 @@ export function FinanceScreen() {
               <div>
                 <div className="text-[10px] text-muted-foreground">Aktif Sponsor</div>
                 <div className="text-xs font-bold">{activeSponsor.name}</div>
-                <div className="text-[9px] text-muted-foreground">
+                <div className="text-[11px] text-muted-foreground">
                   {activeSponsor.tier} · {activeSponsor.durationWeeks} hafta
                 </div>
               </div>
@@ -233,7 +234,7 @@ export function FinanceScreen() {
                 <div className="text-sm font-bold text-emerald-400 tabular-nums">
                   +{activeSponsor.amount.toLocaleString("tr-TR")} €
                 </div>
-                <div className="text-[8px] text-muted-foreground">/hafta</div>
+                <div className="text-[10px] text-muted-foreground">/hafta</div>
               </div>
             </div>
           </div>
@@ -247,7 +248,7 @@ export function FinanceScreen() {
               <div key={offer.id} className="flex items-center justify-between p-2 rounded-md bg-card border border-border">
                 <div>
                   <div className="text-[11px] font-semibold">{offer.name}</div>
-                  <div className="text-[9px] text-muted-foreground">
+                  <div className="text-[11px] text-muted-foreground">
                     {offer.tier} · {offer.amount.toLocaleString("tr-TR")} €/hafta · {offer.durationWeeks} hafta
                   </div>
                 </div>

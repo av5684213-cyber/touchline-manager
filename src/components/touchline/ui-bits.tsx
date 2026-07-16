@@ -144,7 +144,7 @@ export function GrowthBadge({ currentRating, playerId }: { currentRating: number
     const diff = currentRating - startRating;
     if (diff <= 0) return null;
     return (
-      <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+      <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
         ↑ +{diff}
       </span>
     );
@@ -165,7 +165,7 @@ export function StatGrowth({ playerId, statKey, currentValue }: { playerId: stri
     const diff = currentValue - startValue;
     if (diff <= 0) return null;
     return (
-      <span className="text-[9px] font-bold text-emerald-400 leading-none ml-0.5">
+      <span className="text-[11px] font-bold text-emerald-400 leading-none ml-0.5">
         +{diff}
       </span>
     );
@@ -176,7 +176,7 @@ export function StatGrowth({ playerId, statKey, currentValue }: { playerId: stri
 
 // P2: Sakatlık rozeti — sakat oyuncularda kırmızı 🤕 icon + gün sayısı
 export function InjuryBadge({ days, size = "sm" }: { days?: number; size?: "sm" | "md" }) {
-  const sizeCls = size === "md" ? "text-[9px] px-1.5 py-0.5" : "text-[8px] px-1 py-0.5";
+  const sizeCls = size === "md" ? "text-[11px] px-1.5 py-0.5" : "text-[10px] px-1 py-0.5";
   return (
     <span
       className={cn(

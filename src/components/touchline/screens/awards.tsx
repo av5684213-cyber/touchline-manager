@@ -13,7 +13,10 @@ import type { Player } from "@/lib/mock/data";
 export function AwardsScreen() {
   const { t, locale } = useI18n();
   const team = useMyTeam();
-  const { clubs, fixtures, cup, seasonNumber } = useAppStore();
+  const clubs = useAppStore((s) => s.clubs);
+  const fixtures = useAppStore((s) => s.fixtures);
+  const cup = useAppStore((s) => s.cup);
+  const seasonNumber = useAppStore((s) => s.seasonNumber);
   // ADDED: Seçili oyuncu profili state
   const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
 
@@ -106,17 +109,17 @@ export function AwardsScreen() {
         {/* Durum rozeti */}
         <div className="mt-2 flex justify-center gap-1.5">
           {awards.isChampion && (
-            <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
               👑 ŞAMPİYON
             </span>
           )}
           {awards.isPromotion && !awards.isChampion && (
-            <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
               ⬆ ÜST LİGE ÇIKTI
             </span>
           )}
           {awards.isRelegation && (
-            <span className="text-[9px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 font-bold border border-red-500/30">
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 font-bold border border-red-500/30">
               ⬇ KÜME DÜŞTÜ
             </span>
           )}
@@ -207,7 +210,7 @@ export function AwardsScreen() {
               <div className="text-xs font-bold truncate">{awards.cupChampion.name}</div>
             </div>
             {awards.cupChampion.id === team.id && (
-              <div className="text-[9px] text-emerald-400 font-bold">+1M €</div>
+              <div className="text-[11px] text-emerald-400 font-bold">+1M €</div>
             )}
           </div>
         ) : (
@@ -231,7 +234,7 @@ export function AwardsScreen() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-xs font-bold truncate">{awards.motm.player.firstName} {awards.motm.player.lastName}</div>
-              <div className="text-[9px] text-muted-foreground">
+              <div className="text-[11px] text-muted-foreground">
                 {awards.motm.player.specificPosition} · {(awards.motm.player.last_match_rating ?? 0).toFixed(1)} rating
               </div>
             </div>
@@ -287,7 +290,7 @@ function AwardRow({
           <div className="text-xs font-bold truncate">{name}</div>
         )}
       </div>
-      <div className="text-[9px] text-muted-foreground text-right shrink-0">{sub}</div>
+      <div className="text-[11px] text-muted-foreground text-right shrink-0">{sub}</div>
     </div>
   );
 }

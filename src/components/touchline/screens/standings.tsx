@@ -41,7 +41,8 @@ const ZONE_DOT: Record<string, string> = {
 
 export function StandingsScreen() {
   const { t, locale } = useI18n();
-  const { clubs, fixtures } = useAppStore();
+  const clubs = useAppStore((s) => s.clubs);
+  const fixtures = useAppStore((s) => s.fixtures);
   const team = useMyTeam();
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [messageTeam, setMessageTeam] = useState<Team | null>(null);
@@ -161,7 +162,7 @@ export function StandingsScreen() {
                 key={dept}
                 onClick={() => onDeptChange(dept)}
                 className={cn(
-                  "tm-tap flex-1 py-1 rounded-md text-[9px] font-bold transition-colors",
+                  "tm-tap flex-1 py-1 rounded-md text-[11px] font-bold transition-colors",
                   selDept === dept
                     ? "bg-amber-500 text-white"
                     : "bg-muted/40 text-muted-foreground hover:bg-muted"
@@ -178,7 +179,7 @@ export function StandingsScreen() {
       <div className="tm-card overflow-hidden">
         <div className="overflow-x-auto tm-thin-scrollbar">
           {/* Header row */}
-          <div className="grid grid-cols-[24px_1fr_22px_22px_22px_22px_24px_28px_22px_22px] gap-1 px-2 py-2 text-[9px] font-bold uppercase text-muted-foreground border-b border-border bg-muted/30 min-w-[360px]">
+          <div className="grid grid-cols-[24px_1fr_22px_22px_22px_22px_24px_28px_22px_22px] gap-1 px-2 py-2 text-[11px] font-bold uppercase text-muted-foreground border-b border-border bg-muted/30 min-w-[360px]">
             <div className="text-center sticky left-0 bg-muted/30 z-10">{t("standings.col.pos")}</div>
             <div className="sticky left-[26px] bg-muted/30 z-10">{t("standings.col.team")}</div>
             <div className="text-center">{t("standings.col.played")}</div>
@@ -220,7 +221,7 @@ export function StandingsScreen() {
                         {row.teamName}
                       </span>
                       {isMe && (
-                        <span className="text-[8px] px-1 py-0.5 rounded bg-primary text-primary-foreground font-bold shrink-0">
+                        <span className="text-[10px] px-1 py-0.5 rounded bg-primary text-primary-foreground font-bold shrink-0">
                           {t("standings.you")}
                         </span>
                       )}
@@ -233,7 +234,7 @@ export function StandingsScreen() {
                     <div className="text-center tabular-nums font-bold">{row.points}</div>
                     <div className="col-span-2 flex items-center justify-center gap-0.5">
                       {row.form.length === 0 ? (
-                        <span className="text-[9px] text-muted-foreground">—</span>
+                        <span className="text-[11px] text-muted-foreground">—</span>
                       ) : (
                         row.form.map((f, i) => <FormDot key={i} result={f} />)
                       )}
@@ -301,7 +302,7 @@ function FormDot({ result }: { result: FormResult }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center justify-center w-4 h-4 rounded text-[8px] font-bold",
+        "inline-flex items-center justify-center w-4 h-4 rounded text-[10px] font-bold",
         cls
       )}
     >

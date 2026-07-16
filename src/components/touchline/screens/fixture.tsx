@@ -15,7 +15,8 @@ type FilterKey = "all" | "played" | "upcoming";
 export function FixtureScreen() {
   const { t, locale } = useI18n();
   const team = useMyTeam();
-  const { clubs, fixtures } = useAppStore();
+  const clubs = useAppStore((s) => s.clubs);
+  const fixtures = useAppStore((s) => s.fixtures);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [expandedMd, setExpandedMd] = useState<number | null>(null);
   const [replayMatch, setReplayMatch] = useState<{ homeId: string; awayId: string; homeScore: number; awayScore: number; matchday: number } | null>(null);
@@ -83,7 +84,7 @@ export function FixtureScreen() {
             style={{ width: `${(playedCount / totalMd) * 100}%` }}
           />
         </div>
-        <div className="flex justify-between text-[9px] text-muted-foreground mt-1">
+        <div className="flex justify-between text-[11px] text-muted-foreground mt-1">
           <span>{playedCount} {t("fixture.filter.played").toLowerCase()}</span>
           <span>{totalMd - playedCount} {t("fixture.filter.upcoming").toLowerCase()}</span>
         </div>
@@ -106,7 +107,7 @@ export function FixtureScreen() {
                   <span className={cn("inline-flex items-center justify-center w-7 h-7 rounded text-[10px] font-bold text-white", cls)}>
                     {outcome === "W" ? "G" : outcome === "D" ? "B" : "M"}
                   </span>
-                  <span className="text-[9px] text-muted-foreground truncate max-w-[60px]">{opp?.name ?? "—"}</span>
+                  <span className="text-[11px] text-muted-foreground truncate max-w-[60px]">{opp?.name ?? "—"}</span>
                 </div>
               );
             })}
@@ -124,7 +125,7 @@ export function FixtureScreen() {
             <div className="flex flex-col items-center gap-1">
               <ClubBadge short={team.shortName} primaryColor={team.primaryColor} size={36} />
               <span className="text-[10px] font-semibold truncate max-w-[100px]">{team.name}</span>
-              <span className="text-[8px] text-muted-foreground">
+              <span className="text-[10px] text-muted-foreground">
                 {nextMatch.homeId === team.id ? t("fixture.home") : t("fixture.away")}
               </span>
             </div>
@@ -135,7 +136,7 @@ export function FixtureScreen() {
                 <div className="flex flex-col items-center gap-1">
                   <ClubBadge short={opp.shortName} primaryColor={opp.primaryColor} size={36} />
                   <span className="text-[10px] font-semibold truncate max-w-[100px]">{opp.name}</span>
-                  <span className="text-[8px] text-muted-foreground">
+                  <span className="text-[10px] text-muted-foreground">
                     {nextMatch.awayId === opp.id ? t("fixture.away") : t("fixture.home")}
                   </span>
                 </div>
@@ -193,13 +194,13 @@ export function FixtureScreen() {
                 "w-8 text-center shrink-0",
                 isCurrent ? "text-primary" : "text-muted-foreground"
               )}>
-                <div className="text-[9px] uppercase">Hafta</div>
+                <div className="text-[11px] uppercase">Hafta</div>
                 <div className="text-sm font-bold tabular-nums">{f.matchday}</div>
               </div>
 
               {/* Home/Away badge */}
               <span className={cn(
-                "text-[9px] px-1 py-0.5 rounded font-bold shrink-0 w-8 text-center",
+                "text-[11px] px-1 py-0.5 rounded font-bold shrink-0 w-8 text-center",
                 isHome ? "bg-emerald-500/20 text-emerald-300" : "bg-sky-500/20 text-sky-300"
               )}>
                 {isHome ? t("fixture.home") : t("fixture.away")}
@@ -209,7 +210,7 @@ export function FixtureScreen() {
               <ClubBadge short={opp.shortName} primaryColor={opp.primaryColor} size={24} />
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-semibold truncate">{opp.name}</div>
-                <div className="text-[9px] text-muted-foreground">
+                <div className="text-[11px] text-muted-foreground">
                   {new Intl.DateTimeFormat(locale === "tr" ? "tr-TR" : "en-US", {
                     day: "2-digit", month: "short",
                   }).format(new Date(f.date))}
@@ -298,7 +299,8 @@ export function FixtureScreen() {
 // Kupa fikstür bölümü — store.cup.matches'tan okur
 function CupFixturesSection() {
   const { t } = useI18n();
-  const { clubs, cup } = useAppStore();
+  const clubs = useAppStore((s) => s.clubs);
+  const cup = useAppStore((s) => s.cup);
   const team = useMyTeam();
   if (!team) return null;
 
@@ -337,7 +339,7 @@ function CupFixturesSection() {
           const outcome = m.played ? ((us ?? 0) > (them ?? 0) ? "G" : (us ?? 0) < (them ?? 0) ? "M" : "B") : null;
           return (
             <div key={i} className={cn("tm-card py-1.5 px-2.5 flex items-center gap-2", m.round === cup.currentRound && !m.played && "border-amber-500/40")}>
-              <span className="text-[8px] text-amber-400 font-bold uppercase shrink-0 w-12">
+              <span className="text-[10px] text-amber-400 font-bold uppercase shrink-0 w-12">
                 {ROUND_NAMES[m.round] ?? `Tur ${m.round}`}
               </span>
               <span className="text-[10px] text-muted-foreground shrink-0">
@@ -364,7 +366,7 @@ function CupFixturesSection() {
                   {us}-{them}
                 </span>
               ) : (
-                <span className="text-[9px] text-muted-foreground shrink-0 w-8 text-center">—</span>
+                <span className="text-[11px] text-muted-foreground shrink-0 w-8 text-center">—</span>
               )}
             </div>
           );

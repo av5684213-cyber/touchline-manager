@@ -65,7 +65,12 @@ function sortByPositionThenRating(players: PlayerT[]): PlayerT[] {
 export function TacticsScreen() {
   const { t, locale } = useI18n();
   const team = useMyTeam();
-  const { tactics, updateActiveTactic, setSlotRole, swapLineupSlot, setInstruction, resetInstruction } = useAppStore();
+  const tactics = useAppStore((s) => s.tactics);
+  const updateActiveTactic = useAppStore((s) => s.updateActiveTactic);
+  const setSlotRole = useAppStore((s) => s.setSlotRole);
+  const swapLineupSlot = useAppStore((s) => s.swapLineupSlot);
+  const setInstruction = useAppStore((s) => s.setInstruction);
+  const resetInstruction = useAppStore((s) => s.resetInstruction);
   const [filter, setFilter] = useState<PositionGroup | "ALL">("ALL");
   const [swapSlot, setSwapSlot] = useState<number | null>(null);
   const [roleSlot, setRoleSlot] = useState<number | null>(null);

@@ -49,8 +49,8 @@ export function MessageToast() {
           <span className={cn("text-[10px] font-bold uppercase tracking-wide", kindStyle.text)}>
             {kindStyle.label}
           </span>
-          <span className="text-[9px] text-muted-foreground">·</span>
-          <span className="text-[9px] text-muted-foreground truncate">{latestUnread.fromTeamName}</span>
+          <span className="text-[11px] text-muted-foreground">·</span>
+          <span className="text-[11px] text-muted-foreground truncate">{latestUnread.fromTeamName}</span>
         </div>
         <div className="text-[11px] leading-tight line-clamp-2">{latestUnread.message}</div>
       </div>
@@ -71,7 +71,11 @@ export function MessageToast() {
 // ===== Dashboard panel — kalıcı mesaj listesi =====
 export function MessagePanel() {
   const team = useMyTeam();
-  const { transfer, markMessageRead, markAllMessagesRead, clearMessage, respondToIncomingMessage } = useAppStore();
+  const transfer = useAppStore((s) => s.transfer);
+  const markMessageRead = useAppStore((s) => s.markMessageRead);
+  const markAllMessagesRead = useAppStore((s) => s.markAllMessagesRead);
+  const clearMessage = useAppStore((s) => s.clearMessage);
+  const respondToIncomingMessage = useAppStore((s) => s.respondToIncomingMessage);
   const [expanded, setExpanded] = useState(false);
 
   if (!team) return null;
@@ -89,7 +93,7 @@ export function MessagePanel() {
           <div className="relative">
             <Mail size={14} className="text-muted-foreground" />
             {unreadCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center">
+              <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
                 {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}
@@ -127,11 +131,11 @@ export function MessagePanel() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className={cn("text-[9px] font-bold uppercase tracking-wide", kindStyle.text)}>
+                    <span className={cn("text-[11px] font-bold uppercase tracking-wide", kindStyle.text)}>
                       {kindStyle.label}
                     </span>
-                    <span className="text-[9px] text-muted-foreground">·</span>
-                    <span className="text-[9px] text-muted-foreground truncate">{m.fromTeamName}</span>
+                    <span className="text-[11px] text-muted-foreground">·</span>
+                    <span className="text-[11px] text-muted-foreground truncate">{m.fromTeamName}</span>
                     {!m.read && <span className="w-1.5 h-1.5 rounded-full bg-red-500 ml-auto shrink-0" />}
                   </div>
                   <div className="text-[11px] leading-tight">{m.message}</div>

@@ -36,7 +36,10 @@ import type { TabKey } from "../bottom-nav";
 export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
   const { t, locale } = useI18n();
   const team = useMyTeam();
-  const { clubs, credits, spendCredits, managerName } = useAppStore();
+  const clubs = useAppStore((s) => s.clubs);
+  const credits = useAppStore((s) => s.credits);
+  const spendCredits = useAppStore((s) => s.spendCredits);
+  const managerName = useAppStore((s) => s.managerName);
   const { user } = useSupabaseAuth();
   const [selectedOppId, setSelectedOppId] = useState<string | null>(null);
   const [matchStarted, setMatchStarted] = useState(false);
@@ -427,7 +430,7 @@ function FriendlyLiveView({
       {/* Top bar — takımlar + skor */}
       <div className="tm-card p-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[9px] font-bold uppercase tracking-wide text-amber-600 px-2 py-0.5 rounded-full bg-amber-100">
+          <span className="text-[11px] font-bold uppercase tracking-wide text-amber-600 px-2 py-0.5 rounded-full bg-amber-100">
             Hazırlık Maçı
           </span>
           <button
@@ -453,7 +456,7 @@ function FriendlyLiveView({
             <div className="text-2xl font-bold tabular-nums">
               {s.homeScore}<span className="text-muted-foreground mx-1">-</span>{s.awayScore}
             </div>
-            <div className="text-[9px] text-muted-foreground mt-0.5">
+            <div className="text-[11px] text-muted-foreground mt-0.5">
               {s.status === "live" ? `${s.minute}'` : s.status === "paused" ? "Duraklatıldı" : "Bitti"}
             </div>
           </div>

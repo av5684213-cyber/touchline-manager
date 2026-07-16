@@ -566,4 +566,73 @@ export const dict: Dict = {
   "cup.your_match": { tr: "Senin Maçın", en: "Your Match" },
   "cup.play": { tr: "Oyna", en: "Play" },
   "cup.weekend": { tr: "Hafta Sonu Kupası", en: "Weekend Cup" },
+
+  // ---- shop & market ----
+  "shop.title": { tr: "Mağaza", en: "Shop" },
+  "shop.how_works": { tr: "Nasıl Çalışır?", en: "How It Works" },
+  "shop.coming_market": { tr: "Yakında: Market", en: "Coming Soon: Market" },
+  "market.title": { tr: "Market", en: "Market" },
+  "market.kit": { tr: "Forma", en: "Kit" },
+  "market.badge": { tr: "Rozet", en: "Badge" },
+  "market.theme": { tr: "Tema", en: "Theme" },
+  "market.stadium": { tr: "Stadyum", en: "Stadium" },
+  "market.ball": { tr: "Top", en: "Ball" },
+  "market.manager": { tr: "Menajer", en: "Manager" },
+  "market.equipped": { tr: "Giyili", en: "Equipped" },
+  "market.equip": { tr: "Giy", en: "Equip" },
+  "market.bought": { tr: "satın alındı", en: "purchased" },
+  "market.insufficient": { tr: "Yetersiz kredi", en: "Insufficient credits" },
+  "market.rarity.common": { tr: "Yaygın", en: "Common" },
+  "market.rarity.rare": { tr: "Nadir", en: "Rare" },
+  "market.rarity.epic": { tr: "Epik", en: "Epic" },
+  "market.rarity.legendary": { tr: "Efsane", en: "Legendary" },
+
+  // ---- messages ----
+  "messages.title": { tr: "Mesajlar", en: "Messages" },
+  "messages.unread": { tr: "okunmamış", en: "unread" },
+  "messages.mark_all_read": { tr: "Tümünü okundu işaretle", en: "Mark all read" },
+  "messages.all": { tr: "Tümü", en: "All" },
+  "messages.empty": { tr: "Henüz mesaj yok", en: "No messages yet" },
+  "messages.empty_desc": { tr: "Transfer teklifi gönderdiğinde mesajlar burada görünür", en: "Messages will appear here when you send transfer offers" },
+
+  // ---- top scorers ----
+  "topscorers.goal_race": { tr: "Gol Kralı Yarışı", en: "Top Scorer Race" },
+  "topscorers.assist_race": { tr: "Asist Kralı Yarışı", en: "Top Assist Race" },
+  "topscorers.form_ranking": { tr: "Form Sıralaması", en: "Form Ranking" },
+  "topscorers.your_best": { tr: "Senin En İyi Oyuncun", en: "Your Best Player" },
+  "topscorers.all_league": { tr: "Tüm Lig", en: "All League" },
+  "topscorers.my_team": { tr: "Benim Takımım", en: "My Team" },
+
+  // ---- match replay ----
+  "replay.summary": { tr: "Maç Özeti", en: "Match Summary" },
+  "replay.stats": { tr: "İstatistikler", en: "Statistics" },
+  "replay.goals": { tr: "Goller", en: "Goals" },
+  "replay.cards": { tr: "Kartlar", en: "Cards" },
+  "replay.motm": { tr: "Maçın Adamı", en: "Man of the Match" },
+  "replay.possession": { tr: "Topla Oynama", en: "Possession" },
+  "replay.shots_on_target": { tr: "İsabetli Şut", en: "Shots on Target" },
+  "replay.corners": { tr: "Korner", en: "Corners" },
+  "replay.fouls": { tr: "Faul", en: "Fouls" },
+  "replay.match_flow": { tr: "Maç Akışı", en: "Match Flow" },
+  "replay.match_starting": { tr: "Maç Başlıyor!", en: "Match Starting!" },
+  "replay.halftime": { tr: "Devre Arası", en: "Halftime" },
+  "replay.match_ended": { tr: "Maç Sona Erdi", en: "Match Ended" },
+  "replay.watch_summary": { tr: "Özeti İzle", en: "Watch Summary" },
+  "replay.no_data": { tr: "Bu maç için detaylı olay verisi bulunmuyor", en: "No detailed event data for this match" },
+
+  // ---- friendly ----
+  "friendly.title": { tr: "Hazırlık Maçı", en: "Friendly Match" },
+  "friendly.join_queue": { tr: "Online Sıraya Gir", en: "Join Online Queue" },
+  "friendly.instant_match": { tr: "Hemen Maç", en: "Instant Match" },
+  "friendly.searching": { tr: "Aranıyor...", en: "Searching..." },
+  "friendly.cancel": { tr: "İptal Et", en: "Cancel" },
+  "friendly.online_searching": { tr: "Online kullanıcı aranıyor...", en: "Searching for online users..." },
+
+  // ---- common extras ----
+  "common.credits": { tr: "Kredi", en: "Credits" },
+  "common.buy": { tr: "Satın Al", en: "Buy" },
+  "common.price": { tr: "Fiyat", en: "Price" },
+  "common.empty": { tr: "Veri yok", en: "No data" },
+  "common.week": { tr: "Hafta", en: "Week" },
+  "common.day": { tr: "Gün", en: "Day" },
 };
