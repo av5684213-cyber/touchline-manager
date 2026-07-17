@@ -271,15 +271,18 @@ export function MatchScreen() {
               const filledTactics = tacticsLineup.filter((p): p is PlayerT => p !== null);
 
               let homeList, awayList;
+              // P0 FIX: Rakip takım için en iyi 11'i rating'e göre seç
+              const pickBestXI = (players: any[]) =>
+                [...players].filter(p => !p.is_injured).sort((a, b) => b.rating - a.rating).slice(0, 11);
               if (userIsHome && filledTactics.length === 11) {
                 homeList = filledTactics.map((p) => mapPlayer(p, "home"));
-                awayList = awayTeam.players.slice(0, 11).map((p: any) => mapPlayer(p, "away"));
+                awayList = pickBestXI(awayTeam.players).map((p: any) => mapPlayer(p, "away"));
               } else if (!userIsHome && filledTactics.length === 11) {
-                homeList = homeTeam.players.slice(0, 11).map((p: any) => mapPlayer(p, "home"));
+                homeList = pickBestXI(homeTeam.players).map((p: any) => mapPlayer(p, "home"));
                 awayList = filledTactics.map((p) => mapPlayer(p, "away"));
               } else {
-                homeList = homeTeam.players.slice(0, 11).map((p: any) => mapPlayer(p, "home"));
-                awayList = awayTeam.players.slice(0, 11).map((p: any) => mapPlayer(p, "away"));
+                homeList = pickBestXI(homeTeam.players).map((p: any) => mapPlayer(p, "home"));
+                awayList = pickBestXI(awayTeam.players).map((p: any) => mapPlayer(p, "away"));
               }
 
               // Formation: kullanıcının takımı için taktik formasyonu, rakip için 4-4-2
@@ -861,29 +864,44 @@ function HalftimeSubs({ team, homeTeam, engine, mySide }: {
   const [subsDone, setSubsDone] = useState(0);
   const maxSubs = 3;
 
-  // İlk 11 ve yedekleri ayır
-  const startingXI = team.players.slice(0, 11);
-  const subs = team.players.slice(11, 18);
+  // P0 FIX: tactics.lineup'dan gerçek ilk 11'i al, team.players.slice(0,11) DEĞİL
+  const tactics = useAppStore.getState().tactics;
+  const lineupPlayers = tactics.lineup.filter((p): p is PlayerT => p !== null);
+  const lineupIds = new Set(lineupPlayers.map(p => p.id));
+  // İlk 11: lineup'dan, yedekler: kadroda olup lineup'ta olmayanlar
+  const startingXI = lineupPlayers.length === 11 ? lineupPlayers : team.players.slice(0, 11);
+  const subs = team.players.filter((p: any) => !lineupIds.has(p.id)).slice(0, 12);
 
   const handleSub = (outId: string, inId: string) => {
     if (subsDone >= maxSubs) return;
     haptic("success");
 
-    // Store'da oyuncu değişikliği yap
+    // P0 FIX: tactics.lineup'da swap yap — team.players'da değil
     const state = useAppStore.getState();
-    const clubs = [...state.clubs];
-    const myClub = clubs.find((c) => c.id === team.id);
-    if (!myClub) return;
+    const currentTactics = state.tactics;
+    const newLineup = [...currentTactics.lineup];
 
-    const outIdx = myClub.players.findIndex((p) => p.id === outId);
-    const inIdx = myClub.players.findIndex((p) => p.id === inId);
-    if (outIdx === -1 || inIdx === -1) return;
+    // Çıkacak oyuncunun slot index'ini bul
+    const outSlotIdx = newLineup.findIndex(p => p?.id === outId);
+    if (outSlotIdx === -1) return;
 
-    // Swap pozisyonları
-    const newPlayers = [...myClub.players];
-    [newPlayers[outIdx], newPlayers[inIdx]] = [newPlayers[inIdx], newPlayers[outIdx]];
-    myClub.players = newPlayers;
-    useAppStore.setState({ clubs });
+    // Girecek oyuncuyu bul
+    const inPlayer = team.players.find((p: any) => p.id === inId);
+    if (!inPlayer) return;
+
+    // Slot'u güncelle
+    newLineup[outSlotIdx] = inPlayer as any;
+
+    // Store'u güncelle
+    useAppStore.setState({
+      tactics: { ...currentTactics, lineup: newLineup },
+    });
+
+    // Motor'a da bildir
+    const outPlayer = startingXI.find((p: any) => p.id === outId);
+    if (outPlayer && inPlayer) {
+      engine.makeSub(mySide as HomeAway, outPlayer, inPlayer);
+    }
 
     setSubsDone(subsDone + 1);
     setSelectOut(null);
@@ -1142,8 +1160,12 @@ function TacticsDrawer({
 
   if (!open) return null;
 
-  const lineup = myTeam.players.slice(0, 11);
-  const subs = myTeam.players.slice(11);
+  // P0 FIX: tactics.lineup'dan gerçek ilk 11'i al, myTeam.players.slice(0,11) DEĞİL
+  const storeTactics = useAppStore.getState().tactics;
+  const lineupPlayers = storeTactics.lineup.filter((p): p is PlayerT => p !== null);
+  const lineupIds = new Set(lineupPlayers.map(p => p.id));
+  const lineup = lineupPlayers.length === 11 ? lineupPlayers : myTeam.players.slice(0, 11);
+  const subs = myTeam.players.filter((p) => !lineupIds.has(p.id));
 
   const onApply = () => {
     haptic("success");
