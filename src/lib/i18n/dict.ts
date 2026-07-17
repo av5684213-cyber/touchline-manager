@@ -43,6 +43,7 @@ export const dict: Dict = {
   "nav.topscorers": { tr: "Gol Kralları", en: "Top Scorers" },
   "nav.shop": { tr: "Mağaza", en: "Shop" },
   "nav.market": { tr: "Market", en: "Market" },
+  "nav.leaderboard": { tr: "Liderlik", en: "Leaderboard" },
 
   // ---- common ----
   "common.loading": { tr: "Yükleniyor…", en: "Loading…" },
@@ -53,6 +54,24 @@ export const dict: Dict = {
   "common.confirm": { tr: "Onayla", en: "Confirm" },
   "common.all": { tr: "Tümü", en: "All" },
   "common.yes": { tr: "Evet", en: "Yes" },
+
+  // ---- auth ----
+  "auth.title": { tr: "Touchline Manager", en: "Touchline Manager" },
+  "auth.subtitle": { tr: "Futbol menajerliği senin elinde. Takımını kur, taktik ver, şampiyon ol.", en: "Football management in your hands. Build your team, set tactics, become champion." },
+  "auth.login": { tr: "Giriş Yap", en: "Sign In" },
+  "auth.register": { tr: "Kayıt Ol", en: "Sign Up" },
+  "auth.guest": { tr: "Misafir olarak dene", en: "Try as guest" },
+  "auth.guest_note": { tr: "Hesabın yoksa misafir olarak başla, ilerleme kaydedilmez.", en: "No account? Try as guest — progress won't be saved." },
+  "auth.email": { tr: "Email", en: "Email" },
+  "auth.password": { tr: "Şifre", en: "Password" },
+  "auth.manager_name": { tr: "Menajer adı", en: "Manager name" },
+  "auth.or": { tr: "veya", en: "or" },
+  "auth.back": { tr: "← Geri", en: "← Back" },
+  "auth.error.name_required": { tr: "Menajer adı gerekli", en: "Manager name required" },
+  "auth.error.password_short": { tr: "Şifre en az 6 karakter olmalı", en: "Password must be at least 6 characters" },
+  "auth.error.email_confirm": { tr: "Email onayı gerekli. Emailini kontrol et.", en: "Email confirmation required. Check your email." },
+  "auth.error.email_exists": { tr: "Bu email zaten kayıtlı", en: "This email is already registered" },
+  "auth.error.invalid": { tr: "Email veya şifre hatalı", en: "Invalid email or password" },
   "common.no": { tr: "Hayır", en: "No" },
   "common.year": { tr: "yaş", en: "yrs" },
   "common.matches": { tr: "maç", en: "matches" },

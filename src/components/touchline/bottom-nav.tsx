@@ -40,6 +40,7 @@ export type TabKey =
   | "topscorers"
   | "shop" // P0: Mağaza sekmesi
   | "market" // P0: Market sekmesi (kozmetik)
+  | "leaderboard" // P0: Liderlik tablosu
   // Üst şerit sekmesi — coming-soon
   | "friendly";
 
@@ -52,6 +53,7 @@ export const MAIN_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: s
 ];
 
 export const OTHER_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: string }[] = [
+  { key: "leaderboard", icon: Trophy, labelKey: "nav.leaderboard" },
   { key: "shop", icon: ShoppingBag, labelKey: "nav.shop" },
   { key: "market", icon: Palette, labelKey: "nav.market" },
   { key: "youth", icon: GraduationCap, labelKey: "nav.youth" },
