@@ -42,7 +42,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           (user.user_metadata as any)?.manager_name ??
           (user.user_metadata as any)?.full_name ??
           user.email?.split("@")[0] ??
-          "Menajer";
+          t("auth.manager_name");
         loginDemo(name);
       }
     }
@@ -60,7 +60,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     setSubmitting(false);
     if (result.error) {
       if (result.error === "Invalid login credentials") {
-        setError("Email veya şifre hatalı");
+        setError(t("auth.error.invalid"));
       } else {
         setError(result.error);
       }
@@ -70,11 +70,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const handleSignUp = async () => {
     setError("");
     if (!managerName.trim()) {
-      setError("Menajer adı gerekli");
+      setError(t("auth.error.name_required"));
       return;
     }
     if (password.length < 6) {
-      setError("Şifre en az 6 karakter olmalı");
+      setError(t("auth.error.password_short"));
       return;
     }
     setSubmitting(true);
@@ -82,9 +82,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     setSubmitting(false);
     if (result.error) {
       if (result.error === "EMAIL_CONFIRM_REQUIRED") {
-        setError("Email onayı gerekli. Emailini kontrol et.");
+        setError(t("auth.error.email_confirm"));
       } else if (result.error.includes("already")) {
-        setError("Bu email zaten kayıtlı");
+        setError(t("auth.error.email_exists"));
       } else {
         setError(result.error);
       }
@@ -119,13 +119,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5" style={{ background: "var(--primary)" }}>
           <Trophy size={32} className="text-white" />
         </div>
-        <h1 className="text-2xl font-bold mb-1">Touchline Manager</h1>
+        <h1 className="text-2xl font-bold mb-1">{t("auth.title")}</h1>
 
         {/* LANDING — giriş seçenekleri */}
         {mode === "landing" && (
           <>
             <p className="text-sm text-muted-foreground mb-8 max-w-[260px]">
-              Futbol menajerliği senin elinde. Takımını kur, taktik ver, şampiyon ol.
+              {t("auth.subtitle")}
             </p>
 
             <div className="w-full max-w-[280px] space-y-2.5">
@@ -134,13 +134,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                 className="tm-tap w-full py-3 rounded-xl text-sm font-bold text-white shadow-md active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
                 style={{ background: "var(--primary)" }}
               >
-                Giriş Yap <ChevronRight size={16} />
+                {t("auth.login")} <ChevronRight size={16} />
               </button>
               <button
                 onClick={() => { setError(""); setMode("register"); }}
                 className="tm-tap w-full py-3 rounded-xl text-sm font-bold border border-border bg-card active:scale-[0.98] transition-transform"
               >
-                Kayıt Ol
+                {t("auth.register")}
               </button>
               <div className="flex items-center gap-2 my-3">
                 <div className="flex-1 h-px bg-border" />
@@ -151,7 +151,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                 onClick={handleDemo}
                 className="tm-tap w-full py-2.5 rounded-xl text-xs font-semibold text-muted-foreground border border-border/50 active:scale-[0.98] transition-transform"
               >
-                Misafir olarak dene
+                {t("auth.guest")}
               </button>
             </div>
             <p className="text-[10px] text-muted-foreground mt-6 max-w-[240px]">
@@ -163,12 +163,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         {/* LOGIN — email/şifre */}
         {mode === "login" && (
           <div className="w-full max-w-[280px] space-y-3 mt-6">
-            <h2 className="text-lg font-bold mb-2">Giriş Yap</h2>
+            <h2 className="text-lg font-bold mb-2">{t("auth.login")}</h2>
             <div className="relative">
               <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="email"
-                placeholder="Email"
+                placeholder={t("auth.email")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-card border border-border text-sm"
@@ -179,7 +179,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="password"
-                placeholder="Şifre"
+                placeholder={t("auth.password")}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSignIn()}
@@ -193,13 +193,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               className="tm-tap w-full py-3 rounded-xl text-sm font-bold text-white shadow-md active:scale-[0.98] transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
               style={{ background: "var(--primary)" }}
             >
-              {submitting ? <Loader2 size={16} className="animate-spin" /> : "Giriş Yap"}
+              {submitting ? <Loader2 size={16} className="animate-spin" /> : t("auth.login")}
             </button>
             <button
               onClick={() => { setError(""); setMode("landing"); }}
               className="tm-tap w-full py-2 text-xs text-muted-foreground"
             >
-              ← Geri
+              {t("auth.back")}
             </button>
           </div>
         )}
@@ -207,12 +207,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         {/* REGISTER — kayıt */}
         {mode === "register" && (
           <div className="w-full max-w-[280px] space-y-3 mt-6">
-            <h2 className="text-lg font-bold mb-2">Kayıt Ol</h2>
+            <h2 className="text-lg font-bold mb-2">{t("auth.register")}</h2>
             <div className="relative">
               <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Menajer adı"
+                placeholder={t("auth.manager_name")}
                 value={managerName}
                 onChange={(e) => setManagerName(e.target.value)}
                 className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-card border border-border text-sm"
@@ -222,7 +222,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="email"
-                placeholder="Email"
+                placeholder={t("auth.email")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-card border border-border text-sm"
@@ -247,13 +247,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               className="tm-tap w-full py-3 rounded-xl text-sm font-bold text-white shadow-md active:scale-[0.98] transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
               style={{ background: "var(--primary)" }}
             >
-              {submitting ? <Loader2 size={16} className="animate-spin" /> : "Kayıt Ol"}
+              {submitting ? <Loader2 size={16} className="animate-spin" /> : t("auth.register")}
             </button>
             <button
               onClick={() => { setError(""); setMode("landing"); }}
               className="tm-tap w-full py-2 text-xs text-muted-foreground"
             >
-              ← Geri
+              {t("auth.back")}
             </button>
           </div>
         )}
