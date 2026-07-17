@@ -2,17 +2,19 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import { X, Trophy, Clock, Play } from "lucide-react";
-import type { Team } from "@/lib/mock/data";
+import type { Team, Player } from "@/lib/mock/data";
 import { simulateEnhancedMatch } from "@/lib/match/engine/enhancedMatchEngine";
 import { DEFAULT_TACTIC } from "@/lib/tactics/types";
 import { cn } from "@/lib/utils";
-import { haptic, useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline"  // P0: escape + scroll lock;
+import { haptic, useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline";
+import { PlayerProfileModal } from "./player-profile-modal";
 
 type Event = {
   minute: number;
   type: string;
   team: string;
   player?: string;
+  playerId?: string;
   side?: string;
 };
 
@@ -54,7 +56,35 @@ export function MatchReplayModal({
   useBodyScrollLock(true);
   const [visibleCount, setVisibleCount] = useState(0);
   const [currentScore, setCurrentScore] = useState({ home: 0, away: 0 });
+  const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // P0: playerId ile oyuncu bul — her iki takımda da ara
+  const findPlayerById = (playerId?: string): Player | null => {
+    if (!playerId) return null;
+    const home = homeTeam.players.find(p => p.id === playerId);
+    if (home) return home;
+    const away = awayTeam.players.find(p => p.id === playerId);
+    return away ?? null;
+  };
+
+  // P0: İsim ile oyuncu bul — playerId yoksa isimden arama yap
+  const findPlayerByName = (name?: string): Player | null => {
+    if (!name || name === "Bilinmiyor") return null;
+    const home = homeTeam.players.find(p => `${p.firstName} ${p.lastName}` === name);
+    if (home) return home;
+    const away = awayTeam.players.find(p => `${p.firstName} ${p.lastName}` === name);
+    return away ?? null;
+  };
+
+  // P0: Oyuncu adına tıklama handler'ı
+  const handlePlayerClick = (playerId?: string, playerName?: string) => {
+    const player = findPlayerById(playerId) ?? findPlayerByName(playerName);
+    if (player) {
+      haptic("light");
+      setProfilePlayer(player);
+    }
+  };
 
   // Maç sonucu — stored score kullan (re-simülasyon YOK)
   // Sorun: eskiden simulateEnhancedMatch yeniden çağrılıyordu, farklı skor çıkıyordu
@@ -314,7 +344,12 @@ export function MatchReplayModal({
                     <div key={i} className={cn("flex items-center gap-2 text-[10px]", !isHome && "flex-row-reverse text-right")}>
                       <span className="font-bold tabular-nums text-muted-foreground w-8">{g.minute}'</span>
                       <span className="text-base">⚽</span>
-                      <span className="font-semibold flex-1 truncate">{g.player || "Bilinmiyor"}</span>
+                      <button
+                        onClick={() => handlePlayerClick((g as any).playerId, g.player)}
+                        className="font-semibold flex-1 truncate text-left hover:text-primary hover:underline cursor-pointer"
+                      >
+                        {g.player || "Bilinmiyor"}
+                      </button>
                       <span className={cn("text-[11px] px-1 py-0.5 rounded font-bold", isHome ? "bg-sky-500/20 text-sky-300" : "bg-rose-500/20 text-rose-300")}>
                         {isHome ? homeTeam.shortName : awayTeam.shortName}
                       </span>
@@ -337,7 +372,12 @@ export function MatchReplayModal({
                     <div key={i} className={cn("flex items-center gap-2 text-[10px]", !isHome && "flex-row-reverse text-right")}>
                       <span className="font-bold tabular-nums text-muted-foreground w-8">{c.minute}'</span>
                       <span className="text-base">{isRed ? "🟥" : "🟨"}</span>
-                      <span className="font-semibold flex-1 truncate">{c.player || "Bilinmiyor"}</span>
+                      <button
+                        onClick={() => handlePlayerClick((c as any).playerId, c.player)}
+                        className="font-semibold flex-1 truncate text-left hover:text-primary hover:underline cursor-pointer"
+                      >
+                        {c.player || "Bilinmiyor"}
+                      </button>
                     </div>
                   );
                 })}
@@ -394,13 +434,19 @@ export function MatchReplayModal({
                       <span className="font-bold tabular-nums text-muted-foreground w-7 shrink-0 mt-0.5">{e.minute > 90 ? `90+${e.minute - 90}'` : `${e.minute}'`}</span>
                       <span className="text-sm shrink-0">{icon}</span>
                       <div className="flex-1 min-w-0">
-                        <span className={cn(
-                          "font-semibold",
-                          isGoal && "text-emerald-300",
-                          isCard && "text-amber-300",
-                          isInjury && "text-orange-300",
-                          !isGoal && !isCard && !isInjury && "text-muted-foreground"
-                        )}>{commentary.title}</span>
+                        <button
+                          onClick={() => playerName && handlePlayerClick((e as any).playerId, playerName)}
+                          className={cn(
+                            "font-semibold text-left",
+                            isGoal && "text-emerald-300",
+                            isCard && "text-amber-300",
+                            isInjury && "text-orange-300",
+                            !isGoal && !isCard && !isInjury && "text-muted-foreground",
+                            playerName && "hover:underline cursor-pointer"
+                          )}
+                        >
+                          {commentary.title}
+                        </button>
                         <p className="text-[11px] text-muted-foreground/70 mt-0.5 leading-tight">{commentary.detail}</p>
                       </div>
                       {teamShort && (
@@ -478,6 +524,15 @@ export function MatchReplayModal({
           )}
         </div>
       </div>
+
+      {/* P0: Oyuncu profil modalı — gol/kart/olay'da isme tıklayınca açılır */}
+      {profilePlayer && (
+        <PlayerProfileModal
+          player={profilePlayer}
+          teamColor={homeTeam.players.some(p => p.id === profilePlayer.id) ? homeTeam.primaryColor : awayTeam.primaryColor}
+          onClose={() => setProfilePlayer(null)}
+        />
+      )}
     </div>
   );
 }
