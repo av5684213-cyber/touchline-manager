@@ -376,6 +376,85 @@ const ARKETIPLER: Record<string, string[]> = {
   CF: ["İkinci Forvet", "Yaratıcı Forvet", "Hedef Adam"],
 };
 
+// P0 FIX: Arketip → imza stat eşleştirme tablosu
+// Her arketip için hangi statların yüksek olması gerektiğini tanımlar
+const ARKETIP_SIGNATURE_STATS: Record<string, string[]> = {
+  // Kaleci
+  "Refleks Canavarı": ["reflexes", "agility"],
+  "Güvenli Eller": ["handling", "concentration"],
+  "Süpürücü Kaleci": ["acceleration", "decisions"],
+  "Penaltı Uzmanı": ["reflexes", "composure"],
+  "Büyük Maç Kalecisi": ["reflexes", "leadership"],
+  // Defans
+  "Duvar": ["tackling", "marking"],
+  "Lider Stoper": ["leadership", "positioning"],
+  "Top Çıkan Stoper": ["passing", "longShots"],
+  "Hava Hakimi": ["heading", "jumping"],
+  "Baskı Ustası": ["aggression", "workRate"],
+  "Kale Gibi": ["tackling", "positioning"],
+  "Kanat Beki": ["crossing", "stamina"],
+  "Hücumcu Bek": ["crossing", "acceleration"],
+  "Defansif Bek": ["marking", "tackling"],
+  "Ters Bek": ["crossing", "dribbling"],
+  "Ofansif Bek": ["crossing", "technique"],
+  // Orta Saha
+  "Yıkıcı": ["tackling", "aggression"],
+  "Regista": ["passing", "vision"],
+  "Ekran Oyuncusu": ["positioning", "decisions"],
+  "Duvar Orta Saha": ["tackling", "strength"],
+  "Motor": ["stamina", "workRate"],
+  "Truva Atı": ["tackling", "passing"],
+  "Pas Ustası": ["passing", "technique"],
+  "Box-to-Box": ["stamina", "passing"],
+  "Tempo Kontrolcüsü": ["passing", "decisions"],
+  // Ofansif Orta Saha
+  "Playmaker": ["vision", "passing"],
+  "Numara 10": ["flair", "technique"],
+  "Yaratıcı": ["vision", "dribbling"],
+  "Oyun Kurucu": ["passing", "decisions"],
+  // Kanat
+  "Kanat": ["crossing", "pace"],
+  "İçeri Dönen": ["dribbling", "finishing"],
+  "Hızlı Kanat": ["pace", "acceleration"],
+  "Dribling Ustası": ["dribbling", "flair"],
+  // Forvet
+  "Gol Makinesi": ["finishing", "composure"],
+  "Bitirici": ["finishing", "offTheBall"],
+  "Hedef Adam": ["heading", "strength"],
+  "Fırsatçı": ["offTheBall", "anticipation"],
+  "Hızlı Forvet": ["pace", "finishing"],
+  "İkinci Forvet": ["dribbling", "passing"],
+  "Yaratıcı Forvet": ["vision", "dribbling"],
+};
+
+/**
+ * P0 FIX: Statlara göre en uygun arketibi seç — körü körüne random DEĞİL
+ * Her arketip için imza statların ortalama değerini hesapla,
+ * en yüksek ortalama veren arketibi ağırlıklı rastgelelikle seç.
+ */
+function pickArketipByStats(pos: string, playerStats: Record<string, number>): string {
+  const list = ARKETIPLER[pos] ?? ARKETIPLER.CM;
+
+  // Her arketip için imza stat ortalaması hesapla
+  const scores = list.map(arketip => {
+    const sigStats = ARKETIP_SIGNATURE_STATS[arketip] ?? [];
+    if (sigStats.length === 0) return { arketip, score: 50 };
+    const vals = sigStats.map(s => playerStats[s] ?? 50);
+    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+    return { arketip, score: avg };
+  });
+
+  // Ağırlıklı rastgele seçim — yüksek skorlu arketip 3x daha şanslı
+  const weights = scores.map(s => Math.max(1, s.score - 30));
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * totalWeight;
+  for (let i = 0; i < scores.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return scores[i].arketip;
+  }
+  return scores[scores.length - 1].arketip;
+}
+
 function pickArketip(pos: string): string {
   const list = ARKETIPLER[pos] ?? ARKETIPLER.CM;
   return list[Math.floor(Math.random() * list.length)];
@@ -529,7 +608,13 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
   const appearancesVal = rand(8, 28);
   const nation = isForeign ? "Yabancı" : "Türkiye";
   const foot: Foot = Math.random() < 0.7 ? "Right" : Math.random() < 0.5 ? "Left" : "Both";
-  const marketValue = ovr * rand(80_000, 180_000);
+  // P0 FIX: Piyasa değeri — yaş ve potansiyel hesaba kat
+  // Peak yaş 24-29 → prim, 30+ → düşüş, 17-21 → potansiyel primi
+  const ageMult = age <= 21 ? 1.4 : age <= 23 ? 1.2 : age >= 24 && age <= 29 ? 1.0 : age >= 30 && age <= 32 ? 0.7 : age >= 33 ? 0.45 : 0.85;
+  // Potansiyel farkı primi (potential - rating büyükse → wonderkid primi)
+  const potentialDiff = (ovr + rand(0, 15)) - ovr;
+  const potentialMult = potentialDiff >= 10 ? 1.5 : potentialDiff >= 5 ? 1.2 : 1.0;
+  const marketValue = Math.round(ovr * rand(80_000, 180_000) * ageMult * potentialMult);
   const weeklyWage = ovr * rand(800, 2200);
 
   // Pozisyon grubu
@@ -598,7 +683,22 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
 
   const leftFootVal = foot === "Left" ? rand(75, 95) : foot === "Both" ? rand(60, 80) : rand(30, 50);
   const rightFootVal = foot === "Right" ? rand(75, 95) : foot === "Both" ? rand(60, 80) : rand(30, 50);
-  const archetypeVal = pickArketip(pos);
+
+  // P0 FIX: Arketipi statlarla uyumlu seç — körü körüne random DEĞİL
+  // Önce tüm statları topla, sonra imza statlarına göre en uygun arketibi seç
+  const allStats: Record<string, number> = {
+    ...stats,
+    ...technical,
+    ...mental,
+    ...physical,
+    heading: headingVal,
+    stamina: physical.agility, // approximation
+    vision: mental.decisions, // approximation
+    reflexes: pos === "GK" ? boost(base, 8, 18) : spread(base, 20, 30),
+    handling: pos === "GK" ? boost(base, 5, 15) : spread(base, 20, 30),
+    pace: stats.pace,
+  };
+  const archetypeVal = pickArketipByStats(pos, allStats);
 
   const traits = pickN(POSITIVE_TRAITS, rand(1, 3));
   const negTraits = Math.random() < 0.3 ? pickN(NEGATIVE_TRAITS, 1) : [];

@@ -191,6 +191,7 @@ type AppState = {
   // Yeni taktik action'ları
   updateActiveTactic: (patch: Partial<ActiveTactic>) => void;
   setSlotRole: (slotIndex: number, roleId: string) => void;
+  setCaptain: (playerId: string) => void; // P0: Kaptan seç
   setInstruction: (name: string, option: string) => void;
   resetInstruction: (name: string) => void;
   // transfer actions
@@ -736,6 +737,22 @@ export const useAppStore = create<AppState>()(
         });
       },
 
+      // P0: Kaptan seç — special_role'ü "kaptan" yap, diğerlerini temizle
+      setCaptain: (playerId) => {
+        const { clubs, myTeamId } = get();
+        const clubs_ = clubs.map(c => {
+          if (c.id !== myTeamId) return c;
+          return {
+            ...c,
+            players: c.players.map(p => ({
+              ...p,
+              special_role: p.id === playerId ? "kaptan" : null,
+            })),
+          };
+        });
+        set({ clubs: clubs_ });
+      },
+
       setInstruction: (name, option) => {
         const { tactics } = get();
         set({
@@ -1247,7 +1264,8 @@ export const useAppStore = create<AppState>()(
           news: [newNews, ...news],
           transfer: {
             ...transfer,
-            incomingOffers: transfer.incomingOffers.filter((o) => o.id !== offerId),
+            // P0 FIX: Satılan oyuncuya ait TÜM teklifleri temizle (sadece kabul edileni değil)
+            incomingOffers: transfer.incomingOffers.filter((o) => o.myPlayerId !== offer.myPlayerId),
             myListedPlayers: transfer.myListedPlayers.filter(
               (l) => l.playerId !== offer.myPlayerId
             ),

@@ -464,26 +464,38 @@ export function TransferScreen() {
       )}
 
       {/* Incoming offers tab */}
-      {sub === "incoming" && (
+      {sub === "incoming" && (() => {
+        // P0 FIX: Stale teklifleri temizle — kadroda olmayan oyunculara gelen teklifleri sil
+        const currentPlayerIds = new Set(team.players.map(p => p.id));
+        const validOffers = transfer.incomingOffers.filter(o => currentPlayerIds.has(o.myPlayerId));
+        // Eğer stale teklif varsa, store'u güncelle
+        if (validOffers.length !== transfer.incomingOffers.length) {
+          useAppStore.setState({
+            transfer: { ...transfer, incomingOffers: validOffers },
+          });
+        }
+        return (
         <div className="space-y-2">
-          {transfer.incomingOffers.length === 0 && (
+          {validOffers.length === 0 && (
             <div className="tm-card p-8 text-center text-xs text-muted-foreground">
               {t("transfer.incoming.empty")}
             </div>
           )}
-          {transfer.incomingOffers.map((offer) => {
+          {validOffers.map((offer) => {
             const player = team.players.find((p) => p.id === offer.myPlayerId);
+            if (!player) return null; // P0 FIX: stale teklif render etme
             return (
               <IncomingOfferCard
                 key={offer.id}
                 offer={offer}
                 player={player}
-                onOpenProfile={() => player && setProfilePlayer(player)}
+                onOpenProfile={() => setProfilePlayer(player)}
               />
             );
           })}
         </div>
-      )}
+        );
+      })()}
 
       {/* My listed tab */}
       {sub === "mylisted" && (
