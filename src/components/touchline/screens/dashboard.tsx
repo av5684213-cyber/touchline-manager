@@ -17,6 +17,7 @@ import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { getInflationMultiplier, formatInflationLabel } from "@/lib/fm/inflation";
 import { AchievementsCard, checkAchievements, AchievementToast, type Achievement } from "@/components/touchline/achievements";
+import { WeeklyChallengesCard } from "@/components/touchline/weekly-challenges";
 import { MatchReplayModal } from "../match-replay-modal";
 import type { SeasonSummary } from "@/lib/store";
 import type { Player as PlayerT } from "@/lib/mock/data";
@@ -296,6 +297,9 @@ export function DashboardScreen() {
 
       {/* Günlük Görevler */}
       <DailyTasks />
+
+      {/* Haftalık Zorluklar */}
+      <WeeklyChallengesCard />
 
       {/* Achievement Toast */}
       <AchievementToast achievements={newAchievements} onClose={() => setNewAchievements([])} />

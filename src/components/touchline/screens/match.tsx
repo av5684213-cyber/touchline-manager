@@ -56,6 +56,7 @@ type Side = "home" | "away" | "neutral";
 type HomeAway = "home" | "away";
 import { ClubBadge, PositionPill, RatingBadge } from "../ui-bits";
 import { PlayerProfileModal } from "../player-profile-modal";
+import { MatchCelebration } from "../match-celebration";
 // ADDED: 2D Live Match Pitch
 import { LiveMatchPitch } from "../live-match-pitch";
 import { cn } from "@/lib/utils";
@@ -139,6 +140,8 @@ export function MatchScreen() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showPreMatch, setShowPreMatch] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationShown, setCelebrationShown] = useState(false);
   // ADDED: Maç içi sekme — Saha / Akış / İstatistik
   const [matchTab, setMatchTab] = useState<"pitch" | "feed" | "stats">("pitch");
   // ADDED: Sabit hakem — her render'da değişmesin
@@ -439,13 +442,43 @@ export function MatchScreen() {
         {/* Live event feed — artık Akış sekmesinde gösteriliyor, bağımsız değil */}
 
         {/* PostMatch — maç bittiğinde */}
-        {engine.state.status === "finished" && !engine.replay.active && (
+        {engine.state.status === "finished" && !engine.replay.active && !showCelebration && (
           <PostMatch
             state={engine.state}
             homeTeam={homeTeam}
             awayTeam={awayTeam}
             onReplay={() => engine.replay.start()}
             onNewMatch={() => { engine.reset(); setShowPreMatch(false); }}
+          />
+        )}
+
+        {/* Maç Sonu Ödül Töreni — gol kutlaması animasyonu */}
+        {engine.state.status === "finished" && !celebrationShown && (
+          <MatchCelebration
+            result={
+              (mySide === "home"
+                ? engine.state.homeScore > engine.state.awayScore ? "win" : engine.state.homeScore === engine.state.awayScore ? "draw" : "loss"
+                : engine.state.awayScore > engine.state.homeScore ? "win" : engine.state.awayScore === engine.state.homeScore ? "draw" : "loss")
+            }
+            homeScore={engine.state.homeScore}
+            awayScore={engine.state.awayScore}
+            isHome={mySide === "home"}
+            creditsEarned={
+              (mySide === "home"
+                ? engine.state.homeScore > engine.state.awayScore ? 3 : engine.state.homeScore === engine.state.awayScore ? 1 : 0
+                : engine.state.awayScore > engine.state.homeScore ? 3 : engine.state.awayScore === engine.state.homeScore ? 1 : 0)
+            }
+            onClose={() => {
+              setShowCelebration(false);
+              setCelebrationShown(true);
+              // P0: Maç sonrası kredi ödülü
+              const myScore = mySide === "home" ? engine.state.homeScore : engine.state.awayScore;
+              const oppScore = mySide === "home" ? engine.state.awayScore : engine.state.homeScore;
+              const earned = myScore > oppScore ? 3 : myScore === oppScore ? 1 : 0;
+              if (earned > 0) {
+                useAppStore.getState().addCredits(earned);
+              }
+            }}
           />
         )}
 
