@@ -415,7 +415,7 @@ export const useAppStore = create<AppState>()(
       isAuthed: false,
       managerName: "",
       myTeamId: null,
-      seasonMatchday: 14,
+      seasonMatchday: 1,
       seasonNumber: 1,
       clubs: [],
       fixtures: [],
@@ -1216,6 +1216,11 @@ export const useAppStore = create<AppState>()(
         const player = team.players.find((p) => p.id === offer.myPlayerId);
         if (!player) return { success: false, reason: "not-in-team" };
 
+        // P0 FIX BUG #4: Kiralık oyuncu satılamaz — exploit önleme
+        if ((player as any)._loaned) {
+          return { success: false, reason: "loaned-player" };
+        }
+
         // Satıştan %2.5 vergi düş, kalan bütçeye ekle
         const tax = Math.round(offer.offerAmount * 0.025);
         const net = offer.offerAmount - tax;
@@ -1558,6 +1563,7 @@ export const useAppStore = create<AppState>()(
 
         // Tur etiketleri — log ve haber için
         const ROUND_NAMES: Record<number, string> = {
+          1: "Son 16",
           2: "Çeyrek Final",
           3: "Yarı Final",
           4: "Final",
@@ -1734,7 +1740,7 @@ export const useAppStore = create<AppState>()(
 
         // P1 FIX: Tur ödülü — tur atladıkça ödül ver (kullanıcı için)
         if (myMatch && !eliminated) {
-          const ROUND_REWARD: Record<number, number> = { 2: 50_000, 3: 150_000, 4: 400_000 };
+          const ROUND_REWARD: Record<number, number> = { 1: 25_000, 2: 50_000, 3: 150_000, 4: 400_000 };
           const reward = ROUND_REWARD[cup.currentRound] ?? 0;
           if (reward > 0) {
             const t = allClubsForCup.find(c => c.id === myTeamId);
@@ -2211,7 +2217,10 @@ export const useAppStore = create<AppState>()(
         try {
           const trainingState = get().training;
           const facilitiesState = get().facilities;
-          if (myTeam) {
+          // P0 FIX BUG #7: Aynı gün manuel antrenman yapıldıysa auto-training'i skip et
+          const todayDate = todayKey();
+          const manualTrainedToday = trainingState.lastTrainingDate === todayDate && trainingState.dailyCount > 0;
+          if (myTeam && !manualTrainedToday) {
             // P0 FIX: Atama yoksa pozisyona uygun varsayılan antrenman uygula
             // Rastgele stat seçimi YOK — her oyuncu pozisyonuna uygun stats gelişir
             if (trainingState.assignments.length === 0) {
@@ -2406,6 +2415,8 @@ export const useAppStore = create<AppState>()(
               injury_history: [],
               _loaned: false,
               _loanWeeks: 0,
+              // P0 FIX BUG #2: suspended_until sezon sonunda sıfırlanmalı
+              suspended_until: undefined,
               // P1 FIX: Sezon stats'larını sıfırla — mevcut yapıyı koru, değerleri 0 yap
               seasonStats: Object.fromEntries(
                 Object.keys(oldStats).map((k) => [k, 0])

@@ -838,16 +838,17 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
         is_injured: isInjured,
         injury,
         injury_history: updatedInjuryHistory,
-        // P0#1 FIX: Sezonluk stats accumulator — gol/asist/saves/maç sayısı
-        goals: (p.goals ?? 0) + (matchStats?.goals ?? 0),
-        assists: (p.assists ?? 0) + (matchStats?.assists ?? 0),
-        saves: (p.saves ?? 0) + (matchStats?.saves ?? 0),
-        appearances: (p.appearances ?? 0) + 1,
-        seasonStats: updatedSeasonStats,
-        // P0 FIX: Kırmızı kart / 2 sarı kart cezası — sonraki 1 maç oynayamaz
-        suspended_until: suspendedIds.has(p.id)
+        // P0 FIX BUG #1: Hazırlık maçı sezon statlarını KİRLETMESİN
+        // Friendly iken sadece cond/form/morale güncellenir, gol/asist/appearance/seasonStats/suspended_until ATLANIR
+        goals: isFriendly ? p.goals : (p.goals ?? 0) + (matchStats?.goals ?? 0),
+        assists: isFriendly ? p.assists : (p.assists ?? 0) + (matchStats?.assists ?? 0),
+        saves: isFriendly ? p.saves : (p.saves ?? 0) + (matchStats?.saves ?? 0),
+        appearances: isFriendly ? p.appearances : (p.appearances ?? 0) + 1,
+        seasonStats: isFriendly ? p.seasonStats : updatedSeasonStats,
+        // P0 FIX: Kırmızı kart / 2 sarı kart cezası — SADECE lig maçında
+        suspended_until: isFriendly ? p.suspended_until : (suspendedIds.has(p.id)
           ? String(useAppStore.getState().seasonMatchday + 1)
-          : p.suspended_until,
+          : p.suspended_until),
       };
     });
 
@@ -897,6 +898,36 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
       });
     } else {
       useAppStore.setState({ clubs: updatedClubs });
+    }
+
+    // P0 FIX BUG #3: tactics.lineup stale referansları güncelle
+    // applyPostMatchEffects yeni player objeleri yaratır, ama tactics.lineup eski referansları tutar
+    // lineup'taki her oyuncuyu updatedPlayers'dan fresh referansla değiştir
+    const storeState = useAppStore.getState();
+    if (storeState.tactics.lineup) {
+      const freshLineup = storeState.tactics.lineup.map(slotPlayer => {
+        if (!slotPlayer) return null;
+        const freshPlayer = updatedPlayers.find(np => np.id === slotPlayer.id);
+        return freshPlayer ?? null; // Oyuncu bulunamazsa null (satılmış/transfer olmuş)
+      });
+      useAppStore.setState({
+        tactics: { ...storeState.tactics, lineup: freshLineup },
+      });
+    }
+
+    // P0 FIX BUG #6: Maç sonrası kredi ödülünü UI yerine burada ver
+    // Celebration modal'ı kapanmazsa kredi kaybolmuyor
+    if (!isFriendly) {
+      const myScore = teamId === store.clubs.find(c => c.id === store.myTeamId)?.id
+        ? result.homeScore : result.awayScore; // approximation — motor başlatırken isHome biliniyor
+      // Daha güvenli: result'tan kimin kazandığını çıkar
+      const isUserHome = store.clubs.find(c => c.id === store.myTeamId)?.id === team.id;
+      const userScore = isUserHome ? result.homeScore : result.awayScore;
+      const oppScore = isUserHome ? result.awayScore : result.homeScore;
+      const earned = userScore > oppScore ? 3 : userScore === oppScore ? 1 : 0;
+      if (earned > 0) {
+        useAppStore.getState().addCredits(earned);
+      }
     }
 
     // ADDED: Başarım tetikleyici — maç sonu

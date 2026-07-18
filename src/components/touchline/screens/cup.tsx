@@ -17,9 +17,10 @@ const ROUND_LABELS: Record<number, string> = {
 };
 
 // P1 FIX: store.ts ile senkronize — tek kaynak
-// Round 2 (Çeyrek): 50K, Round 3 (Yarı): 150K, Round 4 (Final): 400K
+// Round 1 (Son 16): 25K, Round 2 (Çeyrek): 50K, Round 3 (Yarı): 150K, Round 4 (Final): 400K
 // Şampiyon: ekstra 1M
 const ROUND_REWARD: Record<number, number> = {
+  1: 25_000,
   2: 50_000,
   3: 150_000,
   4: 400_000,

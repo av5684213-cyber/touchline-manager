@@ -444,14 +444,14 @@ export function MatchScreen() {
 
         {/* Live event feed — artık Akış sekmesinde gösteriliyor, bağımsız değil */}
 
-        {/* PostMatch — maç bittiğinde */}
-        {engine.state.status === "finished" && !engine.replay.active && !showCelebration && (
+        {/* PostMatch — maç bittiğinde — celebration kapatıldıktan sonra göster */}
+        {engine.state.status === "finished" && !engine.replay.active && celebrationShown && (
           <PostMatch
             state={engine.state}
             homeTeam={homeTeam}
             awayTeam={awayTeam}
             onReplay={() => engine.replay.start()}
-            onNewMatch={() => { engine.reset(); setShowPreMatch(false); }}
+            onNewMatch={() => { engine.reset(); setShowPreMatch(false); setCelebrationShown(false); }}
           />
         )}
 
@@ -466,22 +466,8 @@ export function MatchScreen() {
             homeScore={engine.state.homeScore}
             awayScore={engine.state.awayScore}
             isHome={mySide === "home"}
-            creditsEarned={
-              (mySide === "home"
-                ? engine.state.homeScore > engine.state.awayScore ? 3 : engine.state.homeScore === engine.state.awayScore ? 1 : 0
-                : engine.state.awayScore > engine.state.homeScore ? 3 : engine.state.awayScore === engine.state.homeScore ? 1 : 0)
-            }
-            onClose={() => {
-              setShowCelebration(false);
-              setCelebrationShown(true);
-              // P0: Maç sonrası kredi ödülü
-              const myScore = mySide === "home" ? engine.state.homeScore : engine.state.awayScore;
-              const oppScore = mySide === "home" ? engine.state.awayScore : engine.state.homeScore;
-              const earned = myScore > oppScore ? 3 : myScore === oppScore ? 1 : 0;
-              if (earned > 0) {
-                useAppStore.getState().addCredits(earned);
-              }
-            }}
+            creditsEarned={0}
+            onClose={() => { setShowCelebration(false); setCelebrationShown(true); }}
           />
         )}
 
