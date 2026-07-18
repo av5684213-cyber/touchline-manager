@@ -656,10 +656,24 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
 
     // Sakat olan oyuncular
     const injuredIds = new Set<string>();
+    // P0 FIX: Kırmızı kart gören oyuncuları da topla — sonraki maçta cezalı
+    const suspendedIds = new Set<string>();
+    // P0 FIX: Sarı kart sayacı — 2 sarı = 1 maç ceza
+    const yellowCount = new Map<string, number>();
     for (const ev of result.events) {
       if (ev.type === "injury" && ev.playerId) {
         injuredIds.add(ev.playerId);
       }
+      if ((ev.type === "red_card" || (ev.type as string) === "red") && ev.playerId) {
+        suspendedIds.add(ev.playerId);
+      }
+      if ((ev.type === "yellow_card" || (ev.type as string) === "yellow") && ev.playerId) {
+        yellowCount.set(ev.playerId, (yellowCount.get(ev.playerId) ?? 0) + 1);
+      }
+    }
+    // 2 sarı kart = 1 maç ceza
+    for (const [pid, count] of yellowCount) {
+      if (count >= 2) suspendedIds.add(pid);
     }
 
     // P0#1 FIX: Event'lerden gol/asist/saves/kart sayılarını topla
@@ -830,6 +844,10 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
         saves: (p.saves ?? 0) + (matchStats?.saves ?? 0),
         appearances: (p.appearances ?? 0) + 1,
         seasonStats: updatedSeasonStats,
+        // P0 FIX: Kırmızı kart / 2 sarı kart cezası — sonraki 1 maç oynayamaz
+        suspended_until: suspendedIds.has(p.id)
+          ? String(useAppStore.getState().seasonMatchday + 1)
+          : p.suspended_until,
       };
     });
 

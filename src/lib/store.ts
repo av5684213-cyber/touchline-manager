@@ -288,58 +288,45 @@ function buildInitialFixtures(clubs: Team[]): FixtureRow[] {
 }
 
 /**
- * Kupa fikstürünü üret — çeyrek final (8 takım, 4 maç).
- * P0 FIX: Kullanıcının takımı HER ZAMAN kupada olur.
- *  - Top 7 takım rating'e göre seçilir (kullanıcı hariç)
- *  - Kullanıcının takımı 8. takım olarak eklenir
- *  - İlk 3 maç bot vs bot, 4. maç kullanıcı vs 7. bot
+ * Kupa fikstürünü üret — ligdeki TÜM takımlar katılır.
+ * P0 FIX: Sadece 8 takım DEĞİL, 16 takım katılır (Son 16 turu).
+ * Sıralama: en iyi 11'in ortalama OVR'ına göre (toplam rating DEĞİL).
  */
 function buildCupFixtures(clubs: Team[], myTeamId: string | null): CupMatch[] {
-  const sorted = [...clubs].sort((a, b) =>
-    b.players.reduce((s, p) => s + p.rating, 0) -
-    a.players.reduce((s, p) => s + p.rating, 0)
-  );
+  const teamStrength = (team: Team) => {
+    const best11 = [...team.players]
+      .filter(p => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))))
+      .sort((a, b) => b.rating - a.rating)
+      .slice(0, 11);
+    return best11.length > 0 ? best11.reduce((s, p) => s + p.rating, 0) / best11.length : 50;
+  };
 
-  // Top 7 (kullanıcı hariç)
-  const others = sorted.filter(c => c.id !== myTeamId).slice(0, 7);
-  const myTeam = myTeamId ? clubs.find(c => c.id === myTeamId) : null;
+  const sorted = [...clubs].sort((a, b) => teamStrength(b) - teamStrength(a));
 
-  // Fisher-Yates shuffle — rastgele eşleşme
-  for (let i = others.length - 1; i > 0; i--) {
+  // P0 FIX: 16 takım al (toplam rating DEĞİL, en iyi 11 ortalaması)
+  let participants = sorted.slice(0, 16);
+  // Kullanıcı 16'da yoksa, en zayıfı çıkar, kullanıcıyı ekle
+  if (myTeamId && !participants.find(c => c.id === myTeamId)) {
+    participants = sorted.slice(0, 15);
+    const myTeam = clubs.find(c => c.id === myTeamId);
+    if (myTeam) participants.push(myTeam);
+  }
+
+  // Fisher-Yates shuffle
+  for (let i = participants.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [others[i], others[j]] = [others[j], others[i]];
+    [participants[i], participants[j]] = [participants[j], participants[i]];
   }
 
   const cupMatches: CupMatch[] = [];
+  const numMatches = Math.floor(participants.length / 2);
 
-  // İlk 3 maç: bot vs bot (others'ın ilk 6'sı)
-  for (let i = 0; i < 3 && others.length >= 6; i++) {
+  // P0 FIX: round: 1 = Son 16 (önceden round: 2 = Çeyrek'ti)
+  for (let i = 0; i < numMatches; i++) {
     cupMatches.push({
-      round: 2,
-      homeId: others[i * 2].id,
-      awayId: others[i * 2 + 1].id,
-      homeScore: null,
-      awayScore: null,
-      played: false,
-    });
-  }
-
-  // 4. maç: myTeam vs others[6]
-  if (myTeam && others[6]) {
-    cupMatches.push({
-      round: 2,
-      homeId: myTeam.id,
-      awayId: others[6].id,
-      homeScore: null,
-      awayScore: null,
-      played: false,
-    });
-  } else if (others[6] && others[7]) {
-    // Fallback: myTeam yoksa 4. maç da bot vs bot
-    cupMatches.push({
-      round: 2,
-      homeId: others[6].id,
-      awayId: others[7].id,
+      round: 1,
+      homeId: participants[i * 2].id,
+      awayId: participants[i * 2 + 1].id,
       homeScore: null,
       awayScore: null,
       played: false,
@@ -364,7 +351,7 @@ function defaultTacticsFor(team: Team): Tactics {
     // P0 FIX: Sakat oyuncuları ele (!p.is_injured eklendi)
     // Önce tam pozisyon eşleşmesi
     let candidate = team.players
-      .filter((p) => !used.has(p.id) && !p.is_injured && p.specificPosition === slotPos)
+      .filter((p) => !used.has(p.id) && !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))) && p.specificPosition === slotPos)
       .sort((a, b) => b.rating - a.rating)[0];
 
     // Yoksa aynı gruptan al
@@ -377,14 +364,14 @@ function defaultTacticsFor(team: Team): Tactics {
         : group === "MID" ? ["CDM", "CM", "CAM", "LM", "RM"]
         : ["LW", "RW", "ST", "CF"];
       candidate = team.players
-        .filter((p) => !used.has(p.id) && !p.is_injured && groupPositions.includes(p.specificPosition))
+        .filter((p) => !used.has(p.id) && !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))) && groupPositions.includes(p.specificPosition))
         .sort((a, b) => b.rating - a.rating)[0];
     }
 
     // Hala yoksa en yüksek OVR'li boş oyuncu (sakat olmayan)
     if (!candidate) {
       candidate = team.players
-        .filter((p) => !used.has(p.id) && !p.is_injured)
+        .filter((p) => !used.has(p.id) && !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))))
         .sort((a, b) => b.rating - a.rating)[0];
     }
 
@@ -464,7 +451,7 @@ export const useAppStore = create<AppState>()(
 
       cup: {
         matches: [],
-        currentRound: 0,
+        currentRound: 1, // P0 FIX: Son 16'dan başla
         champion: undefined,
         eliminated: false,
       },
@@ -540,7 +527,7 @@ export const useAppStore = create<AppState>()(
           transfer,
           cup: {
             matches: cupMatches,
-            currentRound: 2,
+            currentRound: 1,  // P0 FIX: Son 16 = round 1
             champion: undefined,
             eliminated: false,
           },
@@ -682,7 +669,7 @@ export const useAppStore = create<AppState>()(
             newLineup = [];
             for (const slotPos of slots) {
               let candidate = team.players
-                .filter((p) => !used.has(p.id) && !p.is_injured && p.specificPosition === slotPos)
+                .filter((p) => !used.has(p.id) && !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))) && p.specificPosition === slotPos)
                 .sort((a, b) => b.rating - a.rating)[0];
               if (!candidate) {
                 const group = slotPos === "GK" ? "GK"
@@ -693,7 +680,7 @@ export const useAppStore = create<AppState>()(
                   : group === "MID" ? ["CDM", "CM", "CAM", "LM", "RM"]
                   : ["LW", "RW", "ST", "CF"];
                 candidate = team.players
-                  .filter((p) => !used.has(p.id) && !p.is_injured && groupPositions.includes(p.specificPosition))
+                  .filter((p) => !used.has(p.id) && !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))) && groupPositions.includes(p.specificPosition))
                   .sort((a, b) => b.rating - a.rating)[0];
               }
               // P0 FIX: Son çare fallback — kaleciyi SADECE GK slotu için al, saha slotu için ASLA
@@ -706,7 +693,7 @@ export const useAppStore = create<AppState>()(
                 } else {
                   // Saha slotu için kaleci HARİÇ en yüksek OVR'li oyuncu
                   candidate = team.players
-                    .filter((p) => !used.has(p.id) && !p.is_injured && p.specificPosition !== "GK")
+                    .filter((p) => !used.has(p.id) && !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))) && p.specificPosition !== "GK")
                     .sort((a, b) => b.rating - a.rating)[0];
                 }
               }
@@ -1562,11 +1549,11 @@ export const useAppStore = create<AppState>()(
         // P2 FIX: rating sıralaması + sakat filtresi eklendi (advanceMatchday ile tutarlı)
         const simpleCupSim = (home: any, away: any): { hs: number; as: number } => {
           const homeXI = [...home.players]
-            .filter((p: any) => !p.is_injured)
+            .filter((p: any) => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))))
             .sort((a: any, b: any) => b.rating - a.rating)
             .slice(0, 11);
           const awayXI = [...away.players]
-            .filter((p: any) => !p.is_injured)
+            .filter((p: any) => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))))
             .sort((a: any, b: any) => b.rating - a.rating)
             .slice(0, 11);
           const homeStr = homeXI.reduce((s: number, p: any) => s + p.rating, 0) / Math.max(1, homeXI.length);
@@ -1575,7 +1562,11 @@ export const useAppStore = create<AppState>()(
           const homeAdv = diff > 5 ? 0.3 : diff < -5 ? -0.3 : 0;
           let hs = Math.max(0, Math.floor(Math.random() * 4 + homeAdv * 2));
           let as = Math.max(0, Math.floor(Math.random() * 3 - homeAdv * 2));
-          if (hs === as) hs += 1; // beraberlik olmasın
+          // P0 FIX: Beraberlikte rastgele penaltı — her zaman ev sahibi DEĞİL
+          if (hs === as) {
+            if (Math.random() < 0.5) hs += 1;
+            else as += 1;
+          }
           return { hs, as };
         };
 
@@ -1591,7 +1582,7 @@ export const useAppStore = create<AppState>()(
             const homeTactic = isHome ? userTactic : { ...DEFAULT_TACTIC, formation: "4-4-2" };
             const awayTactic = isHome ? { ...DEFAULT_TACTIC, formation: "4-4-2" } : userTactic;
             const pickXI = (players: any[]) =>
-              [...players].filter((p) => !p.is_injured).sort((a, b) => b.rating - a.rating).slice(0, 11);
+              [...players].filter((p) => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0)))).sort((a, b) => b.rating - a.rating).slice(0, 11);
             const result = simulateEnhancedMatch(
               pickXI(home.players),
               pickXI(away.players),
@@ -1632,7 +1623,7 @@ export const useAppStore = create<AppState>()(
 
         // Adım 3: Kupa maçlarında oyunculara gol/asist dağıt — Gol Kralı resmi maçları kapsar
         const pickScorerCup = (players: any[]) => {
-          const attackers = players.filter(p => p.specificPosition !== "GK" && !p.is_injured);
+          const attackers = players.filter(p => p.specificPosition !== "GK" && !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))));
           if (attackers.length === 0) return null;
           const forwards = attackers.filter(p => ["ST", "CF", "LW", "RW", "LM", "RM", "CAM"].includes(p.specificPosition));
           const pool = forwards.length > 0 && Math.random() > 0.3 ? forwards : attackers;
@@ -1778,7 +1769,7 @@ export const useAppStore = create<AppState>()(
               const homeTactic = isHome ? userTactic : { ...DEFAULT_TACTIC, formation: "4-4-2" };
               const awayTactic = isHome ? { ...DEFAULT_TACTIC, formation: "4-4-2" } : userTactic;
               const pickXI = (players: any[]) =>
-                [...players].filter((p) => !p.is_injured).sort((a, b) => b.rating - a.rating).slice(0, 11);
+                [...players].filter((p) => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0)))).sort((a, b) => b.rating - a.rating).slice(0, 11);
               const result = simulateEnhancedMatch(
                 pickXI(homeTeam.players),
                 pickXI(awayTeam.players),
@@ -1789,8 +1780,8 @@ export const useAppStore = create<AppState>()(
               userMatchResult = { homeScore: result.homeScore, awayScore: result.awayScore };
             } catch (e) {
               console.warn("[advanceMatchday] enhanced sim hatası, basit sim:", e);
-              const homeStr = [...homeTeam.players].filter(p => !p.is_injured).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
-              const awayStr = [...awayTeam.players].filter(p => !p.is_injured).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+              const homeStr = [...homeTeam.players].filter(p => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0)))).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+              const awayStr = [...awayTeam.players].filter(p => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0)))).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
               const diff = homeStr - awayStr;
               const homeAdv = diff > 5 ? 0.3 : diff < -5 ? -0.3 : 0;
               userMatchResult = {
@@ -1850,8 +1841,8 @@ export const useAppStore = create<AppState>()(
           const homeTeam = clubs.find((c) => c.id === f.homeId);
           const awayTeam = clubs.find((c) => c.id === f.awayId);
           if (!homeTeam || !awayTeam) return f;
-          const homeStr = [...homeTeam.players].filter(p => !p.is_injured).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
-          const awayStr = [...awayTeam.players].filter(p => !p.is_injured).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+          const homeStr = [...homeTeam.players].filter(p => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0)))).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+          const awayStr = [...awayTeam.players].filter(p => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0)))).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
           const diff = homeStr - awayStr;
           const homeAdv = diff > 5 ? 0.3 : diff < -5 ? -0.3 : 0;
           const hs = Math.max(0, Math.floor(Math.random() * 4 + homeAdv * 2));
@@ -1896,7 +1887,7 @@ export const useAppStore = create<AppState>()(
         const pickStartingXI = (players: any[], teamId: string) => {
           // Kullanıcının takımı ise tactics.lineup'tan seç
           if (teamId === myTeamId && tacticsLineupIds.size > 0) {
-            const lineup = players.filter(p => !p.is_injured && p.specificPosition !== "GK" && tacticsLineupIds.has(p.id));
+            const lineup = players.filter(p => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))) && p.specificPosition !== "GK" && tacticsLineupIds.has(p.id));
             // P0 FIX: lineup boşsa fallback — en yüksek OVR'li 10 (tactics.lineup stale olabilir)
             if (lineup.length === 0) {
               console.warn(`[pickStartingXI] tactics.lineup stale! tacticsLineupIds=${tacticsLineupIds.size} ama players'ta eşleşen yok. Fallback: en yüksek OVR'li 10`);
@@ -1905,7 +1896,7 @@ export const useAppStore = create<AppState>()(
           }
           // Bot takımı — en yüksek OVR'li 10 saha oyuncusu
           return [...players]
-            .filter(p => !p.is_injured && p.specificPosition !== "GK")
+            .filter(p => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))) && p.specificPosition !== "GK")
             .sort((a, b) => b.rating - a.rating)
             .slice(0, 10);
         };
@@ -2538,7 +2529,7 @@ export const useAppStore = create<AppState>()(
           seasonMatchday: 1,
           cup: {
             matches: newCupMatches,
-            currentRound: 2, // Çeyrek final = round 2
+            currentRound: 1,  // P0 FIX: Son 16 = round 1 // Çeyrek final = round 2
             champion: undefined,
             eliminated: false,
           },
