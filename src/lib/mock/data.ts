@@ -281,6 +281,7 @@ export type Team = {
   stadiumCapacity: number;
   stadiumName: string;
   is_bot?: boolean;
+  facilities?: any; // P0 FIX: Bot takımları için facility levels
 };
 
 export const LEAGUE_NAMES: Record<LeagueTier, { tr: string; en: string }> = {
@@ -1032,6 +1033,20 @@ export function generateTeam(
     stadiumCapacity: rand(8000, 32000) * (leagueTier === 1 ? 2 : leagueTier === 4 ? 0.5 : 1),
     stadiumName: `${meta.name} Stadyumu`,
     is_bot: true,
+    // P0 FIX BUG #28: Bot takımlarına initial facilities ver
+    facilities: {
+      levels: {
+        stadium: Math.floor(rand(0, 3)),
+        pitch: Math.floor(rand(0, 2)),
+        academy: Math.floor(rand(0, 2)),
+        gym: Math.floor(rand(0, 2)),
+        medical: Math.floor(rand(0, 2)),
+        analysis: 0,
+      },
+      staff: [],
+      activeUpgrade: null,
+      ticketPrice: 50 + Math.floor(rand(0, 30)),
+    },
   };
 }
 

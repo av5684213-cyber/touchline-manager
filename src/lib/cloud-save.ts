@@ -186,6 +186,11 @@ export function initCloudSave(userId: string) {
   loadGameState(userId).then(() => {
     // Sonra store değişikliklerini dinle
     // P0 FIX: cup, sponsors, credits, seasonStartStats değişikliklerini de izle
+    // P0 FIX: Duplicate subscribe önle — önce eski subscriber'ı temizle
+    if (unsubscribeFn) {
+      unsubscribeFn();
+      unsubscribeFn = null;
+    }
     unsubscribeFn = useAppStore.subscribe((state, prevState) => {
       if (
         state.clubs !== prevState.clubs ||
@@ -196,12 +201,14 @@ export function initCloudSave(userId: string) {
         state.facilities !== prevState.facilities ||
         state.seasonMatchday !== prevState.seasonMatchday ||
         state.news !== prevState.news ||
-        // P0 FIX: Yeni izlenen alanlar
         state.cup !== prevState.cup ||
         state.sponsors !== prevState.sponsors ||
         state.credits !== prevState.credits ||
         state.seasonStartStats !== prevState.seasonStartStats ||
-        state.seasonNumber !== prevState.seasonNumber
+        state.seasonNumber !== prevState.seasonNumber ||
+        // P0 FIX BUG #13: myTeamId ve managerName değişikliklerini de izle
+        state.myTeamId !== prevState.myTeamId ||
+        state.managerName !== prevState.managerName
       ) {
         saveGameState(userId);
       }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Trophy, X, Sparkles, Coins, TrendingUp, Award } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { haptic } from "@/hooks/touchline";
+import { haptic, useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline";
 
 /**
  * Maç Sonu Ödül Töreni — gol kutlaması animasyonu.
@@ -28,6 +28,9 @@ export function MatchCelebration({
   onClose: () => void;
 }) {
   const [phase, setPhase] = useState<"animating" | "showing">("animating");
+  // P0 FIX BUG #17: Escape + scroll lock
+  useEscapeToClose(onClose);
+  useBodyScrollLock(true);
   const [confetti, setConfetti] = useState<Array<{ id: number; x: number; delay: number; color: string }>>([]);
 
   useEffect(() => {

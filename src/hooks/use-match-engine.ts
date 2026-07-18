@@ -1004,7 +1004,8 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
 
       // DEVRE ARASI: 45. dakikaya gelince 30 saniyelik pause
       const nextEvent = allEvents[eventCursorRef.current];
-      if (nextEvent && nextEvent.minute > 45 && snapshot.minute <= 45) {
+      // P0 FIX BUG #15: Halftime sadece en az 1 event gösterildikten sonra tetiklensin
+      if (nextEvent && nextEvent.minute > 45 && snapshot.minute <= 45 && eventCursorRef.current > 0) {
         // Devre arası başlat — 30 saniye geri sayım
         setSnapshot((s) => ({ ...s, status: "halftime", halftimeSecondsLeft: 30 }));
         clearInterval(id);

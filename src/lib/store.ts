@@ -1283,6 +1283,10 @@ export const useAppStore = create<AppState>()(
             myListedPlayers: transfer.myListedPlayers.filter(
               (l) => l.playerId !== offer.myPlayerId
             ),
+            // P0 FIX BUG #12: Satılan oyuncuya ait mesajları da temizle
+            messages: transfer.messages.filter(
+              (m) => m.playerId !== offer.myPlayerId
+            ),
           },
         });
 
@@ -1665,12 +1669,20 @@ export const useAppStore = create<AppState>()(
           const awayTeam = allClubsForCup.find(c => c.id === m.awayId);
           if (!homeTeam || !awayTeam) continue;
 
+          // P0 FIX BUG #16: appearances MAÇ BAŞINA 1 olmalı, GOL BAŞINA değil
+          // Önce her takımın ilk 11'ine 1 appearance ver
+          const homeXI = [...homeTeam.players].filter(p => !p.is_injured && p.specificPosition !== "GK")
+            .sort((a, b) => b.rating - a.rating).slice(0, 10);
+          const awayXI = [...awayTeam.players].filter(p => !p.is_injured && p.specificPosition !== "GK")
+            .sort((a, b) => b.rating - a.rating).slice(0, 10);
+          for (const p of homeXI) p.appearances = (p.appearances ?? 0) + 1;
+          for (const p of awayXI) p.appearances = (p.appearances ?? 0) + 1;
+
           // Home goals dağıt
           for (let i = 0; i < (m.homeScore ?? 0); i++) {
             const scorer = pickScorerCup(homeTeam.players);
             if (scorer) {
               scorer.goals = (scorer.goals ?? 0) + 1;
-              scorer.appearances = (scorer.appearances ?? 0) + 1;
               const assistPool = homeTeam.players.filter(p => p.id !== scorer?.id && p.specificPosition !== "GK");
               if (assistPool.length > 0 && Math.random() > 0.4) {
                 const assister = assistPool[Math.floor(Math.random() * assistPool.length)];
@@ -1683,7 +1695,6 @@ export const useAppStore = create<AppState>()(
             const scorer = pickScorerCup(awayTeam.players);
             if (scorer) {
               scorer.goals = (scorer.goals ?? 0) + 1;
-              scorer.appearances = (scorer.appearances ?? 0) + 1;
               const assistPool = awayTeam.players.filter(p => p.id !== scorer?.id && p.specificPosition !== "GK");
               if (assistPool.length > 0 && Math.random() > 0.4) {
                 const assister = assistPool[Math.floor(Math.random() * assistPool.length)];
@@ -2130,8 +2141,21 @@ export const useAppStore = create<AppState>()(
             playersAfterLoan.push(p);
           }
           myTeam.players = playersAfterLoan;
-          // clubs array'ini güncellenmiş haliyle kullan (loan return için)
-          clubs.splice(0, clubs.length, ...allClubsForLoanReturn);
+          // P0 FIX BUG #10: clubs array'ini mutate etme — immutable update
+          const newClubsAfterLoan = [...allClubsForLoanReturn];
+          // P0 FIX BUG #11: Loan return sonrası tactics.lineup'tan kiralık oyuncuyu çıkar
+          const currentTactics = get().tactics;
+          if (currentTactics.lineup) {
+            const loanedIds = new Set(myTeam.players.filter((p: any) => p._loaned).map((p: any) => p.id));
+            // Oyuncu artık myTeam.players'da yoksa (iade edildiyse) lineup'tan da çıkar
+            const currentPlayerIds = new Set(myTeam.players.map(p => p.id));
+            const freshLineup = currentTactics.lineup.map(slotPlayer => {
+              if (!slotPlayer) return null;
+              if (!currentPlayerIds.has(slotPlayer.id)) return null; // iade edilmiş
+              return myTeam.players.find(np => np.id === slotPlayer.id) ?? null;
+            });
+            set({ tactics: { ...currentTactics, lineup: freshLineup } });
+          }
 
           // P0 FIX: Sponsor endDate kontrolü — süresi dolan sponsorları kaldır
           const now = Date.now();
