@@ -2101,11 +2101,15 @@ export const useAppStore = create<AppState>()(
           const stadiumMult = 1 + facilitiesState.levels.stadium * 0.05;
           // P1 FIX: Doluluk oranı — bilet fiyatına göre azalsın (yüksek fiyat → düşük doluluk)
           // 60€ = %60 doluluk, 100€ = %40, 150€ = %20
-          const fillRate = Math.max(0.2, Math.min(0.8, 1 - (facilitiesState.ticketPrice / 250)));
+          // P0 FIX BUG #19: Doluluk oranı lig tier'ını da dikkate al — Süper Lig'de daha çok seyirci
+          const myTier = myTeam?.leagueTier ?? 2;
+          const tierBonus = (5 - myTier) * 0.04; // tier 1: +0.16, tier 4: +0.04
+          const fillRate = Math.max(0.2, Math.min(0.85, 1 - (facilitiesState.ticketPrice / 250) + tierBonus));
           const ticketRev = Math.round(stadiumCap * fillRate * facilitiesState.ticketPrice * stadiumMult);
           const sponsor = 50_000 + facilitiesState.levels.stadium * 10_000 + activeSponsorIncome;
           const tv = 50_000;
-          const merch = Math.round(stadiumCap * 0.2 * 1);
+          // P0 FIX BUG #23: merch — store/VIP tesis seviyesini hesaba kat
+          const merch = Math.round(stadiumCap * 0.2 + facilitiesState.levels.academy * 5000);
           const totalIncome = ticketRev + sponsor + tv + merch;
           // Gider — P0 FIX: Futbolcu maaşları tamamen kaldırıldı, sadece personel + tesis
           const staffWages = facilitiesState.staff.reduce((s, st) => s + st.weeklyWage, 0);
@@ -2306,6 +2310,12 @@ export const useAppStore = create<AppState>()(
         }
 
         // P2 FIX: Loan listings yenile — 5'ten az ise yeni üret
+        // P0 FIX BUG #32: freeAgents listesini temizle — 30'dan fazla ise yaşlıları kaldır
+        if (transfer.freeAgents && transfer.freeAgents.length > 30) {
+          updatedTransfer.freeAgents = transfer.freeAgents
+            .filter((l: any) => (l.player?.age ?? 30) < 38) // 38+ yaş serbestleri kaldır
+            .slice(0, 30); // Maksimum 30 oyuncu tut
+        }
         if ((transfer.loanListings ?? []).length < 5) {
           try {
             
@@ -3207,7 +3217,14 @@ export const useAppStore = create<AppState>()(
               sliders: { attackingPressure: userTactics.tactic_data?.aggression ?? 50, defensiveLine: userTactics.tactic_data?.lineHeight ?? 50, tempo: userTactics.tactic_data?.passingIntensity ?? 50, wingPlay: userTactics.tactic_data?.width ?? 50 },
               roles: {},
             } : get().tactics,
-            seasonMatchday: 1, seasonNumber: 1,
+            seasonMatchday: savedState?.seasonMatchday ?? 1,
+            seasonNumber: savedState?.seasonNumber ?? 1,
+            // P0 FIX BUG #14: cup, sponsors, credits, seasonStartStats ekle
+            cup: savedState?.cup ?? { matches: [], currentRound: 1, champion: undefined, eliminated: false },
+            sponsors: savedState?.sponsors ?? { active: [], offers: [] },
+            credits: savedState?.credits ?? 50,
+            seasonStartStats: savedState?.seasonStartStats ?? {},
+            transfer: savedState?.transfer ?? get().transfer,
           });
           return { success: true };
         } catch (err: any) {

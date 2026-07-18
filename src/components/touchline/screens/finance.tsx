@@ -25,6 +25,7 @@ export function FinanceScreen() {
   const team = useMyTeam();
   const facilities = useAppStore((s) => s.facilities);
   const sponsors = useAppStore((s) => s.sponsors);
+  const setTicketPrice = useAppStore((s) => s.setTicketPrice);
   // ADDED: Aktif sponsor — useMemo dışında hesapla ki render'da erişilebilsin
   const activeSponsor = sponsors?.active?.find((s: any) => s.isActive) ?? null;
 
@@ -209,6 +210,33 @@ export function FinanceScreen() {
           last
         />
       </div>
+
+      {/* P0 FIX BUG #31: Bilet Fiyatı Slider — setTicketPrice artık çağrılıyor */}
+      {team && (
+        <div className="tm-card p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold">🎟️ Bilet Fiyatı</span>
+            <span className="text-sm font-bold tabular-nums text-primary">€{facilities.ticketPrice}</span>
+          </div>
+          <input
+            type="range"
+            min={20}
+            max={150}
+            step={5}
+            value={facilities.ticketPrice}
+            onChange={(e) => { setTicketPrice(Number(e.target.value)); }}
+            className="w-full accent-primary"
+            aria-label="Bilet fiyatı"
+          />
+          <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+            <span>€20 (Doluluk: %{Math.round(Math.max(0.2, Math.min(0.85, 1 - (20 / 250) + (5 - (team.leagueTier ?? 2)) * 0.04)) * 100)})</span>
+            <span>€150 (Doluluk: %{Math.round(Math.max(0.2, Math.min(0.85, 1 - (150 / 250) + (5 - (team.leagueTier ?? 2)) * 0.04)) * 100)})</span>
+          </div>
+          <div className="text-[10px] text-muted-foreground mt-1 text-center">
+            Tahmini doluluk: %{Math.round((computed.fillRate ?? 0.5) * 100)} · Gelir: {formatEuro(computed.ticketRevenue)}
+          </div>
+        </div>
+      )}
 
       {/* ADDED: Sponsor Sistemi — teklifler + aktif sponsor */}
       <div className="tm-card p-3">
