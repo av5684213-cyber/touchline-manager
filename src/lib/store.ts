@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import {
   FORMATIONS,
+  POSITION_GROUP,
   generateAllClubs,
   generateClubsForLeague,
   generatePlayer,
@@ -10,6 +11,7 @@ import {
   type LeagueTier,
   type Department,
   type Player,
+  type Position,
   type Team,
 } from "@/lib/mock/data";
 import {
@@ -622,6 +624,26 @@ export const useAppStore = create<AppState>()(
         if (!player) return;
         // P1 FIX: Sakat oyuncu dizilişe konmasın
         if (player.is_injured) return;
+        // P0 FIX: Cezalı oyuncu dizilişe konmasın
+        if (player.suspended_until && Number(player.suspended_until) > (get().seasonMatchday ?? 0)) return;
+        // P0 FIX: Pozisyon uyumu kontrolü — kaleci forvet slotuna konmasın
+        const formation = tactics.active?.formation ?? "4-4-2";
+        const slots = FORMATION_SLOTS[formation] ?? FORMATION_SLOTS["4-4-2"];
+        const slotPos = slots[slotIndex];
+        if (slotPos) {
+          const playerGroup = POSITION_GROUP[player.specificPosition] ?? "MID";
+          const slotGroup = POSITION_GROUP[slotPos] ?? "MID";
+          // Tam pozisyon eşleşmesi veya aynı grup → izin ver
+          // Farklı grup (GK→FWD, DEF→FWD vb.) → reddet
+          if (playerGroup !== slotGroup) {
+            // İstisna: ikincil pozisyonlarda oynayabilir
+            const secondaryOk = player.secondaryPositions?.includes(slotPos as Position);
+            if (!secondaryOk) {
+              console.warn(`[swapLineupSlot] Pozisyon uyumsuzluğu: ${player.specificPosition} → ${slotPos} slotu`);
+              return;
+            }
+          }
+        }
         // Eğer oyuncu başka slotta varsa, o slotu null yap
         const newLineup = [...tactics.lineup];
         for (let i = 0; i < newLineup.length; i++) {
