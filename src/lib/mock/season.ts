@@ -8,7 +8,7 @@ import { FORMATIONS, Team, type Formation, type Player } from "./data";
 export const SEASON_INFO = {
   year: "2025–26",
   league: "1lig" as const,
-  matchday: 14,
+  matchday: 1, // P0 FIX: Sezon başından başla — sahte geçmiş üretme
   totalMatchdays: 34,
   startedAt: new Date("2025-08-15T00:00:00+03:00"),
 };
@@ -128,15 +128,35 @@ export function generateFixtures(teams: Team[]): FixtureRow[] {
   return fixtures;
 }
 
-/** Geçmiş maçları oyna + sahte skor üret. currentMatchday'e kadar. */
+/** Geçmiş maçları oyna + takım güçlerine göre ağırlıklı skor üret. currentMatchday'e kadar. */
 export function playFixturesUpTo(
   fixtures: FixtureRow[],
-  currentMatchday: number
+  currentMatchday: number,
+  teams?: Team[]
 ): FixtureRow[] {
+  // P0 FIX: Takım güçleri varsa rating bazlı skor üret, yoksa rastgele (eski davranış)
+  const teamMap = teams ? new Map(teams.map(t => [t.id, t])) : null;
   return fixtures.map((f) => {
     if (f.matchday >= currentMatchday || f.played) return f;
-    const hs = Math.floor(Math.random() * 5);
-    const as = Math.floor(Math.random() * 4);
+    let hs: number, as: number;
+    if (teamMap) {
+      const home = teamMap.get(f.homeId);
+      const away = teamMap.get(f.awayId);
+      if (home && away) {
+        const homeStr = home.players.slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+        const awayStr = away.players.slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+        const diff = homeStr - awayStr;
+        const homeAdv = diff > 5 ? 0.3 : diff < -5 ? -0.3 : 0;
+        hs = Math.max(0, Math.floor(Math.random() * 4 + homeAdv * 2));
+        as = Math.max(0, Math.floor(Math.random() * 3 - homeAdv * 2));
+      } else {
+        hs = Math.floor(Math.random() * 5);
+        as = Math.floor(Math.random() * 4);
+      }
+    } else {
+      hs = Math.floor(Math.random() * 5);
+      as = Math.floor(Math.random() * 4);
+    }
     return { ...f, homeScore: hs, awayScore: as, played: true };
   });
 }

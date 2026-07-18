@@ -2199,31 +2199,44 @@ export const useAppStore = create<AppState>()(
           const trainingState = get().training;
           const facilitiesState = get().facilities;
           if (myTeam) {
-            // Atama yoksa varsayılan "genel" antrenman uygula
+            // P0 FIX: Atama yoksa pozisyona uygun varsayılan antrenman uygula
+            // Rastgele stat seçimi YOK — her oyuncu pozisyonuna uygun stats gelişir
             if (trainingState.assignments.length === 0) {
-              // Basit gelişim — her oyuncuya küçük random boost
               const myClub = updatedClubs.find(c => c.id === myTeamId);
               if (myClub) {
                 const updatedPlayers = myClub.players.map(p => {
-                  // 21 altı %15 bonus, 30 üstü %25 ceza
                   const ageMult = p.age < 21 ? 1.3 : p.age > 30 ? 0.5 : 1.0;
                   const gain = Math.random() * 1.0 * ageMult;
                   const newStats = { ...p.stats };
-                  // Rastgele 2 stat artır
-                  const statKeys = ["pace", "shooting", "passing", "defending", "physical", "dribbling"] as const;
-                  const idx1 = Math.floor(Math.random() * 6);
-                  const idx2 = (idx1 + 1 + Math.floor(Math.random() * 5)) % 6;
-                  newStats[statKeys[idx1]] = Math.min(99, Math.round((newStats[statKeys[idx1]] + gain) * 10) / 10);
-                  newStats[statKeys[idx2]] = Math.min(99, Math.round((newStats[statKeys[idx2]] + gain * 0.5) * 10) / 10);
-                  // P0 FIX: rating = 6 stat'ın ortalaması
+                  // P0 FIX: Pozisyona uygun stats seç — rastgele DEĞİL
+                  const posStats: Record<string, [keyof typeof newStats, keyof typeof newStats]> = {
+                    GK: ["defending", "physical"],
+                    CB: ["defending", "physical"],
+                    LB: ["pace", "defending"],
+                    RB: ["pace", "defending"],
+                    LWB: ["pace", "passing"],
+                    RWB: ["pace", "passing"],
+                    CDM: ["defending", "passing"],
+                    CM: ["passing", "dribbling"],
+                    CAM: ["passing", "dribbling"],
+                    LM: ["pace", "passing"],
+                    RM: ["pace", "passing"],
+                    LW: ["pace", "shooting"],
+                    RW: ["pace", "shooting"],
+                    ST: ["shooting", "pace"],
+                    CF: ["shooting", "dribbling"],
+                  };
+                  const [stat1, stat2] = posStats[p.specificPosition] ?? ["passing", "dribbling"];
+                  newStats[stat1] = Math.min(99, Math.round((newStats[stat1] + gain) * 10) / 10);
+                  newStats[stat2] = Math.min(99, Math.round((newStats[stat2] + gain * 0.5) * 10) / 10);
                   const newRating = Math.min(99, Math.round(
                     (newStats.pace + newStats.shooting + newStats.passing + newStats.defending + newStats.physical + newStats.dribbling) / 6
                   ));
                   return {
                     ...p,
                     stats: newStats,
-                    [statKeys[idx1]]: Math.min(99, (p[statKeys[idx1]] ?? 50) + gain),
-                    [statKeys[idx2]]: Math.min(99, (p[statKeys[idx2]] ?? 50) + gain * 0.5),
+                    [stat1]: Math.min(99, (p[stat1] ?? 50) + gain),
+                    [stat2]: Math.min(99, (p[stat2] ?? 50) + gain * 0.5),
                     rating: newRating,
                   } as any;
                 });
