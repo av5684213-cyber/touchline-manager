@@ -295,10 +295,12 @@ export function getManagerLevelRequirement(level: number): number {
 
 // ===== Sayısal etki fonksiyonları (maç motoruna) =====
 export function getStadiumTicketRevenueMultiplier(level: number): number {
-  return 1.0 + level * 0.1;
+  // P0 FIX: store.ts ile aynı — 1 + level * 0.05 (önceden 0.1 idi)
+  return 1.0 + level * 0.05;
 }
 export function getStadiumCapacity(level: number): number {
-  return 5000 + level * 10000;
+  // P0 FIX: store.ts ile aynı formül — 5000 + level * 5000 (önceden 10000 idi, çift formül)
+  return 5000 + level * 5000;
 }
 export function getStadiumFillRate(level: number, leagueTier: number = 2): number {
   // Stadyum doluluk oranı — seviye ve lig tier'ına göre

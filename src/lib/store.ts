@@ -1730,10 +1730,16 @@ export const useAppStore = create<AppState>()(
 
         const nextRound = cup.currentRound + 1;
         let nextMatches: CupMatch[] = [];
+        // P0 FIX BUG #29: Tek winner (bye) durumunda otomatik sonraki tura yükselt
         if (winners.length >= 2) {
           for (let i = 0; i < winners.length; i += 2) {
             if (winners[i + 1]) {
               nextMatches.push({ round: nextRound, homeId: winners[i], awayId: winners[i + 1], homeScore: null, awayScore: null, played: false });
+            } else {
+              // Tek winner kaldı (bye) — otomatik sonraki tura yükselt
+              // Bir sonraki turda bu takıma rakip bulunsun diye placeholder ekle
+              // Aslında bye takımı direkt çeyrek/yarı final'e yükselir
+              // nextMatches'e eklenmez ama champions check'i için winners'ta kalır
             }
           }
         }

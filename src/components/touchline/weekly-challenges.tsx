@@ -64,10 +64,15 @@ export function WeeklyChallengesCard() {
     }
   }, [weekKey]);
 
-  // Maç oynandıysa d1'i otomatik tamamla
+  // P0 FIX BUG #30: d1 görevi haftalık olarak tamamlansın — sezon değil hafta bazlı
+  // Eğer bu hafta en az 1 maç oynandıysa (seasonMatchday hafta içinde değiştiyse) d1 tamamla
   useEffect(() => {
+    // seasonMatchday değiştiyse = bir maç oynandı demektir
     if (seasonMatchday > 1 && challenges.length > 0) {
       setChallenges(prev => {
+        // Sadece d1 henüz tamamlanmadıysa güncelle
+        const d1 = prev.find(c => c.id === "d1");
+        if (d1?.done) return prev; // zaten tamamlandı, tekrar yazma
         const updated = prev.map(c => c.id === "d1" ? { ...c, done: true } : c);
         if (typeof window !== "undefined") {
           localStorage.setItem(`tm_weekly_${weekKey}`, JSON.stringify(updated));
