@@ -141,11 +141,12 @@ export function saveGameState(userId: string, immediate: boolean = false) {
         transfer: state.transfer,
         training: state.training,
         facilities: state.facilities,
-        // P0 FIX: Eksik alanlar eklendi
         cup: state.cup,
         sponsors: state.sponsors,
         credits: state.credits,
         seasonStartStats: state.seasonStartStats,
+        // P0 FIX BUG #15: cosmetics artık cloud-save'e dahil
+        cosmetics: state.cosmetics,
       };
 
       // P0 FIX: localStorage'a da yedekle
@@ -206,9 +207,10 @@ export function initCloudSave(userId: string) {
         state.credits !== prevState.credits ||
         state.seasonStartStats !== prevState.seasonStartStats ||
         state.seasonNumber !== prevState.seasonNumber ||
-        // P0 FIX BUG #13: myTeamId ve managerName değişikliklerini de izle
         state.myTeamId !== prevState.myTeamId ||
-        state.managerName !== prevState.managerName
+        state.managerName !== prevState.managerName ||
+        // P0 FIX BUG #15: cosmetics değişikliklerini de izle
+        state.cosmetics !== prevState.cosmetics
       ) {
         saveGameState(userId);
       }

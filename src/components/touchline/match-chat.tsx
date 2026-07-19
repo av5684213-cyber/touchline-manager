@@ -1,9 +1,45 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Send, X } from "lucide-react";
+import { Send, X, Flag } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { haptic } from "@/hooks/touchline";
+
+// P0 FIX BUG #14: Basit küfür/argo filtresi — Google Play UGC politikası gereği
+const BANNED_WORDS = [
+  "fuck", "shit", "bitch", "asshole", "bastard", "damn",
+  "amk", "aq", "sik", "yarrak", "oruspu", "pezevenk", "göt", "piç",
+  "salak", "aptal", "mal", "gerizekalı", "öküz",
+];
+
+function filterMessage(text: string): string {
+  let filtered = text;
+  for (const word of BANNED_WORDS) {
+    const regex = new RegExp(word, "gi");
+    filtered = filtered.replace(regex, "*".repeat(word.length));
+  }
+  return filtered;
+}
+
+// P0 FIX BUG #14: Rate limiting — dakikada max 10 mesaj
+const RATE_LIMIT_MS = 60_000;
+const RATE_LIMIT_COUNT = 10;
+const messageTimestamps: number[] = [];
+
+function canSendMessage(): boolean {
+  const now = Date.now();
+  // Son 1 dakikadaki mesajları say
+  const recent = messageTimestamps.filter(ts => now - ts < RATE_LIMIT_MS);
+  return recent.length < RATE_LIMIT_COUNT;
+}
+
+function recordMessage() {
+  messageTimestamps.push(Date.now());
+  // Eski kayıtları temizle
+  const now = Date.now();
+  const idx = messageTimestamps.findIndex(ts => now - ts >= RATE_LIMIT_MS);
+  if (idx >= 0) messageTimestamps.splice(0, idx + 1);
+}
 
 export type ChatMessage = {
   id: string;
@@ -53,12 +89,21 @@ export function useMatchChat(matchId: string, userId: string, userName: string) 
 
   const sendMessage = (text: string) => {
     if (!text.trim() || !channelRef.current || !connected) return;
+    // P0 FIX BUG #14: Rate limiting kontrolü
+    if (!canSendMessage()) {
+      haptic("error");
+      return;
+    }
+    // P0 FIX BUG #14: Mesajı filtrele — küfür/argo sansürü
+    const filteredText = filterMessage(text.trim());
+    if (!filteredText) return; // Tamamen sansürlendiyse gönderme
     haptic("light");
+    recordMessage();
     const msg: ChatMessage = {
       id: `${userId}_${Date.now()}`,
       userId,
-      userName,
-      text: text.trim(),
+      userName: filterMessage(userName), // P0 FIX: Kullanıcı adını da filtrele
+      text: filteredText.slice(0, 200), // P0 FIX: Max 200 karakter
       at: Date.now(),
     };
     channelRef.current.send({
@@ -146,8 +191,27 @@ export function MatchChatPanel({
                 }`}
               >
                 {!isMe && (
-                  <div className="text-[9px] font-bold opacity-70 mb-0.5">
-                    {msg.userName}
+                  <div className="flex items-center justify-between gap-1.5 mb-0.5">
+                    <div className="text-[9px] font-bold opacity-70">{msg.userName}</div>
+                    <button
+                      onClick={() => {
+                        haptic("light");
+                        // P0 FIX BUG #14: Bildir butonu — Supabase'e rapor kaydet
+                        try {
+                          supabase.from("chat_reports").insert({
+                            reported_user_id: msg.userId,
+                            reported_message: msg.text,
+                            match_id: matchId,
+                            reported_at: new Date().toISOString(),
+                          }).then();
+                        } catch {}
+                        alert("Mesaj bildirildi. İnceleme yapılacaktır.");
+                      }}
+                      className="tm-tap text-[9px] text-muted-foreground hover:text-red-500"
+                      aria-label="Bildir"
+                    >
+                      <Flag size={10} />
+                    </button>
                   </div>
                 )}
                 <div className="text-[11px] leading-tight">{msg.text}</div>

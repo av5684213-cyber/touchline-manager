@@ -180,6 +180,11 @@ type AppState = {
     active: any[]; // aktif imzalı sponsorlar
     offers: any[]; // bekleyen teklifler
   };
+  // P0 FIX BUG #15: Kozmetik satın alımları store'da tut — cloud-save'e dahil
+  cosmetics: {
+    owned: string[]; // satın alınan öğe ID'leri
+    equipped: Record<string, string>; // type → itemId
+  };
   // P0: Kredi sistemi — paket satın alma, hazırlık maçı için
   credits: number;
 
@@ -469,6 +474,12 @@ export const useAppStore = create<AppState>()(
 
       // P0: Kredi sistemi — başlangıçta 50 kredi (2 hazırlık maçı bedava)
       credits: 50,
+
+      // P0 FIX BUG #15: Kozmetik satın alımları — store'da, cloud-save'e dahil
+      cosmetics: {
+        owned: [],
+        equipped: {},
+      },
 
       loginDemo: (name) => {
         // Already-initialized clubs varsa yeniden üretme

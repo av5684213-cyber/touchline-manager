@@ -99,18 +99,12 @@ const RARITY_TEXT: Record<string, string> = {
 export function MarketScreen() {
   const credits = useAppStore((s) => s.credits);
   const spendCredits = useAppStore((s) => s.spendCredits);
-  const [ownedItems, setOwnedItems] = useState<Set<string>>(() => {
-    if (typeof window === "undefined") return new Set();
-    const saved = localStorage.getItem("tm_owned_cosmetics");
-    return new Set(saved ? JSON.parse(saved) : []);
-  });
+  const cosmetics = useAppStore((s) => s.cosmetics);
+  // P0 FIX BUG #15: Artık store'dan oku — localStorage DEĞİL (cloud-save'e dahil)
+  const ownedItems = new Set(cosmetics?.owned ?? []);
+  const equipped = cosmetics?.equipped ?? {};
   const [activeTab, setActiveTab] = useState<CosmeticType>("kit");
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [equipped, setEquipped] = useState<{ [key: string]: string }>(() => {
-    if (typeof window === "undefined") return {};
-    const saved = localStorage.getItem("tm_equipped_cosmetics");
-    return saved ? JSON.parse(saved) : {};
-  });
 
   const handleBuy = (item: Cosmetic) => {
     if (ownedItems.has(item.id)) return;
@@ -128,19 +122,26 @@ export function MarketScreen() {
       return;
     }
     haptic("success");
-    const newOwned = new Set(ownedItems);
-    newOwned.add(item.id);
-    setOwnedItems(newOwned);
-    localStorage.setItem("tm_owned_cosmetics", JSON.stringify([...newOwned]));
+    // P0 FIX BUG #15: Store'a kaydet — localStorage DEĞİL (cloud-save'e dahil)
+    useAppStore.setState({
+      cosmetics: {
+        owned: [...ownedItems, item.id],
+        equipped,
+      },
+    });
     setFeedback(`✓ ${item.name} satın alındı!`);
     setTimeout(() => setFeedback(null), 2500);
   };
 
   const handleEquip = (item: Cosmetic) => {
     haptic("light");
-    const newEquipped = { ...equipped, [item.type]: item.id };
-    setEquipped(newEquipped);
-    localStorage.setItem("tm_equipped_cosmetics", JSON.stringify(newEquipped));
+    // P0 FIX BUG #15: Store'a kaydet — localStorage DEĞİL
+    useAppStore.setState({
+      cosmetics: {
+        owned: [...ownedItems],
+        equipped: { ...equipped, [item.type]: item.id },
+      },
+    });
     setFeedback(`✓ ${item.name} giyildi!`);
     setTimeout(() => setFeedback(null), 2000);
   };

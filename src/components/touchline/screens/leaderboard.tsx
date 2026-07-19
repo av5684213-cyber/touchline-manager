@@ -57,31 +57,13 @@ export function LeaderboardScreen() {
       setEntries(localEntries.slice(0, 50));
       setLoading(false);
     } else {
-      // Global — Supabase'ten çek
-      if (!isSupabaseConfigured()) {
-        // Supabase yoksa lokal göster
-        setTab("local");
-        return;
-      }
-      // Supabase'ten leaderboard çek (şimdilik lokal fallback)
+      // P0 FIX BUG #13: Global sekme — sahte veri yerine "Yakında" göster
+      // Gerçek Supabase leaderboard tablosu hazır olana kadar global sekme devre dışı
       setLoading(true);
       setTimeout(() => {
-        // Bot global kullanıcılar simülasyonu
-        const botNames = ["Alex Menajer", "Jürgen Taktik", "Pep Formasyon", "Carlo Şampiyon", "Diego Simeone", "Antonio Hoca", "Mourinho Özell", "Klopp Gegenpress", "Lippi Efsane", "Capello Kral"];
-        const globalEntries: LeaderboardEntry[] = botNames.map((name, i) => ({
-          rank: i + 1,
-          managerName: name,
-          teamName: `Kulüp ${i + 1}`,
-          teamShort: `K${i + 1}`,
-          teamColor: ["#dc2626", "#0ea5e9", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316", "#84cc16", "#6366f1"][i],
-          points: 5000 - i * 200 + Math.floor(Math.random() * 100),
-          seasonNumber: 10 - i,
-          leagueTier: 1,
-          isMe: false,
-        }));
-        setEntries(globalEntries);
+        setEntries([]);
         setLoading(false);
-      }, 500);
+      }, 300);
     }
   }, [tab, clubs, myTeamId, managerName, seasonNumber]);
 
@@ -179,8 +161,16 @@ export function LeaderboardScreen() {
 
       {/* Empty */}
       {!loading && entries.length === 0 && (
-        <div className="tm-card p-8 text-center text-xs text-muted-foreground">
-          Henüz sıralama yok.
+        <div className="tm-card p-8 text-center space-y-2">
+          <Crown size={32} className="text-muted-foreground mx-auto mb-2" />
+          <div className="text-sm font-bold text-muted-foreground">
+            {tab === "global" ? "Global Sıralama Yakında" : "Henüz sıralama yok."}
+          </div>
+          {tab === "global" && (
+            <div className="text-[11px] text-muted-foreground leading-relaxed max-w-[280px] mx-auto">
+              Gerçek oyuncularla global sıralama sistemi yakında gelecek. Şimdilik kendi ligini sıralamasını takip edebilirsin.
+            </div>
+          )}
         </div>
       )}
     </div>

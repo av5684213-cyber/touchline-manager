@@ -92,16 +92,23 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
 
     const callbacks: MatchmakingCallbacks = {
       onSearching: () => {
-        setFeedback("Sırada rakip aranıyor... Diğer kullanıcılar ile eşleşme bekleniyor.");
+        setFeedback("Online rakip aranıyor... (30 sn içinde eşleşme yoksa bot ile oynanır)");
       },
       onMatched: (oppUser: QueueUser) => {
         haptic("success");
-        setFeedback(`✓ Eşleşme bulundu: ${oppUser.teamName} (OVR ${oppUser.teamOvr})`);
+        // P0 FIX BUG #12: Dürüst etiketleme — gerçek rakip bulundu ama maç bot'a karşı oynanır
+        // Gerçek online maç için sunucu tarafı simülasyon gerekir (gelecek özellik)
+        // Şimdilik: gerçek rakiple sohbet edebilirsin, maç bot'a karşı oynanır
+        setFeedback(`✓ Online rakip bulundu: ${oppUser.teamName} (OVR ${oppUser.teamOvr}). Sohbet açıktır! Maç, benzer güçte bir bot takıma karşı oynanır.`);
         setQueueStatus("matched");
-        // Eşleşilen kullanıcının takımını oluştur (geçici bot takım olarak)
-        // Gerçek senaryoda Supabase'den rakip takım verisi çekilir
-        // Şimdilik rastgele bot takım ile simüle et
-        const randomOpp = opponents[Math.floor(Math.random() * opponents.length)];
+        // Rakibin OVR'sine yakın bir bot bul
+        const targetOvr = oppUser.teamOvr ?? 70;
+        const sortedOpps = [...opponents].sort((a, b) => {
+          const aOvr = Math.round(a.players.reduce((s, p) => s + p.rating, 0) / a.players.length);
+          const bOvr = Math.round(b.players.reduce((s, p) => s + p.rating, 0) / b.players.length);
+          return Math.abs(aOvr - targetOvr) - Math.abs(bOvr - targetOvr);
+        });
+        const randomOpp = sortedOpps[0] ?? opponents[Math.floor(Math.random() * opponents.length)];
         if (randomOpp) {
           setSelectedOppId(randomOpp.id);
           setTimeout(() => {
@@ -112,9 +119,8 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
         }
       },
       onTimeout: () => {
-        // 30 saniye sonra eşleşme yoksa bot fallback
         haptic("light");
-        setFeedback("Online kullanıcı bulunamadı — bot ile eşleşiliyor...");
+        setFeedback("Online rakip bulunamadı — bot ile oynanıyor...");
         const randomOpp = opponents[Math.floor(Math.random() * opponents.length)];
         if (randomOpp) {
           setSelectedOppId(randomOpp.id);
@@ -130,9 +136,8 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
         }
       },
       onError: (msg) => {
-        // Supabase yoksa bot fallback
         if (msg === "NO_SUPABASE") {
-          setFeedback("Online mod kullanılamıyor — bot ile eşleşiliyor...");
+          setFeedback("Online mod kullanılamıyor — bot ile oynanıyor...");
           const delay = 2000 + Math.random() * 1500;
           setTimeout(() => {
             const randomOpp = opponents[Math.floor(Math.random() * opponents.length)];
