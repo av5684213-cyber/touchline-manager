@@ -26,8 +26,23 @@ const CLOUD_SAVE_BLACKLIST = new Set<string>([
   "__internal__",  // internal flag'ler
 ]);
 
+/**
+ * BULGU #9 DÜZELTME (v2.9.2): Hibrit blacklist + convention yaklaşımı.
+ * Gelecekte transient alan eklenecekse "_" prefix ile başlatmak yeterli —
+ * otomatik olarak cloud-save'e yazılmaz. Bu, "yeni alan eklendi ama cloud-save'e
+ * yanlışlıkla dahil edildi" regresyonlarını önler (örn: isSettingsModalOpen,
+ * isSyncing, pendingAction gibi UI state'leri).
+ *
+ * Convention:
+ * - Kalıcı veri: normal isim (managerName, clubs, tactics, ...)
+ * - Transient UI state: "_" prefix (örn: _pendingAction, _isModalOpen)
+ * - Session-only: isAuthed (blacklist'te)
+ */
 function isBlacklisted(key: string): boolean {
-  return CLOUD_SAVE_BLACKLIST.has(key);
+  if (CLOUD_SAVE_BLACKLIST.has(key)) return true;
+  // "_" prefix ile başlayan tüm alanlar transient sayılır
+  if (key.startsWith("_")) return true;
+  return false;
 }
 
 /**

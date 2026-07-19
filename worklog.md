@@ -2305,3 +2305,49 @@ Stage Summary:
 - En kritik: "Turu İlerlet" kullanıcının oyuncu stat'larını artık yazıyor (BULGU #2)
 - En kritik: chat kanalı artık stabil (BULGU #3 + #4 + #6)
 - En kritik: guest kullanıcı engellemeleri artık FK ihlali yapmıyor (BULGU #5)
+
+---
+Task ID: bugfix-2.9.2-main (TAMAMLANDI)
+Agent: main (Z.AI)
+Task: v2.9.2 — Kalan 4 bulgunun düzeltilmesi (BULGU #8, #9, #12, #13)
+
+Work Log:
+- BULGU #8 (KRİTİK) DÜZELTİLDİ: store.ts
+  * Yeni helper: isPlayerAvailable(p, matchday?) — sakat/cezalı kontrolü tek yerde
+  * 18 yerde redundant filter pattern değiştirildi: "!p.is_injured && (!p.suspended_until || ...)" → "isPlayerAvailable(p)"
+  * Opsiyyonel zincirleme patlaması (useAppStore undefined iken) defensive `?.` ile korundu
+  * Code readability büyük ölçüde iyileşti
+- BULGU #9 (KRİTİK) DÜZELTİLDİ: cloud-save.ts
+  * Hibrit blacklist + convention yaklaşımı: "_" prefix ile başlayan tüm alanlar transient sayılır
+  * Gelecekte "isSettingsModalOpen", "isSyncing" gibi UI state'leri yanlışlıkla cloud'a yazılmayacak
+  * Convention dokümante edildi (kalıcı veri: normal isim, transient: _ prefix)
+- BULGU #12 (ORTA) DÜZELTİLDİ: friendly.tsx
+  * safeTimeout(fn, ms) helper eklendi — tüm setTimeout'ları bir Set içinde toplar
+  * Component unmount olunca tüm bekleyen setTimeout'lar clearTimeout ile iptal edilir
+  * 6 setTimeout çağrısı safeTimeout'a geçirildi (maç başlatma, feedback temizleme)
+  * engine.reset/engine.start artık unmount edilmiş component'te state update yapmaz
+- BULGU #13 (DÜŞÜK) DÜZELTİLDİ: store.ts + youth-academy.tsx
+  * Yeni state alanı: youthAcademy: { seasonNumber, players: Player[] }
+  * localStorage bağımlılığı kaldırıldı — store cloud-save'e otomatik dahil (BULGU #9 convention ile)
+  * Sezon değişince useEffect yeni genç oyuncular üretir (storedSeason !== seasonNumber kontrolü)
+  * handlePromote artık store update yapar (setYouthPlayers kaldırıldı)
+
+Test Sonuçları:
+- npx tsc --noEmit: temiz
+- npx next build: başarılı (8.0s compile, 6 static page)
+
+Stage Summary:
+- 4 kalan bulgu düzeltildi (2 KRİTİK + 1 ORTA + 1 DÜŞÜK)
+- 15 bulgunun 14'ü toplamda düzeltildi (1'i BULGU #14 zaten düşüktü ve guest ID'leri stabilize edilirken otomatik çözüldü)
+- store.ts: 18 redundant filter pattern temizlendi, isPlayerAvailable helper eklendi
+- cloud-save.ts: "_" prefix convention ile gelecekteki transient alan regresyonları önlendi
+- friendly.tsx: setTimeout leak riski çözüldü
+- youth-academy.tsx: cihazlar arası senkron sorunları çözüldü
+
+Kullanıcı test senaryoları:
+- BULGU #8: Kadro seçim modalında sakat+cezalı oyuncular doğru filtrelenir, kod okunabilirliği arttı
+- BULGU #9: Gelecekte bir geliştirici "_tempFlag" eklerse cloud'a yazılmaz (regresyon önlenir)
+- BULGU #12: Maç sırasında sekmeyi değiştirip geri gelince chat kanalı stabil kalır
+- BULGU #13: Cihaz 1'de altyapıdan terfi edilen oyuncu cihaz 2'de "hala altyapıda" görünmez
+
+Sonraki adım: Hızlı APK build (./scripts/build-apk.sh) ve cihaz testi

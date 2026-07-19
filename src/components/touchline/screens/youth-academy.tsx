@@ -16,39 +16,31 @@ export function YouthAcademyScreen() {
   const facilities = useAppStore((s) => s.facilities);
   const academyLevel = facilities.levels.academy || 0;
 
-  // P1#9 FIX: Store'da sakla — her açılışta YENİ oyuncular üretme
-  // localStorage ile persist et, sezon değişince yenile
-  const STORAGE_KEY = "tm_youth_academy";
+  // BULGU #13 DÜZELTME (v2.9.2): Store'dan oku — localStorage DEĞİL.
+  // Cloud-save otomatik dahil, cihazlar arası senkron.
   const seasonNumber = useAppStore((s) => s.seasonNumber ?? 1);
+  const youthAcademy = useAppStore((s) => s.youthAcademy);
+  const youthPlayers = youthAcademy.players;
+  const storedSeason = youthAcademy.seasonNumber;
 
-  const [youthPlayers, setYouthPlayers] = useState<Player[]>(() => {
-    try {
-      const saved = localStorage.getItem(`${STORAGE_KEY}_${seasonNumber}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Eski kayıttaki oyuncuları filtrele — terfi edilenler listeden çıkar
-        return parsed;
-      }
-    } catch {}
-    // İlk kez — üret
-    const count = 3 + academyLevel;
-    const positions: string[] = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LW", "RW", "ST"];
-    return Array.from({ length: Math.min(count, 8) }, () => {
-      const pos = positions[Math.floor(Math.random() * positions.length)] as any;
-      const p = generatePlayer(pos, { min: 40, max: 60 });
-      p.age = 15 + Math.floor(Math.random() * 4);
-      p.potential = p.rating + 10 + Math.floor(Math.random() * 25);
-      p.hidden_potential = p.potential;
-      return p;
-    });
-  });
-
-  // localStorage'a kaydet
+  // Sezon değişince veya ilk açılışta (boş liste) yeni genç oyuncular üret
   useEffect(() => {
-    try {
-      localStorage.setItem(`${STORAGE_KEY}_${seasonNumber}`, JSON.stringify(youthPlayers));
-    } catch {}
-  }, [youthPlayers, seasonNumber]);
+    if (storedSeason !== seasonNumber || youthPlayers.length === 0) {
+      const count = 3 + academyLevel;
+      const positions: string[] = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LW", "RW", "ST"];
+      const newPlayers = Array.from({ length: Math.min(count, 8) }, () => {
+        const pos = positions[Math.floor(Math.random() * positions.length)] as any;
+        const p = generatePlayer(pos, { min: 40, max: 60 });
+        p.age = 15 + Math.floor(Math.random() * 4);
+        p.potential = p.rating + 10 + Math.floor(Math.random() * 25);
+        p.hidden_potential = p.potential;
+        return p;
+      });
+      useAppStore.setState({
+        youthAcademy: { seasonNumber, players: newPlayers },
+      });
+    }
+  }, [seasonNumber, storedSeason, youthPlayers.length, academyLevel]);
 
   const [feedback, setFeedback] = useState<string | null>(null);
   const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
@@ -82,8 +74,12 @@ export function YouthAcademyScreen() {
         ? { ...c, players: [...c.players, player] }
         : c
     );
-    useAppStore.setState({ clubs: updatedClubs });
-    setYouthPlayers((prev) => prev.filter((p) => p.id !== player.id));
+    // BULGU #13 DÜZELTME: setYouthPlayers yerine store update
+    const updatedYouth = youthPlayers.filter((p) => p.id !== player.id);
+    useAppStore.setState({
+      clubs: updatedClubs,
+      youthAcademy: { seasonNumber, players: updatedYouth },
+    });
     setFeedback(`✓ ${player.firstName} ${player.lastName} A takıma terfi etti`);
     setTimeout(() => setFeedback(null), 2500);
   };

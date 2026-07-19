@@ -63,6 +63,17 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [onlineCount, setOnlineCount] = useState(0);
   const cleanupRef = useRef<(() => void) | null>(null);
+  // BULGU #12 DÜZELTME (v2.9.2): Tüm setTimeout'ları bir Set içinde topla,
+  // component unmount olunca hepsini clearTimeout yap.
+  const timeoutRefs = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+  const safeTimeout = (fn: () => void, ms: number) => {
+    const id = setTimeout(() => {
+      timeoutRefs.current.delete(id);
+      fn();
+    }, ms);
+    timeoutRefs.current.add(id);
+    return id;
+  };
 
   const opponents = useMemo(() => {
     if (!team) return [];
@@ -124,7 +135,7 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
         const randomOpp = sortedOpps[0] ?? opponents[Math.floor(Math.random() * opponents.length)];
         if (randomOpp) {
           setSelectedOppId(randomOpp.id);
-          setTimeout(() => {
+          safeTimeout(() => {
             setMatchStarted(true);
             engine.reset();
             engine.start();
@@ -139,7 +150,7 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
         if (randomOpp) {
           setSelectedOppId(randomOpp.id);
           setQueueStatus("matched");
-          setTimeout(() => {
+          safeTimeout(() => {
             setMatchStarted(true);
             engine.reset();
             engine.start();
@@ -154,14 +165,14 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
           // P0 FIX BUG #12: Dürüst mesaj — yanıltıcı "Eşleşme bulundu" DEĞİL
           setFeedback("Online mod kullanılamıyor — bot ile oynanıyor...");
           const delay = 1500 + Math.random() * 1000;
-          setTimeout(() => {
+          safeTimeout(() => {
             const randomOpp = opponents[Math.floor(Math.random() * opponents.length)];
             if (randomOpp) {
               setSelectedOppId(randomOpp.id);
               setQueueStatus("matched");
               haptic("success");
               setFeedback(`Bot rakip: ${randomOpp.name}`);
-              setTimeout(() => {
+              safeTimeout(() => {
                 setMatchStarted(true);
                 engine.reset();
                 engine.start();
@@ -184,13 +195,19 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
     });
   };
 
-  // Cleanup — component unmount olursa queue'dan çık
+  // Cleanup — component unmount olursa queue'dan çık + tüm setTimeout'ları temizle
   useEffect(() => {
     return () => {
       if (cleanupRef.current) {
         cleanupRef.current();
         cleanupRef.current = null;
       }
+      // BULGU #12 DÜZELTME (v2.9.2): Bekleyen tüm setTimeout'ları iptal et
+      // (engine.reset/engine.start unmount edilmiş component'te state update yapmasın)
+      for (const id of timeoutRefs.current) {
+        clearTimeout(id);
+      }
+      timeoutRefs.current.clear();
     };
   }, []);
 
@@ -212,7 +229,7 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
     if (!ok) {
       haptic("error");
       setFeedback("✗ Yetersiz kredi! Sıraya girerek ücretsiz maç yapabilirsin.");
-      setTimeout(() => setFeedback(null), 3000);
+      safeTimeout(() => setFeedback(null), 3000);
       return;
     }
     // Anında rastgele rakip seç ve başlat
@@ -221,7 +238,7 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
       setSelectedOppId(randomOpp.id);
       setFeedback(`✓ 2 kredi harcandı — ${randomOpp.name} ile maç başlıyor!`);
       haptic("success");
-      setTimeout(() => {
+      safeTimeout(() => {
         setMatchStarted(true);
         engine.reset();
         engine.start();
@@ -414,7 +431,7 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
               haptic("medium");
               engine.reset();
               setMatchStarted(true);
-              setTimeout(() => engine.start(), 100);
+              safeTimeout(() => engine.start(), 100);
             }}
             className="tm-tap w-full py-3 rounded-lg bg-amber-600 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-transform"
           >

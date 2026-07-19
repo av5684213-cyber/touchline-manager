@@ -190,6 +190,12 @@ type AppState = {
   // P0 FIX BUG #14: Engellenen kullanıcılar — eşleştirmede filtrelenir
   // blocker_id = me, blocked_id = other. Supabase ile senkronize edilir.
   blockedUsers: string[];
+  // BULGU #13 DÜZELTME (v2.9.2): Altyapı akademisi state'i — eskiden localStorage'da,
+  // cihazlar arası senkronize değildi. Store'a taşındı, cloud-save otomatik dahil.
+  youthAcademy: {
+    seasonNumber: number; // bu oyuncuların üretildiği sezon
+    players: Player[]; // altyapıdaki genç oyuncular
+  };
 
   // actions
   loginDemo: (name?: string) => void;
@@ -302,6 +308,23 @@ function buildInitialFixtures(clubs: Team[]): FixtureRow[] {
 }
 
 /**
+ * BULGU #8 DÜZELTME (v2.9.2): Tek bir helper ile hem redundant parantezler
+ * hem de opsiyonel zincirleme patlaması (useAppStore undefined iken) önlendi.
+ * Helper, store modülü dışındaki fonksiyonlar (buildCupFixtures, defaultTacticsFor)
+ * tarafından çağrılır — bu fonksiyonlar store initialization'ından SONRA çağrıldığı
+ * için useAppStore.getState() her zaman tanımlıdır. Yine de defensive `?.` kullanıldı.
+ *
+ * "Oynayabilir" mantığı: sakat DEĞİL ve (suspended_until YOK veya ceza maçından SONRA).
+ * Cezalı = suspended_until > currentMatchday (BULGU #1 ile uyumlu).
+ */
+function isPlayerAvailable(p: Player, matchday?: number): boolean {
+  if (p.is_injured) return false;
+  if (!p.suspended_until) return true;
+  const md = matchday ?? useAppStore.getState?.()?.seasonMatchday ?? 0;
+  return Number(p.suspended_until) <= md;
+}
+
+/**
  * Kupa fikstürünü üret — ligdeki TÜM takımlar katılır.
  * P0 FIX: Sadece 8 takım DEĞİL, 16 takım katılır (Son 16 turu).
  * Sıralama: en iyi 11'in ortalama OVR'ına göre (toplam rating DEĞİL).
@@ -309,7 +332,7 @@ function buildInitialFixtures(clubs: Team[]): FixtureRow[] {
 function buildCupFixtures(clubs: Team[], myTeamId: string | null): CupMatch[] {
   const teamStrength = (team: Team) => {
     const best11 = [...team.players]
-      .filter(p => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))))
+      .filter(p => isPlayerAvailable(p))
       .sort((a, b) => b.rating - a.rating)
       .slice(0, 11);
     return best11.length > 0 ? best11.reduce((s, p) => s + p.rating, 0) / best11.length : 50;
@@ -365,7 +388,7 @@ function defaultTacticsFor(team: Team): Tactics {
     // P0 FIX: Sakat oyuncuları ele (!p.is_injured eklendi)
     // Önce tam pozisyon eşleşmesi
     let candidate = team.players
-      .filter((p) => !used.has(p.id) && !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))) && p.specificPosition === slotPos)
+      .filter((p) => !used.has(p.id) && isPlayerAvailable(p) && p.specificPosition === slotPos)
       .sort((a, b) => b.rating - a.rating)[0];
 
     // Yoksa aynı gruptan al
@@ -378,14 +401,14 @@ function defaultTacticsFor(team: Team): Tactics {
         : group === "MID" ? ["CDM", "CM", "CAM", "LM", "RM"]
         : ["LW", "RW", "ST", "CF"];
       candidate = team.players
-        .filter((p) => !used.has(p.id) && !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))) && groupPositions.includes(p.specificPosition))
+        .filter((p) => !used.has(p.id) && isPlayerAvailable(p) && groupPositions.includes(p.specificPosition))
         .sort((a, b) => b.rating - a.rating)[0];
     }
 
     // Hala yoksa en yüksek OVR'li boş oyuncu (sakat olmayan)
     if (!candidate) {
       candidate = team.players
-        .filter((p) => !used.has(p.id) && !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))))
+        .filter((p) => !used.has(p.id) && isPlayerAvailable(p))
         .sort((a, b) => b.rating - a.rating)[0];
     }
 
@@ -490,6 +513,13 @@ export const useAppStore = create<AppState>()(
 
       // P0 FIX BUG #14: Engellenen kullanıcılar — Supabase ile senkronize
       blockedUsers: [],
+
+      // BULGU #13 DÜZELTME (v2.9.2): Altyapı akademisi — store'da, cloud-save'e dahil
+      // Sezon değişince youth-academy.tsx bu listeyi yeniler (yeni genç oyuncular üretir)
+      youthAcademy: {
+        seasonNumber: 1,
+        players: [],
+      },
 
       loginDemo: (name) => {
         // Already-initialized clubs varsa yeniden üretme
@@ -711,7 +741,7 @@ export const useAppStore = create<AppState>()(
             newLineup = [];
             for (const slotPos of slots) {
               let candidate = team.players
-                .filter((p) => !used.has(p.id) && !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))) && p.specificPosition === slotPos)
+                .filter((p) => !used.has(p.id) && isPlayerAvailable(p) && p.specificPosition === slotPos)
                 .sort((a, b) => b.rating - a.rating)[0];
               if (!candidate) {
                 const group = slotPos === "GK" ? "GK"
@@ -722,7 +752,7 @@ export const useAppStore = create<AppState>()(
                   : group === "MID" ? ["CDM", "CM", "CAM", "LM", "RM"]
                   : ["LW", "RW", "ST", "CF"];
                 candidate = team.players
-                  .filter((p) => !used.has(p.id) && !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))) && groupPositions.includes(p.specificPosition))
+                  .filter((p) => !used.has(p.id) && isPlayerAvailable(p) && groupPositions.includes(p.specificPosition))
                   .sort((a, b) => b.rating - a.rating)[0];
               }
               // P0 FIX: Son çare fallback — kaleciyi SADECE GK slotu için al, saha slotu için ASLA
@@ -735,7 +765,7 @@ export const useAppStore = create<AppState>()(
                 } else {
                   // Saha slotu için kaleci HARİÇ en yüksek OVR'li oyuncu
                   candidate = team.players
-                    .filter((p) => !used.has(p.id) && !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))) && p.specificPosition !== "GK")
+                    .filter((p) => !used.has(p.id) && isPlayerAvailable(p) && p.specificPosition !== "GK")
                     .sort((a, b) => b.rating - a.rating)[0];
                 }
               }
@@ -1601,11 +1631,11 @@ export const useAppStore = create<AppState>()(
         // P2 FIX: rating sıralaması + sakat filtresi eklendi (advanceMatchday ile tutarlı)
         const simpleCupSim = (home: any, away: any): { hs: number; as: number } => {
           const homeXI = [...home.players]
-            .filter((p: any) => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))))
+            .filter((p: any) => isPlayerAvailable(p))
             .sort((a: any, b: any) => b.rating - a.rating)
             .slice(0, 11);
           const awayXI = [...away.players]
-            .filter((p: any) => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))))
+            .filter((p: any) => isPlayerAvailable(p))
             .sort((a: any, b: any) => b.rating - a.rating)
             .slice(0, 11);
           const homeStr = homeXI.reduce((s: number, p: any) => s + p.rating, 0) / Math.max(1, homeXI.length);
@@ -1634,7 +1664,7 @@ export const useAppStore = create<AppState>()(
             const homeTactic = isHome ? userTactic : { ...DEFAULT_TACTIC, formation: "4-4-2" };
             const awayTactic = isHome ? { ...DEFAULT_TACTIC, formation: "4-4-2" } : userTactic;
             const pickXI = (players: any[]) =>
-              [...players].filter((p) => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0)))).sort((a, b) => b.rating - a.rating).slice(0, 11);
+              [...players].filter((p) => isPlayerAvailable(p)).sort((a, b) => b.rating - a.rating).slice(0, 11);
             const result = simulateEnhancedMatch(
               pickXI(home.players),
               pickXI(away.players),
@@ -1675,7 +1705,7 @@ export const useAppStore = create<AppState>()(
 
         // Adım 3: Kupa maçlarında oyunculara gol/asist dağıt — Gol Kralı resmi maçları kapsar
         const pickScorerCup = (players: any[]) => {
-          const attackers = players.filter(p => p.specificPosition !== "GK" && !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))));
+          const attackers = players.filter(p => p.specificPosition !== "GK" && isPlayerAvailable(p));
           if (attackers.length === 0) return null;
           const forwards = attackers.filter(p => ["ST", "CF", "LW", "RW", "LM", "RM", "CAM"].includes(p.specificPosition));
           const pool = forwards.length > 0 && Math.random() > 0.3 ? forwards : attackers;
@@ -1834,7 +1864,7 @@ export const useAppStore = create<AppState>()(
               const homeTactic = isHome ? userTactic : { ...DEFAULT_TACTIC, formation: "4-4-2" };
               const awayTactic = isHome ? { ...DEFAULT_TACTIC, formation: "4-4-2" } : userTactic;
               const pickXI = (players: any[]) =>
-                [...players].filter((p) => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0)))).sort((a, b) => b.rating - a.rating).slice(0, 11);
+                [...players].filter((p) => isPlayerAvailable(p)).sort((a, b) => b.rating - a.rating).slice(0, 11);
               const result = simulateEnhancedMatch(
                 pickXI(homeTeam.players),
                 pickXI(awayTeam.players),
@@ -1845,8 +1875,8 @@ export const useAppStore = create<AppState>()(
               userMatchResult = { homeScore: result.homeScore, awayScore: result.awayScore };
             } catch (e) {
               console.warn("[advanceMatchday] enhanced sim hatası, basit sim:", e);
-              const homeStr = [...homeTeam.players].filter(p => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0)))).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
-              const awayStr = [...awayTeam.players].filter(p => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0)))).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+              const homeStr = [...homeTeam.players].filter(p => isPlayerAvailable(p)).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+              const awayStr = [...awayTeam.players].filter(p => isPlayerAvailable(p)).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
               const diff = homeStr - awayStr;
               const homeAdv = diff > 5 ? 0.3 : diff < -5 ? -0.3 : 0;
               userMatchResult = {
@@ -1906,8 +1936,8 @@ export const useAppStore = create<AppState>()(
           const homeTeam = clubs.find((c) => c.id === f.homeId);
           const awayTeam = clubs.find((c) => c.id === f.awayId);
           if (!homeTeam || !awayTeam) return f;
-          const homeStr = [...homeTeam.players].filter(p => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0)))).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
-          const awayStr = [...awayTeam.players].filter(p => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0)))).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+          const homeStr = [...homeTeam.players].filter(p => isPlayerAvailable(p)).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
+          const awayStr = [...awayTeam.players].filter(p => isPlayerAvailable(p)).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
           const diff = homeStr - awayStr;
           const homeAdv = diff > 5 ? 0.3 : diff < -5 ? -0.3 : 0;
           const hs = Math.max(0, Math.floor(Math.random() * 4 + homeAdv * 2));
@@ -1952,7 +1982,7 @@ export const useAppStore = create<AppState>()(
         const pickStartingXI = (players: any[], teamId: string) => {
           // Kullanıcının takımı ise tactics.lineup'tan seç
           if (teamId === myTeamId && tacticsLineupIds.size > 0) {
-            const lineup = players.filter(p => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))) && p.specificPosition !== "GK" && tacticsLineupIds.has(p.id));
+            const lineup = players.filter(p => isPlayerAvailable(p) && p.specificPosition !== "GK" && tacticsLineupIds.has(p.id));
             // P0 FIX: lineup boşsa fallback — en yüksek OVR'li 10 (tactics.lineup stale olabilir)
             if (lineup.length === 0) {
               console.warn(`[pickStartingXI] tactics.lineup stale! tacticsLineupIds=${tacticsLineupIds.size} ama players'ta eşleşen yok. Fallback: en yüksek OVR'li 10`);
@@ -1961,7 +1991,7 @@ export const useAppStore = create<AppState>()(
           }
           // Bot takımı — en yüksek OVR'li 10 saha oyuncusu
           return [...players]
-            .filter(p => !p.is_injured && (!p.suspended_until || (!p.suspended_until || Number(p.suspended_until) <= (useAppStore.getState?.()?.seasonMatchday ?? 0))) && p.specificPosition !== "GK")
+            .filter(p => isPlayerAvailable(p) && p.specificPosition !== "GK")
             .sort((a, b) => b.rating - a.rating)
             .slice(0, 10);
         };
