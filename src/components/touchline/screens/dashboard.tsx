@@ -14,7 +14,7 @@ import {
   Users,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
-import { useAppStore, useMyTeam } from "@/lib/store";
+import { useAppStore, useMyTeam, getFormation } from "@/lib/store";
 import { getInflationMultiplier, formatInflationLabel } from "@/lib/fm/inflation";
 import { AchievementsCard, checkAchievements, AchievementToast, type Achievement } from "@/components/touchline/achievements";
 import { WeeklyChallengesCard } from "@/components/touchline/weekly-challenges";
@@ -28,6 +28,7 @@ import { PlayerProfileModal } from "../player-profile-modal";
 import { haptic } from "@/hooks/touchline";
 import {
   computeStandings,
+  computeTacticScore, // P0 FIX BUG #9: Deha başarımı için taktik skoru hesapla
   myNextMatch,
   myRecentMatches,
   myStanding,
@@ -148,6 +149,30 @@ export function DashboardScreen() {
     // Transfer sayısı (haberlerden say)
     const transferNews = useAppStore.getState().news.filter(n => n.category === "transfer").length;
 
+    // P0 FIX BUG #9: Taktik skoru hesapla — "Deha" başarımı (90+) için
+    let tacticScore = 0;
+    try {
+      const state = useAppStore.getState();
+      const tactics = state.tactics;
+      if (team && tactics?.formationKey) {
+        const formation = getFormation(tactics.formationKey);
+        // lineup: tactics.lineup -> gerçek Player objelerine çöz
+        const lineup = (tactics.lineup ?? []).map((slot) => {
+          if (!slot?.id) return null;
+          return team.players.find((p) => p.id === slot.id) ?? null;
+        });
+        tacticScore = computeTacticScore(team, formation, lineup, {
+          attackingPressure: tactics.sliders?.attackingPressure ?? 50,
+          defensiveLine: tactics.sliders?.defensiveLine ?? 50,
+          tempo: tactics.sliders?.tempo ?? 50,
+          wingPlay: tactics.sliders?.wingPlay ?? 50,
+        });
+      }
+    } catch (e) {
+      // Taktik skoru hesaplanamazsa sıfır bırak — başarım tetiklenmesin
+      tacticScore = 0;
+    }
+
     const newlyUnlocked = checkAchievements({
       matchWon,
       goalScored,
@@ -159,6 +184,7 @@ export function DashboardScreen() {
       leaguePosition: myStat.position,
       budget: team.budget,
       seasonsPlayed: useAppStore.getState().seasonNumber ?? 1,
+      tacticScore, // P0 FIX BUG #9: Deha başarımı (90+) için
     });
 
     if (newlyUnlocked.length > 0) {

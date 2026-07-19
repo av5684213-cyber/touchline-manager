@@ -2135,3 +2135,111 @@ Stage Summary:
 - %10 rastgele sakatlık kaldırıldı (motorun dinamik sistemi kullanılıyor)
 - Çoklu sponsor desteği eklendi
 - Boş lineup'ta tüm kadro drain sorunu düzeltildi
+
+---
+Task ID: bugfix-2.9.0-main
+Agent: main (Z.AI)
+Task: v2.9.0 — 5 kalan bug'ın kaynak koda uygulanması (Bug #11, #12, #13, #14, #15) + 2 bonus yama (Bug #4 Kaptan butonu, Bug #9 computeTacticScore) + cloud-save blacklist refactor
+
+Work Log:
+- Mevcut durum denetlendi — bug'ların bir kısmı zaten düzeltilmiş:
+  - BUG #13 (Global leaderboard): ✓ Tamamen düzeltilmiş (leaderboard.tsx "Yakında" mesajı)
+  - BUG #15 (Cosmetics cloud-save): ✓ Tamamen düzeltilmiş (store.ts + cloud-save.ts + market.tsx)
+  - BUG #14 (Chat moderation): Kısmen — küfür filtresi, rate limit, report butonu var; Block özelliği ve managerName presence filtresi EKSİK
+  - BUG #12 (Sahte online maç): Kısmen — onMatched mesajı dürüst ama UI buton etiketleri hâlâ yanıltıcı
+  - BUG #11 (suspended_until UI): AÇIK — tactics.tsx'de sadece is_injured kontrolü var
+  - BUG #4 (Kaptan butonu): AÇIK — setCaptain action var ama UI'da çağrılmıyor
+  - BUG #9 (computeTacticScore): AÇIK — dashboard checkAchievements çağrısında tacticScore eksik
+- Supabase migration'larında chat_reports/blocked_users tabloları yok → yeni migration gerekiyor
+
+Stage Summary (planned):
+- 012_chat_moderation.sql migration: chat_reports + blocked_users tabloları
+- match-chat.tsx: Block butonu + blocked listesi görüntüleme
+- matchmaking.ts: blocked_users filtreleme + managerName filtreleme
+- friendly.tsx: UI metinleri dürüstleştir
+- tactics.tsx: suspended_until kontrolü + "Cezalı" rozeti
+- player-profile-modal.tsx: suspended_until rozeti + Kaptan Yap butonu (Bonus Bug #4)
+- dashboard.tsx: computeTacticScore entegrasyonu (Bonus Bug #9)
+- store.ts: blocked_users state + blockUser/unblockUser action
+- cloud-save.ts: blacklist mantığına geçiş (genel öneri)
+
+---
+Task ID: bugfix-2.9.0-main (TAMAMLANDI)
+Agent: main (Z.AI)
+Task: v2.9.0 — 5 kalan bug + 2 bonus yama + cloud-save refactor
+
+Work Log:
+- 012_chat_moderation.sql: Yeni Supabase migration — chat_reports + blocked_users tabloları + RLS + rpc_get_blocked_users
+- src/lib/store.ts:
+  * blockedUsers state alanı eklendi (string[])
+  * blockUser/unblockUser/isUserBlocked action'ları eklendi
+- src/components/touchline/match-chat.tsx (tamamen yeniden yazıldı):
+  * blockUserInSupabase() — Supabase blocked_users tablosuna yazar + yerel state'i senkron eder
+  * loadBlockedUsersFromSupabase() — auth context çağırır, engellenen listesi yüklenir
+  * reportMessageToSupabase() — chat_reports tablosuna bildirim kaydeder
+  * useMatchChat — engellenen kullanıcıların mesajlarını otomatik filtreler
+  * MatchChatPanel — Block butonu + onay modalı + engellenen kullanıcılar listesi (kaldır butonu)
+  * Topluluk kuralları hatırlatma banner'ı
+  * Karakter sayacı (200 max)
+  * Türkçe+İngilizce küfür filtresi genişletildi (kelime sınırı regex ile)
+- src/lib/matchmaking.ts (yeniden yazıldı):
+  * sanitizeDisplayName() — managerName presence verisinde filtrelenir (24 karakter max)
+  * Eşleştirme sırasında blockedUsers listesi kontrol edilir, engelli kullanıcılarla eşleşme yok
+  * teamName/teamShort uzunluk sınırları (32/4 karakter)
+- src/lib/auth/auth-context.tsx:
+  * Giriş yapınca loadBlockedUsersFromSupabase çağrılır — engellenen liste yüklenir
+- src/components/touchline/screens/friendly.tsx (BUG #12):
+  * Buton etiketi: "Online Sıraya Gir" → "Online Sohbet + Maç"
+  * onSearching/onMatched/onTimeout/onError mesajları dürüstleştirildi
+  * Yanıltıcı "✓ Eşleşme bulundu" mesajı → "Bot rakip: {name}"
+  * Yeni açıklayıcı banner: "Online Sohbet + Maç: ... Maç bot takıma karşı oynanır"
+  * "Online kullanıcı aranıyor" → "Online oyuncu aranıyor... Sohbet için"
+- src/components/touchline/screens/tactics.tsx (BUG #11):
+  * Slot picker modal: suspended_until kontrolü eklendi (isDisabled'a dahil)
+  * Cezalı oyuncu için turuncu kenarlık (border-amber-500/60)
+  * Cezalı oyuncu için "🟧" rozeti (rating kutusunda, sakat yoksa)
+  * Cezalı oyuncu için "CEZALI Xm" metin rozeti (ismin yanında)
+  * Pitch üzerinde cezalı oyuncu için "🟥" ikonu + amber kenarlık/ring
+  * Yedek kulübesinde cezalı oyuncu için "🟥" ikonu
+- src/components/touchline/player-profile-modal.tsx (BUG #11 + Bonus BUG #4):
+  * Header'da "🟥 CEZALI Xm" rozeti (ismin yanında, sakatın yanında)
+  * Fitness bölümünde "Cezalı" paneli (turuncu kutu, sakat paneline paralel)
+  * Bonus BUG #4: ActionsTab'e "©️ Kaptan Yap/Kaptanlıktan Al" butonu eklendi
+    - setCaptain store action'ı kullanılıyor (store diğer kaptanları otomatik temizler)
+    - isCaptain state'i hem "captain" hem "kaptan" değerlerini kontrol eder
+    - Kaptanlık bonusu açıklaması: +%2-7 moral
+- src/components/touchline/screens/dashboard.tsx (Bonus BUG #9):
+  * computeTacticScore import edildi (src/lib/mock/season.ts)
+  * getFormation import edildi (src/lib/store)
+  * checkAchievements çağrısına tacticScore parametresi eklendi
+  * Hesaplama: tactics.lineup + formationKey + sliders → 0-100 arası skor
+  * "Deha" başarımı (90+) artık gerçekten tetikleniyor
+- src/lib/cloud-save.ts (Genel öneri):
+  * CLOUD_SAVE_BLACKLIST set'i eklendi (isAuthed, _persist, __internal__)
+  * pickPersistentState() fonksiyonu — blacklist hariç + function olmayan TÜM alanları döndürür
+  * saveGameState() artık pickPersistentState kullanıyor (manuel alan listesi YOK)
+  * initCloudSave subscribe() artık dinamik kontrol: herhangi bir kalıcı alan değiştiyse tetikle
+  * Yeni state alanı eklendiğinde cloud-save'e otomatik dahil — regresyon yapısal olarak önlendi
+
+Test Sonuçları:
+- npx tsc --noEmit: temiz, hata yok
+- npx next build: başarılı (7.9s compile, 6 static page)
+- ESLint: 4 dosyada önceden mevcut warning'ler (require(), setState-in-effect, useMemo bağımlılıkları) — benim değişikliklerim yeni hata eklemedi
+
+Stage Summary:
+- 5 ana bug + 2 bonus yama + 1 yapısal refactor tamamlandı
+- BUG #11 (suspended_until UI): Cezalı oyuncular artık kadro seçim modalında engelleniyor + 4 yerde rozet gösteriliyor (modal, pitch, yedek, profil)
+- BUG #12 (Sahte online maç): UI tamamen dürüstleştirildi — "Online Sohbet + Maç" butonu, açıklayıcı banner, dürüst feedback mesajları
+- BUG #13 (Sahte global leaderboard): Zaten düzeltilmiş (önceki oturumda) — kontrol edildi
+- BUG #14 (Sohbet moderasyonu): Küfür filtresi + rate limit + report + block + managerName filtresi + Supabase migration — Play Store UGC politikası karşılanıyor
+- BUG #15 (Cosmetics cloud-save): Zaten düzeltilmiş (önceki oturumda) — kontrol edildi
+- Bonus BUG #4 (Kaptan butonu): ActionsTab'e kaptan yap/çıkar butonu eklendi, setCaptain action'ı kullanılıyor
+- Bonus BUG #9 (computeTacticScore): dashboard checkAchievements'e tacticScore entegre edildi, "Deha" başarımı artık gerçekten tetikleniyor
+- Genel: cloud-save blacklist mantığına geçirildi — yeni state alanı eklendiğinde otomatik kaydedilir/izlenir
+
+Kullanıcı test senaryoları:
+- BUG #11: Bir maçta kırmızı kart gördür → sonraki maç kadro seçim ekranında o oyuncu seçilemez + "CEZALI" rozeti görünür
+- BUG #12: Online sıraya gir → "Online Sohbet + Maç" butonu + açıklayıcı banner görünür, mesajlar yanıltıcı değil
+- BUG #13: Leaderboard → Global sekmesi "Yakında" gösterir, sahte veri yok
+- BUG #14: Maç sohbetinde küfür yaz → yıldızlanır, bir mesajı bildir → chat_reports'e kaydeder, kullanıcıyı engelle → bir daha eşleşilmez + mesajları görünmez
+- BUG #15: Bir kozmetik satın al → uygulamayı sil/yeniden yükle → ürün hâlâ sahibi (cloud-save'den yüklenir)

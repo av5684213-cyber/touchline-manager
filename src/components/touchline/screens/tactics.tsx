@@ -376,6 +376,9 @@ export function TacticsScreen() {
             const role = ROLES.find((r) => r.id === roleId);
             const isSwap = swapSlot === i;
             const isInjured = p?.is_injured === true;
+            // P0 FIX BUG #11: Cezalı oyuncu pitch üzerinde de işaretle
+            const currentMatchday = useAppStore.getState().seasonMatchday ?? 0;
+            const isSuspended = !!(p?.suspended_until && Number(p.suspended_until) > currentMatchday);
             return (
               <button
                 key={i}
@@ -394,6 +397,8 @@ export function TacticsScreen() {
                       : p
                       ? isInjured
                         ? "border-red-500 ring-2 ring-red-500/40"
+                        : isSuspended
+                        ? "border-amber-500 ring-2 ring-amber-500/40"
                         : "border-white/70"
                       : "border-yellow-400/70 border-dashed"
                   )}
@@ -407,6 +412,12 @@ export function TacticsScreen() {
                   {isInjured && (
                     <span className="absolute -top-1 -right-1 text-[11px] bg-red-500 rounded-full w-3.5 h-3.5 flex items-center justify-center" title="Sakat">
                       🤕
+                    </span>
+                  )}
+                  {/* P0 FIX BUG #11: Cezalı ikonu — sağ üstte, sakat yoksa */}
+                  {!isInjured && isSuspended && (
+                    <span className="absolute -top-1 -right-1 text-[11px] bg-amber-500 rounded-full w-3.5 h-3.5 flex items-center justify-center" title={`Cezalı · ${Number(p!.suspended_until) - currentMatchday} maç`}>
+                      🟥
                     </span>
                   )}
                 </span>
@@ -605,6 +616,10 @@ export function TacticsScreen() {
                     )}
                     {p.is_injured && (
                       <span className="text-[11px] text-red-400 font-bold">🤕</span>
+                    )}
+                    {/* P0 FIX BUG #11: Cezalı rozeti — yedek kulübesi listesinde */}
+                    {p.suspended_until && Number(p.suspended_until) > (useAppStore.getState().seasonMatchday ?? 0) && (
+                      <span className="text-[11px] text-amber-400 font-bold" title="Cezalı">🟥</span>
                     )}
                   </button>
                 );
@@ -1338,7 +1353,11 @@ function SlotPlayerPicker({
                 const isCurrent = current?.id === p.id;
                 const isUsed = usedIds.has(p.id) && !isCurrent;
                 const isInjured = p.is_injured === true;
-                const isDisabled = isUsed || isInjured;
+                // P0 FIX BUG #11: Kart cezalısı oyuncu kontrolü
+                const currentMatchday = useAppStore.getState().seasonMatchday ?? 0;
+                const isSuspended = !!(p.suspended_until && Number(p.suspended_until) > currentMatchday);
+                const suspendedRemaining = isSuspended ? Number(p.suspended_until) - currentMatchday : 0;
+                const isDisabled = isUsed || isInjured || isSuspended;
                 return (
                   <button
                     key={p.id}
@@ -1348,7 +1367,9 @@ function SlotPlayerPicker({
                       "tm-tap w-full flex items-center gap-2 py-1.5 px-2 rounded border text-left",
                       isCurrent ? "bg-primary/10 border-primary" : "bg-card border-border",
                       isDisabled && "opacity-50",
-                      isInjured && "border-red-500/40"
+                      isInjured && "border-red-500/40",
+                      // P0 FIX BUG #11: Cezalı oyuncu kenarlığı — turuncu
+                      isSuspended && "border-amber-500/60"
                     )}
                   >
                     {/* OVR — büyük göster */}
@@ -1363,6 +1384,12 @@ function SlotPlayerPicker({
                           🤕
                         </span>
                       )}
+                      {/* P0 FIX BUG #11: Cezalı rozeti — sağ üstte, sakat yoksa */}
+                      {!isInjured && isSuspended && (
+                        <span className="absolute -top-1 -right-1 text-[10px] bg-amber-500 rounded-full w-3.5 h-3.5 flex items-center justify-center" title={`Cezalı · ${suspendedRemaining} maç`}>
+                          🟧
+                        </span>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">
@@ -1372,6 +1399,8 @@ function SlotPlayerPicker({
                         {isCurrent && <span className="text-[11px] px-0.5 py-0 rounded bg-primary text-primary-foreground font-bold">SEÇİLİ</span>}
                         {isUsed && <span className="text-[11px] text-muted-foreground">dolu</span>}
                         {isInjured && <span className="text-[11px] px-0.5 py-0 rounded bg-red-500/20 text-red-400 font-bold">SAKAT{p.injury?.remaining_days ? ` ${p.injury.remaining_days}g` : ""}</span>}
+                        {/* P0 FIX BUG #11: Cezalı rozeti — metin olarak */}
+                        {isSuspended && <span className="text-[11px] px-0.5 py-0 rounded bg-amber-500/20 text-amber-400 font-bold">CEZALI {suspendedRemaining}m</span>}
                       </div>
                       {/* Pozisyon stats — ince satır */}
                       <div className="text-[10px] text-muted-foreground truncate">

@@ -124,6 +124,12 @@ export function PlayerProfileModal({
                 🤕 {player.injury?.remaining_days ? `${player.injury.remaining_days}g` : "Sakat"}
               </span>
             )}
+            {/* P0 FIX BUG #11: Cezalı rozeti — ismin yanında */}
+            {player.suspended_until && Number(player.suspended_until) > (useAppStore.getState().seasonMatchday ?? 0) && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-bold bg-amber-500 text-white shrink-0" title={`Cezalı · ${Number(player.suspended_until) - (useAppStore.getState().seasonMatchday ?? 0)} maç`}>
+                🟥 CEZALI {Number(player.suspended_until) - (useAppStore.getState().seasonMatchday ?? 0)}m
+              </span>
+            )}
             {/* TALİMAT: Takım adı ismin yanına */}
             {(() => {
               const allClubs = useAppStore.getState().clubs;
@@ -306,6 +312,20 @@ function OverviewTab({
                       ? `${player.injury.remaining_days} gün sonra iyileşecek`
                       : "İyileşme süresi bilinmiyor"}
                     {player.injury?.type && ` · ${player.injury.type}`}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          {/* P0 FIX BUG #11: Cezalı paneli — oyuncu cezalısysa turuncu kutu */}
+          {player.suspended_until && Number(player.suspended_until) > (useAppStore.getState().seasonMatchday ?? 0) && (
+            <div className="mt-1.5 p-2 rounded-lg bg-amber-500/15 border border-amber-500/40">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm">🟥</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] font-bold text-amber-300">Cezalı</div>
+                  <div className="text-[11px] text-amber-300/80">
+                    {Number(player.suspended_until) - (useAppStore.getState().seasonMatchday ?? 0)} maç sonra oynayabilir
                   </div>
                 </div>
               </div>
@@ -1192,6 +1212,7 @@ function ActionsTab({
   const transfer = useAppStore((s) => s.transfer);
   const makeTransferOffer = useAppStore((s) => s.makeTransferOffer);
   const makeLoanOffer = useAppStore((s) => s.makeLoanOffer);
+  const setCaptain = useAppStore((s) => s.setCaptain); // P0 FIX BUG #4: Kaptan seç
   const myTeam = useMyTeam();
   const [listPrice, setListPrice] = useState(player.marketValue);
   const [loanFee, setLoanFee] = useState(Math.round(player.marketValue * 0.05));
@@ -1209,6 +1230,31 @@ function ActionsTab({
 
   const isListed = transfer.myListedPlayers.some((l) => l.playerId === player.id);
   const isMyPlayer = myTeam?.players.some((p) => p.id === player.id) ?? false;
+  // P0 FIX BUG #4: Oyuncu şu an kaptan mı? ("kaptan" eski değer, "captain" yeni — ikisini de kontrol et)
+  const myPlayer = myTeam?.players.find((p) => p.id === player.id);
+  const isCaptain = !!myPlayer && (myPlayer.special_role === "captain" || myPlayer.special_role === "kaptan");
+
+  // P0 FIX BUG #4: Kaptan yap/çıkar — store action'ını kullan
+  const handleToggleCaptain = () => {
+    haptic("success");
+    if (isCaptain) {
+      // Kaptanlığı kaldır — myTeam içindeki tüm special_role'leri temizle
+      const state = useAppStore.getState();
+      if (!myTeam) return;
+      const updatedClubs = state.clubs.map((c) =>
+        c.id === myTeam.id
+          ? { ...c, players: c.players.map((p) => ({ ...p, special_role: undefined })) }
+          : c
+      );
+      useAppStore.setState({ clubs: updatedClubs });
+      setFeedback(`✓ ${player.firstName} ${player.lastName} kaptanlıktan alındı`);
+    } else {
+      // Kaptan yap — store action diğer kaptanları otomatik temizler
+      setCaptain(player.id);
+      setFeedback(`✓ ${player.firstName} ${player.lastName} kaptan yapıldı`);
+    }
+    setTimeout(() => setFeedback(null), 2500);
+  };
 
   const handleList = () => {
     haptic("success");
@@ -1507,6 +1553,30 @@ function ActionsTab({
       ) : (
         <>
           {/* ===== KENDİ OYUNCUM — SATIŞA/KİRALIĞA ÇIKAR ===== */}
+          {/* P0 FIX BUG #4: Kaptan Yap/Çıkar butonu */}
+          <div className="tm-card p-3 border-amber-500/30 bg-amber-500/5">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-base">©️</span>
+              <span className="text-xs font-bold text-amber-400">Kaptanlık</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground mb-2">
+              {isCaptain
+                ? "Bu oyuncu şu an kaptan. Kaptanlık bonusu: takım moraline +%2-7 (liderlik/trait'lere göre)."
+                : "Bu oyuncuyu kaptan yap. Kaptan, maç sırasında takım moralini artırır ve gol yedikçe morali korur."}
+            </div>
+            <button
+              onClick={handleToggleCaptain}
+              className={cn(
+                "tm-tap w-full py-2 rounded-md text-xs font-bold",
+                isCaptain
+                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                  : "bg-amber-600 text-white"
+              )}
+            >
+              {isCaptain ? "©️ Kaptanlıktan Al" : "©️ Kaptan Yap"}
+            </button>
+          </div>
+
           {/* Normal transfer — satışa listele */}
           <div className="tm-card p-3">
             <div className="flex items-center gap-2 mb-2">

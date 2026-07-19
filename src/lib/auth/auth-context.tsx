@@ -5,6 +5,7 @@ import type { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { useAppStore } from "@/lib/store";
 import { initCloudSave, stopCloudSave, flushGameState } from "@/lib/cloud-save";
+import { loadBlockedUsersFromSupabase } from "@/components/touchline/match-chat";
 
 type AuthContextValue = {
   user: User | null;
@@ -35,6 +36,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Kullanıcı giriş yapmışsa cloud save başlat
         if (data.session?.user) {
           initCloudSave(data.session.user.id);
+          // P0 FIX BUG #14: Engellenen kullanıcıları Supabase'ten yükle
+          loadBlockedUsersFromSupabase(data.session.user.id);
         }
       })
       .catch(() => {
@@ -59,6 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // Cloud save başlat
         initCloudSave(newSession.user.id);
+        // P0 FIX BUG #14: Engellenen kullanıcıları Supabase'ten yükle
+        loadBlockedUsersFromSupabase(newSession.user.id);
       }
 
       // Kullanıcı çıkış yaptıysa cloud save'i durdur

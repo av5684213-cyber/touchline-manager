@@ -92,14 +92,14 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
 
     const callbacks: MatchmakingCallbacks = {
       onSearching: () => {
-        setFeedback("Online rakip aranıyor... (30 sn içinde eşleşme yoksa bot ile oynanır)");
+        // P0 FIX BUG #12: Dürüst mesaj — gerçek online maç değil, sohbet + bot maçı
+        setFeedback("Online rakip aranıyor... Bulunursa sohbet edebilirsiniz. Maç her zaman bot takıma karşı oynanır (30 sn içinde bulunmazsa rastgele bot).");
       },
       onMatched: (oppUser: QueueUser) => {
         haptic("success");
-        // P0 FIX BUG #12: Dürüst etiketleme — gerçek rakip bulundu ama maç bot'a karşı oynanır
-        // Gerçek online maç için sunucu tarafı simülasyon gerekir (gelecek özellik)
-        // Şimdilik: gerçek rakiple sohbet edebilirsin, maç bot'a karşı oynanır
-        setFeedback(`✓ Online rakip bulundu: ${oppUser.teamName} (OVR ${oppUser.teamOvr}). Sohbet açıktır! Maç, benzer güçte bir bot takıma karşı oynanır.`);
+        // P0 FIX BUG #12: Dürüst etiketleme — gerçek online maç DEĞİL
+        // Bulunan online rakiple sadece sohbet edilebilir; maç benzer güçte bir bot'a karşı oynanır
+        setFeedback(`✓ Online oyuncu bulundu: ${oppUser.teamName} (OVR ${oppUser.teamOvr}). Sohbet açıktır! Maç, benzer güçte bir bot takıma karşı oynanır (gerçek online maç henüz desteklenmiyor).`);
         setQueueStatus("matched");
         // Rakibin OVR'sine yakın bir bot bul
         const targetOvr = oppUser.teamOvr ?? 70;
@@ -120,7 +120,8 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
       },
       onTimeout: () => {
         haptic("light");
-        setFeedback("Online rakip bulunamadı — bot ile oynanıyor...");
+        // P0 FIX BUG #12: Dürüst mesaj
+        setFeedback("Online oyuncu bulunamadı — bot ile oynanıyor...");
         const randomOpp = opponents[Math.floor(Math.random() * opponents.length)];
         if (randomOpp) {
           setSelectedOppId(randomOpp.id);
@@ -137,15 +138,16 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
       },
       onError: (msg) => {
         if (msg === "NO_SUPABASE") {
+          // P0 FIX BUG #12: Dürüst mesaj — yanıltıcı "Eşleşme bulundu" DEĞİL
           setFeedback("Online mod kullanılamıyor — bot ile oynanıyor...");
-          const delay = 2000 + Math.random() * 1500;
+          const delay = 1500 + Math.random() * 1000;
           setTimeout(() => {
             const randomOpp = opponents[Math.floor(Math.random() * opponents.length)];
             if (randomOpp) {
               setSelectedOppId(randomOpp.id);
               setQueueStatus("matched");
               haptic("success");
-              setFeedback(`✓ Eşleşme bulundu: ${randomOpp.name}`);
+              setFeedback(`Bot rakip: ${randomOpp.name}`);
               setTimeout(() => {
                 setMatchStarted(true);
                 engine.reset();
@@ -291,7 +293,7 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
           className="tm-tap flex flex-col items-center gap-1 p-3 rounded-lg bg-emerald-600 text-white text-xs font-bold active:scale-[0.98] transition-transform disabled:opacity-50"
         >
           <Users size={20} />
-          {queueStatus === "searching" ? "Aranıyor..." : "Online Sıraya Gir"}
+          {queueStatus === "searching" ? "Aranıyor..." : "Online Sohbet + Maç"}
         </button>
         <button
           onClick={handleInstantMatch}
@@ -308,6 +310,11 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
         </button>
       </div>
 
+      {/* P0 FIX BUG #12: Dürüst açıklama — online mod gerçekte nedir? */}
+      <div className="tm-card p-2.5 bg-sky-500/5 border-sky-500/20 text-[10px] text-muted-foreground leading-relaxed">
+        ℹ️ <strong className="text-foreground">Online Sohbet + Maç:</strong> Diğer online oyuncularla eşleşir, maç sırasında sohbet edebilirsiniz. Maç, rakibin OVR'sine yakın bir <strong className="text-foreground">bot takıma</strong> karşı oynanır (gerçek online maç henüz desteklenmiyor).
+      </div>
+
       {/* Queue searching indicator */}
       {queueStatus === "searching" && (
         <div className="tm-card p-4 text-center">
@@ -316,8 +323,8 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
             <div className="w-3 h-3 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: "150ms" }} />
             <div className="w-3 h-3 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: "300ms" }} />
           </div>
-          <div className="text-xs font-bold text-emerald-700">Online kullanıcı aranıyor...</div>
-          <div className="text-[10px] text-muted-foreground mt-1">Diğer kullanıcılar ile eşleşme bekleniyor (max 30 sn)</div>
+          <div className="text-xs font-bold text-emerald-700">Online oyuncu aranıyor...</div>
+          <div className="text-[10px] text-muted-foreground mt-1">Sohbet için diğer kullanıcı aranılıyor (max 30 sn). Bulunmazsa bot ile oynanır.</div>
           <button
             onClick={handleCancelQueue}
             className="tm-tap mt-3 px-4 py-1.5 rounded-md bg-muted text-muted-foreground text-xs font-bold border border-border"

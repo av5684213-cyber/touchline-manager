@@ -13,10 +13,37 @@ import { useAppStore } from "@/lib/store";
  *
  * State JSON olarak user_game_state tablosunda saklanır.
  *
- * P0 FIX: cup, sponsors, credits, seasonStartStats artık kaydediliyor.
- * ÖNCE: sadece clubs/fixtures/tactics/transfer/training/facilities/news kaydediliyordu.
- * Yeni state alanı eklendiğinde aşağıdaki stateToSave objesine EKLENMELİ (regresyon önleme).
+ * P0 FIX v2.9.0: BLACKLIST mantığı — TÜM state alanları kaydedilir,
+ * sadece cihaza özel/geçici alanlar hariç tutulur. Yeni alan eklendiğinde
+ * bu listeye eklenmesi gerekmez (otomatik kaydedilir). Bu, "yeni alan
+ * eklendi ama cloud-save'e unutuldu" regresyonlarını yapısal olarak önler.
  */
+
+// HARIÇ TUTULAN (blacklist) — cihaza özel veya geçici alanlar
+const CLOUD_SAVE_BLACKLIST = new Set<string>([
+  "isAuthed",      // session-only, kalıcı olmamalı
+  "_persist",      // zustand persist middleware (kullanılmıyor ama güvenlik)
+  "__internal__",  // internal flag'ler
+]);
+
+function isBlacklisted(key: string): boolean {
+  return CLOUD_SAVE_BLACKLIST.has(key);
+}
+
+/**
+ * State'in tüm kalıcı alanlarını döndürür (blacklist hariç).
+ * Yeni state alanı eklendiğinde otomatik olarak cloud-save'e dahil edilir.
+ */
+function pickPersistentState(state: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const key of Object.keys(state)) {
+    if (isBlacklisted(key)) continue;
+    // Function tipindeki alanları (action'lar) atla — sadece veri kaydedilmeli
+    if (typeof state[key] === "function") continue;
+    result[key] = state[key];
+  }
+  return result;
+}
 
 const SAVE_DEBOUNCE_MS = 3000;
 let saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -117,9 +144,9 @@ function loadFromLocalStorage(): boolean {
  * Mevcut store state'ini Supabase'e kaydeder.
  * Debounce'lu — 3 saniye içinde birden fazla çağrı gelirse sonuncusu çalışır.
  *
- * P0 FIX: Artık TÜM state alanları kaydediliyor:
- * cup, sponsors, credits, seasonStartStats dahil.
- * Yeni state alanı eklerseniz stateToSave'e EKLEYİN (regresyon önleme).
+ * P0 FIX v2.9.0: BLACKLIST mantığı — TÜM kalıcı alanlar otomatik kaydedilir.
+ * Yeni state alanı eklerseniz otomatik olarak dahil edilir (manuel liste YOK).
+ * Sadece CLOUD_SAVE_BLACKLIST'teki alanlar ve function'lar (action'lar) hariç tutulur.
  */
 export function saveGameState(userId: string, immediate: boolean = false) {
   if (!isLoaded && !immediate) return;
@@ -127,27 +154,9 @@ export function saveGameState(userId: string, immediate: boolean = false) {
   const doSave = async () => {
     try {
       const state = useAppStore.getState();
-      // P0 FIX: TÜM oyun verisini kaydet — cup, sponsors, credits, seasonStartStats DAHİL
-      // YENİ STATE ALANI EKLENİRSE BURAYA DA EKLENMELİ (regresyon önleme comment'i)
-      const stateToSave = {
-        managerName: state.managerName,
-        myTeamId: state.myTeamId,
-        seasonMatchday: state.seasonMatchday,
-        seasonNumber: state.seasonNumber,
-        news: state.news,
-        clubs: state.clubs,
-        fixtures: state.fixtures,
-        tactics: state.tactics,
-        transfer: state.transfer,
-        training: state.training,
-        facilities: state.facilities,
-        cup: state.cup,
-        sponsors: state.sponsors,
-        credits: state.credits,
-        seasonStartStats: state.seasonStartStats,
-        // P0 FIX BUG #15: cosmetics artık cloud-save'e dahil
-        cosmetics: state.cosmetics,
-      };
+      // P0 FIX v2.9.0: pickPersistentState — blacklist hariç TÜM veri alanlarını kaydet
+      // Yeni state alanı eklendiğinde burayı güncellemeye GEREK YOK.
+      const stateToSave = pickPersistentState(state as unknown as Record<string, unknown>);
 
       // P0 FIX: localStorage'a da yedekle
       saveToLocalStorage(stateToSave);
@@ -180,39 +189,30 @@ export function saveGameState(userId: string, immediate: boolean = false) {
  * Cloud save'i başlat — store değişikliklerini dinler.
  * Auth context'te kullanıcı giriş yapınca çağrılır.
  *
- * P0 FIX: Artık cup, sponsors, credits değişikliklerini de dinliyor.
+ * P0 FIX v2.9.0: BLACKLIST mantığı — TÜM kalıcı alanlar izlenir.
+ * Yeni state alanı eklendiğinde otomatik olarak izlenir (manuel liste YOK).
+ * Sadece function'lar (action'lar) ve blacklist'teki alanlar izlenmez.
  */
 export function initCloudSave(userId: string) {
   // Önce yükle
   loadGameState(userId).then(() => {
     // Sonra store değişikliklerini dinle
-    // P0 FIX: cup, sponsors, credits, seasonStartStats değişikliklerini de izle
-    // P0 FIX: Duplicate subscribe önle — önce eski subscriber'ı temizle
+    // P0 FIX v2.9.0: Duplicate subscribe önle — önce eski subscriber'ı temizle
     if (unsubscribeFn) {
       unsubscribeFn();
       unsubscribeFn = null;
     }
     unsubscribeFn = useAppStore.subscribe((state, prevState) => {
-      if (
-        state.clubs !== prevState.clubs ||
-        state.fixtures !== prevState.fixtures ||
-        state.tactics !== prevState.tactics ||
-        state.transfer !== prevState.transfer ||
-        state.training !== prevState.training ||
-        state.facilities !== prevState.facilities ||
-        state.seasonMatchday !== prevState.seasonMatchday ||
-        state.news !== prevState.news ||
-        state.cup !== prevState.cup ||
-        state.sponsors !== prevState.sponsors ||
-        state.credits !== prevState.credits ||
-        state.seasonStartStats !== prevState.seasonStartStats ||
-        state.seasonNumber !== prevState.seasonNumber ||
-        state.myTeamId !== prevState.myTeamId ||
-        state.managerName !== prevState.managerName ||
-        // P0 FIX BUG #15: cosmetics değişikliklerini de izle
-        state.cosmetics !== prevState.cosmetics
-      ) {
-        saveGameState(userId);
+      // P0 FIX v2.9.0: BLACKLIST mantığı — herhangi bir kalıcı alan değiştiyse tetikle
+      // Yeni state alanı eklendiğinde otomatik izlenir.
+      const stateKeys = Object.keys(state);
+      for (const key of stateKeys) {
+        if (isBlacklisted(key)) continue;
+        if (typeof (state as any)[key] === "function") continue;
+        if ((state as any)[key] !== (prevState as any)[key]) {
+          saveGameState(userId);
+          return; // bir değişiklik bulundu, save tetikle, çık
+        }
       }
     });
 

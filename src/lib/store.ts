@@ -187,6 +187,9 @@ type AppState = {
   };
   // P0: Kredi sistemi — paket satın alma, hazırlık maçı için
   credits: number;
+  // P0 FIX BUG #14: Engellenen kullanıcılar — eşleştirmede filtrelenir
+  // blocker_id = me, blocked_id = other. Supabase ile senkronize edilir.
+  blockedUsers: string[];
 
   // actions
   loginDemo: (name?: string) => void;
@@ -241,6 +244,10 @@ type AppState = {
   addCredits: (amount: number) => void;
   spendCredits: (amount: number) => boolean;
   buyPlayerPack: (packType: "bronze" | "silver" | "gold" | "platinum") => { success: boolean; players?: any[]; reason?: string };
+  // P0 FIX BUG #14: Kullanıcı engelleme/yardımıcılar
+  blockUser: (userId: string) => void;
+  unblockUser: (userId: string) => void;
+  isUserBlocked: (userId: string) => boolean;
   // message actions
   markMessageRead: (msgId: string) => void;
   markAllMessagesRead: () => void;
@@ -480,6 +487,9 @@ export const useAppStore = create<AppState>()(
         owned: [],
         equipped: {},
       },
+
+      // P0 FIX BUG #14: Engellenen kullanıcılar — Supabase ile senkronize
+      blockedUsers: [],
 
       loginDemo: (name) => {
         // Already-initialized clubs varsa yeniden üretme
@@ -2921,6 +2931,24 @@ export const useAppStore = create<AppState>()(
         if (credits < amount) return false;
         set({ credits: credits - amount });
         return true;
+      },
+
+      // P0 FIX BUG #14: Kullanıcı engelleme — sohbet moderasyonu
+      // Sadece yerel state'i günceller. Supabase senkronu match-chat.tsx tarafından yapılır.
+      blockUser: (userId) => {
+        if (!userId) return;
+        const { blockedUsers } = get();
+        if (blockedUsers.includes(userId)) return;
+        set({ blockedUsers: [...blockedUsers, userId] });
+      },
+
+      unblockUser: (userId) => {
+        const { blockedUsers } = get();
+        set({ blockedUsers: blockedUsers.filter((id) => id !== userId) });
+      },
+
+      isUserBlocked: (userId) => {
+        return get().blockedUsers.includes(userId);
       },
 
       buyPlayerPack: (packType) => {
