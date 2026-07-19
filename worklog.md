@@ -2243,3 +2243,65 @@ Kullanıcı test senaryoları:
 - BUG #13: Leaderboard → Global sekmesi "Yakında" gösterir, sahte veri yok
 - BUG #14: Maç sohbetinde küfür yaz → yıldızlanır, bir mesajı bildir → chat_reports'e kaydeder, kullanıcıyı engelle → bir daha eşleşilmez + mesajları görünmez
 - BUG #15: Bir kozmetik satın al → uygulamayı sil/yeniden yükle → ürün hâlâ sahibi (cloud-save'den yüklenir)
+
+---
+Task ID: bugfix-2.9.1-main (TAMAMLANDI)
+Agent: main (Z.AI)
+Task: v2.9.1 — Oyun genel denetimi sonrası 15 bulgudan 10'unun düzeltilmesi
+
+Work Log:
+- Denetim raporu: 15 bulgu (4 ÇOK KRİTİK, 5 KRİTİK, 3 ORTA, 3 DÜŞÜK)
+- BULGU #1 (ÇOK KRİTİK) DÜZELTİLDİ: use-match-engine.ts:849-861
+  * suspended_until +1 → +2 (ceza maçı artık gerçekten uygulanıyor)
+  * Açıklama: matchday N'de kırmızı kart → suspended_until = N+1 → advanceMatchday N+1 olur
+    → filter "N+1 <= N+1" = true → oyuncu oynuyordu (HATA!)
+    → +2 yazınca: N+2 > N+1 = true → ceza maçı oynanmaz ✓
+- BULGU #2 (ÇOK KRİTİK) DÜZELTİLDİ: match.tsx:344-352
+  * silentlySimulateMatch kaldırıldı (recordMatchResult + advanceMatchday kombinasyonu bozuktu)
+  * Artık sadece advanceMatchday çağrılıyor — enhanced motor kullanıcının maçını simüle ediyor
+  * Sorun: silentlySimulateMatch fixture.played=true yapıyordu, advanceMatchday
+    "userMatch = !played" arayıp null buluyordu → gol/asist dağıtımı atlanıyordu
+- BULGU #3 (ÇOK KRİTİK) DÜZELTİLDİ: friendly.tsx:435 → useState
+  * matchId her render'da Date.now() ile değişiyordu → chat kanalı 800ms'de bir re-subscribe
+  * useState initializer ile matchId stabilize edildi
+- BULGU #4 (ÇOK KRİTİK) DÜZELTİLDİ: friendly.tsx:544 + 82
+  * guest userId her render'da yeniden üretiliyordu → kendi mesajları "başka kullanıcı" görünür
+  * localStorage'da persistent guest ID (tm_guest_id) — cihazda tutarlı
+  * FriendlyScreen ve FriendlyLiveView aynı stable ID'yi kullanıyor
+- BULGU #5 (KRİTİK) DÜZELTİLDİ: match-chat.tsx blockUserInSupabase + reportMessageToSupabase
+  * Guest ID'ler auth.users'da yok → FK ihlali (23503)
+  * Guest blocker/blocked ise Supabase insert atla, sadece yerel state güncelle
+- BULGU #6 (KRİTİK) DÜZELTİLDİ: match-chat.tsx useMatchChat useEffect
+  * blockedUsers bağımlılıktan çıkarıldı (her block'ta channel re-subscribe oluyordu)
+  * Render filter (blockedUsers.includes) zaten güncel listeyle mesajları gizliyor
+- BULGU #7 (KRİTİK) DÜZELTİLDİ: match-chat.tsx loadBlockedUsersFromSupabase + auth-context
+  * Merge mantığı: yerel ID'leri koru, Supabase'ten gelen auth ID'lerini ekle
+  * Guest kullanıcı için Supabase'ten yükleme yapılmaz
+  * auth-context'te 500ms gecikme ile race condition minimize edildi
+- BULGU #10 (ORTA) DÜZELTİLDİ: tactics.tsx + player-profile-modal.tsx
+  * Render içinde useAppStore.getState().seasonMatchday → reactive useAppStore((s) => s.seasonMatchday)
+  * TacticsScreen, SlotPlayerPicker, OverviewTab, ActionsTab ayrı ayrı subscribe oldu
+- BULGU #11 (ORTA) DÜZELTİLDİ: player-profile-modal.tsx handleToggleCaptain
+  * special_role: undefined → null (JSON.stringify undefined'ı drop eder, tutarsızlık yaratırdı)
+  * setCaptain action'ı da null kullanıyor — artık tutarlı
+- BULGU #14 (DÜŞÜK) DÜZELTİLDİ: friendly.tsx handleJoinQueue
+  * Guest userId artık stableGuestUserId kullanıyor (persistent localStorage)
+- BULGU #15 (DÜŞÜK) DÜZELTİLDİ: store.ts satır 515, 2551
+  * Dead code "TIER_BASE_BUDGETS" expression statement'lar kaldırıldı
+
+Test Sonuçları:
+- npx tsc --noEmit: temiz
+- npx next build: başarılı (7.7s compile, 6 static page)
+
+Kalan Bulgular (sonraki tura):
+- BULGU #8 (KRİTİK): useAppStore.getState?.()?.seasonMatchday pattern — 20+ yerde, refactor riskli
+- BULGU #9 (KRİTİK): cloud-save blacklist → whitelist geçişi (transient alanlar için)
+- BULGU #12 (ORTA): friendly.tsx setTimeout cleanup yok (engine.reset leak riski)
+- BULGU #13 (DÜŞÜK): youth-academy.tsx localStorage cloud-save'e dahil değil
+
+Stage Summary:
+- 10 bulgu düzeltildi (4 ÇOK KRİTİK + 4 KRİTİK + 2 ORTA + 2 DÜŞÜK)
+- En kritik: kırmızı kart cezası artık gerçekten uygulanıyor (BULGU #1)
+- En kritik: "Turu İlerlet" kullanıcının oyuncu stat'larını artık yazıyor (BULGU #2)
+- En kritik: chat kanalı artık stabil (BULGU #3 + #4 + #6)
+- En kritik: guest kullanıcı engellemeleri artık FK ihlali yapmıyor (BULGU #5)

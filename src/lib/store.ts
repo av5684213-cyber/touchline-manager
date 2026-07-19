@@ -512,7 +512,6 @@ export const useAppStore = create<AppState>()(
         // P2 FIX: Gerçekçi başlangıç bütçesi — lig tier'ına göre
         // 500M yerine: Süper Lig 25M, 1. Lig 12M, 2. Lig 6M, 3. Lig 3M
         // (test modu kaldırıldı, gerçek menajerlik hissi için)
-        TIER_BASE_BUDGETS
         const tier = team.leagueTier ?? 2;
         const baseBudget = TIER_BASE_BUDGETS[tier] ?? TIER_BASE_BUDGETS[2];
         const realisticBudget = Math.round(baseBudget * 1.2); // %20 ekstra başlangıç
@@ -2547,8 +2546,6 @@ export const useAppStore = create<AppState>()(
         SEASON_INFO.matchday = 1;
 
         // Enflasyon uygula — bütçeleri yeni sezona göre güncelle
-        
-        TIER_BASE_BUDGETS
         const newBudgetMultiplier = getInflationMultiplier(newSeasonNumber);
         updatedClubs.forEach((c) => {
           // P1 FIX: Kullanıcının takımının bütçesini SIFIRLAMA — biriktirilen para korunsun

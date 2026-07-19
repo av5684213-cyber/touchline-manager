@@ -62,34 +62,47 @@ export type ChatMessage = {
 /**
  * P0 FIX BUG #14: Supabase blocked_users tablosuna yaz.
  * Ayrıca yerel state'e de yansıt — UI anında güncellensin.
+ *
+ * BULGU #5 DÜZELTME (v2.9.1): Guest ID'ler (guest_xxx) auth.users'da yok,
+ * FK ihlali (PostgreSQL 23503) fırlatır. Guest blocker/blocked ise
+ * Supabase insert atla, sadece yerel state güncelle.
  */
 export async function blockUserInSupabase(
   blockerId: string,
   blockedId: string,
   blockedUserName?: string
 ): Promise<boolean> {
-  if (!isSupabaseConfigured() || !blockerId || !blockedId || blockerId === blockedId) {
-    // Supabase yoksa sadece yerel state güncelle
-    useAppStore.getState().blockUser(blockedId);
+  if (!blockerId || !blockedId || blockerId === blockedId) return false;
+
+  // Yerel state HER DURUMDA güncellenmeli (UI anında yansımalı)
+  useAppStore.getState().blockUser(blockedId);
+
+  // Guest ID kontrolü — Supabase FK ihlalini önle
+  const isGuestBlocker = blockerId.startsWith("guest_");
+  const isGuestBlocked = blockedId.startsWith("guest_");
+  if (isGuestBlocker || isGuestBlocked) {
+    // Guest kullanıcıların engellemeleri sadece yerel state'te tutulur
+    // (cihazlar arası senkronize olmaz, ama Play Store açısından sorun yok)
     return true;
   }
+
+  if (!isSupabaseConfigured()) return true;
+
   try {
     const { error } = await supabase
       .from("blocked_users")
       .insert({ blocker_id: blockerId, blocked_id: blockedId });
     if (error) {
-      // Unique constraint ihlali (zaten engelli) — yine de yerel state'i senkron et
+      // 23505 = unique_violation (zaten engelli) — sessizce geç
+      // 23503 = foreign_key_violation — zaten yukarıda guest kontrolü yaptık
       if (error.code !== "23505") {
         console.warn("[chat] block error:", error.message);
       }
     }
-    useAppStore.getState().blockUser(blockedId);
     return true;
   } catch (e) {
     console.warn("[chat] block exception:", e);
-    // Yine de yerel state'e ekle — Supabase sonradan düzeltilebilir
-    useAppStore.getState().blockUser(blockedId);
-    return true;
+    return true; // Yerel state zaten güncellendi
   }
   void blockedUserName;
 }
@@ -97,9 +110,18 @@ export async function blockUserInSupabase(
 /**
  * P0 FIX BUG #14: Kullanıcının engellediği kişileri Supabase'ten yükle.
  * Auth context çağrılmalı — giriş yapınca.
+ *
+ * BULGU #7 DÜZELTME (v2.9.1): cloud-save ve bu fonksiyon paralel çağrılıyorsa
+ * race condition var — son bitiren blockedUsers'ı overwrite eder.
+ * Çözüm: merge yap — cloud-save'den gelen yerel ID'leri koru, Supabase'ten
+ * gelen auth ID'lerini ekle.
  */
 export async function loadBlockedUsersFromSupabase(userId: string): Promise<void> {
   if (!isSupabaseConfigured() || !userId) return;
+
+  // Guest kullanıcı için Supabase'ten yükleme yapma — sadece yerel state kullan
+  if (userId.startsWith("guest_")) return;
+
   try {
     const { data, error } = await supabase
       .rpc("rpc_get_blocked_users", { p_user_id: userId });
@@ -108,8 +130,12 @@ export async function loadBlockedUsersFromSupabase(userId: string): Promise<void
       return;
     }
     if (Array.isArray(data)) {
-      const ids = data.map((row: any) => row.blocked_id);
-      useAppStore.setState({ blockedUsers: ids });
+      const supabaseIds = data.map((row: any) => row.blocked_id as string);
+      // BULGU #7 DÜZELTME: merge — cloud-save'den gelen guest ID'leri koru,
+      // Supabase'ten gelen auth ID'lerini ekle. Duplicate'leri temizle.
+      const localIds = useAppStore.getState().blockedUsers ?? [];
+      const merged = Array.from(new Set([...localIds, ...supabaseIds]));
+      useAppStore.setState({ blockedUsers: merged });
     }
   } catch (e) {
     console.warn("[chat] load blocked exception:", e);
@@ -118,6 +144,10 @@ export async function loadBlockedUsersFromSupabase(userId: string): Promise<void
 
 /**
  * P0 FIX BUG #14: Mesajı Supabase chat_reports tablosuna bildir.
+ *
+ * BULGU #5 DÜZELTME (v2.9.1): Guest reporter/reported ise FK ihlali.
+ * Guest ise sadece yerel bildirim yapılır (kullanıcıya "bildirildi" mesajı gösterilir),
+ * Supabase'e yazılmaz.
  */
 export async function reportMessageToSupabase(
   reporterId: string,
@@ -125,17 +155,27 @@ export async function reportMessageToSupabase(
   messageText: string,
   matchId: string
 ): Promise<boolean> {
-  if (!isSupabaseConfigured() || !reporterId || !reportedUserId) return false;
+  if (!reporterId || !reportedUserId) return false;
+
+  // Guest ID kontrolü — Supabase FK ihlalini önle
+  const isGuestReporter = reporterId.startsWith("guest_");
+  const isGuestReported = reportedUserId.startsWith("guest_");
+  if (isGuestReporter || isGuestReported) {
+    // Guest raporları Supabase'e yazılmaz — kullanıcıya yine de "bildirildi" de
+    // (yerel moderatör yok, ama UX açısından feedback ver)
+    return true;
+  }
+
+  if (!isSupabaseConfigured()) return false;
   try {
     const { error } = await supabase.from("chat_reports").insert({
       reporter_id: reporterId,
       reported_user_id: reportedUserId,
-      reported_message: messageText.slice(0, 500), // uzun mesajları kırp
+      reported_message: messageText.slice(0, 500),
       match_id: matchId,
       reported_at: new Date().toISOString(),
     });
     if (error) {
-      // Unique constraint (aynı mesajı 2. kez bildirme) — sessizce geç
       if (error.code === "23505") return true;
       console.warn("[chat] report error:", error.message);
       return false;
@@ -156,7 +196,8 @@ export function useMatchChat(matchId: string, userId: string, userName: string) 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [connected, setConnected] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const blockedUsers = useAppStore((s) => s.blockedUsers);
+  // BULGU #6 DÜZELTME (v2.9.1): blockedUsers hook içinde artık kullanılmıyor
+  // (render filter MatchChatPanel içinde yapılıyor). Hook signature'ı sade kaldı.
 
   useEffect(() => {
     if (!isSupabaseConfigured() || !matchId) return;
@@ -168,7 +209,10 @@ export function useMatchChat(matchId: string, userId: string, userName: string) 
     channel.on("broadcast", { event: "message" }, (payload: any) => {
       const msg = payload.payload as ChatMessage;
       // P0 FIX BUG #14: Engellenen kullanıcının mesajlarını gösterme
-      if (blockedUsers.includes(msg.userId)) return;
+      // BULGU #6 DÜZELTME (v2.9.1): blockedUsers'ı useEffect bağımlılığından çıkardık,
+      // bu yüzden closure stale olabilir. Render filter (satır 309+) güncel listeyle
+      // zaten engelli mesajları gizliyor — burada stale check sorun değil, sadece optimizasyon.
+      // setMessages her zaman ekle, render filter gizler.
       setMessages((prev) => [...prev, msg]);
     });
 
@@ -186,7 +230,11 @@ export function useMatchChat(matchId: string, userId: string, userName: string) 
       channel.unsubscribe();
       channelRef.current = null;
     };
-  }, [matchId, blockedUsers]);
+  }, [matchId]);
+  // BULGU #6 DÜZELTME (v2.9.1): blockedUsers bağımlılıktan ÇIKARILDI.
+  // blockedUsers her değişince channel unsubscribe + re-subscribe oluyordu,
+  // kullanıcı biri engelleyince "Sohbet bağlanıyor..." görünüyordu.
+  // Render filter (blockedUsers.includes) güncel listeyle mesajları zaten gizliyor.
 
   const sendMessage = (text: string) => {
     if (!text.trim() || !channelRef.current || !connected) return;

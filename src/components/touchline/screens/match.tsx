@@ -342,9 +342,12 @@ export function MatchScreen() {
               setShowPreMatch(true);
             }}
             onAdvanceWeek={() => {
-              // P1 FIX: Haftayı ilerlet — kendi maçını da arka planda simüle et
+              // P1 FIX v2.9.1: silentlySimulateMatch KALDIRILDI.
+              // BULGU #2 DÜZELTME: silentlySimulateMatch recordMatchResult çağırıp fixture.played=true
+              // yapıyordu, sonra advanceMatchday "userMatch = !played" arayıp null buluyordu.
+              // Bu nedenle kullanıcının gol/asist/kondisyon güncellemesi ATLANIYORDU.
+              // advanceMatchday zaten enhanced motorla kullanıcının maçını simüle ediyor (store.ts:1837-1846).
               haptic("success");
-              silentlySimulateMatch(homeTeam, awayTeam);
               useAppStore.getState().advanceMatchday();
             }}
           />

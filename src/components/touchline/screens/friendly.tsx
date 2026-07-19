@@ -42,6 +42,19 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
   const spendCredits = useAppStore((s) => s.spendCredits);
   const managerName = useAppStore((s) => s.managerName);
   const { user } = useSupabaseAuth();
+  // BULGU #14 DÜZELTME (v2.9.1): Guest userId her handleJoinQueue çağrısında yeniden üretiliyordu.
+  // Guest kullanıcı "Online Sohbet + Maç" butonuna her tıklayışında farklı ID ile presence'a katılıyordu.
+  // localStorage'da persistent guest ID tut → aynı kullanıcı hep aynı ID.
+  const [stableGuestUserId] = useState(() => {
+    if (typeof window === "undefined") return `guest_${Date.now()}`;
+    if (user?.id) return user.id;
+    const existing = localStorage.getItem("tm_guest_id");
+    if (existing) return existing;
+    const newId = `guest_${Date.now()}`;
+    localStorage.setItem("tm_guest_id", newId);
+    return newId;
+  });
+  const stableUserId = user?.id ?? stableGuestUserId;
   const [selectedOppId, setSelectedOppId] = useState<string | null>(null);
   const [matchStarted, setMatchStarted] = useState(false);
   const [matchResult, setMatchResult] = useState<{ home: number; away: number } | null>(null);
@@ -78,8 +91,8 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
     setQueueStatus("searching");
     setFeedback(null);
 
-    // Kullanıcı bilgisi hazırla
-    const userId = user?.id ?? `guest_${Date.now()}`;
+    // Kullanıcı bilgisi hazırla — BULGU #14 DÜZELTME: stable guest userId kullan
+    const userId = stableUserId;
     const queueUser: QueueUser = {
       userId,
       managerName: managerName || "Menajer",
@@ -432,7 +445,24 @@ function FriendlyLiveView({
   const s = engine.state;
   const { user } = useSupabaseAuth();
   const [showChat, setShowChat] = useState(false);
-  const matchId = `friendly_${team.id}_${opponent.id}_${Date.now()}`;
+  // BULGU #3 DÜZELTME (v2.9.1): matchId her render'da yeniden üretiliyordu
+  // (Date.now() her render'da yeni değer döner). Bu, MatchChatPanel useEffect'ini
+  // her engine state update (800ms'de bir) tetikliyordu → chat kanalı sürekli
+  // unsubscribe + re-subscribe döngüsü → "Sohbet bağlanıyor..." döngüsü.
+  // useState initializer ile matchId'yi BİR KEZ oluştur.
+  const [matchId] = useState(() => `friendly_${team.id}_${opponent.id}_${Date.now()}`);
+  // BULGU #4 DÜZELTME (v2.9.1): guest userId her render'da yeniden üretiliyordu.
+  // Kullanıcının kendi gönderdiği mesajlar "başka kullanıcı" görünüyordu (isMe kontrolü fail).
+  // localStorage'da persistent guest ID tut — parent FriendlyScreen ile aynı ID'yi kullan.
+  const [stableUserId] = useState(() => {
+    if (typeof window === "undefined") return `guest_${Date.now()}`;
+    if (user?.id) return user.id;
+    const existing = localStorage.getItem("tm_guest_id");
+    if (existing) return existing;
+    const newId = `guest_${Date.now()}`;
+    localStorage.setItem("tm_guest_id", newId);
+    return newId;
+  });
 
   // P0 FIX: useMemo içinde side-effect YASAK — useEffect kullan
   useEffect(() => {
@@ -541,7 +571,7 @@ function FriendlyLiveView({
             <div className="mt-2">
               <MatchChatPanel
                 matchId={matchId}
-                userId={user?.id ?? `guest_${Date.now()}`}
+                userId={stableUserId}
                 userName={team?.name ?? "Menajer"}
                 onClose={() => setShowChat(false)}
               />

@@ -37,7 +37,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data.session?.user) {
           initCloudSave(data.session.user.id);
           // P0 FIX BUG #14: Engellenen kullanıcıları Supabase'ten yükle
-          loadBlockedUsersFromSupabase(data.session.user.id);
+          // BULGU #7 DÜZELTME (v2.9.1): loadBlockedUsersFromSupabase merge yaptığından
+          // initCloudSave sonrası çağrılması güvenli — cloud-save'in yüklediği yerel
+          // guest ID'leri overwrite etmez, sadece Supabase'ten gelen auth ID'lerini ekler.
+          // Yine de 500ms gecikme ile çağıralım — loadGameState'in bitme şansı tanıyalım.
+          setTimeout(() => loadBlockedUsersFromSupabase(data.session!.user.id), 500);
         }
       })
       .catch(() => {
@@ -63,7 +67,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Cloud save başlat
         initCloudSave(newSession.user.id);
         // P0 FIX BUG #14: Engellenen kullanıcıları Supabase'ten yükle
-        loadBlockedUsersFromSupabase(newSession.user.id);
+        // BULGU #7 DÜZELTME (v2.9.1): merge yapıldığından sıralı çağırmaya gerek yok,
+        // ama 500ms gecikme yine de race'i minimize eder.
+        setTimeout(() => loadBlockedUsersFromSupabase(newSession!.user.id), 500);
       }
 
       // Kullanıcı çıkış yaptıysa cloud save'i durdur

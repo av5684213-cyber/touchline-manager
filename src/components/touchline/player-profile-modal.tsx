@@ -41,6 +41,9 @@ export function PlayerProfileModal({
   useEscapeToClose(onClose);
   useBodyScrollLock(true);
 
+  // BULGU #10 DÜZELTME (v2.9.1): reactive seasonMatchday — getState yerine
+  const seasonMatchday = useAppStore((s) => s.seasonMatchday ?? 0);
+
   const isGK = player.specificPosition === "GK";
 
   const onPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,9 +128,9 @@ export function PlayerProfileModal({
               </span>
             )}
             {/* P0 FIX BUG #11: Cezalı rozeti — ismin yanında */}
-            {player.suspended_until && Number(player.suspended_until) > (useAppStore.getState().seasonMatchday ?? 0) && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-bold bg-amber-500 text-white shrink-0" title={`Cezalı · ${Number(player.suspended_until) - (useAppStore.getState().seasonMatchday ?? 0)} maç`}>
-                🟥 CEZALI {Number(player.suspended_until) - (useAppStore.getState().seasonMatchday ?? 0)}m
+            {player.suspended_until && Number(player.suspended_until) > seasonMatchday && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-bold bg-amber-500 text-white shrink-0" title={`Cezalı · ${Number(player.suspended_until) - seasonMatchday} maç`}>
+                🟥 CEZALI {Number(player.suspended_until) - seasonMatchday}m
               </span>
             )}
             {/* TALİMAT: Takım adı ismin yanına */}
@@ -236,6 +239,8 @@ function OverviewTab({
   t: (key: string, params?: Record<string, string | number>) => string;
   onArketipClick?: (ark: string) => void;
 }) {
+  // BULGU #10 DÜZELTME (v2.9.1): reactive seasonMatchday — getState değil
+  const seasonMatchday = useAppStore((s) => s.seasonMatchday ?? 0);
   return (
     <div className="space-y-3">
       {/* Photo box + identity — sol üst */}
@@ -318,14 +323,14 @@ function OverviewTab({
             </div>
           )}
           {/* P0 FIX BUG #11: Cezalı paneli — oyuncu cezalısysa turuncu kutu */}
-          {player.suspended_until && Number(player.suspended_until) > (useAppStore.getState().seasonMatchday ?? 0) && (
+          {player.suspended_until && Number(player.suspended_until) > seasonMatchday && (
             <div className="mt-1.5 p-2 rounded-lg bg-amber-500/15 border border-amber-500/40">
               <div className="flex items-center gap-1.5">
                 <span className="text-sm">🟥</span>
                 <div className="flex-1 min-w-0">
                   <div className="text-[10px] font-bold text-amber-300">Cezalı</div>
                   <div className="text-[11px] text-amber-300/80">
-                    {Number(player.suspended_until) - (useAppStore.getState().seasonMatchday ?? 0)} maç sonra oynayabilir
+                    {Number(player.suspended_until) - seasonMatchday} maç sonra oynayabilir
                   </div>
                 </div>
               </div>
@@ -1210,6 +1215,8 @@ function ActionsTab({
 }) {
   const listPlayerForSale = useAppStore((s) => s.listPlayerForSale);
   const transfer = useAppStore((s) => s.transfer);
+  // BULGU #10 DÜZELTME (v2.9.1): ActionsTab de kendi reactive seasonMatchday'ine ihtiyaç duyar
+  const seasonMatchday = useAppStore((s) => s.seasonMatchday ?? 0);
   const makeTransferOffer = useAppStore((s) => s.makeTransferOffer);
   const makeLoanOffer = useAppStore((s) => s.makeLoanOffer);
   const setCaptain = useAppStore((s) => s.setCaptain); // P0 FIX BUG #4: Kaptan seç
@@ -1239,11 +1246,14 @@ function ActionsTab({
     haptic("success");
     if (isCaptain) {
       // Kaptanlığı kaldır — myTeam içindeki tüm special_role'leri temizle
+      // BULGU #11 DÜZELTME (v2.9.1): undefined yerine null kullan.
+      // JSON.stringify undefined'ı drop eder (cloud-save sonrası tutarsızlık),
+      // null korunur. setCaptain action'ı da null kullanıyor.
       const state = useAppStore.getState();
       if (!myTeam) return;
       const updatedClubs = state.clubs.map((c) =>
         c.id === myTeam.id
-          ? { ...c, players: c.players.map((p) => ({ ...p, special_role: undefined })) }
+          ? { ...c, players: c.players.map((p) => ({ ...p, special_role: null })) }
           : c
       );
       useAppStore.setState({ clubs: updatedClubs });

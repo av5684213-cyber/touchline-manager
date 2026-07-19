@@ -66,6 +66,9 @@ export function TacticsScreen() {
   const { t, locale } = useI18n();
   const team = useMyTeam();
   const tactics = useAppStore((s) => s.tactics);
+  // BULGU #10 DÜZELTME (v2.9.1): render içinde getState() yerine reactive subscribe.
+  // seasonMatchday değişince component re-render olur, stale state olmaz.
+  const seasonMatchday = useAppStore((s) => s.seasonMatchday ?? 0);
   const updateActiveTactic = useAppStore((s) => s.updateActiveTactic);
   const setSlotRole = useAppStore((s) => s.setSlotRole);
   const swapLineupSlot = useAppStore((s) => s.swapLineupSlot);
@@ -377,8 +380,8 @@ export function TacticsScreen() {
             const isSwap = swapSlot === i;
             const isInjured = p?.is_injured === true;
             // P0 FIX BUG #11: Cezalı oyuncu pitch üzerinde de işaretle
-            const currentMatchday = useAppStore.getState().seasonMatchday ?? 0;
-            const isSuspended = !!(p?.suspended_until && Number(p.suspended_until) > currentMatchday);
+            // BULGU #10 DÜZELTME: reactive seasonMatchday kullan (getState değil)
+            const isSuspended = !!(p?.suspended_until && Number(p.suspended_until) > seasonMatchday);
             return (
               <button
                 key={i}
@@ -416,7 +419,7 @@ export function TacticsScreen() {
                   )}
                   {/* P0 FIX BUG #11: Cezalı ikonu — sağ üstte, sakat yoksa */}
                   {!isInjured && isSuspended && (
-                    <span className="absolute -top-1 -right-1 text-[11px] bg-amber-500 rounded-full w-3.5 h-3.5 flex items-center justify-center" title={`Cezalı · ${Number(p!.suspended_until) - currentMatchday} maç`}>
+                    <span className="absolute -top-1 -right-1 text-[11px] bg-amber-500 rounded-full w-3.5 h-3.5 flex items-center justify-center" title={`Cezalı · ${Number(p!.suspended_until) - seasonMatchday} maç`}>
                       🟥
                     </span>
                   )}
@@ -618,7 +621,8 @@ export function TacticsScreen() {
                       <span className="text-[11px] text-red-400 font-bold">🤕</span>
                     )}
                     {/* P0 FIX BUG #11: Cezalı rozeti — yedek kulübesi listesinde */}
-                    {p.suspended_until && Number(p.suspended_until) > (useAppStore.getState().seasonMatchday ?? 0) && (
+                    {/* BULGU #10 DÜZELTME: reactive seasonMatchday kullan */}
+                    {p.suspended_until && Number(p.suspended_until) > seasonMatchday && (
                       <span className="text-[11px] text-amber-400 font-bold" title="Cezalı">🟥</span>
                     )}
                   </button>
@@ -1230,6 +1234,8 @@ function SlotPlayerPicker({
   const [showAll, setShowAll] = useState(false);
   // INLINE mod: "players" (oyuncu listesi) | "roles" (rol listesi) — picker KAPANMAZ
   const [mode, setMode] = useState<"players" | "roles">("players");
+  // BULGU #10 DÜZELTME (v2.9.1): reactive seasonMatchday — getState değil
+  const seasonMatchday = useAppStore((s) => s.seasonMatchday ?? 0);
 
   // Slot pozisyonuna göre grup belirle
   const slotGroup = POSITION_GROUP[slotPos as keyof typeof POSITION_GROUP] ?? "MID";
@@ -1354,9 +1360,9 @@ function SlotPlayerPicker({
                 const isUsed = usedIds.has(p.id) && !isCurrent;
                 const isInjured = p.is_injured === true;
                 // P0 FIX BUG #11: Kart cezalısı oyuncu kontrolü
-                const currentMatchday = useAppStore.getState().seasonMatchday ?? 0;
-                const isSuspended = !!(p.suspended_until && Number(p.suspended_until) > currentMatchday);
-                const suspendedRemaining = isSuspended ? Number(p.suspended_until) - currentMatchday : 0;
+                // BULGU #10 DÜZELTME: reactive seasonMatchday kullan (getState değil)
+                const isSuspended = !!(p.suspended_until && Number(p.suspended_until) > seasonMatchday);
+                const suspendedRemaining = isSuspended ? Number(p.suspended_until) - seasonMatchday : 0;
                 const isDisabled = isUsed || isInjured || isSuspended;
                 return (
                   <button

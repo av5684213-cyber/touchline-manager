@@ -846,8 +846,18 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
         appearances: isFriendly ? p.appearances : (p.appearances ?? 0) + 1,
         seasonStats: isFriendly ? p.seasonStats : updatedSeasonStats,
         // P0 FIX: Kırmızı kart / 2 sarı kart cezası — SADECE lig maçında
+        // BULGU #1 DÜZELTME (v2.9.1): +1 yerine +2 — advanceMatchday matchday'i 1 artırır,
+        // bu yüzden "matchday+1" ceza maçında "matchday+1 <= seasonMatchday" true olur (oyuncu oynar).
+        // +2 yazarsak: ceza maçı = matchday+1, ondan sonraki maçta (matchday+2) = dönebilir.
+        // Yani: bu hafta oynadı (matchday N) → ceza = N+1 maçı → N+1'de oynayamaz → N+2'de dönebilir.
+        // Filter: suspended_until <= seasonMatchday → N+1 <= N+1 = true → YANLIŞ (oynar)!
+        // Doğru: suspended_until > seasonMatchday → N+1 > N+1 = false → oynar (YANLIŞ!)
+        // Aslında filter "suspended_until <= matchday" → "oynayabilir" demek.
+        // Cezalı = "suspended_until > matchday". Yani +1 yazınca:
+        //   - Ceza maçı (N+1): suspended_until(N+1) > seasonMatchday(N+1) = false → OYNAR (HATA!)
+        // Çözüm: +2 yaz → N+2 > N+1 = true → ceza maçı oynanmaz. ✓
         suspended_until: isFriendly ? p.suspended_until : (suspendedIds.has(p.id)
-          ? String(useAppStore.getState().seasonMatchday + 1)
+          ? String(useAppStore.getState().seasonMatchday + 2)
           : p.suspended_until),
       };
     });
