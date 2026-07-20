@@ -2422,3 +2422,31 @@ Toplam durum (v2.9.0 → v2.9.3):
 - Toplam: 27 düzeltme, 0 kritik açık bulgu
 
 Yarınki hatırlatma: 012_chat_moderation.sql migration'unu Supabase'de çalıştır.
+
+---
+Task ID: release-2.9.3 (TAMAMLANDI)
+Agent: main (Z.AI)
+Task: v2.9.3 GitHub push + APK build + Release
+
+Work Log:
+- package.json: name → "touchline-manager", version → "2.9.3"
+- android-app/app/build.gradle: versionCode 1 → 293, versionName "1.0.0" → "2.9.3"
+- Git commit: "release: v2.9.3 — 27 bug fix, 4 kritik alan düzeltmesi" (ba32c11)
+- Git tag: v2.9.3 (annotated)
+- git push origin main: 5 commit push'landı (9ba1ee2..ba32c11)
+- git push origin v2.9.3: tag push'landı
+- Android SDK kuruldu (cmdline-tools + platform-34 + build-tools 34.0.0 + platform-tools)
+- Prisma client generate edildi (npm prisma generate)
+- Next.js build: 7.1s, 6 static page
+- out/ → android-app/app/src/main/assets/web/ (9.5MB)
+- gradle.properties: heap 512m → 3g, daemon=false, caching=false
+- Gradle assembleRelease: BUILD SUCCESSFUL in 9s
+- APK: 6.3MB, /tmp/touchline-manager-v2.9.3.apk
+- GitHub Release oluşturuldu: ID 356973349
+- APK upload edildi: https://github.com/av5684213-cyber/touchline-manager/releases/download/v2.9.3/touchline-manager-v2.9.3.apk
+
+Stage Summary:
+- GitHub: https://github.com/av5684213-cyber/touchline-manager/releases/tag/v2.9.3
+- APK: 6.3MB, versionCode 293, versionName 2.9.3
+- 27 bug fix + 4 kritik alan düzeltmesi
+- Migration gerekli: supabase/migrations/012_chat_moderation.sql
