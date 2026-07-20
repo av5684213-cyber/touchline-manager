@@ -212,7 +212,10 @@ export function useMatchChat(matchId: string, userId: string, userName: string) 
       // BULGU #6 DÜZELTME (v2.9.1): blockedUsers'ı useEffect bağımlılığından çıkardık,
       // bu yüzden closure stale olabilir. Render filter (satır 309+) güncel listeyle
       // zaten engelli mesajları gizliyor — burada stale check sorun değil, sadece optimizasyon.
-      // setMessages her zaman ekle, render filter gizler.
+      // BULGU #7 DÜZELTME (v2.9.3):getState() ile güncel blockedUsers'ı oku —
+      // engelli kullanıcının mesajlarını state'e HİÇ ekleme (birikmesini önle).
+      const currentBlocked = useAppStore.getState().blockedUsers ?? [];
+      if (currentBlocked.includes(msg.userId)) return; // state'e ekleme
       setMessages((prev) => [...prev, msg]);
     });
 

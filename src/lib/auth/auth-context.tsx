@@ -26,6 +26,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { loginDemo } = useAppStore();
 
   useEffect(() => {
+    // BULGU #2 DÜZELTME (v2.9.3): setTimeout cleanup için ref'lerde tut
+    const pendingTimeouts: ReturnType<typeof setTimeout>[] = [];
+
     // Mevcut session'ı al — hata durumunda da loading'i kapat
     supabase.auth.getSession()
       .then(({ data }) => {
@@ -41,7 +44,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // initCloudSave sonrası çağrılması güvenli — cloud-save'in yüklediği yerel
           // guest ID'leri overwrite etmez, sadece Supabase'ten gelen auth ID'lerini ekler.
           // Yine de 500ms gecikme ile çağıralım — loadGameState'in bitme şansı tanıyalım.
-          setTimeout(() => loadBlockedUsersFromSupabase(data.session!.user.id), 500);
+          pendingTimeouts.push(
+            setTimeout(() => loadBlockedUsersFromSupabase(data.session!.user.id), 500)
+          );
         }
       })
       .catch(() => {
@@ -69,7 +74,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // P0 FIX BUG #14: Engellenen kullanıcıları Supabase'ten yükle
         // BULGU #7 DÜZELTME (v2.9.1): merge yapıldığından sıralı çağırmaya gerek yok,
         // ama 500ms gecikme yine de race'i minimize eder.
-        setTimeout(() => loadBlockedUsersFromSupabase(newSession!.user.id), 500);
+        pendingTimeouts.push(
+          setTimeout(() => loadBlockedUsersFromSupabase(newSession!.user.id), 500)
+        );
       }
 
       // Kullanıcı çıkış yaptıysa cloud save'i durdur
@@ -79,6 +86,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => {
+      // BULGU #2 DÜZELTME: Bekleyen tüm setTimeout'ları temizle — unmount sırasında
+      // loadBlockedUsersFromSupabase çağrılmaz, gereksiz setState önlenir
+      for (const id of pendingTimeouts) clearTimeout(id);
       listener.subscription.unsubscribe();
     };
   }, [loginDemo]);

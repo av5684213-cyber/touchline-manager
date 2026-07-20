@@ -1,4 +1,5 @@
 import { FORMATIONS, Team, type Formation, type Player } from "./data";
+import { isPlayerAvailableAt } from "@/lib/player-availability";
 
 /**
  * Sezon + fikstür + tablo + bildirim üretimi.
@@ -343,7 +344,8 @@ export function seedNotifications(clubs: Team[], myTeamId: string): Notification
 /** Takımın ilk 11'i (formasyonu OTOMATİK doldur, en yüksek OVR'li oyuncuları seç). */
 export function autoFillLineup(
   team: Team,
-  formation: Formation
+  formation: Formation,
+  matchday: number = 0
 ): (Player | null)[] {
   const used = new Set<string>();
   const lineup: (Player | null)[] = [];
@@ -351,11 +353,12 @@ export function autoFillLineup(
   for (const slot of formation.slots) {
     // Slot pozisyonu + ikincil pozisyonlarla eşleşen en iyi oyuncuyu seç
     // P1 FIX: Sakat oyuncuları ele
+    // BULGU #1 DÜZELTME (v2.9.3): isPlayerAvailableAt ile cezalı oyuncuları da ele
     const candidate = team.players
       .filter(
         (p) =>
           !used.has(p.id) &&
-          !p.is_injured &&
+          isPlayerAvailableAt(p, matchday) &&
           (p.position === slot.pos ||
             p.secondaryPositions?.includes(slot.pos))
       )
@@ -367,12 +370,12 @@ export function autoFillLineup(
       if (slot.pos === "GK") {
         // GK slotu için kaleci al
         fallback = team.players
-          .filter((p) => !used.has(p.id) && !p.is_injured && p.specificPosition === "GK")
+          .filter((p) => !used.has(p.id) && isPlayerAvailableAt(p, matchday) && p.specificPosition === "GK")
           .sort((a, b) => b.rating - a.rating)[0];
       } else {
         // Saha slotu için kaleci HARİÇ en yüksek OVR'li oyuncu
         fallback = team.players
-          .filter((p) => !used.has(p.id) && !p.is_injured && p.specificPosition !== "GK")
+          .filter((p) => !used.has(p.id) && isPlayerAvailableAt(p, matchday) && p.specificPosition !== "GK")
           .sort((a, b) => b.rating - a.rating)[0];
       }
     }

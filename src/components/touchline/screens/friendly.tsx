@@ -43,18 +43,19 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
   const managerName = useAppStore((s) => s.managerName);
   const { user } = useSupabaseAuth();
   // BULGU #14 DÜZELTME (v2.9.1): Guest userId her handleJoinQueue çağrısında yeniden üretiliyordu.
-  // Guest kullanıcı "Online Sohbet + Maç" butonuna her tıklayışında farklı ID ile presence'a katılıyordu.
-  // localStorage'da persistent guest ID tut → aynı kullanıcı hep aynı ID.
-  const [stableGuestUserId] = useState(() => {
-    if (typeof window === "undefined") return `guest_${Date.now()}`;
-    if (user?.id) return user.id;
+  // BULGU #3 DÜZELTME (v2.9.3): SSR sırasında Date.now() kullanmak hydration mismatch yaratırdı.
+  // useEffect içinde (client-only) hesapla, useState null başlat.
+  const [stableGuestUserId, setStableGuestUserId] = useState<string | null>(null);
+  useEffect(() => {
+    if (user?.id) { setStableGuestUserId(user.id); return; }
     const existing = localStorage.getItem("tm_guest_id");
-    if (existing) return existing;
+    if (existing) { setStableGuestUserId(existing); return; }
     const newId = `guest_${Date.now()}`;
     localStorage.setItem("tm_guest_id", newId);
-    return newId;
-  });
-  const stableUserId = user?.id ?? stableGuestUserId;
+    setStableGuestUserId(newId);
+  }, [user?.id]);
+  // user varsa onu kullan, yoksa stableGuestUserId (henüz set edilmemişse geçici fallback)
+  const stableUserId = user?.id ?? stableGuestUserId ?? `guest_pending`;
   const [selectedOppId, setSelectedOppId] = useState<string | null>(null);
   const [matchStarted, setMatchStarted] = useState(false);
   const [matchResult, setMatchResult] = useState<{ home: number; away: number } | null>(null);
@@ -467,19 +468,34 @@ function FriendlyLiveView({
   // her engine state update (800ms'de bir) tetikliyordu → chat kanalı sürekli
   // unsubscribe + re-subscribe döngüsü → "Sohbet bağlanıyor..." döngüsü.
   // useState initializer ile matchId'yi BİR KEZ oluştur.
-  const [matchId] = useState(() => `friendly_${team.id}_${opponent.id}_${Date.now()}`);
+  // BULGU #3 v2.9.3: FriendlyLiveView pure client (matchStarted=true iken mount olur)
+  // ama yine de defensive useRef/useEffect pattern kullan.
+  const matchIdRef = useRef<string | null>(null);
+  if (matchIdRef.current === null) {
+    matchIdRef.current = `friendly_${team.id}_${opponent.id}_${Date.now()}`;
+  }
+  const matchId = matchIdRef.current;
   // BULGU #4 DÜZELTME (v2.9.1): guest userId her render'da yeniden üretiliyordu.
   // Kullanıcının kendi gönderdiği mesajlar "başka kullanıcı" görünüyordu (isMe kontrolü fail).
-  // localStorage'da persistent guest ID tut — parent FriendlyScreen ile aynı ID'yi kullan.
-  const [stableUserId] = useState(() => {
-    if (typeof window === "undefined") return `guest_${Date.now()}`;
-    if (user?.id) return user.id;
-    const existing = localStorage.getItem("tm_guest_id");
-    if (existing) return existing;
-    const newId = `guest_${Date.now()}`;
-    localStorage.setItem("tm_guest_id", newId);
-    return newId;
-  });
+  // BULGU #3 v2.9.3: localStorage SSR-safe access — useRef + lazy init.
+  const userIdRef = useRef<string | null>(null);
+  if (userIdRef.current === null) {
+    if (user?.id) {
+      userIdRef.current = user.id;
+    } else if (typeof window !== "undefined") {
+      const existing = localStorage.getItem("tm_guest_id");
+      if (existing) {
+        userIdRef.current = existing;
+      } else {
+        const newId = `guest_${Date.now()}`;
+        localStorage.setItem("tm_guest_id", newId);
+        userIdRef.current = newId;
+      }
+    } else {
+      userIdRef.current = `guest_ssr`;
+    }
+  }
+  const stableUserId = userIdRef.current;
 
   // P0 FIX: useMemo içinde side-effect YASAK — useEffect kullan
   useEffect(() => {

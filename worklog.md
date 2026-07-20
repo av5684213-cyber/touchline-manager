@@ -2351,3 +2351,74 @@ Kullanıcı test senaryoları:
 - BULGU #13: Cihaz 1'de altyapıdan terfi edilen oyuncu cihaz 2'de "hala altyapıda" görünmez
 
 Sonraki adım: Hızlı APK build (./scripts/build-apk.sh) ve cihaz testi
+
+---
+Task ID: bugfix-2.9.3-main (TAMAMLANDI)
+Agent: main (Z.AI)
+Task: v2.9.3 — v2.9.x sonrası kapsamlı denetim, 6 bulgunun düzeltilmesi
+
+Work Log:
+- Denetim raporu: 18 bulgu (1 KRİTİK + 3 ORTA + 14 DÜŞÜK)
+- 6 bulgu düzeltildi (gerçek etkisi olanlar), 12 bulgu "sorun yok" olarak işaretlendi
+
+- BULGU #1 (KRİTİK) DÜZELTİLDİ: isPlayerAvailable 4 yerde kullanılmıyordu
+  * Yeni modül: src/lib/player-availability.ts — isPlayerAvailableAt(p, matchday)
+  * store.ts'teki isPlayerAvailable ile aynı mantık, ama matchday parametreli (store import'u yok, circular dependency yok)
+  * mock/season.ts autoFillLineup: !p.is_injured → isPlayerAvailableAt(p, matchday) (3 yerde)
+    + matchday parametresi eklendi (default 0)
+    + store.ts setFormation action'ı seasonMatchday'i geçiyor
+  * pre-match-screen.tsx pickXIByFormation: !p.is_injured → isPlayerAvailableAt(p, matchday) (3 yerde)
+    + matchday parametresi eklendi, currentMatchday store'dan alınıyor
+  * match.tsx:276 pickBestXI: !p.is_injured → isPlayerAvailableAt(p, currentMd)
+  * store.ts:1725-1730 cup maç appearances: isPlayerAvailable(p, cupMd) kullanıldı
+  * Sonuç: Cezalı oyuncular artık otomatik dizilişe, rakip ilk 11'e, kupa maçına seçilmiyor
+
+- BULGU #2 (ORTA) DÜZELTİLDİ: auth-context.tsx 2 setTimeout cleanup
+  * pendingTimeouts: ReturnType<typeof setTimeout>[] = [] ile toplu takip
+  * Cleanup fonksiyonunda tüm timeout'lar clearTimeout ile iptal ediliyor
+  * 2 setTimeout (getSession + onAuthStateChange) artık cleanup ediliyor
+
+- BULGU #3 (ORTA) DÜZELTİLDİ: friendly.tsx SSR/client mismatch
+  * FriendlyScreen: useState initializer → useEffect + null initial state
+  * stableGuestUserId artık client-only hesaplanıyor (SSR'da null)
+  * FriendlyLiveView: useState → useRef + lazy init (pure client olduğu için useRef daha uygun)
+  * matchId ve userId için aynı defensive pattern
+  * stableUserId "guest_pending" fallback ile çalışıyor (useEffect bitene kadar)
+
+- BULGU #4 (ORTA) DÜZELTİLDİ: loadMultiplayerState youthAcademy/cosmetics/blockedUsers
+  * set() bloğuna 3 yeni alan eklendi:
+    - cosmetics: savedState?.cosmetics ?? { owned: [], equipped: {} }
+    - blockedUsers: savedState?.blockedUsers ?? []
+    - youthAcademy: savedState?.youthAcademy ?? get().youthAcademy
+  * Multiplayer mod aktifleşirse veri kaybı önlendi
+
+- BULGU #5 (DÜŞÜK) DÜZELTİLDİ: match.tsx silentlySimulateMatch dead code
+  * 25 satırlık fonksiyon tanımı silindi (v2.9.1'de çağrımı kaldırılmıştı)
+  * simulateEnhancedMatch + DEFAULT_TACTIC importları da kaldırıldı (artık kullanılmıyor)
+
+- BULGU #7 (DÜŞÜK) DÜZELTİLDİ: match-chat engelli mesajlar state'te birikiyordu
+  * Broadcast handler'da getState().blockedUsers ile kontrol eklendi
+  * Engelli kullanıcının mesajı state'e HİÇ eklenmiyor (render filter zaten gizliyordu ama state büyümeye devam ediyordu)
+
+Test Sonuçları:
+- npx prisma generate: başarılı (Prisma client üretiliyor)
+- npx tsc --noEmit: temiz
+- npx next build: başarılı (9.8s compile, 6 static page)
+
+Stage Summary:
+- 6 bulgu düzeltildi (1 KRİTİK + 3 ORTA + 2 DÜŞÜK)
+- En kritik: Cezalı oyuncular artık otomatik diziliş/rakip 11/kupa maçına SEÇİLMİYOR (BULGU #1)
+- Multiplayer mod veri kaybı önlendi (BULGU #4)
+- SSR hydration riski çözüldü (BULGU #3)
+- auth-context setTimeout leak çözüldü (BULGU #2)
+- 25 satır dead code temizlendi (BULGU #5)
+- Engelli kullanıcı mesajları artık state'te birikmiyor (BULGU #7)
+
+Toplam durum (v2.9.0 → v2.9.3):
+- 5 ana bug + 2 bonus yama + cloud-save refactor (v2.9.0)
+- 10 bulgu düzeltmesi (v2.9.1)
+- 4 bulgu düzeltmesi (v2.9.2)
+- 6 bulgu düzeltmesi (v2.9.3)
+- Toplam: 27 düzeltme, 0 kritik açık bulgu
+
+Yarınki hatırlatma: 012_chat_moderation.sql migration'unu Supabase'de çalıştır.

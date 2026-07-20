@@ -645,14 +645,15 @@ export const useAppStore = create<AppState>()(
       setFormation: (key) => {
         const formation = FORMATIONS.find((f) => f.key === key);
         if (!formation) return;
-        const { myTeamId, clubs } = get();
+        const { myTeamId, clubs, seasonMatchday } = get();
         const team = clubs.find((c) => c.id === myTeamId);
         if (!team) return;
+        // BULGU #1 DÜZELTME (v2.9.3): autoFillLineup'a matchday geç — cezalı oyuncuları ele
         set({
           tactics: {
             ...get().tactics,
             formationKey: key,
-            lineup: autoFillLineup(team, formation),
+            lineup: autoFillLineup(team, formation, seasonMatchday ?? 0),
           },
         });
       },
@@ -1721,9 +1722,11 @@ export const useAppStore = create<AppState>()(
 
           // P0 FIX BUG #16: appearances MAÇ BAŞINA 1 olmalı, GOL BAŞINA değil
           // Önce her takımın ilk 11'ine 1 appearance ver
-          const homeXI = [...homeTeam.players].filter(p => !p.is_injured && p.specificPosition !== "GK")
+          // BULGU #1 DÜZELTME (v2.9.3): isPlayerAvailable ile cezalı oyunculara appearances yazma
+          const cupMd = get().seasonMatchday ?? 0;
+          const homeXI = [...homeTeam.players].filter(p => isPlayerAvailable(p, cupMd) && p.specificPosition !== "GK")
             .sort((a, b) => b.rating - a.rating).slice(0, 10);
-          const awayXI = [...awayTeam.players].filter(p => !p.is_injured && p.specificPosition !== "GK")
+          const awayXI = [...awayTeam.players].filter(p => isPlayerAvailable(p, cupMd) && p.specificPosition !== "GK")
             .sort((a, b) => b.rating - a.rating).slice(0, 10);
           for (const p of homeXI) p.appearances = (p.appearances ?? 0) + 1;
           for (const p of awayXI) p.appearances = (p.appearances ?? 0) + 1;
@@ -3297,6 +3300,11 @@ export const useAppStore = create<AppState>()(
             credits: savedState?.credits ?? 50,
             seasonStartStats: savedState?.seasonStartStats ?? {},
             transfer: savedState?.transfer ?? get().transfer,
+            // BULGU #4 DÜZELTME (v2.9.3): cosmetics, blockedUsers, youthAcademy yükle
+            // — v2.9.0/v2.9.2'de store'a eklendi ama loadMultiplayerState'e unutulmuştu
+            cosmetics: savedState?.cosmetics ?? { owned: [], equipped: {} },
+            blockedUsers: savedState?.blockedUsers ?? [],
+            youthAcademy: savedState?.youthAcademy ?? get().youthAcademy,
           });
           return { success: true };
         } catch (err: any) {

@@ -6,12 +6,14 @@ import { useAppStore, useMyTeam } from "@/lib/store";
 import type { Player, Team } from "@/lib/mock/data";
 import { POSITION_GROUP } from "@/lib/mock/data";
 import { FORMATION_SLOTS } from "@/lib/tactics/types";
+import { isPlayerAvailableAt } from "@/lib/player-availability";
 import { ClubBadge, PositionPill, RatingBadge } from "./ui-bits";
 import { cn } from "@/lib/utils";
 
 // Formasyon bazlı ilk 11 seç — her slot için doğru pozisyondan oyuncu al
 // Bu sayede maksimum 1 kaleci olur (rating'e göre sıralama yapılmaz)
-function pickXIByFormation(players: Player[], formation: string): Player[] {
+// BULGU #1 DÜZELTME (v2.9.3): isPlayerAvailableAt ile cezalı oyuncuları da ele
+function pickXIByFormation(players: Player[], formation: string, matchday: number): Player[] {
   const slots = FORMATION_SLOTS[formation] ?? FORMATION_SLOTS["4-4-2"];
   const used = new Set<string>();
   const lineup: Player[] = [];
@@ -24,21 +26,21 @@ function pickXIByFormation(players: Player[], formation: string): Player[] {
   };
 
   for (const slotPos of slots) {
-    // 1. Tam pozisyon eşleşmesi (sakatlar hariç)
+    // 1. Tam pozisyon eşleşmesi (sakatlar + cezalılar hariç)
     let candidate = players
-      .filter((p) => !used.has(p.id) && !p.is_injured && p.specificPosition === slotPos)
+      .filter((p) => !used.has(p.id) && isPlayerAvailableAt(p, matchday) && p.specificPosition === slotPos)
       .sort((a, b) => b.rating - a.rating)[0];
     // 2. Aynı gruptan
     if (!candidate) {
       const group = getGroup(slotPos);
       candidate = players
-        .filter((p) => !used.has(p.id) && !p.is_injured && getGroup(p.specificPosition) === group)
+        .filter((p) => !used.has(p.id) && isPlayerAvailableAt(p, matchday) && getGroup(p.specificPosition) === group)
         .sort((a, b) => b.rating - a.rating)[0];
     }
     // 3. En yüksek OVR (son çare)
     if (!candidate) {
       candidate = players
-        .filter((p) => !used.has(p.id) && !p.is_injured)
+        .filter((p) => !used.has(p.id) && isPlayerAvailableAt(p, matchday))
         .sort((a, b) => b.rating - a.rating)[0];
     }
     if (candidate) { used.add(candidate.id); lineup.push(candidate); }
@@ -91,6 +93,8 @@ export function PreMatchScreen({
   const userFormation = storeState.tactics.active?.formation ?? "4-4-2";
   const tacticsLineup = storeState.tactics.lineup;
   const filledTactics = tacticsLineup.filter((p): p is Player => p !== null);
+  // BULGU #1 DÜZELTME (v2.9.3): matchday al — pickXIByFormation cezalı oyuncuları ele
+  const currentMatchday = storeState.seasonMatchday ?? 0;
 
   let homeXI: Player[];
   let awayXI: Player[];
@@ -99,16 +103,16 @@ export function PreMatchScreen({
     if (filledTactics.length === 11) {
       homeXI = sortByPosition(filledTactics);
     } else {
-      homeXI = sortByPosition(pickXIByFormation(homeTeam.players, userFormation));
+      homeXI = sortByPosition(pickXIByFormation(homeTeam.players, userFormation, currentMatchday));
     }
-    awayXI = sortByPosition(pickXIByFormation(awayTeam.players, "4-4-2"));
+    awayXI = sortByPosition(pickXIByFormation(awayTeam.players, "4-4-2", currentMatchday));
   } else {
     // Kullanıcı deplasmanda
-    homeXI = sortByPosition(pickXIByFormation(homeTeam.players, "4-4-2"));
+    homeXI = sortByPosition(pickXIByFormation(homeTeam.players, "4-4-2", currentMatchday));
     if (filledTactics.length === 11) {
       awayXI = sortByPosition(filledTactics);
     } else {
-      awayXI = sortByPosition(pickXIByFormation(awayTeam.players, userFormation));
+      awayXI = sortByPosition(pickXIByFormation(awayTeam.players, userFormation, currentMatchday));
     }
   }
 

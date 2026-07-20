@@ -28,8 +28,8 @@ import {
   type Player as PlayerT,
   type Team,
 } from "@/lib/mock/data";
-import { simulateEnhancedMatch } from "@/lib/match/engine/enhancedMatchEngine";
-import { DEFAULT_TACTIC } from "@/lib/tactics/types";
+// BULGU #5 DÜZELTME (v2.9.3): simulateEnhancedMatch + DEFAULT_TACTIC importları
+// kaldırıldı — silentlySimulateMatch silindi, başka yerde kullanılmıyorlar.
 import type {
   MatchEvent as EnhancedMatchEvent,
 } from "@/lib/match/engine/enhancedMatchEngine";
@@ -62,34 +62,11 @@ import { LiveMatchPitch } from "../live-match-pitch";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 import { PreMatchScreen } from "../pre-match-screen";
+import { isPlayerAvailableAt } from "@/lib/player-availability";
 
-// Arka plan simülasyonu — canlı UI göstermeden sadece sonucu hesapla ve kaydet
-function silentlySimulateMatch(home: Team, away: Team) {
-  try {
-    const storeState = useAppStore.getState();
-    const userTactic = storeState.tactics.active ?? DEFAULT_TACTIC;
-    const isHome = home.id === storeState.myTeamId;
-    const homeTactic = isHome ? userTactic : { ...DEFAULT_TACTIC, formation: "4-4-2" };
-    const awayTactic = isHome ? { ...DEFAULT_TACTIC, formation: "4-4-2" } : userTactic;
-
-    // Basit ilk 11 seçimi (en yüksek OVR'li 11)
-    const pickXI = (players: PlayerT[]) =>
-      [...players].sort((a, b) => b.rating - a.rating).slice(0, 11);
-
-    const result = simulateEnhancedMatch(
-      pickXI(home.players) as any,
-      pickXI(away.players) as any,
-      homeTactic as any,
-      awayTactic as any,
-      { homeTeamName: home.name, awayTeamName: away.name } as any
-    );
-
-    // Fikstüre sonucu yaz
-    storeState.recordMatchResult(home.id, away.id, result.homeScore, result.awayScore);
-  } catch (e) {
-    console.error("[silentSim] failed:", e);
-  }
-}
+// BULGU #5 DÜZELTME (v2.9.3): silentlySimulateMatch fonksiyonu kaldırıldı.
+// v2.9.1'de çağrımı kaldırılmıştı (BULGU #2) ama tanımı duruyordu — dead code.
+// İhtiyaç olursa git history'den geri getirilebilir.
 
 export function MatchScreen() {
   const { t, locale } = useI18n();
@@ -272,8 +249,10 @@ export function MatchScreen() {
 
               let homeList, awayList;
               // P0 FIX: Rakip takım için en iyi 11'i rating'e göre seç
+              // BULGU #1 DÜZELTME (v2.9.3): isPlayerAvailableAt ile cezalı oyuncuları da ele
+              const currentMd = useAppStore.getState().seasonMatchday ?? 0;
               const pickBestXI = (players: any[]) =>
-                [...players].filter(p => !p.is_injured).sort((a, b) => b.rating - a.rating).slice(0, 11);
+                [...players].filter(p => isPlayerAvailableAt(p, currentMd)).sort((a, b) => b.rating - a.rating).slice(0, 11);
               if (userIsHome && filledTactics.length === 11) {
                 homeList = filledTactics.map((p) => mapPlayer(p, "home"));
                 awayList = pickBestXI(awayTeam.players).map((p: any) => mapPlayer(p, "away"));
