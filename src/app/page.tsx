@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AuthGate } from "@/components/touchline/auth-gate";
 import { TopBar } from "@/components/touchline/top-bar";
 import { StickyQuickBar } from "@/components/touchline/sticky-quick-bar";
+import { ErrorBoundary } from "@/components/touchline/error-boundary";
 import {
   BottomNav,
   OTHER_TABS,
@@ -59,30 +60,40 @@ export default function Home() {
   // Maç ekranında TopBar ve StickyQuickBar gizlenir (full-screen maç deneyimi)
   const isMatch = tab === "match";
 
+  // Her sekme değişiminde ErrorBoundary reset olsun — "Tekrar Dene" butonu yeni render başlatır
+  const renderScreen = () => {
+    switch (tab) {
+      case "dashboard": return <DashboardScreen />;
+      case "tactics": return <TacticsScreen />;
+      case "match": return <MatchScreen />;
+      case "transfer": return <TransferScreen />;
+      case "standings": return <StandingsScreen />;
+      case "fixture": return <FixtureScreen />;
+      case "scouting": return <ScoutingScreen />;
+      case "youth": return <YouthAcademyScreen />;
+      case "facilities": return <FacilitiesScreen />;
+      case "finance": return <FinanceScreen />;
+      case "awards": return <AwardsScreen />;
+      case "topscorers": return <TopScorersScreen />;
+      case "cup": return <CupScreen />;
+      case "friendly": return <FriendlyScreen />;
+      case "shop": return <ShopScreen />;
+      case "market": return <MarketScreen />;
+      case "leaderboard": return <LeaderboardScreen />;
+      case "reports": return <ReportsScreen />;
+      default: return <ComingSoonScreen title="Yakında" />;
+    }
+  };
+
   return (
     <AuthGate>
       <div className="tm-app-shell flex flex-col">
         {isMatch && <TopBar compact />}
         {!isMatch && <StickyQuickBar activeTab={tab} onChange={setTab} />}
         <main className="flex-1 overflow-y-auto tm-thin-scrollbar">
-          {tab === "dashboard" && <DashboardScreen />}
-          {tab === "tactics" && <TacticsScreen />}
-          {tab === "match" && <MatchScreen />}
-          {tab === "transfer" && <TransferScreen />}
-          {tab === "standings" && <StandingsScreen />}
-          {tab === "fixture" && <FixtureScreen />}
-          {tab === "scouting" && <ScoutingScreen />}
-          {tab === "youth" && <YouthAcademyScreen />}
-          {tab === "facilities" && <FacilitiesScreen />}
-          {tab === "finance" && <FinanceScreen />}
-          {tab === "awards" && <AwardsScreen />}
-          {tab === "topscorers" && <TopScorersScreen />}
-          {tab === "cup" && <CupScreen />}
-          {tab === "friendly" && <FriendlyScreen />}
-          {tab === "shop" && <ShopScreen />}
-          {tab === "market" && <MarketScreen />}
-          {tab === "leaderboard" && <LeaderboardScreen />}
-          {tab === "reports" && <ReportsScreen />}
+          <ErrorBoundary resetKey={tab}>
+            {renderScreen()}
+          </ErrorBoundary>
         </main>
         <BottomNav
           active={tab}

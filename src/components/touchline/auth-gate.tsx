@@ -153,6 +153,17 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               >
                 {t("auth.guest")}
               </button>
+              {/* Geliştirici modu — kayıtsız giriş, tüm özellikler açık */}
+              <button
+                onClick={() => {
+                  // Geliştirici modu: loginDemo'yu "Geliştirici" adıyla çağır
+                  // Cloud-save yok, Supabase yok — tüm oyun local
+                  loginDemo("Geliştirici");
+                }}
+                className="tm-tap w-full py-2 rounded-xl text-[10px] font-bold text-amber-400/80 border border-amber-500/30 bg-amber-500/5 active:scale-[0.98] transition-transform flex items-center justify-center gap-1.5"
+              >
+                <Shield size={11} /> Geliştirici Modu (Kayıtsız)
+              </button>
             </div>
             <p className="text-[10px] text-muted-foreground mt-6 max-w-[240px]">
               Hesabın yoksa misafir olarak başla, ileride kayıt olup ilerlemeni koruyabilirsin.
