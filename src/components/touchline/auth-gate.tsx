@@ -5,7 +5,8 @@ import { useI18n } from "@/lib/i18n/locale-provider";
 import { LocaleSwitcher } from "@/lib/i18n/locale-switcher";
 import { useAppStore } from "@/lib/store";
 import { useSupabaseAuth } from "@/lib/auth/auth-context";
-import { Trophy, Mail, Lock, User, Loader2, Shield, ChevronRight } from "lucide-react";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { Trophy, Mail, Lock, User, Loader2, Shield, ChevronRight, Wifi, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Yönetici hesapları — hardcoded (Supabase auth'da bu emailler varsa yönetici modu)
@@ -27,6 +28,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Supabase yapılandırma durumu
+  const supabaseReady = isSupabaseConfigured();
+
   // Supabase oturumu varsa children göster
   const isSupabaseAuthed = !!session && !!user;
 
@@ -35,8 +39,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isSupabaseAuthed) {
-      // Cloud save zaten auth-context'te başlatılıyor
-      // Eğer local store'da auth yoksa demo login yap (oyun state'i kur)
       if (!useAppStore.getState().isAuthed) {
         const name =
           (user.user_metadata as any)?.manager_name ??
@@ -61,6 +63,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     if (result.error) {
       if (result.error === "Invalid login credentials") {
         setError(t("auth.error.invalid"));
+      } else if (result.error.includes("Supabase yapılandırılmamış")) {
+        setError("Supabase bağlı değil. Geliştirici Modu ile oyna.");
       } else {
         setError(result.error);
       }
@@ -85,6 +89,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         setError(t("auth.error.email_confirm"));
       } else if (result.error.includes("already")) {
         setError(t("auth.error.email_exists"));
+      } else if (result.error.includes("Supabase yapılandırılmamış")) {
+        setError("Supabase bağlı değil. Geliştirici Modu ile oyna.");
       } else {
         setError(result.error);
       }
@@ -93,6 +99,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   const handleDemo = () => {
     loginDemo();
+  };
+
+  // Geliştirici/Yönetici modu — kayıtsız giriş, tüm özellikler local
+  const handleDevMode = () => {
+    loginDemo("Geliştirici");
   };
 
   // Loading ekranı
@@ -111,7 +122,19 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           <div className="text-[11px] uppercase tracking-wider opacity-70 font-semibold">
             {t("app.name")}
           </div>
-          <LocaleSwitcher />
+          <div className="flex items-center gap-2">
+            {/* Supabase durum rozeti */}
+            <div className={cn(
+              "flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold",
+              supabaseReady
+                ? "bg-emerald-500/20 text-emerald-300"
+                : "bg-amber-500/20 text-amber-300"
+            )}>
+              {supabaseReady ? <Wifi size={9} /> : <WifiOff size={9} />}
+              {supabaseReady ? "Online" : "Çevrimdışı"}
+            </div>
+            <LocaleSwitcher />
+          </div>
         </div>
       </header>
 
@@ -129,19 +152,47 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             </p>
 
             <div className="w-full max-w-[280px] space-y-2.5">
+              {/* Geliştirici Modu — en üstte, büyük ve belirgin */}
               <button
-                onClick={() => { setError(""); setMode("login"); }}
+                onClick={handleDevMode}
                 className="tm-tap w-full py-3 rounded-xl text-sm font-bold text-white shadow-md active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
-                style={{ background: "var(--primary)" }}
+                style={{ background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)" }}
               >
-                {t("auth.login")} <ChevronRight size={16} />
+                <Shield size={16} /> Geliştirici Modu (Kayıtsız) <ChevronRight size={16} />
               </button>
-              <button
-                onClick={() => { setError(""); setMode("register"); }}
-                className="tm-tap w-full py-3 rounded-xl text-sm font-bold border border-border bg-card active:scale-[0.98] transition-transform"
-              >
-                {t("auth.register")}
-              </button>
+              <p className="text-[10px] text-amber-400/70 mb-3">
+                Supabase/şifre olmadan direkt oyna — tüm veriler cihazında kalır
+              </p>
+
+              {/* Supabase bağlıysa giriş/kayıt butonları */}
+              {supabaseReady ? (
+                <>
+                  <div className="flex items-center gap-2 my-3">
+                    <div className="flex-1 h-px bg-border" />
+                    <span className="text-[10px] text-muted-foreground">veya hesabınla giriş yap</span>
+                    <div className="flex-1 h-px bg-border" />
+                  </div>
+                  <button
+                    onClick={() => { setError(""); setMode("login"); }}
+                    className="tm-tap w-full py-3 rounded-xl text-sm font-bold text-white shadow-md active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+                    style={{ background: "var(--primary)" }}
+                  >
+                    {t("auth.login")} <ChevronRight size={16} />
+                  </button>
+                  <button
+                    onClick={() => { setError(""); setMode("register"); }}
+                    className="tm-tap w-full py-3 rounded-xl text-sm font-bold border border-border bg-card active:scale-[0.98] transition-transform"
+                  >
+                    {t("auth.register")}
+                  </button>
+                </>
+              ) : (
+                <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-300/80 leading-relaxed">
+                  ℹ️ Supabase bağlanmadı — giriş/kayıt devre dışı. Geliştirici Modu ile oyna, .env dosyasına Supabase bilgilerini ekleyince online özellikler açılır.
+                </div>
+              )}
+
+              {/* Misafir modu — en altta, küçük */}
               <div className="flex items-center gap-2 my-3">
                 <div className="flex-1 h-px bg-border" />
                 <span className="text-[10px] text-muted-foreground">veya</span>
@@ -153,21 +204,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               >
                 {t("auth.guest")}
               </button>
-              {/* Geliştirici modu — kayıtsız giriş, tüm özellikler açık */}
-              <button
-                onClick={() => {
-                  // Geliştirici modu: loginDemo'yu "Geliştirici" adıyla çağır
-                  // Cloud-save yok, Supabase yok — tüm oyun local
-                  loginDemo("Geliştirici");
-                }}
-                className="tm-tap w-full py-2 rounded-xl text-[10px] font-bold text-amber-400/80 border border-amber-500/30 bg-amber-500/5 active:scale-[0.98] transition-transform flex items-center justify-center gap-1.5"
-              >
-                <Shield size={11} /> Geliştirici Modu (Kayıtsız)
-              </button>
             </div>
-            <p className="text-[10px] text-muted-foreground mt-6 max-w-[240px]">
-              Hesabın yoksa misafir olarak başla, ileride kayıt olup ilerlemeni koruyabilirsin.
-            </p>
           </>
         )}
 

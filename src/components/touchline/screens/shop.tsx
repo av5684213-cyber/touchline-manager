@@ -382,13 +382,22 @@ function PackOpeningAnimation({
             </div>
           </div>
 
-          {/* Next button */}
-          <button
-            onClick={onNext}
-            className="tm-tap px-6 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-bold active:scale-[0.98] transition-transform"
-          >
-            {revealIndex < pulledPlayers.length - 1 ? "Sonraki Oyuncu →" : "Tamamla ✓"}
-          </button>
+          {/* Butonlar — Sonraki + Kapat */}
+          <div className="flex items-center gap-2 w-full max-w-[280px]">
+            <button
+              onClick={onNext}
+              className="tm-tap flex-1 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-bold active:scale-[0.98] transition-transform"
+            >
+              {revealIndex < pulledPlayers.length - 1 ? "Sonraki →" : "Tamamla ✓"}
+            </button>
+            <button
+              onClick={onClose}
+              className="tm-tap px-3 py-2.5 rounded-lg border border-border bg-card text-muted-foreground text-xs font-bold active:scale-[0.98] transition-transform"
+              aria-label="Kapat"
+            >
+              <X size={16} />
+            </button>
+          </div>
 
           <style jsx>{`
             @keyframes cardFlip {
@@ -399,16 +408,30 @@ function PackOpeningAnimation({
         </div>
       )}
 
-      {/* Skip button */}
-      {phase === "shaking" && (
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 tm-tap p-2 text-white/60 hover:text-white"
-          aria-label="Kapat"
-        >
-          <X size={20} />
-        </button>
+      {/* Done phase ama oyuncu yoksa (fallback) — sadece Kapat butonu */}
+      {phase === "done" && !currentPlayer && (
+        <div className="relative flex flex-col items-center gap-4 px-6">
+          <div className="text-base font-bold text-white">Paket açıldı</div>
+          <div className="text-[11px] text-muted-foreground text-center max-w-[260px]">
+            Oyuncular serbest ajan listesine eklendi. Transfer ekranından inceleyebilirsin.
+          </div>
+          <button
+            onClick={onClose}
+            className="tm-tap px-6 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-bold active:scale-[0.98] transition-transform"
+          >
+            Kapat
+          </button>
+        </div>
       )}
+
+      {/* Kapat butonu — her phase'te görünür (sağ üstte) */}
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 tm-tap p-2 text-white/60 hover:text-white z-10"
+        aria-label="Kapat"
+      >
+        <X size={20} />
+      </button>
     </div>
   );
 }

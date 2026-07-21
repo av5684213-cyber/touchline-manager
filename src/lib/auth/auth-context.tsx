@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { useAppStore } from "@/lib/store";
 import { initCloudSave, stopCloudSave, flushGameState } from "@/lib/cloud-save";
 import { loadBlockedUsersFromSupabase } from "@/components/touchline/match-chat";
@@ -106,44 +106,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const signUp = async (email: string, password: string, managerName: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { manager_name: managerName, full_name: managerName },
-      },
-    });
-    if (error) return { error: error.message };
-    // Email confirmation gerekiyorsa
-    if (data.user && !data.session) {
-      return { error: "EMAIL_CONFIRM_REQUIRED" };
+    // Supabase yapılandırılmamışsa — placeholder URL'e istek atmasın
+    if (!isSupabaseConfigured()) {
+      return { error: "Supabase yapılandırılmamış. Geliştirici Modu ile devam edin." };
     }
-    return {};
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { manager_name: managerName, full_name: managerName },
+        },
+      });
+      if (error) return { error: error.message };
+      if (data.user && !data.session) {
+        return { error: "EMAIL_CONFIRM_REQUIRED" };
+      }
+      return {};
+    } catch (e: any) {
+      return { error: e?.message ?? "Bağlantı hatası" };
+    }
   };
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) return { error: error.message };
-    return {};
+    // Supabase yapılandırılmamışsa — placeholder URL'e istek atmasın (crash önlenir)
+    if (!isSupabaseConfigured()) {
+      return { error: "Supabase yapılandırılmamış. Geliştirici Modu ile devam edin." };
+    }
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) return { error: error.message };
+      return {};
+    } catch (e: any) {
+      return { error: e?.message ?? "Bağlantı hatası" };
+    }
   };
 
   const signInWithGoogle = async () => {
-    const redirectTo = `${window.location.origin}/`;
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo,
-        queryParams: {
-          access_type: "offline",
-          prompt: "consent",
+    if (!isSupabaseConfigured()) {
+      return { error: "Supabase yapılandırılmamış. Geliştirici Modu ile devam edin." };
+    }
+    try {
+      const redirectTo = `${window.location.origin}/`;
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
         },
-      },
-    });
-    if (error) return { error: error.message };
-    return {};
+      });
+      if (error) return { error: error.message };
+      return {};
+    } catch (e: any) {
+      return { error: e?.message ?? "Bağlantı hatası" };
+    }
   };
 
   const signOut = async () => {
