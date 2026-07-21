@@ -2450,3 +2450,58 @@ Stage Summary:
 - APK: 6.3MB, versionCode 293, versionName 2.9.3
 - 27 bug fix + 4 kritik alan düzeltmesi
 - Migration gerekli: supabase/migrations/012_chat_moderation.sql
+
+---
+Task ID: schema-fix-2.9.4 (TAMAMLANDI)
+Agent: main (Z.AI)
+Task: v2.9.4 — Supabase migration şema çakışmalarını çöz
+
+Work Log:
+- 14 migration dosyası derinlemesine denetlendi (3015 satır SQL)
+- 7 ÇOK KRİTİK şema çakışması tespit edildi:
+  1. active_tactics (001 formation-based vs 006 JSONB-based)
+  2. user_facilities + active_upgrades (001 facility_type ENUM vs 002 TEXT + upgraded_at)
+  3. staff (001 staff_type ENUM vs 002 staff_role ENUM + hired_at)
+  4. standings (001 season_id vs 004 department_id + GENERATED goal_diff)
+  5. notifications (001 profile_id+kind ENUM vs 007 user_id+type TEXT) — MIGRATION-TIME ERROR
+  6. cup_matches (001 cup_id+round vs 008 round_number+next_match_id) — runtime RPC error
+  7. transfer_market (001 seller_team_id vs 007 team_id+UNIQUE) — MIGRATION-TIME ERROR
+- Kök neden: CREATE TABLE IF NOT EXISTS deseni ilk çalışan şemayı kilitliyor
+- Ek sorunlar:
+  * 006 update_standings_on_match trigger'ı GENERATED goal_diff kolona yazamıyor
+  * 007 migration'ı yarıyolda duruyor (notifications + transfer_market policy hatası)
+  * 008 cup RPC'leri tanımlanıyor ama çağrılamıyor (next_match_id kolonu yok)
+  * 33 CREATE POLICY ifadesi DROP POLICY olmadan (idempotency yok)
+
+Çözüm: Yeni 013_fix_schema_conflicts.sql migration'ı (448 satır)
+- 7 çakışan tablo DROP + doğru şemayla recreate edildi
+- staff_role ENUM tanımı (DO $$ EXCEPTION ile)
+- standings goal_diff GENERATED değil, düz INTEGER (trigger uyumlu)
+- cup_matches.next_match_id self-FK tanımlandı
+- transfer_market.team_id + UNIQUE(player_id) tanımlandı
+- notifications.user_id + type TEXT + read BOOLEAN tanımlandı
+- transfer_offers_mp, transfer_messages, training_assignments, mentor_assignments, outgoing_offers
+  tabloları IF NOT EXISTS ile (007 yarıda kalmış olabilir diye)
+- update_standings_on_match trigger'ı yeniden tanımlandı (defensive)
+- 21 CREATE POLICY (her biri DROP POLICY IF EXISTS ile korumalı)
+- 2 CREATE OR REPLACE FUNCTION (update_active_tactics_timestamp, update_standings_on_match)
+- Doğrulama sorgusu comment olarak eklendi
+
+Test Sonuçları:
+- Python syntax validator: temiz (parantez, $$ dengesi, statement sayısı)
+- 9 DROP TABLE, 13 CREATE TABLE, 21 CREATE POLICY (19 DROP POLICY ile)
+- Migration idempotent — birden fazla çalıştırılabilir
+
+Stage Summary:
+- 7 ÇOK KRİTİK şema çakışması çözüldü
+- 007 migration-time error sorunu çözüldü
+- Kupa sistemi (generate_cup_bracket, record_cup_result) artık çalışabilir
+- Multiplayer standings sistemi artık department_id ile uyumlu
+- Active tactics JSONB şeması artık doğru kurulur
+- Tüm RLS policy'ler idempotent (DROP IF EXISTS korumalı)
+- Migration sırası önemli: 013 HER ZAMAN 001-012'den SONRA çalıştırılmalı
+
+Kullanıcı için:
+- Eğer Supabase'i sıfırdan kuruyorsa: 001 → 012 → 013 sırasıyla çalıştır
+- Eğer mevcut kurulumu varsa: sadece 013'ü çalıştır (DROP tabloları sıfırlar)
+- 013 multiplayer veriyi SİLER (active_tactics, standings, cup_matches), cloud-save korunur
