@@ -16,10 +16,10 @@ android {
             assets.srcDirs = ['src/main/assets']
         }
     }
-    // v2.9.12: aaptOptions TAMAMEN KALDIRILDI
-    // Android AAPT'nin varsayılan ignoreAssetsPattern "_" ile başlayan
-    // klasörleri atlıyor (_next/!) — bu yüzden APK 400KB çıkıyordu.
-    // aaptOptions bloğu yoksa varsayılan davranış tüm dosyaları paketler.
+    aaptOptions {
+        // Varsayılan pattern — _next/ klasörünü ATMAZ (.* sadece nokta ile başlayan dosyaları etkiler)
+        ignoreAssetsPattern ".svn:.git:.ds_store:*.scc:.*:CVS:thumbs.db:picasa.ini:*.bak"
+    }
     buildTypes {
         release {
             minifyEnabled false
