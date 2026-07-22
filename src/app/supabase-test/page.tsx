@@ -8,21 +8,15 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 // Sadece development/preview ortamında göster
 const isDev = process.env.NEXT_PUBLIC_BUILD_ENV !== "production" && process.env.NODE_ENV === "development";
 
+// Production'da hiçbir şey render etme — boş sayfa (404 yerine)
 export default function SupabaseTestPage() {
+  // Production'da hiçbir şey gösterme
+  if (!isDev) {
+    return null;
+  }
+
   const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
   const [info, setInfo] = useState<string>("");
-
-  // Production'da erişilirse 404 benzeri uyarı göster
-  if (!isDev) {
-    return (
-      <div className="p-8 text-center">
-        <h1 className="text-xl font-bold mb-2">404 — Sayfa Bulunamadı</h1>
-        <p className="text-sm text-muted-foreground">
-          Bu sayfa production build'de mevcut değildir.
-        </p>
-      </div>
-    );
-  }
 
   useEffect(() => {
     async function test() {

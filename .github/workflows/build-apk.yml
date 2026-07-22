@@ -62,6 +62,16 @@ jobs:
         run: |
           rm -rf android-app/app/src/main/assets/web
           mkdir -p android-app/app/src/main/assets/web
+          # v2.9.13 MADDE 3: Test/debug sayfalarını out/'tan sil
+          rm -rf out/supabase-test out/supabase-test.html out/supabase-test.txt
+          rm -rf out/apk-indir out/apk-indir.html
+          rm -rf out/apk-data out/apk-data.html
+          # _next klasörünü next olarak yeniden adlandır (AAPT _ atlama sorunu)
+          if [ -d "out/_next" ]; then
+            mv out/_next out/next
+            find out/ -name "*.html" -exec sed -i 's|/_next/|/next/|g' {} +
+            find out/ -name "*.html" -exec sed -i 's|"_next/|"next/|g' {} +
+          fi
           cp -r out/* android-app/app/src/main/assets/web/
           echo "=== Web assets size ==="
           du -sh android-app/app/src/main/assets/web/
