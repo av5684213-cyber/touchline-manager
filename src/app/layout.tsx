@@ -55,21 +55,32 @@ export default function RootLayout({
               setTimeout(notifyNativeReady, 200);
             });
 
-            // Global error handler — JS hatalarını native'e ilet
+            // v2.9.16 MADDE 2: Global error handler — JS hatalarını native'e ilet
+            // JS → Native köprüsü: AndroidNative.reportJSError(message, source, line)
             window.addEventListener('error', function(e) {
               try {
-                if (window.AndroidNative && window.AndroidNative.reportError) {
+                if (window.AndroidNative && window.AndroidNative.reportJSError) {
+                  window.AndroidNative.reportJSError(
+                    e.message || 'Unknown error',
+                    e.filename || '',
+                    e.lineno || 0
+                  );
+                } else if (window.AndroidNative && window.AndroidNative.reportError) {
+                  // Geri uyumluluk
                   var msg = e.message + ' @ ' + (e.filename || '') + ':' + (e.lineno || 0);
                   window.AndroidNative.reportError(msg);
                 }
               } catch(err) {}
             });
 
-            // Unhandled promise rejection handler
+            // v2.9.16 MADDE 2: Unhandled promise rejection — native'e ilet
+            // JS → Native köprüsü: AndroidNative.reportJSRejection(reason)
             window.addEventListener('unhandledrejection', function(e) {
               try {
-                if (window.AndroidNative && window.AndroidNative.reportError) {
-                  var reason = e.reason ? (e.reason.message || String(e.reason)) : 'Unknown rejection';
+                var reason = e.reason ? (e.reason.message || String(e.reason)) : 'Unknown rejection';
+                if (window.AndroidNative && window.AndroidNative.reportJSRejection) {
+                  window.AndroidNative.reportJSRejection(reason);
+                } else if (window.AndroidNative && window.AndroidNative.reportError) {
                   window.AndroidNative.reportError('Promise rejection: ' + reason);
                 }
               } catch(err) {}

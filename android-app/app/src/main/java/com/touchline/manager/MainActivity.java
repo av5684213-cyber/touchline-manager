@@ -28,6 +28,11 @@ import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 import android.widget.Toast;
 
 import java.io.File;
@@ -61,6 +66,11 @@ public class MainActivity extends Activity {
     // JS köprüsü: geri tuşu cevabı için
     private volatile boolean jsBackHandled = false;
     private final Object jsBackLock = new Object();
+
+    // v2.9.16 MADDE 5: Ağ durumu
+    private View networkBanner;
+    private ConnectivityManager connectivityManager;
+    private ConnectivityManager.NetworkCallback networkCallback;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -108,6 +118,61 @@ public class MainActivity extends Activity {
 
         // v2.9.13 MADDE 5: loadUrl SABİT — Intent extra ile override edilemez
         webView.loadUrl("file:///android_asset/web/index.html");
+
+        // v2.9.16 MADDE 5: Ağ durumu takibi başlat
+        setupNetworkMonitoring();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // v2.9.16 MADDE 5: Ağ durumu farkındalığı
+    // ═══════════════════════════════════════════════════════════════════════════
+    private void setupNetworkMonitoring() {
+        // Ağ banner'ı oluştur
+        networkBanner = new TextView(this);
+        ((TextView) networkBanner).setText("⚠️ İnternet bağlantın yok");
+        networkBanner.setBackgroundColor(Color.parseColor("#ef4444"));
+        ((TextView) networkBanner).setTextColor(Color.WHITE);
+        ((TextView) networkBanner).setTextSize(13);
+        ((TextView) networkBanner).setGravity(Gravity.CENTER);
+        networkBanner.setPadding(0, 24, 0, 24);
+        networkBanner.setVisibility(View.GONE);
+
+        FrameLayout.LayoutParams bannerParams = new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.TOP
+        );
+        rootView.addView(networkBanner, bannerParams);
+
+        // ConnectivityManager ile ağ takibi
+        connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivityManager == null) return;
+
+        NetworkRequest request = new NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build();
+
+        networkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(Network network) {
+                runOnUiThread(() -> {
+                    if (networkBanner != null) networkBanner.setVisibility(View.GONE);
+                    CrashReporter.getInstance().addBreadcrumb("network", "Connection restored");
+                });
+            }
+
+            @Override
+            public void onLost(Network network) {
+                runOnUiThread(() -> {
+                    if (networkBanner != null) networkBanner.setVisibility(View.VISIBLE);
+                    CrashReporter.getInstance().sendEvent(
+                        CrashReporter.CAT_NETWORK_OFFLINE, "warning",
+                        "Network connection lost");
+                });
+            }
+        };
+
+        connectivityManager.registerNetworkCallback(request, networkCallback);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -224,8 +289,9 @@ public class MainActivity extends Activity {
 
         // ═══ JS köprüsü ═══
         // Mesaj formatı: AndroidNative.methodName(params)
-        // JS → Native: postMessage ile (onAppReady, reportError, onBackResult)
-        // Native → JS: evaluateJavascript ile (handleNativeBack)
+        // JS → Native: AndroidNative.onAppReady() / reportError(msg) / reportJSError(msg, file, line) /
+        //               reportJSRejection(reason) / onBackResult(handled)
+        // Native → JS: evaluateJavascript("window.handleNativeBack()")
         webView.addJavascriptInterface(new Object() {
             @android.webkit.JavascriptInterface
             public void onAppReady() {
@@ -236,15 +302,33 @@ public class MainActivity extends Activity {
                     }
                     Log.i(TAG, "JS app ready — splash gizlendi");
                 });
+                CrashReporter.getInstance().addBreadcrumb("app_lifecycle", "JS app ready");
             }
 
+            // v2.9.16 MADDE 2: JS global error (window.onerror)
+            @android.webkit.JavascriptInterface
+            public void reportJSError(String message, String source, int lineNumber) {
+                CrashReporter.getInstance().sendEvent(
+                    CrashReporter.CAT_JS_GLOBAL_ERROR, "error",
+                    message + " @ " + source + ":" + lineNumber);
+            }
+
+            // v2.9.16 MADDE 2: JS unhandled promise rejection
+            @android.webkit.JavascriptInterface
+            public void reportJSRejection(String reason) {
+                CrashReporter.getInstance().sendEvent(
+                    CrashReporter.CAT_JS_REJECTION, "error",
+                    "Unhandled rejection: " + reason);
+            }
+
+            // Eski reportError — geri uyumluluk için kalsın
             @android.webkit.JavascriptInterface
             public void reportError(String errorMessage) {
-                Log.e(TAG, "JS Error: " + errorMessage);
+                CrashReporter.getInstance().sendEvent(
+                    CrashReporter.CAT_JS_CONSOLE_ERROR, "error", errorMessage);
             }
 
             // MADDE 1: JS'den geri tuşu cevabı
-            // JS handleNativeBack() çağrılır, cevap olarak handled=true/false döner
             @android.webkit.JavascriptInterface
             public void onBackResult(boolean handled) {
                 synchronized (jsBackLock) {
@@ -254,19 +338,54 @@ public class MainActivity extends Activity {
             }
         }, "AndroidNative");
 
-        // WebChromeClient — progress tracking
+        // WebChromeClient — progress tracking + JS console message yakalama
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onProgressChanged(WebView view, int newProgress) {
                 super.onProgressChanged(view, newProgress);
                 if (loadingView != null && newProgress >= 100) {
-                    // Fallback: 2 saniye sonra loading'i gizle (onAppReady gelmezse)
                     webView.postDelayed(() -> {
                         if (loadingView != null && loadingView.getVisibility() != View.GONE) {
                             loadingView.setVisibility(View.GONE);
                         }
                     }, 2000);
                 }
+            }
+
+            // v2.9.16 MADDE 2: JS console.error/warn çağrılarını yakala
+            @Override
+            public boolean onConsoleMessage(android.webkit.ConsoleMessage consoleMessage) {
+                String message = consoleMessage.message();
+                String sourceId = consoleMessage.sourceId();
+                int lineNumber = consoleMessage.lineNumber();
+
+                // PII filtrele
+                message = CrashReporter.scrubPII(message);
+
+                String level = "info";
+                String category = "js_console_info";
+
+                switch (consoleMessage.messageLevel()) {
+                    case ERROR:
+                        level = "error";
+                        category = CrashReporter.CAT_JS_CONSOLE_ERROR;
+                        CrashReporter.getInstance().sendEvent(category, level,
+                            message + " @ " + sourceId + ":" + lineNumber);
+                        break;
+                    case WARNING:
+                        level = "warning";
+                        category = CrashReporter.CAT_JS_CONSOLE_WARN;
+                        CrashReporter.getInstance().sendEvent(category, level,
+                            message + " @ " + sourceId + ":" + lineNumber);
+                        break;
+                    case DEBUG:
+                    case LOG:
+                    case TIP:
+                        // info seviyesi — breadcrumb olarak kaydet
+                        CrashReporter.getInstance().addBreadcrumb("js_console", message);
+                        break;
+                }
+                return true;
             }
         });
 
@@ -374,6 +493,31 @@ public class MainActivity extends Activity {
                 handler.cancel();
             }
 
+            // v2.9.16 MADDE 4: Render process çökmesi yönetimi
+            @Override
+            public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) {
+                // CrashReporter'a event gönder
+                String reason = detail.didCrash() ? "crash" : "OOM";
+                CrashReporter.getInstance().sendEvent(
+                    CrashReporter.CAT_RENDER_PROCESS_GONE, "error",
+                    "Render process gone — reason: " + reason);
+
+                Log.e(TAG, "Render process gone — reason: " + reason);
+
+                // WebView'i temizle ve yeniden oluştur
+                if (webView != null) {
+                    webView.setVisibility(View.GONE);
+                    webView.destroy();
+                    webView = null;
+                }
+
+                // Activity'yi yeniden oluştur
+                runOnUiThread(() -> {
+                    recreate();
+                });
+                return true; // true = biz handle ettik, false = default davranış (crash)
+            }
+
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
@@ -391,7 +535,13 @@ public class MainActivity extends Activity {
     // ═══════════════════════════════════════════════════════════════════════════
     // MADDE 5: Hata ekranını göster
     // ═══════════════════════════════════════════════════════════════════════════
+    // v2.9.16 MADDE 3: Hata ekranını göster + CrashReporter'a bildir
     private void showErrorScreen() {
+        // CrashReporter'a event gönder
+        CrashReporter.getInstance().sendEvent(
+            CrashReporter.CAT_WEBVIEW_LOAD_ERROR, "error",
+            "WebView failed to load file:///android_asset/web/index.html");
+
         runOnUiThread(() -> {
             if (loadingView != null) loadingView.setVisibility(View.GONE);
             if (webView != null) webView.setVisibility(View.GONE);
@@ -508,6 +658,10 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        // v2.9.16 MADDE 5: Network callback'i temizle
+        if (connectivityManager != null && networkCallback != null) {
+            connectivityManager.unregisterNetworkCallback(networkCallback);
+        }
         if (webView != null) {
             webView.destroy();
             webView = null;
