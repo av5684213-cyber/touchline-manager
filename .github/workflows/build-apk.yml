@@ -50,6 +50,10 @@ jobs:
           rm -rf android-app/app/src/main/assets/web
           mkdir -p android-app/app/src/main/assets/web
           cp -r out/* android-app/app/src/main/assets/web/
+          echo "=== Web assets size ==="
+          du -sh android-app/app/src/main/assets/web/
+          echo "=== File count ==="
+          find android-app/app/src/main/assets/web/ -type f | wc -l
 
       - name: Build APK
         working-directory: android-app

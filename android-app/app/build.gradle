@@ -17,9 +17,10 @@ android {
         }
     }
     aaptOptions {
-        // Varsayılan pattern _* ile başlayan klasörleri (Next.js _next/) atlıyor!
-        // Sadece gerçekten gereksiz dosyaları hariç tut.
-        ignoreAssetsPattern ".svn:.git:.ds_store:*.scc:.*:CVS:thumbs.db:picasa.ini:*.bak"
+        // v2.9.11: _next/ klasörünü ATLAMA — Next.js statik dosyaları burada
+        // Eski pattern: ".*" → _next/ ve tüm gizli dosyaları atlıyordu
+        // Yeni: sadece gerçekten gereksiz dosyaları atla
+        ignoreAssetsPattern ".svn:.git:.ds_store:*.scc:CVS:thumbs.db:picasa.ini:*.bak"
     }
     buildTypes {
         release {
