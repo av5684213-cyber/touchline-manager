@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { LocaleProvider } from "@/lib/i18n/locale-provider";
-// v2.9.15: ServiceWorkerRegistrar kaldırıldı — file:// origin'inde SW çalışmaz
+import { ServiceWorkerRegistrar } from "@/components/service-worker-registrar";
 import { AuthProvider } from "@/lib/auth/auth-context";
 
 const inter = Inter({
@@ -17,8 +17,25 @@ export const metadata: Metadata = {
   description: "Futbol kulübü yönetim oyunu - Online multiplayer",
   applicationName: "Touchline Manager",
   authors: [{ name: "Touchline" }],
-  // v2.9.15: PWA manifest ve icons kaldırıldı — native APK'da gereksiz
-  // Native launcher ikonları AndroidManifest'ten gelir (mipmap-*)
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Touchline Manager",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-72.png", sizes: "72x72", type: "image/png" },
+      { url: "/icons/icon-96.png", sizes: "96x96", type: "image/png" },
+      { url: "/icons/icon-128.png", sizes: "128x128", type: "image/png" },
+      { url: "/icons/icon-144.png", sizes: "144x144", type: "image/png" },
+      { url: "/icons/icon-152.png", sizes: "152x152", type: "image/png" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-384.png", sizes: "384x384", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+  },
 };
 
 export const viewport: Viewport = {
@@ -38,7 +55,12 @@ export default function RootLayout({
   return (
     <html lang="tr" suppressHydrationWarning>
       <head>
-        {/* v2.9.15: PWA/apple meta tag'leri kaldırıldı — native APK'da gereksiz */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Touchline Manager" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <link rel="apple-touch-startup-image" href="/icons/icon-512.png" />
         {/* v2.9.11 PROD 9: Global error handler — JS hatalarını native'e ilet */}
         <script dangerouslySetInnerHTML={{ __html: `
           (function() {
@@ -55,32 +77,21 @@ export default function RootLayout({
               setTimeout(notifyNativeReady, 200);
             });
 
-            // v2.9.16 MADDE 2: Global error handler — JS hatalarını native'e ilet
-            // JS → Native köprüsü: AndroidNative.reportJSError(message, source, line)
+            // Global error handler — JS hatalarını native'e ilet
             window.addEventListener('error', function(e) {
               try {
-                if (window.AndroidNative && window.AndroidNative.reportJSError) {
-                  window.AndroidNative.reportJSError(
-                    e.message || 'Unknown error',
-                    e.filename || '',
-                    e.lineno || 0
-                  );
-                } else if (window.AndroidNative && window.AndroidNative.reportError) {
-                  // Geri uyumluluk
+                if (window.AndroidNative && window.AndroidNative.reportError) {
                   var msg = e.message + ' @ ' + (e.filename || '') + ':' + (e.lineno || 0);
                   window.AndroidNative.reportError(msg);
                 }
               } catch(err) {}
             });
 
-            // v2.9.16 MADDE 2: Unhandled promise rejection — native'e ilet
-            // JS → Native köprüsü: AndroidNative.reportJSRejection(reason)
+            // Unhandled promise rejection handler
             window.addEventListener('unhandledrejection', function(e) {
               try {
-                var reason = e.reason ? (e.reason.message || String(e.reason)) : 'Unknown rejection';
-                if (window.AndroidNative && window.AndroidNative.reportJSRejection) {
-                  window.AndroidNative.reportJSRejection(reason);
-                } else if (window.AndroidNative && window.AndroidNative.reportError) {
+                if (window.AndroidNative && window.AndroidNative.reportError) {
+                  var reason = e.reason ? (e.reason.message || String(e.reason)) : 'Unknown rejection';
                   window.AndroidNative.reportError('Promise rejection: ' + reason);
                 }
               } catch(err) {}
@@ -136,6 +147,7 @@ export default function RootLayout({
             {children}
           </AuthProvider>
           <Toaster />
+          <ServiceWorkerRegistrar />
         </LocaleProvider>
       </body>
     </html>
