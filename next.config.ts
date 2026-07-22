@@ -7,7 +7,8 @@ const nextConfig: NextConfig = {
   assetPrefix: "./",
   images: { unoptimized: true },
   reactStrictMode: false,
-  // API route'u static export'ta yok say
+  // v2.9.11: Production build'de source map üretme — APK boyutu küçülür, kod gizli kalır
+  productionBrowserSourceMaps: false,
 };
 
 export default nextConfig;

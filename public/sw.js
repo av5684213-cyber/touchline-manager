@@ -1,3 +1,7 @@
+// v2.9.11: Push notification ölü kodu kaldırıldı
+// Bu service worker WebView native kabuğunda çalışmıyor (FCM entegrasyonu yok).
+// Sadece offline cache için tutuluyor — push/notificationclick event'leri silindi.
+
 const CACHE_NAME = 'touchline-v1';
 const OFFLINE_URL = '/offline';
 
@@ -11,7 +15,7 @@ const STATIC_ASSETS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS).catch(() => {}))
   );
   self.skipWaiting();
 });
@@ -36,19 +40,5 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-self.addEventListener('push', (event) => {
-  const data = event.data?.json() ?? {};
-  event.waitUntil(
-    self.registration.showNotification(data.title ?? 'Touchline Manager', {
-      body: data.body ?? '',
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-96.png',
-      data: { url: data.url ?? '/' },
-    })
-  );
-});
-
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  event.waitUntil(clients.openWindow(event.notification.data.url));
-});
+// v2.9.11: push ve notificationclick event'leri kaldırıldı
+// (native WebView kabuğunda FCM yok — bu kod hiç tetiklenmiyordu)

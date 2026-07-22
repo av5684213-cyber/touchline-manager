@@ -9,6 +9,8 @@
  */
 
 import { TIER_TEAM_NAMES, TEAM_NAME_BANK } from "@/lib/match/engine/constants";
+// v2.9.11: Oyun stili atama (pozisyona göre ağırlıklı)
+import { assignRandomPlayStyle } from "@/lib/match/engine/playStyles";
 
 export type Position =
   | "GK"
@@ -752,7 +754,9 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
     traits,
     negTraits,
     personalityTraits: pickN(PERSONALITY_TRAITS, rand(0, 2)),
-    playStyle: pick(["Gegenpressing", "Tiki-Taka", "Catenaccio", "Counter-Attack", "Wing Play"]),
+    // v2.9.11: assignRandomPlayStyle kullan — pozisyona göre ağırlıklı seçim
+    // Eski: pick(["Gegenpressing", "Tiki-Taka", "Catenaccio", "Counter-Attack", "Wing Play"])
+    playStyle: assignRandomPlayStyle({ position: pos } as any)?.playStyle ?? "Possession Football",
     archetype: archetypeVal,
     special_role: null,
     // 🎭 Maç karakteri — her oyuncuya rastgele ata

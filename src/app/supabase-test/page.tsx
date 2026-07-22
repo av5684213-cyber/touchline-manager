@@ -3,9 +3,25 @@
 import { useEffect, useState } from "react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
+// v2.9.11: Production build'de bu sayfa render edilmez
+// Sadece NODE_ENV=development veya preview ortamında göster
+const isDev = process.env.NODE_ENV === "development";
+
 export default function SupabaseTestPage() {
   const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
   const [info, setInfo] = useState<string>("");
+
+  // Production'da erişilirse uyarı göster
+  if (!isDev && typeof window !== "undefined") {
+    return (
+      <div className="p-8 text-center">
+        <h1 className="text-xl font-bold mb-2">Bu sayfa production'da devre dışı</h1>
+        <p className="text-sm text-muted-foreground">
+          Supabase test sayfası sadece geliştirme ortamında kullanılabilir.
+        </p>
+      </div>
+    );
+  }
 
   useEffect(() => {
     async function test() {

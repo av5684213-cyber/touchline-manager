@@ -249,6 +249,27 @@ export const PLAY_STYLE_DEFS: PlayStyleDef[] = [
       shotAccuracyBonus: 0.00,
     },
   },
+  // v2.9.11: Counter-Attack eklendi (mock/data.ts'te vardı, motorde yoktu)
+  {
+    id: 'counter_attack',
+    name: 'Counter-Attack',
+    short: 'Kontra atak',
+    icon: '🎯',
+    description: 'Savunmadan hızlı çıkış. Topu kazanıp hızla forvete ulaştırır. Defansif ama öldürücü.',
+    modifiers: {
+      pressingBonus: 0.04,
+      passAccuracyBonus: -0.03,
+      staminaDrain: -0.05,
+      tackleBonus: 0.06,
+      possessionBonus: -0.08,
+      counterBonus: 0.18,
+      crossingBonus: 0.02,
+      longBallBonus: 0.10,
+      defenseBonus: 0.10,
+      shotFrequencyBonus: -0.05,
+      shotAccuracyBonus: 0.05,
+    },
+  },
 ];
 
 // ─── Lookup maps ────────────────────────────────────────────────────────────
@@ -452,4 +473,163 @@ export function calculateTeamPlayStyleModifiers(
 // ─── Get all play style names (for dropdowns etc.) ──────────────────────────
 export function getAllPlayStyleNames(): { id: string; name: string; icon: string }[] {
   return PLAY_STYLE_DEFS.map(def => ({ id: def.id, name: def.name, icon: def.icon }));
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// v2.9.11: OYUN STİLİ UYUM SİSTEMİ
+// ════════════════════════════════════════════════════════════════════════════
+// İlk 11'de benzer oyun stillerine sahip 4+ oyuncu varsa bonus.
+// Aynı zamanda seçili taktik ile uyumluysa ekstra bonus.
+//
+// Senaryo:
+// - 4 oyuncu Gegenpressing stilde → +%4 takım gücü
+// - 5 oyuncu Gegenpressing + taktikte Gegenpressing seçili → +%4 + +%3 = +%7
+// - 6+ oyuncu Gegenpressing + taktik uyumu → +%6 + +%5 = +%11
+//
+// Maksimum bonus: +%12 (8+ oyuncu + taktik uyumu)
+
+/**
+ * Lineup'daki oyun stili dağılımını sayar.
+ */
+export function getLineStyleCounts(lineup: Player[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const p of lineup) {
+    if (!p?.playStyle) continue;
+    counts[p.playStyle] = (counts[p.playStyle] ?? 0) + 1;
+  }
+  return counts;
+}
+
+/**
+ * En yaygın oyun stilini ve oyuncu sayısını döndürür.
+ */
+export function getDominantLineStyle(lineup: Player[]): { style: string; count: number } | null {
+  const counts = getLineStyleCounts(lineup);
+  const entries = Object.entries(counts);
+  if (entries.length === 0) return null;
+  entries.sort((a, b) => b[1] - a[1]);
+  return { style: entries[0][0], count: entries[0][1] };
+}
+
+/**
+ * Lineup oyun stili uyum bonusu.
+ * 4+ oyuncu aynı stilde → bonus başlar.
+ * 5 oyuncu → +%3
+ * 6 oyuncu → +%4.5
+ * 7 oyuncu → +%6
+ * 8+ oyuncu → +%8
+ *
+ * @param lineup 11 oyuncu (null olabilir)
+ * @returns Bonus çarpanı (0 - 0.08 arası)
+ */
+export function calculateLineStyleBonus(lineup: Player[]): number {
+  const dominant = getDominantLineStyle(lineup);
+  if (!dominant || dominant.count < 4) return 0;
+
+  // 4 oyuncu: +%2 (taban)
+  // Her ek oyuncu: +%1.5
+  // 8+ oyuncu: +%8 (cap)
+  const excessCount = dominant.count - 4;
+  const bonus = 0.02 + excessCount * 0.015;
+  return Math.min(bonus, 0.08);
+}
+
+/**
+ * Lineup stili ile seçili taktik stili uyumu.
+ * Eğer dominant lineup stili ile taktikteki playStyle aynıysa ekstra bonus.
+ *
+ * @param lineup 11 oyuncu
+ * @param tacticPlayStyle Taktikten gelen playStyle (örn "Gegenpressing")
+ * @returns Bonus çarpanı (0 veya 0.03 - 0.05 arası)
+ */
+export function calculateTacticStyleSynergy(
+  lineup: Player[],
+  tacticPlayStyle?: string
+): number {
+  if (!tacticPlayStyle) return 0;
+  const dominant = getDominantLineStyle(lineup);
+  if (!dominant || dominant.count < 4) return 0;
+
+  // Taktik playStyle'ı normalize et
+  // (UI'da "dengeli/hucum/savunma/kontra" olabilir, bunları gerçek stillere eşle)
+  const tacticNormalized = normalizePlayStyle(tacticPlayStyle);
+  const lineupNormalized = normalizePlayStyle(dominant.style);
+
+  if (tacticNormalized === lineupNormalized) {
+    // 4-5 oyuncu: +%3, 6-7 oyuncu: +%4, 8+ oyuncu: +%5
+    if (dominant.count >= 8) return 0.05;
+    if (dominant.count >= 6) return 0.04;
+    return 0.03;
+  }
+  return 0;
+}
+
+/**
+ * Toplam stil uyum bonusu (lineup + taktik).
+ * Maç motoruna tek çağrı ile hesaplanır.
+ */
+export function calculateTotalStyleSynergy(
+  lineup: Player[],
+  tacticPlayStyle?: string
+): {
+  totalBonus: number;          // 0 - 0.13 arası
+  lineBonus: number;           // lineup bonusu
+  tacticSynergy: number;       // taktik uyumu
+  dominantStyle: string | null;
+  dominantCount: number;
+  hasTacticSynergy: boolean;
+  description: string;
+} {
+  const lineBonus = calculateLineStyleBonus(lineup);
+  const tacticSynergy = calculateTacticStyleSynergy(lineup, tacticPlayStyle);
+  const dominant = getDominantLineStyle(lineup);
+
+  const totalBonus = lineBonus + tacticSynergy;
+  const hasTacticSynergy = tacticSynergy > 0;
+
+  let description = "";
+  if (dominant && dominant.count >= 4) {
+    description = `${dominant.count} oyuncu ${dominant.style} stilde`;
+    if (hasTacticSynergy) {
+      description += ` + taktik uyumu`;
+    }
+    description += ` → +%${Math.round(totalBonus * 100)} takım gücü`;
+  } else {
+    description = "Stil uyumu yok (4+ oyuncu aynı stilde değil)";
+  }
+
+  return {
+    totalBonus,
+    lineBonus,
+    tacticSynergy,
+    dominantStyle: dominant?.style ?? null,
+    dominantCount: dominant?.count ?? 0,
+    hasTacticSynergy,
+    description,
+  };
+}
+
+/**
+ * Play style ismini normalize et — farklı kaynaklardan gelen değerleri eşle.
+ * "Gegenpressing", "gegenpressing", "Gegen Pressing" → "Gegenpressing"
+ */
+function normalizePlayStyle(style: string): string {
+  const lower = style.toLowerCase().replace(/[\s-]/g, "");
+  // Motor değerleri
+  if (lower === "gegenpressing") return "Gegenpressing";
+  if (lower === "tikitaka") return "Tiki-Taka";
+  if (lower === "catenaccio") return "Catenaccio";
+  if (lower === "directplay") return "Direct Play";
+  if (lower === "wingplay") return "Wing Play";
+  if (lower === "totalfootball") return "Total Football";
+  if (lower === "routeone") return "Route One";
+  if (lower === "possessionfootball") return "Possession Football";
+  if (lower === "highpress") return "High Press";
+  if (lower === "parkingthebus") return "Parking the Bus";
+  if (lower === "counterattack" || lower === "counter_attack" || lower === "kontra") return "Counter-Attack";
+  // UI değerleri — eşleştir
+  if (lower === "dengeli" || lower === "balanced") return "Possession Football";
+  if (lower === "hucum" || lower === "attack") return "Direct Play";
+  if (lower === "savunma" || lower === "defense") return "Catenaccio";
+  return style; // bilinmeyen — olduğu gibi bırak
 }

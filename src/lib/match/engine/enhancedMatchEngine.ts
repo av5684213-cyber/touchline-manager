@@ -10,6 +10,8 @@ import { generateInjury as generateInjuryFromManager } from './injuryManager';
 import { kaptanMi } from './sharedUtils';
 // v2.9.10: Merkezi arketip etki sistemi
 import { getArketipEtki, getArchetypeOvrFactor, getAllArketipEtkiler, ARKETIP_EFFECTS } from './arketipEffects';
+// v2.9.11: Oyun stili uyum sistemi
+import { calculateTotalStyleSynergy } from './playStyles';
 import {
   getPositionEffectiveness,
   getEffectiveRating,
@@ -654,12 +656,18 @@ function calculateTeamStrength(players: Player[], tactic: ActiveTactic, options?
 
   const fmod = FORMATION_MODS[formationKey] ?? FORMATION_MODS['4-4-2'];
 
+  // v2.9.11: OYUN STİLİ UYUM BONUSU
+  // İlk 11'de 4+ oyuncu aynı stilde → bonus, taktik uyumu → ekstra bonus
+  const allPlayers = [...forwards, ...midfielders, ...defenders, ...goalkeepers];
+  const styleSynergy = calculateTotalStyleSynergy(allPlayers as any, (tactic as any).playStyle);
+  const styleSynergyMod = 1 + styleSynergy.totalBonus; // +%X → 1.0X
+
   return {
-    overall: (blendedAttack * fmod.attack * OVERALL_WEIGHT_ATTACK + blendedMidfield * fmod.midfield * OVERALL_WEIGHT_MIDFIELD + blendedDefense * fmod.defense * OVERALL_WEIGHT_DEFENSE + blendedGk * OVERALL_WEIGHT_GK) * tacticMod,
-    attack: blendedAttack * fmod.attack * tacticMod,
-    midfield: blendedMidfield * fmod.midfield * tacticMod,
-    defense: blendedDefense * fmod.defense * tacticMod,
-    gk: blendedGk,
+    overall: (blendedAttack * fmod.attack * OVERALL_WEIGHT_ATTACK + blendedMidfield * fmod.midfield * OVERALL_WEIGHT_MIDFIELD + blendedDefense * fmod.defense * OVERALL_WEIGHT_DEFENSE + blendedGk * OVERALL_WEIGHT_GK) * tacticMod * styleSynergyMod,
+    attack: blendedAttack * fmod.attack * tacticMod * styleSynergyMod,
+    midfield: blendedMidfield * fmod.midfield * tacticMod * styleSynergyMod,
+    defense: blendedDefense * fmod.defense * tacticMod * styleSynergyMod,
+    gk: blendedGk * styleSynergyMod,
   };
 }
 

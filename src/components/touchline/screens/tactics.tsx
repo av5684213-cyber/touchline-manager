@@ -40,6 +40,8 @@ import { TrainingScreen } from "./training";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
+// v2.9.11: Oyun stili uyum sistemi
+import { calculateTotalStyleSynergy } from "@/lib/match/engine/playStyles";
 
 // Mevki pozisyon grubuna göre satır arka planı — orta ton (belirgin ama göz yormaz)
 const POSITION_ROW_BG: Record<PositionGroup, string> = {
@@ -183,6 +185,16 @@ export function TacticsScreen() {
     };
   }, [team, tactics.lineup, tactics.active, tactics.slotRoles, tactics.activeInstructions, slots]);
 
+  // v2.9.11: Oyun stili uyum bonusu hesapla
+  const styleSynergy = useMemo(() => {
+    if (!team) return null;
+    const filled = tactics.lineup.filter((p): p is PlayerT => p !== null);
+    if (filled.length < 4) return null;
+    try {
+      return calculateTotalStyleSynergy(filled as any, tactics.active?.playStyle);
+    } catch { return null; }
+  }, [team, tactics.lineup, tactics.active?.playStyle]);
+
   if (!team) return null;
 
   const onPlayerTap = (player: PlayerT) => {
@@ -290,6 +302,26 @@ export function TacticsScreen() {
           <SubScore label="Talimat" value={instructionScore} />
           <SubScore label="Özellik" value={attributeScore} />
         </div>
+        {/* v2.9.11: Oyun stili uyum bonusu */}
+        {styleSynergy && styleSynergy.dominantCount >= 4 && (
+          <div className={cn(
+            "mt-2 p-2 rounded-lg border text-[11px] flex items-center gap-2",
+            styleSynergy.hasTacticSynergy
+              ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300"
+              : "bg-purple-500/10 border-purple-500/40 text-purple-300"
+          )}>
+            <span className="text-base">⚡</span>
+            <div className="flex-1 min-w-0">
+              <div className="font-bold">
+                {styleSynergy.dominantStyle} uyumu → +%{Math.round(styleSynergy.totalBonus * 100)} takım gücü
+              </div>
+              <div className="text-[10px] opacity-80">
+                {styleSynergy.dominantCount} oyuncu bu stilde
+                {styleSynergy.hasTacticSynergy && " + taktik uyumu ✓"}
+              </div>
+            </div>
+          </div>
+        )}
         {(strengths.length > 0 || weaknesses.length > 0) && (
           <div className="space-y-1">
             {strengths.length > 0 && (
