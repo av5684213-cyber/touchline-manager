@@ -16,8 +16,13 @@ android {
             assets.srcDirs = ['src/main/assets']
         }
     }
-    // v2.9.16: aaptOptions KALDIRILDI — ignoreAssetsPattern _next/ klasörünü atlıyordu
-    // Hiçbir aaptOptions olmadan AAPT tüm dosyaları paketler
+    aaptOptions {
+        // v2.9.16: KRİTİK — _* pattern'i KULLANMA!
+        // AAPT varsayılan davranışı _ ile başlayan dosyaları atlar (_next/ dahil)
+        // Biz sadece gerçekten gereksiz dosyaları atla, _next/ KESİNLİKLE dahil et
+        // .svn, .git, .ds_store vb. gizli dosyaları atla ama _next/ ve tüm JS'i tut
+        ignoreAssetsPattern ".svn:.git:.ds_store:*.scc:CVS:thumbs.db:picasa.ini:*.bak"
+    }
     buildTypes {
         release {
             minifyEnabled false
