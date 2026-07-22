@@ -33,6 +33,7 @@ import { ClubBadge, PlayerAvatar, PositionPill, RatingBadge, StatGrowth } from "
 import { PlayerProfileModal } from "../player-profile-modal";
 // ADDED: Gelişmiş pazarlık modal'ı
 import { TransferNegotiationModal } from "../transfer-negotiation-modal";
+import { incrementTransferCount } from "@/components/touchline/achievements";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
@@ -340,7 +341,6 @@ export function TransferScreen() {
                       });
                       // ADDED: Transfer başarım tetikleyici
                       try {
-                        const { incrementTransferCount } = require("@/components/touchline/achievements");
                         incrementTransferCount();
                       } catch (e) { console.warn("[achievements] transfer tetikleyici hatası:", e); }
                       setProfilePlayer(null);

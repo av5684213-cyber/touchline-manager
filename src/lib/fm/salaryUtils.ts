@@ -9,7 +9,7 @@
  *   const range = calculateSalaryRange(player.overall, tierMult, seasonNumber);
  */
 
-import { applyInflation } from "./inflation";
+import { applyInflation, removeInflation } from "./inflation";
 
 /**
  * Lig tier'ına göre maaş çarpanı.
@@ -54,7 +54,6 @@ export function inflateCurrentWage(
   newSeasonNumber: number
 ): number {
   // Eski maaşı Sezon 1'e normalize et, sonra yeni sezona uygula
-  const { removeInflation } = require("./inflation");
   const baseWage = removeInflation(currentWage, oldSeasonNumber);
   return applyInflation(baseWage, newSeasonNumber);
 }

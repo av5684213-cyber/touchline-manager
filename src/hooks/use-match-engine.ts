@@ -10,6 +10,9 @@ import type { Player as MatchEnginePlayer } from "@/lib/match/engine/types";
 import type { Player, Team } from "@/lib/mock/data";
 import { useAppStore } from "@/lib/store";
 import { FORMATION_SLOTS, DEFAULT_TACTIC, TACTICAL_INSTRUCTIONS } from "@/lib/tactics/types";
+import { computeStandings } from "@/lib/mock/season";
+import { applyDoctorHealingBonus } from "@/lib/staffBonus";
+import { checkAchievements } from "@/components/touchline/achievements";
 
 const TICK_MS = 800; // 1 oyun dakikası = 800ms
 
@@ -534,7 +537,7 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
       // Eğer kullanıcı ev sahibiyse ve rakip ilk 5'teyse, ya da kullanıcı ilk 5'teyse ve rakip de ilk 5'teyse
       // atmosfer skoru %30 artar (seyirci maça yoğun ilgi gösterir)
       try {
-        const { computeStandings } = require("@/lib/mock/season");
+        // computeStandings artık top-level import
         const standings = computeStandings(storeState.clubs, storeState.fixtures);
         const myPos = standings.findIndex((s: any) => s.teamId === home.id) + 1;
         const oppPos = standings.findIndex((s: any) => s.teamId === away.id) + 1;
@@ -761,7 +764,7 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
       // P0 FIX: require() → top-level import (staffBonus zaten import edildi)
       const storeState = useAppStore.getState();
       try {
-        const { applyDoctorHealingBonus } = require("@/lib/staffBonus");
+        // applyDoctorHealingBonus artık top-level import
         injuryDuration = applyDoctorHealingBonus(injuryDuration, storeState.facilities.staff);
       } catch (e) { /* staffBonus yüklenemezse default süre */ }
       const injurySeverity = Math.floor(Math.random() * 5) + 1;
@@ -943,7 +946,7 @@ export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFr
     // ADDED: Başarım tetikleyici — maç sonu
     try {
       if (typeof window !== "undefined") {
-        const { checkAchievements } = require("@/components/touchline/achievements");
+        // checkAchievements artık top-level import
         // P0 FIX: isHome doğru hesapla — teamId takım ID'si, playerId ile karşılaştırma yanlış
         const isHome = home.id === teamId;
         const won = isHome ? result.homeScore > result.awayScore : result.awayScore > result.homeScore;

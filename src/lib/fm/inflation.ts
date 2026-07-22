@@ -23,6 +23,7 @@ import {
   BASE_INFLATION_RATE,
   MAX_INFLATION_MULTIPLIER,
   MIN_INFLATION_MULTIPLIER,
+  TIER_BASE_BUDGETS,
 } from "../match/engine/constants";
 
 /**
@@ -75,8 +76,6 @@ export function formatInflationLabel(seasonNumber: number): string {
  * Sezon başı kulüp bütçesi — lig tier'ına göre baz × enflasyon.
  */
 export function getSeasonBudget(tier: number, seasonNumber: number): number {
-  // Late import ile circular dependency önle
-  const { TIER_BASE_BUDGETS } = require("../match/engine/constants");
   const baseBudget = TIER_BASE_BUDGETS[tier] ?? TIER_BASE_BUDGETS[2];
   return applyInflation(baseBudget, seasonNumber);
 }

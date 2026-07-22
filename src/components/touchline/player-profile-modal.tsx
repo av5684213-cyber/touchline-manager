@@ -5,7 +5,7 @@ import { X, User, Upload, ArrowLeftRight, Banknote } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { POSITION_GROUP, type Player, type SeasonStat } from "@/lib/mock/data";
 import { TIER_TEAM_NAMES, TEAM_NAME_BANK } from "@/lib/match/engine/constants";
-import { SEASON_INFO } from "@/lib/mock/season";
+import { SEASON_INFO, isTransferWindowOpen } from "@/lib/mock/season";
 import { useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline";
 
 // Oyun içi takım havuzu — Supabase'den gelen oyuncular için fallback
@@ -1153,7 +1153,7 @@ function StatValue({ value, playerId, statKey }: { value: number | undefined; pl
   let growth: number | null = null;
   if (playerId && statKey) {
     try {
-      const store = require("@/lib/store").useAppStore.getState();
+      const store = useAppStore.getState();
       const startStats = store.seasonStartStats?.[playerId];
       if (startStats) {
         const startValue = startStats[statKey];
@@ -1401,7 +1401,6 @@ function ActionsTab({
   // Transfer penceresi açık mı?
   const transferWindowOpen = (() => {
     try {
-      const { isTransferWindowOpen } = require("@/lib/mock/season");
       return isTransferWindowOpen();
     } catch { return true; }
   })();

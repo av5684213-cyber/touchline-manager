@@ -8,6 +8,7 @@ import { X, ArrowLeftRight } from "lucide-react";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { formatEuro } from "@/lib/format";
+import { incrementTransferCount } from "@/components/touchline/achievements";
 import { haptic, useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline"  // P0: escape + scroll lock;
 import { cn } from "@/lib/utils";
 import type { Player } from "@/lib/mock/data";
@@ -75,7 +76,6 @@ export function TransferNegotiationModal({
         const result = useAppStore.getState().buyPlayer(player.id, askingPrice, player.weeklyWage, 3);
         if (result.success) {
           try {
-            const { incrementTransferCount } = require("@/components/touchline/achievements");
             incrementTransferCount();
           } catch (e) { /* achievements yüklenemezse devam */ }
         }

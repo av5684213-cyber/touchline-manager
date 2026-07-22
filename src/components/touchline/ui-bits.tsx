@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { useAppStore } from "@/lib/store";
 
 export function ClubBadge({
   short,
@@ -137,7 +138,7 @@ export function RatingBadge({ value }: { value: number }) {
 export function GrowthBadge({ currentRating, playerId }: { currentRating: number; playerId: string }) {
   try {
     // Store'dan sezon başı stats'ını oku (lazy import ile circular dependency önle)
-    const store = require("@/lib/store").useAppStore.getState();
+    const store = useAppStore.getState();
     const startStats = store.seasonStartStats?.[playerId];
     if (!startStats) return null;
     const startRating = startStats.rating ?? currentRating;
@@ -157,7 +158,7 @@ export function GrowthBadge({ currentRating, playerId }: { currentRating: number
 // Örnek: pace 50→52 ise "+2" gösterir
 export function StatGrowth({ playerId, statKey, currentValue }: { playerId: string; statKey: string; currentValue: number }) {
   try {
-    const store = require("@/lib/store").useAppStore.getState();
+    const store = useAppStore.getState();
     const startStats = store.seasonStartStats?.[playerId];
     if (!startStats) return null;
     const startValue = startStats[statKey];

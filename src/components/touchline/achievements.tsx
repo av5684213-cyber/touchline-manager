@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
+// Not: useAppStore top-level import edilmez — circular dependency önle
+// (store.ts → achievements.tsx import ediyor, achievements.tsx → store.ts import ederse cycle)
 
 export type Achievement = {
   id: string;
@@ -269,11 +271,16 @@ export function incrementTransferCount(): number {
     // İlk transfer başarımı
     checkAndAwardBadges({ transferDone: true, transferCount: current });
     // Budget master — 50M+ bütçe
-    const store = require("@/lib/store").useAppStore.getState();
-    const myTeam = store.clubs?.find((c: any) => c.id === store.myTeamId);
-    if (myTeam) {
-      checkAndAwardBadges({ budget: myTeam.budget });
-    }
+    // Lazy import ile circular dependency önle (store.ts → achievements.tsx cycle)
+    import("@/lib/store").then(({ useAppStore }) => {
+      try {
+        const store = useAppStore.getState();
+        const myTeam = store.clubs?.find((c: any) => c.id === store.myTeamId);
+        if (myTeam) {
+          checkAndAwardBadges({ budget: myTeam.budget });
+        }
+      } catch {}
+    }).catch(() => {});
     return current;
   } catch {
     return 0;

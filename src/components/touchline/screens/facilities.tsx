@@ -22,6 +22,7 @@ import {
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { applyInflation } from "@/lib/fm/inflation";
+import { getStaffBonusSummary } from "@/lib/staffBonus";
 import type { StaffMember } from "@/lib/store";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -370,7 +371,6 @@ export function FacilitiesScreen() {
             <div className="space-y-1">
               {(() => {
                 try {
-                  const { getStaffBonusSummary } = require("@/lib/staffBonus");
                   const summary = getStaffBonusSummary(facilities.staff);
                   return [
                     { icon: "🔍", ...summary.scout },
