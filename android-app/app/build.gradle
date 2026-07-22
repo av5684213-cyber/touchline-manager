@@ -97,4 +97,6 @@ task verifyProductionApk {
 }
 
 // Release build sonrası otomatik doğrulama
-assembleRelease.finalizedBy verifyProductionApk
+afterEvaluate {
+    assembleRelease.finalizedBy verifyProductionApk
+}
