@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { AuthGate } from "@/components/touchline/auth-gate";
 import { TopBar } from "@/components/touchline/top-bar";
 import { StickyQuickBar } from "@/components/touchline/sticky-quick-bar";
@@ -10,27 +11,28 @@ import {
   OTHER_TABS,
   type TabKey,
 } from "@/components/touchline/bottom-nav";
+// v2.9.15 MADDE 3: Sadece Dashboard top-level import (ilk açılış ekranı)
 import { DashboardScreen } from "@/components/touchline/screens/dashboard";
-import { TacticsScreen } from "@/components/touchline/screens/tactics";
-import { MatchScreen } from "@/components/touchline/screens/match";
-import { TransferScreen } from "@/components/touchline/screens/transfer";
-import { StandingsScreen } from "@/components/touchline/screens/standings";
-import { FixtureScreen } from "@/components/touchline/screens/fixture";
-import { ScoutingScreen } from "@/components/touchline/screens/scouting";
-import { YouthAcademyScreen } from "@/components/touchline/screens/youth-academy";
-import { FacilitiesScreen } from "@/components/touchline/screens/facilities";
-import { FinanceScreen } from "@/components/touchline/screens/finance";
-import { AwardsScreen } from "@/components/touchline/screens/awards";
-import { CupScreen } from "@/components/touchline/screens/cup";
-import { TopScorersScreen } from "@/components/touchline/screens/top-scorers";
-import { WeeklyReportScreen } from "@/components/touchline/screens/weekly-report";
-import { ReportsScreen } from "@/components/touchline/screens/reports";
 import { ComingSoonScreen } from "@/components/touchline/screens/coming-soon";
-import { FriendlyScreen } from "@/components/touchline/screens/friendly";
-import { ShopScreen } from "@/components/touchline/screens/shop";
-import { MarketScreen } from "@/components/touchline/screens/market";
-import { LeaderboardScreen } from "@/components/touchline/screens/leaderboard";
-import { OtherDrawer } from "@/components/touchline/other-drawer";
+// Diğer tüm ekranlar dynamic import ile lazy-load
+const TacticsScreen = dynamic(() => import("@/components/touchline/screens/tactics").then(m => ({ default: m.TacticsScreen })), { ssr: false });
+const MatchScreen = dynamic(() => import("@/components/touchline/screens/match").then(m => ({ default: m.MatchScreen })), { ssr: false });
+const TransferScreen = dynamic(() => import("@/components/touchline/screens/transfer").then(m => ({ default: m.TransferScreen })), { ssr: false });
+const StandingsScreen = dynamic(() => import("@/components/touchline/screens/standings").then(m => ({ default: m.StandingsScreen })), { ssr: false });
+const FixtureScreen = dynamic(() => import("@/components/touchline/screens/fixture").then(m => ({ default: m.FixtureScreen })), { ssr: false });
+const ScoutingScreen = dynamic(() => import("@/components/touchline/screens/scouting").then(m => ({ default: m.ScoutingScreen })), { ssr: false });
+const YouthAcademyScreen = dynamic(() => import("@/components/touchline/screens/youth-academy").then(m => ({ default: m.YouthAcademyScreen })), { ssr: false });
+const FacilitiesScreen = dynamic(() => import("@/components/touchline/screens/facilities").then(m => ({ default: m.FacilitiesScreen })), { ssr: false });
+const FinanceScreen = dynamic(() => import("@/components/touchline/screens/finance").then(m => ({ default: m.FinanceScreen })), { ssr: false });
+const AwardsScreen = dynamic(() => import("@/components/touchline/screens/awards").then(m => ({ default: m.AwardsScreen })), { ssr: false });
+const CupScreen = dynamic(() => import("@/components/touchline/screens/cup").then(m => ({ default: m.CupScreen })), { ssr: false });
+const TopScorersScreen = dynamic(() => import("@/components/touchline/screens/top-scorers").then(m => ({ default: m.TopScorersScreen })), { ssr: false });
+const ReportsScreen = dynamic(() => import("@/components/touchline/screens/reports").then(m => ({ default: m.ReportsScreen })), { ssr: false });
+const FriendlyScreen = dynamic(() => import("@/components/touchline/screens/friendly").then(m => ({ default: m.FriendlyScreen })), { ssr: false });
+const ShopScreen = dynamic(() => import("@/components/touchline/screens/shop").then(m => ({ default: m.ShopScreen })), { ssr: false });
+const MarketScreen = dynamic(() => import("@/components/touchline/screens/market").then(m => ({ default: m.MarketScreen })), { ssr: false });
+const LeaderboardScreen = dynamic(() => import("@/components/touchline/screens/leaderboard").then(m => ({ default: m.LeaderboardScreen })), { ssr: false });
+const OtherDrawer = dynamic(() => import("@/components/touchline/other-drawer").then(m => ({ default: m.OtherDrawer })), { ssr: false });
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useBodyScrollLock } from "@/hooks/touchline";
 import { useKeyboardScrollLock } from "@/hooks/use-keyboard-scroll-lock";

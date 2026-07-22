@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { LocaleProvider } from "@/lib/i18n/locale-provider";
-import { ServiceWorkerRegistrar } from "@/components/service-worker-registrar";
+// v2.9.15: ServiceWorkerRegistrar kaldırıldı — file:// origin'inde SW çalışmaz
 import { AuthProvider } from "@/lib/auth/auth-context";
 
 const inter = Inter({
@@ -17,25 +17,8 @@ export const metadata: Metadata = {
   description: "Futbol kulübü yönetim oyunu - Online multiplayer",
   applicationName: "Touchline Manager",
   authors: [{ name: "Touchline" }],
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Touchline Manager",
-  },
-  icons: {
-    icon: [
-      { url: "/icons/icon-72.png", sizes: "72x72", type: "image/png" },
-      { url: "/icons/icon-96.png", sizes: "96x96", type: "image/png" },
-      { url: "/icons/icon-128.png", sizes: "128x128", type: "image/png" },
-      { url: "/icons/icon-144.png", sizes: "144x144", type: "image/png" },
-      { url: "/icons/icon-152.png", sizes: "152x152", type: "image/png" },
-      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-384.png", sizes: "384x384", type: "image/png" },
-      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
-    ],
-    apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
-  },
+  // v2.9.15: PWA manifest ve icons kaldırıldı — native APK'da gereksiz
+  // Native launcher ikonları AndroidManifest'ten gelir (mipmap-*)
 };
 
 export const viewport: Viewport = {
@@ -55,12 +38,7 @@ export default function RootLayout({
   return (
     <html lang="tr" suppressHydrationWarning>
       <head>
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="Touchline Manager" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-        <link rel="apple-touch-startup-image" href="/icons/icon-512.png" />
+        {/* v2.9.15: PWA/apple meta tag'leri kaldırıldı — native APK'da gereksiz */}
         {/* v2.9.11 PROD 9: Global error handler — JS hatalarını native'e ilet */}
         <script dangerouslySetInnerHTML={{ __html: `
           (function() {
@@ -147,7 +125,6 @@ export default function RootLayout({
             {children}
           </AuthProvider>
           <Toaster />
-          <ServiceWorkerRegistrar />
         </LocaleProvider>
       </body>
     </html>
