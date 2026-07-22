@@ -72,12 +72,6 @@ jobs:
           rm -rf out/icons
           # v2.9.15 MADDE 4: .map dosyalarını sil (production source map yok)
           find out/ -name "*.map" -delete
-          # _next klasörünü next olarak yeniden adlandır (AAPT _ atlama sorunu)
-          if [ -d "out/_next" ]; then
-            mv out/_next out/next
-            find out/ -name "*.html" -exec sed -i 's|/_next/|/next/|g' {} +
-            find out/ -name "*.html" -exec sed -i 's|"_next/|"next/|g' {} +
-          fi
           cp -r out/* android-app/app/src/main/assets/web/
           echo "=== Web assets size ==="
           du -sh android-app/app/src/main/assets/web/
