@@ -16,11 +16,10 @@ android {
             assets.srcDirs = ['src/main/assets']
         }
     }
-    aaptOptions {
-        // v2.9.12: Tüm ignoreAssetsPattern KALDIRILDI — _next/ dahil hiçbir dosya atlanmasın
-        // Eski pattern ".*" _next/ klasörünü atlıyordu, bu da APK'yı 973KB yapıyordu
-        noCompress "html", "js", "css", "json", "txt", "svg", "woff", "woff2", "ttf"
-    }
+    // v2.9.12: aaptOptions TAMAMEN KALDIRILDI
+    // Android AAPT'nin varsayılan ignoreAssetsPattern "_" ile başlayan
+    // klasörleri atlıyor (_next/!) — bu yüzden APK 400KB çıkıyordu.
+    // aaptOptions bloğu yoksa varsayılan davranış tüm dosyaları paketler.
     buildTypes {
         release {
             minifyEnabled false
