@@ -97,23 +97,46 @@ export default function RootLayout({
               } catch(err) {}
             });
 
-            // Native geri tuşu handler — JS navigation'ı yönetir
+            // v2.9.14 MADDE 1: Native geri tuşu handler — JS navigation'ı yönetir
+            // Native → JS: evaluateJavascript("window.handleNativeBack()")
+            // JS → Native: AndroidNative.onBackResult(true/false)
+            //   true = JS handled etti (modal kapandı, sekme değişti)
+            //   false = JS ana ekranda, çıkış gerekli
             window.handleNativeBack = function() {
-              // Modal açıksa kapat
-              var openModal = document.querySelector('[role="dialog"]');
+              // 1. Modal açıksa kapat (oyuncu profili, takım detayı, vb.)
+              var openModal = document.querySelector('[role="dialog"], [data-modal="true"]');
               if (openModal) {
-                var closeBtn = openModal.querySelector('[aria-label="Kapat"], [aria-label="close"]');
+                var closeBtn = openModal.querySelector('[aria-label="Kapat"], [aria-label="close"], button[aria-label]');
                 if (closeBtn) { closeBtn.click(); return true; }
-                openModal.remove();
+                // Kapat butonu yoksa Escape simüle et
+                var escEvent = new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27 });
+                document.dispatchEvent(escEvent);
                 return true;
               }
-              // Drawer açıksa kapat
-              var openDrawer = document.querySelector('[data-drawer-open="true"]');
+              // 2. Drawer açıksa kapat (Diğer sekmesi drawer'ı)
+              var openDrawer = document.querySelector('[data-drawer-open="true"], [data-state="open"]');
               if (openDrawer) {
                 var backdrop = document.querySelector('[data-drawer-backdrop="true"]');
                 if (backdrop) { backdrop.click(); return true; }
+                // Backdrop yoksa state'i kapat
+                openDrawer.click();
+                return true;
               }
-              return false; // JS handled etmedi — native fallback (WebView history veya çıkış onayı)
+              // 3. Alt menü sekmesi — ana ekranda değilse ana ekrana dön
+              // Ana ekran = Dashboard sekmesi
+              var activeTab = document.querySelector('[data-active-tab="true"]');
+              if (activeTab && activeTab.getAttribute('data-tab') !== 'dashboard') {
+                // Dashboard sekmesine geç
+                var dashboardBtn = document.querySelector('[data-tab="dashboard"]');
+                if (dashboardBtn) { dashboardBtn.click(); return true; }
+              }
+              // 4. Maç ekranındaysa — çıkış engellenmeli (ilerleme kaybı)
+              var matchScreen = document.querySelector('[data-screen="match"]');
+              if (matchScreen) {
+                return true; // Maç sırasında geri tuşu ile çıkış yasak
+              }
+              // 5. Ana ekrandayız — native'e "handled=false" gönder
+              return false;
             };
           })();
         `}} />
