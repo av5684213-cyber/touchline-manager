@@ -174,23 +174,12 @@ const POSITIONS_BY_GROUP: Record<string, Position[]> = {
   FWD: ["LW", "RW", "ST", "CF"],
 };
 
-const ARCHETYPES: Record<Position, string[]> = {
-  GK: ["Kale Duvarı", "Süpürücü Kaleci", "Penaltı Uzmanı"],
-  CB: ["Duvar", "Yapıcı Stop", "Hava Hakimi", "Baskı Ustası"],
-  LB: ["Kanat Beki", "Yorumcu Bek", "Defansif Bek"],
-  RB: ["Kanat Beki", "Yorumcu Bek", "Defansif Bek"],
-  LWB: ["Kanat Beki", "Ofansif Bek"],
-  RWB: ["Kanat Beki", "Ofansif Bek"],
-  CDM: ["Yıkıcı", "Yapıcı CDM", "Ekran Oyuncusu"],
-  CM: ["Truva Atı", "Motor", "Pas Ustası", "Box-to-Box"],
-  CAM: ["Playmaker", "Numara 10", "Yaratıcı"],
-  LM: ["Kanat", "İçeri Dönen"],
-  RM: ["Kanat", "İçeri Dönen"],
-  LW: ["Kanat", "İçeri Dönen", "Hızlı Kanat"],
-  RW: ["Kanat", "İçeri Dönen", "Hızlı Kanat"],
-  ST: ["Gol Makinesi", "Bitirici", "Hedef Adam", "Baskı Ustası"],
-  CF: ["İkinci Forvet", "Yaratıcı Forvet", "Hedef Adam"],
-};
+// v2.9.10: transfer.ts arketip listesi data.ts ile senkronize edildi
+// Eski listede "Kale Duvarı", "Yapıcı Stop", "Yorumcu Bek" gibi motorun tanımadığı
+// isimler vardı — bu oyunculara motor sıfır arketip bonusu veriyordu.
+// Şimdi data.ts'teki ARKETIPLER tablosunu kullanıyoruz.
+import { ARKETIPLER as DATA_ARKETIPLER, pickArketipByStats } from "./data";
+const ARCHETYPES: Record<Position, string[]> = DATA_ARKETIPLER as any;
 
 const NATIONALITIES = [
   { code: "TR", flag: "🇹🇷", name: "Türkiye" },
@@ -370,7 +359,16 @@ export function generateFreeAgentListings(count = 15): FreeAgentListing[] {
       assists: 0,
       saves: pos === "GK" ? rand(0, 20) : 0,
       appearances: 0,
-      archetype: pick(ARCHETYPES[pos]),
+      // v2.9.10: pickArketipByStats kullan — statlarla uyumlu arketip seç
+      // Eski: pick(ARCHETYPES[pos]) — körü körüne rastgele
+      archetype: pickArketipByStats(pos, {
+        pace: stats.pace,
+        shooting: stats.shooting,
+        passing: stats.passing,
+        defending: stats.defending,
+        power: stats.physical,
+        dribbling: stats.dribbling,
+      } as any),
       is_free_agent: true,
     };
 

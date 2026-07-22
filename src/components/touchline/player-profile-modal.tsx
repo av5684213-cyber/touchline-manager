@@ -5,6 +5,7 @@ import { X, User, Upload, ArrowLeftRight, Banknote } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { POSITION_GROUP, type Player, type SeasonStat } from "@/lib/mock/data";
 import { TIER_TEAM_NAMES, TEAM_NAME_BANK } from "@/lib/match/engine/constants";
+import { getArketipEtkiOzet, getOvrFactorPercent } from "@/lib/match/engine/arketipEffects";
 import { SEASON_INFO, isTransferWindowOpen } from "@/lib/mock/season";
 import { useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline";
 
@@ -338,7 +339,7 @@ function OverviewTab({
           )}
           {/* Arketip + playStyle — tıklanabilir */}
           {player.archetype && (
-            <div className="mt-1.5">
+            <div className="mt-1.5 space-y-1">
               <button
                 onClick={() => { haptic("light"); onArketipClick?.(player.archetype!); }}
                 className="tm-tap inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-colors"
@@ -346,6 +347,22 @@ function OverviewTab({
                 {player.archetype}
                 <span className="text-[11px] opacity-60">ⓘ</span>
               </button>
+              {/* v2.9.10: Arketip etki yüzdesi (overall bazlı) */}
+              {(() => {
+                try {
+                  const ovr = player.rating;
+                  const percent = getOvrFactorPercent(ovr);
+                  const ozet = getArketipEtkiOzet(player.archetype, ovr);
+                  if (ozet === "Bu arketip için etki tanımlı değil" || ozet === "Arketip yok") return null;
+                  return (
+                    <div className="text-[10px] text-purple-300/70 leading-tight">
+                      <span className="font-bold text-purple-300">%{percent} etki</span>
+                      <span className="opacity-60"> ({ovr} OVR)</span>
+                      <div className="text-[9px] opacity-80 mt-0.5">{ozet}</div>
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
             </div>
           )}
           {player.playStyle && (

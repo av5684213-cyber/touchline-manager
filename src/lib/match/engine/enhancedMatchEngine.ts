@@ -8,6 +8,8 @@
 import type { Player, ActiveTactic, MatchResult, GameTactics, GoalType } from './types';
 import { generateInjury as generateInjuryFromManager } from './injuryManager';
 import { kaptanMi } from './sharedUtils';
+// v2.9.10: Merkezi arketip etki sistemi
+import { getArketipEtki, getArchetypeOvrFactor, getAllArketipEtkiler, ARKETIP_EFFECTS } from './arketipEffects';
 import {
   getPositionEffectiveness,
   getEffectiveRating,
@@ -570,7 +572,36 @@ function calculateTeamStrength(players: Player[], tactic: ActiveTactic, options?
         ? avg * 0.6 + effectiveRating * 0.4
         : effectiveRating;
 
-      return sum + blended * moraleMod * formMod * condMod * personalityMod * chemistryMod * pressureMod;
+      // v2.9.10: ARKETİP ETKİSİ — overall bazlı takım strength katkısı
+      // Her oyuncunun arketip + overall kombinasyonu bonus verir.
+      // Örn: 85 OVR "Gol Makinesi" forvet → attackStrength +%10.4 ek bonus
+      // Örn: 85 OVR "Duvar" stoper → defenseStrength +%13 ek bonus
+      const arketipEtkiler = getAllArketipEtkiler((p as any).archetype ?? "", p.rating || 50);
+      let arketipStrengthBonus = 1.0;
+      // Grup tipine göre ilgili strength etkisini topla
+      // (forwards → attackStrength, midfielders → midfieldStrength+possessionBonus, defenders → defenseStrength, GK → gkStrength)
+      // Bu bilgi caller'dan gelmiyor — attrs'tan çıkarıyoruz
+      const attrsLower = attrs.map(a => a.toLowerCase());
+      const isAttackGroup = attrsLower.some(a => ['finishing', 'shooting', 'dribbling', 'crossing'].includes(a));
+      const isMidfieldGroup = attrsLower.some(a => ['passing', 'vision', 'control', 'stamina', 'technique'].includes(a));
+      const isDefenseGroup = attrsLower.some(a => ['tackling', 'marking', 'positioning', 'strength', 'anticipation'].includes(a));
+      const isGkGroup = attrsLower.some(a => ['goalkeeping', 'reflexes'].includes(a));
+
+      if (isAttackGroup && arketipEtkiler.attackStrength) {
+        arketipStrengthBonus += arketipEtkiler.attackStrength;
+      }
+      if (isMidfieldGroup) {
+        if (arketipEtkiler.midfieldStrength) arketipStrengthBonus += arketipEtkiler.midfieldStrength;
+        if (arketipEtkiler.possessionBonus) arketipStrengthBonus += arketipEtkiler.possessionBonus * 0.5;
+      }
+      if (isDefenseGroup && arketipEtkiler.defenseStrength) {
+        arketipStrengthBonus += arketipEtkiler.defenseStrength;
+      }
+      if (isGkGroup && arketipEtkiler.gkStrength) {
+        arketipStrengthBonus += arketipEtkiler.gkStrength;
+      }
+
+      return sum + blended * moraleMod * formMod * condMod * personalityMod * chemistryMod * pressureMod * arketipStrengthBonus;
     }, 0) / group.length;
   };
 
@@ -2237,51 +2268,35 @@ export function simulateEnhancedMatch(
       else ovrGoalMultiplier = 0.75; // <55
       goalChance *= ovrGoalMultiplier;
 
-      // 🎭 ARKETİP ETKİSİ — OVR ile etkileşimli, fark hissedilir
-      // Arketip bonusu = temel_bonus × OVR_factor
-      // OVR_factor: 50 OVR → 0.5, 70 OVR → 1.0, 90 OVR → 1.5
+      // 🎭 ARKETİP ETKİSİ — v2.9.10: Merkezi tablo + overall ölçeklemesi
+      // Önceki: 60+ if-else satırı, sabit bonus × basit OVR factor
+      // Yeni: getArketipEtki() ile merkezi tablo, sürekli OVR ölçeklemesi
+      // Düşük OVR (50) → %30 etki, 75 OVR → %100, 95+ OVR → %160
       const scorerArchetype = (selectedPlayer.player as any).archetype ?? "";
-      const archetypeOvrFactor = 0.5 + ((scorerOvr - 50) / 40) * 1.0;
-      // Forvet arketipleri — temel bonus × OVR factor (biraz artırıldı)
-      if (scorerArchetype === "Gol Makinesi") goalChance *= 1 + 0.22 * archetypeOvrFactor;       // +%22 × OVR factor (85 OVR → +%33)
-      else if (scorerArchetype === "Bitirici") goalChance *= 1 + 0.19 * archetypeOvrFactor;      // +%19
-      else if (scorerArchetype === "Fırsatçı") goalChance *= 1 + 0.17 * archetypeOvrFactor;      // +%17
-      else if (scorerArchetype === "Hızlı Forvet") goalChance *= 1 + 0.15 * archetypeOvrFactor;  // +%15
-      else if (scorerArchetype === "Hızlı Kanat") goalChance *= 1 + 0.14 * archetypeOvrFactor;   // +%14
-      else if (scorerArchetype === "Hedef Adam") goalChance *= 1 + 0.14 * archetypeOvrFactor;    // +%14
-      else if (scorerArchetype === "Dribling Ustası") goalChance *= 1 + 0.12 * archetypeOvrFactor; // +%12
-      else if (scorerArchetype === "İçeri Dönen") goalChance *= 1 + 0.12 * archetypeOvrFactor;   // +%12
-      else if (scorerArchetype === "Yaratıcı Forvet") goalChance *= 1 + 0.10 * archetypeOvrFactor; // +%10
-      else if (scorerArchetype === "İkinci Forvet") goalChance *= 1 + 0.08 * archetypeOvrFactor; // +%8
-      // Orta saha arketipleri
-      else if (scorerArchetype === "Numara 10") goalChance *= 1 + 0.12 * archetypeOvrFactor;     // +%12
-      else if (scorerArchetype === "Playmaker") goalChance *= 1 + 0.09 * archetypeOvrFactor;     // +%9
-      else if (scorerArchetype === "Oyun Kurucu") goalChance *= 1 + 0.09 * archetypeOvrFactor;   // +%9
-      else if (scorerArchetype === "Yaratıcı") goalChance *= 1 + 0.07 * archetypeOvrFactor;      // +%7
-      else if (scorerArchetype === "Box-to-Box") goalChance *= 1 + 0.05 * archetypeOvrFactor;    // +%5
-      else if (scorerArchetype === "Motor") goalChance *= 1 + 0.04 * archetypeOvrFactor;         // +%4
-      else if (scorerArchetype === "Pas Ustası") goalChance *= 1 + 0.03 * archetypeOvrFactor;    // +%3
-      else if (scorerArchetype === "Tempo Kontrolcüsü") goalChance *= 1 + 0.02 * archetypeOvrFactor; // +%2
-      // Defansif arketipler — gol şansını düşür
-      else if (scorerArchetype === "Yıkıcı") goalChance *= 1 - 0.14 * (1 - archetypeOvrFactor * 0.3);
-      else if (scorerArchetype === "Duvar Orta Saha") goalChance *= 1 - 0.16 * (1 - archetypeOvrFactor * 0.3);
-      else if (scorerArchetype === "Ekran Oyuncusu") goalChance *= 1 - 0.14 * (1 - archetypeOvrFactor * 0.3);
-      else if (scorerArchetype === "Regista") goalChance *= 1 - 0.12 * (1 - archetypeOvrFactor * 0.3);
+      const scorerArketipEtkisi = getArketipEtki(scorerArchetype, scorerOvr, "goalChance");
+      if (scorerArketipEtkisi > 0) {
+        goalChance *= 1 + scorerArketipEtkisi;
+      } else if (scorerArketipEtkisi < 0) {
+        // Defansif arketip gol atınca hafif ceza (ama yüksek OVR'da az ceza)
+        const factor = getArchetypeOvrFactor(scorerOvr);
+        const azalanCeza = 1 - factor * 0.3; // yüksek OVR'da ceza azalır
+        goalChance *= 1 + scorerArketipEtkisi * azalanCeza;
+      }
 
       // 🛡️ SAVUNMA ARKETİP ETKİSİ — savunmacının OVR'ı ile etkileşimli
       const defArchetype = (opponentDefender?.player as any)?.archetype ?? "";
       const defOvr = opponentDefender?.player?.rating ?? 50;
-      const defArchetypeOvrFactor = 0.5 + ((defOvr - 50) / 40) * 1.0; // güçlü savunmacı arketipten daha çok faydalanır
-      if (defArchetype === "Duvar") goalChance *= 1 - 0.12 * defArchetypeOvrFactor;
-      else if (defArchetype === "Lider Stoper") goalChance *= 1 - 0.10 * defArchetypeOvrFactor;
-      else if (defArchetype === "Kale Gibi") goalChance *= 1 - 0.10 * defArchetypeOvrFactor;
-      else if (defArchetype === "Hava Hakimi") goalChance *= 1 - 0.08 * defArchetypeOvrFactor;
-      else if (defArchetype === "Top Çıkan Stoper") goalChance *= 1 - 0.07 * defArchetypeOvrFactor;
-      else if (defArchetype === "Baskı Ustası") goalChance *= 1 - 0.08 * defArchetypeOvrFactor;
-      else if (defArchetype === "Kanat Beki") goalChance *= 1 - 0.05 * defArchetypeOvrFactor;
-      else if (defArchetype === "Hücumcu Bek") goalChance *= 1 - 0.04 * defArchetypeOvrFactor;
-      else if (defArchetype === "Defansif Bek") goalChance *= 1 - 0.07 * defArchetypeOvrFactor;
-      else if (defArchetype === "Ters Bek") goalChance *= 1 - 0.06 * defArchetypeOvrFactor;
+      // v2.9.10: Defansif arketipler gol şansını düşürür (tackleChance kullanarak)
+      const defTackleEtkisi = getArketipEtki(defArchetype, defOvr, "tackleChance");
+      if (defTackleEtkisi > 0) {
+        goalChance *= 1 - defTackleEtkisi * 0.8; // tackle etki → gol engelleme
+      }
+      // Eski defansif arketipler (Duvar, Lider Stoper vb.) defenseStrength var, onlar da işliyor
+      // Ama goalChance üzerinde tackle bazlı çalışsın
+      const defDefenseEtkisi = getArketipEtki(defArchetype, defOvr, "defenseStrength");
+      if (defDefenseEtkisi > 0) {
+        goalChance *= 1 - defDefenseEtkisi; // defenseStrength → gol engelleme
+      }
 
       // 🛡️ SAVUNMA OVR ETKİSİ — savunmacının genel OVR'ı gol şansını direkt düşürür
       // 85 OVR savunmacı → ×0.85 (güçlü savunma gol şansını %15 düşürür)
@@ -2290,14 +2305,15 @@ export function simulateEnhancedMatch(
       goalChance *= Math.max(0.70, Math.min(1.15, defOvrMod));
 
       // 🧤 KALECİ ARKETİP ETKİSİ — kaleci OVR'ı ile etkileşimli
+      // v2.9.10: saveChance + gkStrength birleşik etki
       const gkArchetype = (opponentGK?.player as any)?.archetype ?? "";
       const gkOvr = opponentGK?.player?.rating ?? 50;
-      const gkArchetypeOvrFactor = 0.5 + ((gkOvr - 50) / 40) * 1.0;
-      if (gkArchetype === "Refleks Canavarı") goalChance *= 1 - 0.14 * gkArchetypeOvrFactor;
-      else if (gkArchetype === "Büyük Maç Kalecisi") goalChance *= 1 - 0.12 * gkArchetypeOvrFactor;
-      else if (gkArchetype === "Süpürücü Kaleci") goalChance *= 1 - 0.10 * gkArchetypeOvrFactor;
-      else if (gkArchetype === "Güvenli Eller") goalChance *= 1 - 0.10 * gkArchetypeOvrFactor;
-      else if (gkArchetype === "Penaltı Uzmanı") goalChance *= 1 - 0.08 * gkArchetypeOvrFactor;
+      const gkSaveEtkisi = getArketipEtki(gkArchetype, gkOvr, "saveChance");
+      const gkStrengthEtkisi = getArketipEtki(gkArchetype, gkOvr, "gkStrength");
+      const gkToplamEtki = gkSaveEtkisi + gkStrengthEtkisi * 0.5;
+      if (gkToplamEtki > 0) {
+        goalChance *= 1 - gkToplamEtki;
+      }
 
       // 🧤 KALECİ OVR ETKİSİ — kalecinin genel OVR'ı ekstra gol şansı düşürür
       // 85 OVR kaleci → ×0.915 (ekstra %8.5 düşür)

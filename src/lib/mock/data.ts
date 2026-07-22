@@ -359,7 +359,7 @@ function pick<T>(arr: T[]): T {
 }
 
 // Pozisyona göre Türkçe arketipler
-const ARKETIPLER: Record<string, string[]> = {
+export const ARKETIPLER: Record<string, string[]> = {
   GK: ["Refleks Canavarı", "Güvenli Eller", "Süpürücü Kaleci", "Penaltı Uzmanı", "Büyük Maç Kalecisi"],
   CB: ["Duvar", "Lider Stoper", "Top Çıkan Stoper", "Hava Hakimi", "Baskı Ustası", "Kale Gibi"],
   LB: ["Kanat Beki", "Hücumcu Bek", "Defansif Bek", "Ters Bek"],
@@ -433,7 +433,7 @@ const ARKETIP_SIGNATURE_STATS: Record<string, string[]> = {
  * Her arketip için imza statların ortalama değerini hesapla,
  * en yüksek ortalama veren arketibi ağırlıklı rastgelelikle seç.
  */
-function pickArketipByStats(pos: string, playerStats: Record<string, number>): string {
+export function pickArketipByStats(pos: string, playerStats: Record<string, number>): string {
   const list = ARKETIPLER[pos] ?? ARKETIPLER.CM;
 
   // Her arketip için imza stat ortalaması hesapla
