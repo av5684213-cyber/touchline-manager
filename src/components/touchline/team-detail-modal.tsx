@@ -30,10 +30,10 @@ const POSITION_ORDER: Record<string, number> = {
 };
 
 const POSITION_ROW_BG: Record<PositionGroup, string> = {
-  GK: "bg-amber-100/70 dark:bg-amber-950/30",
-  DEF: "bg-sky-100/70 dark:bg-sky-950/30",
-  MID: "bg-emerald-100/70 dark:bg-emerald-950/30",
-  FWD: "bg-rose-100/70 dark:bg-rose-950/30",
+  GK: "bg-amber-50/30 dark:bg-amber-950/15",
+  DEF: "bg-sky-50/30 dark:bg-sky-950/15",
+  MID: "bg-emerald-50/30 dark:bg-emerald-950/15",
+  FWD: "bg-rose-50/30 dark:bg-rose-950/15",
 };
 
 const LEAGUE_NAMES: Record<number, string> = {

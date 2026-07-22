@@ -8,8 +8,8 @@ android {
         applicationId "com.touchline.manager"
         minSdk 24
         targetSdk 34
-        versionCode 293
-        versionName "2.9.3"
+        versionCode 300
+        versionName "2.9.12"
     }
     sourceSets {
         main {
@@ -17,16 +17,17 @@ android {
         }
     }
     aaptOptions {
-        // v2.9.11: _next/ klasörünü ATLAMA — Next.js statik dosyaları burada
-        // Eski pattern: ".*" → _next/ ve tüm gizli dosyaları atlıyordu
-        // Yeni: sadece gerçekten gereksiz dosyaları atla
-        ignoreAssetsPattern ".svn:.git:.ds_store:*.scc:CVS:thumbs.db:picasa.ini:*.bak"
+        // v2.9.12: Tüm ignoreAssetsPattern KALDIRILDI — _next/ dahil hiçbir dosya atlanmasın
+        // Eski pattern ".*" _next/ klasörünü atlıyordu, bu da APK'yı 973KB yapıyordu
+        noCompress "html", "js", "css", "json", "txt", "svg", "woff", "woff2", "ttf"
     }
     buildTypes {
         release {
             minifyEnabled false
             shrinkResources false
             signingConfig signingConfigs.debug
+            // Assets sıkıştırma kapalı — web dosyaları bozulmasın
+            crunchPngs false
         }
     }
 }

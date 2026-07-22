@@ -37,6 +37,7 @@ export function PlayerProfileModal({
   const [photo, setPhoto] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [arkModal, setArkModal] = useState<string | null>(null);
+  const [photoFeedback, setPhotoFeedback] = useState<string | null>(null);
 
   // P0 FIX: Escape tuşu + body scroll lock
   useEscapeToClose(onClose);
@@ -44,16 +45,37 @@ export function PlayerProfileModal({
 
   // BULGU #10 DÜZELTME (v2.9.1): reactive seasonMatchday — getState yerine
   const seasonMatchday = useAppStore((s) => s.seasonMatchday ?? 0);
+  const credits = useAppStore((s) => s.credits);
+  const spendCredits = useAppStore((s) => s.spendCredits);
 
   const isGK = player.specificPosition === "GK";
 
+  // v2.9.12: Fotoğraf yükleme 2 kredi ücretli
   const onPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Kredi kontrolü
+    if (credits < 2) {
+      haptic("error");
+      setPhotoFeedback("✗ Yetersiz kredi! Fotoğraf yüklemek için 2 kredi gerek.");
+      setTimeout(() => setPhotoFeedback(null), 3000);
+      e.target.value = ""; // input'u sıfırla
+      return;
+    }
+    // Kredi harca
+    const ok = spendCredits(2);
+    if (!ok) {
+      haptic("error");
+      setPhotoFeedback("✗ Kredi harcanamadı.");
+      setTimeout(() => setPhotoFeedback(null), 3000);
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       setPhoto(reader.result as string);
-      haptic("light");
+      haptic("success");
+      setPhotoFeedback("✓ Fotoğraf yüklendi! 2 kredi harcandı.");
+      setTimeout(() => setPhotoFeedback(null), 2500);
     };
     reader.readAsDataURL(file);
   };
@@ -188,6 +210,7 @@ export function PlayerProfileModal({
               photo={photo}
               fileRef={fileRef}
               onPhotoUpload={onPhotoUpload}
+              photoFeedback={photoFeedback}
               technical={technical}
               mental={mental}
               physical={physical}
@@ -221,6 +244,7 @@ function OverviewTab({
   photo,
   fileRef,
   onPhotoUpload,
+  photoFeedback,
   technical,
   mental,
   physical,
@@ -233,6 +257,7 @@ function OverviewTab({
   photo: string | null;
   fileRef: React.RefObject<HTMLInputElement | null>;
   onPhotoUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  photoFeedback?: string | null;
   technical: { label: string; value: number | undefined }[];
   mental: { label: string; value: number | undefined }[];
   physical: { label: string; value: number | undefined }[];
@@ -244,6 +269,17 @@ function OverviewTab({
   const seasonMatchday = useAppStore((s) => s.seasonMatchday ?? 0);
   return (
     <div className="space-y-3">
+      {/* v2.9.12: Fotoğraf yükleme geri bildirimi */}
+      {photoFeedback && (
+        <div className={cn(
+          "p-2 rounded-lg text-center text-[11px] font-bold",
+          photoFeedback.startsWith("✓")
+            ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+            : "bg-red-500/15 text-red-300 border border-red-500/30"
+        )}>
+          {photoFeedback}
+        </div>
+      )}
       {/* Photo box + identity — sol üst */}
       <div className="flex gap-3">
         {/* Photo upload box */}
@@ -261,6 +297,7 @@ function OverviewTab({
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center">
               <Upload size={12} className="text-white" />
               <span className="text-[11px] text-white font-bold mt-0.5">FOTO YÜKLE</span>
+              <span className="text-[9px] text-amber-300 mt-0.5">2 kredi</span>
             </div>
             <input
               ref={fileRef}
