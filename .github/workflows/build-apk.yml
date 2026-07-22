@@ -61,10 +61,28 @@ jobs:
           rm -rf android-app/app/src/main/assets/web
           mkdir -p android-app/app/src/main/assets/web
           cp -r out/* android-app/app/src/main/assets/web/
+          # v2.9.12: _next/ → next/ yeniden adlandır
+          # Android AAPT varsayılan olarak _ ile başlayan klasörleri atlar
+          cd android-app/app/src/main/assets/web
+          if [ -d "_next" ]; then
+            mv _next next
+            # HTML dosyalarındaki _next/ referanslarını next/ olarak güncelle
+            find . -name "*.html" -exec sed -i 's|/_next/|/next/|g' {} +
+            find . -name "*.html" -exec sed -i 's|"_next/|"next/|g' {} +
+            find . -name "*.html" -exec sed -i "s|'_next/|'next/|g" {} +
+            # JS dosyalarındaki referanslar
+            find next/ -name "*.js" -exec sed -i 's|_next/|next/|g' {} + 2>/dev/null || true
+            echo "✓ _next/ → next/ yeniden adlandırıldı"
+          fi
+          cd -
           echo "=== Web assets size ==="
           du -sh android-app/app/src/main/assets/web/
           echo "=== File count ==="
           find android-app/app/src/main/assets/web/ -type f | wc -l
+          echo "=== _next exists? ==="
+          ls -d android-app/app/src/main/assets/web/_next 2>/dev/null && echo "STILL EXISTS" || echo "RENAMED OK"
+          echo "=== next exists? ==="
+          ls -d android-app/app/src/main/assets/web/next 2>/dev/null && echo "EXISTS OK" || echo "MISSING"
 
       - name: Build APK
         working-directory: android-app
