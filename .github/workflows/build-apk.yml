@@ -45,6 +45,17 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
+      - name: Debug — check out directory
+        run: |
+          echo "=== Current directory ==="
+          pwd
+          echo "=== out/ directory contents ==="
+          ls -la out/ 2>/dev/null || echo "out/ does not exist!"
+          echo "=== out/ size ==="
+          du -sh out/ 2>/dev/null || echo "out/ not found"
+          echo "=== All directories ==="
+          ls -la
+
       - name: Copy Next.js output to Android assets
         run: |
           rm -rf android-app/app/src/main/assets/web
