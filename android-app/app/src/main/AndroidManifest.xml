@@ -10,9 +10,19 @@
         android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:hardwareAccelerated="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules">
+        <!--
+          v2.9.13 MADDE 2: allowBackup=false
+          Gerekçe: adb backup ile rootsuz cihazdan bile oturum token'ları,
+          WebView local storage, IndexedDB ve cookie verisi çekilebilir.
+          Bu veriler Supabase auth session'ı içerir — kötü niyetli kişi
+          kullanıcının hesabını ele geçirebilir. allowBackup=false ile
+          bu saldırı vektörü tamamen kapatılır.
+          dataExtractionRules ve backup_rules ek güvenlik olarak korunur.
+        -->
         <activity
             android:name=".MainActivity"
             android:label="Touchline Manager"

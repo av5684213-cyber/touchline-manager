@@ -84,6 +84,8 @@ public class MainActivity extends Activity {
         settings.setLoadWithOverviewMode(true);
         settings.setUseWideViewPort(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
+        // v2.9.13 MADDE 1: Mixed content tamamen yasak — HTTPS sayfada HTTP kaynak yüklenemez
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setBlockNetworkLoads(false);
         settings.setBlockNetworkImage(false);
 
@@ -206,6 +208,10 @@ public class MainActivity extends Activity {
         webView.setBackgroundColor(Color.parseColor("#0d0d1a"));
 
         // Load embedded app from assets
+        // v2.9.13 MADDE 5: loadUrl SABİT — hiçbir Intent extra'sı bu URL'yi override edemez
+        // Güvenlik: Zararlı bir uygulama Intent extra göndererek WebView'e keyfi URL
+        // yüklettiremez. URL hardcoded string'dir, runtime'da değiştirilemez.
+        // file:// protocol ile sadece APK içindeki assets/web/ dizinine erişilir.
         webView.loadUrl("file:///android_asset/web/index.html");
     }
 

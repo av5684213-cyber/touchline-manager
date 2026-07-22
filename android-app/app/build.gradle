@@ -27,6 +27,74 @@ android {
             signingConfig signingConfigs.debug
             // Assets sıkıştırma kapalı — web dosyaları bozulmasın
             crunchPngs false
+            // v2.9.13 MADDE 5: debuggable KESİNLİKLE false
+            // Varsayılan zaten false ama açıkça belirtelim
+            debuggable false
         }
     }
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// v2.9.13 MADDE 3: Production APK güvenlik doğrulama task'ı
+// ════════════════════════════════════════════════════════════════════════════
+// Release APK build edildikten sonra APK'yı unzip edip assets/web içinde
+// "supabase-test", "apk-indir", "apk-data" string'leri arar.
+// Bulursa build'i FAIL ettirir — insan hatasıyla tekrar sızması imkansız.
+task verifyProductionApk {
+    doLast {
+        def apkDir = file("build/outputs/apk/release")
+        if (!apkDir.exists()) {
+            println "⚠️ APK dizini bulunamadı, doğrulama atlanıyor"
+            return
+        }
+        def apkFile = apkDir.listFiles()?.find { it.name.endsWith(".apk") }
+        if (!apkFile) {
+            println "⚠️ APK dosyası bulunamadı, doğrulama atlanıyor"
+            return
+        }
+
+        println "═══════════════════════════════════════════════════"
+        println "v2.9.13 MADDE 3: Production APK güvenlik doğrulaması"
+        println "APK: ${apkFile.name} (${apkFile.length() / 1024}KB)"
+        println "═══════════════════════════════════════════════════"
+
+        // Geçici dizine unzip et
+        def tmpDir = File.createTempDir("apk_verify")
+        tmpDir.deleteOnExit()
+        ant.unzip(src: apkFile, dest: tmpDir)
+
+        def assetsWebDir = new File(tmpDir, "assets/web")
+        def violations = []
+
+        if (assetsWebDir.exists()) {
+            // Yasaklı string'ler ara
+            def forbiddenStrings = ["supabase-test", "apk-indir", "apk-data"]
+            assetsWebDir.eachFileRecurse { file ->
+                if (file.isFile()) {
+                    def content = file.text
+                    for (String forbidden : forbiddenStrings) {
+                        if (content.contains(forbidden)) {
+                            violations.add("  ❌ ${file.path}: '${forbidden}' bulundu!")
+                        }
+                    }
+                }
+            }
+        } else {
+            violations.add("  ❌ assets/web dizini bulunamadı!")
+        }
+
+        // Temizlik
+        tmpDir.deleteDir()
+
+        if (violations.isEmpty()) {
+            println "✅ Doğrulama başarılı — yasaklı içerik bulunamadı"
+        } else {
+            println "❌ Doğrulama BAŞARISIZ — yasaklı içerik tespit edildi:"
+            violations.each { println it }
+            throw new GradleException("Production APK güvenlik doğrulaması başarısız!")
+        }
+    }
+}
+
+// Release build sonrası otomatik doğrulama
+assembleRelease.finalizedBy verifyProductionApk

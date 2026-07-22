@@ -44,6 +44,8 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          # v2.9.13 MADDE 3: Production build — test/debug route'ları derleme
+          NEXT_PUBLIC_BUILD_ENV: production
 
       - name: Debug — check out directory
         run: |
@@ -69,6 +71,84 @@ jobs:
       - name: Build APK
         working-directory: android-app
         run: ./gradlew assembleRelease -x lint --no-daemon --console=plain
+
+      - name: v2.9.13 MADDE 6 — Bağımsız güvenlik doğrulaması
+        run: |
+          echo "═══════════════════════════════════════════════════════════════"
+          echo "GÜVENLİK DOĞRULAMASI — v2.9.13"
+          echo "═══════════════════════════════════════════════════════════════"
+          FAIL=0
+
+          # APK'yı geçici dizine unzip et
+          APK="android-app/app/build/outputs/apk/release/app-release.apk"
+          TMPDIR=$(mktemp -d)
+          unzip -q "$APK" -d "$TMPDIR"
+
+          # (a) AndroidManifest'te usesCleartextTraffic="false" ve allowBackup="false"
+          echo ""
+          echo "=== (a) Manifest güvenlik kontrolü ==="
+          MANIFEST="$TMPDIR/AndroidManifest.xml"
+          if grep -q 'usesCleartextTraffic="false"' "$MANIFEST"; then
+            echo "  ✅ usesCleartextTraffic=false"
+          else
+            echo "  ❌ usesCleartextTraffic=false BULUNAMADI"
+            FAIL=1
+          fi
+          if grep -q 'allowBackup="false"' "$MANIFEST"; then
+            echo "  ✅ allowBackup=false"
+          else
+            echo "  ❌ allowBackup=false BULUNAMADI"
+            FAIL=1
+          fi
+
+          # (b) assets/web içinde yasaklı string'ler
+          echo ""
+          echo "=== (b) Yasaklı içerik kontrolü ==="
+          ASSETS_DIR="$TMPDIR/assets/web"
+          if [ -d "$ASSETS_DIR" ]; then
+            FORBIDDEN="supabase-test apk-indir apk-data"
+            for term in $FORBIDDEN; do
+              if grep -rl "$term" "$ASSETS_DIR" 2>/dev/null; then
+                echo "  ❌ '$term' bulundu!"
+                FAIL=1
+              else
+                echo "  ✅ '$term' bulunamadı"
+              fi
+            done
+          else
+            echo "  ⚠️ assets/web dizini bulunamadı"
+          fi
+
+          # (c) .js dosyalarında service_role veya gizli anahtar deseni
+          echo ""
+          echo "=== (c) Gizli anahtar kontrolü ==="
+          if [ -d "$ASSETS_DIR" ]; then
+            # service_role string ara
+            if grep -rl "service_role" "$ASSETS_DIR" 2>/dev/null | grep -v ".map"; then
+              echo "  ❌ 'service_role' string bulundu!"
+              FAIL=1
+            else
+              echo "  ✅ 'service_role' string bulunamadı"
+            fi
+            # JWT deseni ara (eyJ ile başlayan uzun string — anon key hariç)
+            # anon key public'tir, service_role key ise "service_role" claim'i içerir
+            if grep -rlo "eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*" "$ASSETS_DIR" 2>/dev/null | grep -v ".map" | head -3; then
+              echo "  ℹ️ JWT token bulundu (anon key olabilir — service_role değil)"
+            fi
+          fi
+
+          # Temizlik
+          rm -rf "$TMPDIR"
+
+          echo ""
+          echo "═══════════════════════════════════════════════════════════════"
+          if [ $FAIL -eq 0 ]; then
+            echo "✅ TÜM GÜVENLİK KONTROLLERİ BAŞARILI"
+          else
+            echo "❌ GÜVENLİK KONTROLÜ BAŞARISIZ — build fail edilecek"
+            exit 1
+          fi
+          echo "═══════════════════════════════════════════════════════════════"
 
       - name: Upload APK to release
         if: startsWith(github.ref, 'refs/tags/')
