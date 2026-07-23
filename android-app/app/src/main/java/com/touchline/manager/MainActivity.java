@@ -76,6 +76,13 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // v2.9.16: CrashReporter'ı başlat (Application sınıfı yerine burada)
+        try {
+            CrashReporter.getInstance().init(this);
+        } catch (Exception e) {
+            Log.e(TAG, "CrashReporter init failed", e);
+        }
+
         // Dark status bar and navigation bar
         Window window = getWindow();
         window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);

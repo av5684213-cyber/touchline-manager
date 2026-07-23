@@ -27,18 +27,12 @@ public class TouchlineApplication extends Application {
     public void onCreate() {
         super.onCreate();
 
-        // CrashReporter'ı başlat
-        CrashReporter.getInstance().init(this);
-
-        // SENTRY: Uncomment when Sentry SDK is added
-        // Sentry.init(options -> {
-        //     options.setDsn("https://your-dsn@sentry.io/project-id");
-        //     options.setBeforeSend((event, hint) -> {
-        //         // PII filtreleme — e-posta, token, şifre gibi verileri temizle
-        //         return CrashReporter.scrubPII(event);
-        //     });
-        // });
-
-        Log.i(TAG, "TouchlineApplication started — CrashReporter active");
+        // CrashReporter'ı başlat — hata olursa uygulama çökmesin
+        try {
+            CrashReporter.getInstance().init(this);
+            Log.i(TAG, "TouchlineApplication started — CrashReporter active");
+        } catch (Exception e) {
+            Log.e(TAG, "CrashReporter init failed, continuing without it", e);
+        }
     }
 }
