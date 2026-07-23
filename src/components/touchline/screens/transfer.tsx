@@ -38,18 +38,42 @@ import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 
-type SubTab = "market" | "freeagents" | "loan" | "watchlist" | "incoming" | "mylisted";
+type SubTab = "market" | "allleagues" | "freeagents" | "loan" | "watchlist" | "incoming" | "mylisted";
 
 export function TransferScreen() {
   const { t } = useI18n();
   const team = useMyTeam();
   const transfer = useAppStore((s) => s.transfer);
+  const clubs = useAppStore((s) => s.clubs);
   const [sub, setSub] = useState<SubTab>("market");
   const [filter, setFilter] = useState<PositionGroup | "ALL">("ALL");
   const [offerModal, setOfferModal] = useState<Player | null>(null);
   const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
   // ADDED: Gelişmiş pazarlık modal'ı state
   const [negotiationModal, setNegotiationModal] = useState<{ player: Player; askingPrice: number } | null>(null);
+
+  // v2.9.17: Tüm liglerden bot takımların oyuncularını topla
+  const allClubPlayers = useMemo(() => {
+    if (!team) return [];
+    const players: { player: Player; teamName: string; teamShort: string; teamColor: string; askingPrice: number }[] = [];
+    for (const c of clubs) {
+      if (c.id === team.id) continue; // kendi takımını atla
+      for (const p of c.players) {
+        // Satılık oyuncuları veya yüksek OVR'li oyuncuları göster
+        if (p.is_for_sale || p.rating >= 65) {
+          players.push({
+            player: p,
+            teamName: c.name,
+            teamShort: c.shortName,
+            teamColor: c.primaryColor,
+            askingPrice: p.sale_price ?? Math.round((p.marketValue ?? 500000) * 1.2),
+          });
+        }
+      }
+    }
+    // OVR'ye göre sırala
+    return players.sort((a, b) => b.player.rating - a.player.rating).slice(0, 50);
+  }, [clubs, team]);
 
   const filteredListings = useMemo(() => {
     if (filter === "ALL") return transfer.freeAgents;
@@ -106,6 +130,7 @@ export function TransferScreen() {
         {(
           [
             { key: "market", label: t("transfer.tab.market"), count: transfer.freeAgents.length },
+            { key: "allleagues", label: "Tüm Ligler", count: allClubPlayers.length },
             { key: "freeagents", label: "Takımsız", count: transfer.freeAgentListings?.length ?? 0 },
             { key: "loan", label: "Kiralık", count: transfer.loanListings?.length ?? 0 },
             { key: "watchlist", label: t("transfer.tab.watchlist"), count: transfer.watchlist.length },
@@ -138,6 +163,48 @@ export function TransferScreen() {
           </button>
         ))}
       </div>
+
+      {/* v2.9.17: Tüm Ligler tab — çapraz lig transfer */}
+      {sub === "allleagues" && (
+        <>
+          <div className="text-[10px] text-muted-foreground mb-2">
+            Tüm liglerden transfer edilebilir oyuncular (65+ OVR veya satılık)
+          </div>
+          {allClubPlayers.length === 0 && (
+            <div className="tm-card p-6 text-center text-xs text-muted-foreground">
+              Şu an uygun oyuncu bulunmuyor.
+            </div>
+          )}
+          <div className="tm-card divide-y divide-border">
+            {allClubPlayers.slice(0, 30).map((item) => {
+              const posGroup = getPositionGroup(item.player.specificPosition);
+              return (
+                <button
+                  key={item.player.id}
+                  onClick={() => { haptic("light"); setNegotiationModal({ player: item.player, askingPrice: item.askingPrice }); }}
+                  className="tm-tap w-full flex items-center gap-2 p-2 text-left hover:bg-accent/30 transition-colors"
+                >
+                  <ClubBadge short={item.teamShort} primaryColor={item.teamColor} size={32} />
+                  <PositionPill label={item.player.specificPosition} group={posGroup} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold truncate">
+                      {item.player.firstName} {item.player.lastName}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground truncate">
+                      {item.teamName} · {item.player.age} yaş · {item.player.archetype ?? ""}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-sm font-bold text-amber-400 tabular-nums">{item.player.rating}</div>
+                    <div className="text-[10px] text-muted-foreground">{formatEuro(item.askingPrice, "tr")}</div>
+                  </div>
+                  <ChevronRight size={14} className="text-muted-foreground shrink-0" />
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {/* Market tab */}
       {sub === "market" && (
