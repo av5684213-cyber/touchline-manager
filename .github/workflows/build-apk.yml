@@ -92,8 +92,8 @@ jobs:
           find android-app/app/src/main/assets/web/ -type f | wc -l
           echo "=== _next exists? ==="
           ls -d android-app/app/src/main/assets/web/_next 2>/dev/null && echo "STILL EXISTS" || echo "RENAMED ✓"
-          echo "=== _n exists? ==="
-          ls -d android-app/app/src/main/assets/web/_n 2>/dev/null && echo "EXISTS ✓" || echo "MISSING ❌"
+          echo "=== static exists? ==="
+          ls -d android-app/app/src/main/assets/web/static 2>/dev/null && echo "EXISTS ✓" || echo "MISSING ❌"
 
       - name: Build APK
         working-directory: android-app
