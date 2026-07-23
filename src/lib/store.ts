@@ -50,6 +50,8 @@ import { getInflationMultiplier } from "@/lib/fm/inflation";
 import { applyCoachTrainingBoost } from "@/lib/staffBonus";
 import { generateSponsorOffers, getTotalSponsorIncome } from "@/lib/sponsorSystem";
 import { checkAndAwardBadges, checkAchievements } from "@/components/touchline/achievements";
+// v2.9.18: Bot AI sistemi
+import { simulateBotMatch, findWeakestPosition, shouldBotBuy, shouldBotSell, getBotFormation } from "@/lib/botAI";
 
 type Tactics = {
   // Yeni şema — eski oyunun ActiveTactic'i ile birebir
@@ -1628,24 +1630,12 @@ export const useAppStore = create<AppState>()(
         // P1 FIX: Kullanıcının maçını enhanced motorla oyna, diğerlerini basit sim'le
         // Enhanced motor: taktikler, formasyon, sakat filtreleme, kondisyon etkisi
 
-        // Basit simülasyon — bot vs bot maçları için (önce tanımla, simulateUserCupMatch fallback olarak kullanır)
-        // P2 FIX: rating sıralaması + sakat filtresi eklendi (advanceMatchday ile tutarlı)
+        // v2.9.18: Kupa bot simülasyonu — BotAI kullan
         const simpleCupSim = (home: any, away: any): { hs: number; as: number } => {
-          const homeXI = [...home.players]
-            .filter((p: any) => isPlayerAvailable(p))
-            .sort((a: any, b: any) => b.rating - a.rating)
-            .slice(0, 11);
-          const awayXI = [...away.players]
-            .filter((p: any) => isPlayerAvailable(p))
-            .sort((a: any, b: any) => b.rating - a.rating)
-            .slice(0, 11);
-          const homeStr = homeXI.reduce((s: number, p: any) => s + p.rating, 0) / Math.max(1, homeXI.length);
-          const awayStr = awayXI.reduce((s: number, p: any) => s + p.rating, 0) / Math.max(1, awayXI.length);
-          const diff = homeStr - awayStr;
-          const homeAdv = diff > 5 ? 0.3 : diff < -5 ? -0.3 : 0;
-          let hs = Math.max(0, Math.floor(Math.random() * 4 + homeAdv * 2));
-          let as = Math.max(0, Math.floor(Math.random() * 3 - homeAdv * 2));
-          // P0 FIX: Beraberlikte rastgele penaltı — her zaman ev sahibi DEĞİL
+          const result = simulateBotMatch(home, away, get().seasonMatchday ?? 1);
+          let hs = result.homeScore;
+          let as = result.awayScore;
+          // Beraberlikte rastgele penaltı
           if (hs === as) {
             if (Math.random() < 0.5) hs += 1;
             else as += 1;
@@ -1938,17 +1928,12 @@ export const useAppStore = create<AppState>()(
           if (userMatch && f.id === userMatch.id && userMatchResult) {
             return { ...f, homeScore: userMatchResult.homeScore, awayScore: userMatchResult.awayScore, played: true };
           }
-          // Bot vs bot maçı — basit sim
+          // v2.9.18: Bot vs bot maçı — akıllı simülasyon (BotAI)
           const homeTeam = clubs.find((c) => c.id === f.homeId);
           const awayTeam = clubs.find((c) => c.id === f.awayId);
           if (!homeTeam || !awayTeam) return f;
-          const homeStr = [...homeTeam.players].filter(p => isPlayerAvailable(p)).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
-          const awayStr = [...awayTeam.players].filter(p => isPlayerAvailable(p)).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
-          const diff = homeStr - awayStr;
-          const homeAdv = diff > 5 ? 0.3 : diff < -5 ? -0.3 : 0;
-          const hs = Math.max(0, Math.floor(Math.random() * 4 + homeAdv * 2));
-          const as = Math.max(0, Math.floor(Math.random() * 3 - homeAdv * 2));
-          return { ...f, homeScore: hs, awayScore: as, played: true };
+          const botResult = simulateBotMatch(homeTeam, awayTeam, currentMd);
+          return { ...f, homeScore: botResult.homeScore, awayScore: botResult.awayScore, played: true };
         });
 
         // Kullanıcı maçı haberini hazırla (set'e eklenecek)
@@ -2112,37 +2097,50 @@ export const useAppStore = create<AppState>()(
           }
           // P0 FIX: Stale referans yerine updatedClubs'tan taze değer oku
           const currentBot = updatedClubs.find((c) => c.id === bot.id)!;
-          // P1 FIX: %15 ihtimalle serbest oyuncu al (önce %30 idi)
-          if (Math.random() < 0.15 && updatedTransfer.freeAgents.length > 0 && currentBot.budget > 500000) {
-            const idx = Math.floor(Math.random() * Math.min(5, updatedTransfer.freeAgents.length));
-            const listing = updatedTransfer.freeAgents[idx];
-            if (listing.askingPrice < currentBot.budget && currentBot.players.length < 25) {
-              const botIdx = updatedClubs.findIndex((c) => c.id === bot.id);
-              updatedClubs[botIdx] = {
-                ...currentBot,
-                budget: currentBot.budget - listing.askingPrice,
-                players: [...currentBot.players, listing.player],
-              };
-              updatedTransfer.freeAgents = updatedTransfer.freeAgents.filter((_, i) => i !== idx);
+          // v2.9.18: Akıllı bot transfer — ihtiyaç pozisyonuna göre alım
+          if (Math.random() < 0.2 && updatedTransfer.freeAgents.length > 0 && currentBot.budget > 500000) {
+            // En zayıf pozisyonu bul
+            const weakestPos = findWeakestPosition(currentBot);
+            // O pozisyona uygun serbest ajan ara
+            const candidates = updatedTransfer.freeAgents.filter(l => {
+              const pGroup = l.player.specificPosition === "GK" ? "GK" :
+                ["CB","LB","RB","LWB","RWB"].includes(l.player.specificPosition) ? "DEF" :
+                ["CDM","CM","CAM","LM","RM"].includes(l.player.specificPosition) ? "MID" : "FWD";
+              return pGroup === weakestPos && l.askingPrice < currentBot.budget;
+            });
+            // Uygun aday varsa al, yoksa rastgele al
+            const pool = candidates.length > 0 ? candidates : updatedTransfer.freeAgents.slice(0, 5);
+            if (pool.length > 0) {
+              const listing = pool[Math.floor(Math.random() * Math.min(3, pool.length))];
+              if (shouldBotBuy(currentBot, listing.askingPrice, listing.player.specificPosition)) {
+                const botIdx = updatedClubs.findIndex((c) => c.id === bot.id);
+                updatedClubs[botIdx] = {
+                  ...currentBot,
+                  budget: currentBot.budget - listing.askingPrice,
+                  players: [...currentBot.players, listing.player],
+                };
+              updatedTransfer.freeAgents = updatedTransfer.freeAgents.filter(l => l.player.id !== listing.player.id);
+              }
             }
           }
 
-          // P1 FIX: %5 ihtimalle oyuncu sat (önce %10 idi, hala şişiyordu)
-          // SADECE free agents 50'den az ise sat — şişmeyi önle
+          // v2.9.18: Akıllı bot satış — zayıf oyuncuyu sat
           const currentBot2 = updatedClubs.find((c) => c.id === bot.id)!;
-          if (Math.random() < 0.05 && currentBot2.players.length > 20 && updatedTransfer.freeAgents.length < 50) {
-            const weakest = [...currentBot2.players].sort((a, b) => a.rating - b.rating)[0];
-            if (weakest) {
+          if (Math.random() < 0.08 && currentBot2.players.length > 20 && updatedTransfer.freeAgents.length < 50) {
+            // En zayıf 3 oyuncudan birini sat
+            const weakest3 = [...currentBot2.players].sort((a, b) => a.rating - b.rating).slice(0, 3);
+            const toSell = weakest3[Math.floor(Math.random() * weakest3.length)];
+            if (toSell && shouldBotSell(currentBot2, toSell)) {
               const botIdx = updatedClubs.findIndex((c) => c.id === bot.id);
-              const salePrice = weakest.marketValue;
+              const salePrice = toSell.marketValue;
               updatedClubs[botIdx] = {
                 ...updatedClubs[botIdx],
                 budget: updatedClubs[botIdx].budget + salePrice,
-                players: updatedClubs[botIdx].players.filter((p) => p.id !== weakest.id),
+                players: updatedClubs[botIdx].players.filter((p) => p.id !== toSell.id),
               };
               // Serbest oyuncu havuzuna ekle
               updatedTransfer.freeAgents.unshift({
-                player: weakest,
+                player: toSell,
                 askingPrice: salePrice,
                 daysListed: 1,
                 offers: 0,
