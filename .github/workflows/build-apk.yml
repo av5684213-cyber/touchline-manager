@@ -72,28 +72,36 @@ jobs:
           rm -rf out/icons
           # .map dosyalarını sil
           find out/ -name "*.map" -delete
-          # v2.9.16: _next → static olarak rename
-          # AAPT varsayılan olarak _ ile başlayan klasörleri ATLIYOR (_next/ dahil)
-          # Bu yüzden _next'i "static" olarak yeniden adlandırıyoruz
+
+          # v2.9.17 KRİTİK: _next → static rename
+          # AAPT _ ile başlayan klasörleri atlar, bu yüzden _next'i static'e taşıyoruz
+          # Hem HTML hem JS dosyalarındaki TÜM _next/ referanslarını güncelliyoruz
           if [ -d "out/_next" ]; then
             mv out/_next out/static
-            # HTML dosyalarındaki tüm _next/ referanslarını static/ olarak güncelle
-            find out/ -name "*.html" -exec sed -i 's|/_next/|/static/|g' {} +
-            find out/ -name "*.html" -exec sed -i 's|"\./_next/|"\./static/|g' {} +
-            find out/ -name "*.html" -exec sed -i 's|"_next/|"static/|g' {} +
-            # JS dosyalarındaki _next/ string'lerini güncelle (chunk loading için)
+
+            # HTML dosyalarındaki referanslar
+            find out/ -name "*.html" -exec sed -i 's|_next/|static/|g' {} +
+
+            # JS dosyalarındaki referanslar (chunk loading, CSS loading, font loading)
             find out/static/ -name "*.js" -exec sed -i 's|_next/|static/|g' {} +
-            echo "✓ _next/ → static/ rename tamam"
+
+            # CSS dosyalarındaki referanslar (font url'leri)
+            find out/static/ -name "*.css" -exec sed -i 's|_next/|static/|g' {} +
+
+            echo "✓ _next → static rename + referans güncelleme tamam"
           fi
+
           cp -r out/* android-app/app/src/main/assets/web/
           echo "=== Web assets size ==="
           du -sh android-app/app/src/main/assets/web/
           echo "=== File count ==="
           find android-app/app/src/main/assets/web/ -type f | wc -l
           echo "=== _next exists? ==="
-          ls -d android-app/app/src/main/assets/web/_next 2>/dev/null && echo "STILL EXISTS" || echo "RENAMED ✓"
+          ls -d android-app/app/src/main/assets/web/_next 2>/dev/null && echo "STILL EXISTS ❌" || echo "RENAMED ✓"
           echo "=== static exists? ==="
           ls -d android-app/app/src/main/assets/web/static 2>/dev/null && echo "EXISTS ✓" || echo "MISSING ❌"
+          echo "=== Verify no _next/ in JS ==="
+          grep -rl "_next/" android-app/app/src/main/assets/web/static/ 2>/dev/null | head -3 || echo "NO _next/ refs ✓"
 
       - name: Build APK
         working-directory: android-app
