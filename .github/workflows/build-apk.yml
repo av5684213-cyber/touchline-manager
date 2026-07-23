@@ -66,19 +66,34 @@ jobs:
           rm -rf out/supabase-test out/supabase-test.html out/supabase-test.txt
           rm -rf out/apk-indir out/apk-indir.html
           rm -rf out/apk-data out/apk-data.html
-          # v2.9.15 MADDE 1-2-5: Service worker, PWA, offline kalıntılarını sil
+          # v2.9.15: SW, PWA, offline kalıntılarını sil
           rm -f out/sw.js out/sw-register.js out/manifest.json
           rm -rf out/offline
           rm -rf out/icons
-          # v2.9.15 MADDE 4: .map dosyalarını sil (production source map yok)
+          # .map dosyalarını sil
           find out/ -name "*.map" -delete
+          # v2.9.16: _next → static olarak rename
+          # AAPT varsayılan olarak _ ile başlayan klasörleri ATLIYOR (_next/ dahil)
+          # Bu yüzden _next'i "static" olarak yeniden adlandırıyoruz
+          if [ -d "out/_next" ]; then
+            mv out/_next out/static
+            # HTML dosyalarındaki tüm _next/ referanslarını static/ olarak güncelle
+            find out/ -name "*.html" -exec sed -i 's|/_next/|/static/|g' {} +
+            find out/ -name "*.html" -exec sed -i 's|"\./_next/|"\./static/|g' {} +
+            find out/ -name "*.html" -exec sed -i 's|"_next/|"static/|g' {} +
+            # JS dosyalarındaki _next/ string'lerini güncelle (chunk loading için)
+            find out/static/ -name "*.js" -exec sed -i 's|_next/|static/|g' {} +
+            echo "✓ _next/ → static/ rename tamam"
+          fi
           cp -r out/* android-app/app/src/main/assets/web/
           echo "=== Web assets size ==="
           du -sh android-app/app/src/main/assets/web/
           echo "=== File count ==="
           find android-app/app/src/main/assets/web/ -type f | wc -l
-          echo "=== .map files remaining? ==="
-          find android-app/app/src/main/assets/web/ -name "*.map" | wc -l
+          echo "=== _next exists? ==="
+          ls -d android-app/app/src/main/assets/web/_next 2>/dev/null && echo "STILL EXISTS" || echo "RENAMED ✓"
+          echo "=== _n exists? ==="
+          ls -d android-app/app/src/main/assets/web/_n 2>/dev/null && echo "EXISTS ✓" || echo "MISSING ❌"
 
       - name: Build APK
         working-directory: android-app
