@@ -1842,8 +1842,11 @@ export const useAppStore = create<AppState>()(
 
       // ===== Season actions =====
       advanceMatchday: () => {
-        const { fixtures, clubs, myTeamId, transfer, news } = get();
-        const currentMd = SEASON_INFO.matchday;
+        const { fixtures, clubs, myTeamId, transfer, news, seasonMatchday } = get();
+        // v2.9.17: SEASON_INFO.matchday YERİNE seasonMatchday state'ini kullan
+        // Eski kod SEASON_INFO.matchday kullanıyordu — bu global obje
+        // canlı maç + Turu İlerlet arasında senkronizasyon sorununa yol açıyordu
+        const currentMd = seasonMatchday ?? 1;
 
         // P0 KÖK NEDEN ÇÖZÜMÜ: Kullanıcının maçını BOT maçlarıyla AYNI array'de simüle et
         // recordMatchResult'a ayrı set() yaptırmak yerine, direkt updatedFixtures'a dahil et
@@ -2298,7 +2301,9 @@ export const useAppStore = create<AppState>()(
           }
           return;
         }
+        // v2.9.17: SEASON_INFO.matchday'i de senkronize et (eski kod uyumluluğu için)
         SEASON_INFO.matchday = nextMd;
+        // Ama asıl state seasonMatchday'dir — UI ve motor bunu kullanır
 
         // P0 FIX: Otomatik antrenman — kullanıcı atama yapmasa bile varsayılan gelişim
         try {

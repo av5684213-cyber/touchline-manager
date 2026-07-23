@@ -703,8 +703,11 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
   };
   const archetypeVal = pickArketipByStats(pos, allStats);
 
-  const traits = pickN(POSITIVE_TRAITS, rand(1, 3));
-  const negTraits = Math.random() < 0.3 ? pickN(NEGATIVE_TRAITS, 1) : [];
+  // v2.9.17: Trait sayılarını azalt — çok fazla trait oyuncuyu dağıtıyordu
+  // Eski: 1-3 pozitif, %30 ihtimalle 1 negatif
+  // Yeni: 0-1 pozitif, %15 ihtimalle 1 negatif
+  const traits = pickN(POSITIVE_TRAITS, rand(0, 1));
+  const negTraits = Math.random() < 0.15 ? pickN(NEGATIVE_TRAITS, 1) : [];
 
   return {
     id: nextId("p"),
@@ -753,7 +756,8 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
 
     traits,
     negTraits,
-    personalityTraits: pickN(PERSONALITY_TRAITS, rand(0, 2)),
+    // v2.9.17: Personality trait sayısını azalt — 0-1 yerine 0-1
+    personalityTraits: pickN(PERSONALITY_TRAITS, rand(0, 1)),
     // v2.9.11: assignRandomPlayStyle kullan — pozisyona göre ağırlıklı seçim
     // Eski: pick(["Gegenpressing", "Tiki-Taka", "Catenaccio", "Counter-Attack", "Wing Play"])
     playStyle: assignRandomPlayStyle({ position: pos } as any)?.playStyle ?? "Possession Football",

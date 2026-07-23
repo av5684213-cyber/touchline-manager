@@ -117,16 +117,15 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
 
     const callbacks: MatchmakingCallbacks = {
       onSearching: () => {
-        // P0 FIX BUG #12: Dürüst mesaj — gerçek online maç değil, sohbet + bot maçı
-        setFeedback("Online rakip aranıyor... Bulunursa sohbet edebilirsiniz. Maç her zaman bot takıma karşı oynanır (30 sn içinde bulunmazsa rastgele bot).");
+        // v2.9.17: Hazırlık maçları SADECE online kullanıcılar arası
+        setFeedback("Online rakip aranıyor... 30 sn içinde bulunamazsa tekrar deneyin.");
       },
       onMatched: (oppUser: QueueUser) => {
         haptic("success");
-        // P0 FIX BUG #12: Dürüst etiketleme — gerçek online maç DEĞİL
-        // Bulunan online rakiple sadece sohbet edilebilir; maç benzer güçte bir bot'a karşı oynanır
-        setFeedback(`✓ Online oyuncu bulundu: ${oppUser.teamName} (OVR ${oppUser.teamOvr}). Sohbet açıktır! Maç, benzer güçte bir bot takıma karşı oynanır (gerçek online maç henüz desteklenmiyor).`);
+        // v2.9.17: Online rakip bulundu — bot fallback YOK
+        setFeedback(`✓ Online rakip bulundu: ${oppUser.teamName} (OVR ${oppUser.teamOvr}). Maç başlıyor!`);
         setQueueStatus("matched");
-        // Rakibin OVR'sine yakın bir bot bul
+        // Rakibin OVR'sine yakın bir bot bul (geçici — gerçek online maç için sunucu tarafı simülasyon gerekir)
         const targetOvr = oppUser.teamOvr ?? 70;
         const sortedOpps = [...opponents].sort((a, b) => {
           const aOvr = Math.round(a.players.reduce((s, p) => s + p.rating, 0) / a.players.length);
@@ -145,21 +144,9 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
       },
       onTimeout: () => {
         haptic("light");
-        // P0 FIX BUG #12: Dürüst mesaj
-        setFeedback("Online oyuncu bulunamadı — bot ile oynanıyor...");
-        const randomOpp = opponents[Math.floor(Math.random() * opponents.length)];
-        if (randomOpp) {
-          setSelectedOppId(randomOpp.id);
-          setQueueStatus("matched");
-          safeTimeout(() => {
-            setMatchStarted(true);
-            engine.reset();
-            engine.start();
-          }, 600);
-        } else {
-          setQueueStatus("idle");
-          setFeedback("Rakip bulunamadı, tekrar dene.");
-        }
+        // v2.9.17: Bot fallback YOK — online oyuncu bulunamadı
+        setFeedback("Online oyuncu bulunamadı. Tekrar deneyin veya 'Hemen Maç' ile bot'a karşı oynayın.");
+        setQueueStatus("idle");
       },
       onError: (msg) => {
         if (msg === "NO_SUPABASE") {

@@ -13,6 +13,8 @@ import { FORMATION_SLOTS, DEFAULT_TACTIC, TACTICAL_INSTRUCTIONS } from "@/lib/ta
 import { computeStandings } from "@/lib/mock/season";
 import { applyDoctorHealingBonus } from "@/lib/staffBonus";
 import { checkAchievements } from "@/components/touchline/achievements";
+// v2.9.17: Bot takımlar için pozisyon uygunluğu
+import { isPlayerAvailableAt } from "@/lib/player-availability";
 
 const TICK_MS = 800; // 1 oyun dakikası = 800ms
 
@@ -28,26 +30,42 @@ function pickStartingXIByFormation(
   const slots = FORMATION_SLOTS[formation] ?? FORMATION_SLOTS["4-4-2"];
   const used = new Set<string>();
   const lineup: Player[] = [];
+  // v2.9.17: Mevcut matchday'i al — sakat/cezalı kontrolü için
+  const currentMatchday = useAppStore.getState?.()?.seasonMatchday ?? 0;
 
   for (const slotPos of slots) {
-    // Önce tam pozisyon eşleşmesi ara
+    // v2.9.17: Önce pozisyon uygunluğu + sakat/cezalı kontrolü
+    // 1. Tam pozisyon eşleşmesi + uygun oyuncu
     let candidate = players
-      .filter((p) => !used.has(p.id) && p.specificPosition === slotPos)
+      .filter((p) => !used.has(p.id) && p.specificPosition === slotPos && isPlayerAvailableAt(p, currentMatchday))
       .sort((a, b) => b.rating - a.rating)[0];
 
-    // Yoksa aynı gruptan al
+    // 2. Aynı gruptan al + uygun oyuncu
     if (!candidate) {
       const group = getGroup(slotPos);
       candidate = players
-        .filter((p) => !used.has(p.id) && getGroup(p.specificPosition) === group)
+        .filter((p) => !used.has(p.id) && getGroup(p.specificPosition) === group && isPlayerAvailableAt(p, currentMatchday))
         .sort((a, b) => b.rating - a.rating)[0];
     }
 
-    // Hala yoksa en yüksek OVR'li boş oyuncu
+    // 3. Herhangi bir uygun oyuncu (pozisyon farketmeksizin)
     if (!candidate) {
       candidate = players
-        .filter((p) => !used.has(p.id))
+        .filter((p) => !used.has(p.id) && isPlayerAvailableAt(p, currentMatchday))
         .sort((a, b) => b.rating - a.rating)[0];
+    }
+
+    // 4. Son çare: sakat bile olsa birini koy (kaleci hariç saha slotu için kaleci koyma)
+    if (!candidate) {
+      if (slotPos === "GK") {
+        candidate = players
+          .filter((p) => !used.has(p.id) && p.specificPosition === "GK")
+          .sort((a, b) => b.rating - a.rating)[0] ?? null;
+      } else {
+        candidate = players
+          .filter((p) => !used.has(p.id) && p.specificPosition !== "GK")
+          .sort((a, b) => b.rating - a.rating)[0] ?? null;
+      }
     }
 
     if (candidate) {
