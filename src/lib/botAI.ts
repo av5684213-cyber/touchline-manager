@@ -229,14 +229,17 @@ export function simulateBotMatch(
 
   // Maç sonucu hesapla
   const diff = homeStr - awayStr;
-  const homeAdv = diff > 5 ? 0.35 : diff > 2 ? 0.2 : diff < -5 ? -0.35 : diff < -2 ? -0.2 : 0;
+  // v2.9.19: Ev sahibi avantajı dengeli — hedef %42-48
+  const homeAdv = diff > 5 ? 0.4 : diff > 2 ? 0.25 : diff < -5 ? -0.3 : diff < -2 ? -0.15 : 0.1;
 
   // Taktik etkisi: ofansif takım daha çok gol atar ama daha çok yiyebilir
   const homeAttackBias = homeProfile.mentality >= 4 ? 0.15 : homeProfile.mentality <= 2 ? -0.1 : 0;
   const awayAttackBias = awayProfile.mentality >= 4 ? 0.15 : awayProfile.mentality <= 2 ? -0.1 : 0;
 
-  let hs = Math.max(0, Math.round(Math.random() * 3 + homeAdv * 2 + homeAttackBias));
-  let as = Math.max(0, Math.round(Math.random() * 3 - homeAdv * 2 + awayAttackBias));
+  // v2.9.19: Gol sayıları çok yükseldi (3.20/maç) — düşür
+  // Gerçek futbol ortalaması: 2.2-2.8 gol/maç
+  let hs = Math.max(0, Math.round(Math.random() * 2.5 + homeAdv * 1.5 + homeAttackBias));
+  let as = Math.max(0, Math.round(Math.random() * 2.5 - homeAdv * 1.5 + awayAttackBias));
 
   // Pressing takım kontrollü oynar — az gol yer
   if (homeProfile.pressing) as = Math.max(0, as - 1);

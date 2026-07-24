@@ -478,17 +478,19 @@ function initials(first: string, last: string) {
 }
 
 // ===== Position-required roster shape (23 players, sahte 1. Lig kalitesi) =====
+// v2.9.19: OVR aralıkları genişletildi — daha gerçekçi dağılım
+// Eskiden sadece 60-79 arası vardı, şimdi 48-85 arası
 const ROSTER_SHAPE: { pos: Position; count: number; minOvr: number; maxOvr: number }[] = [
-  { pos: "GK", count: 3, minOvr: 60, maxOvr: 74 },
-  { pos: "CB", count: 4, minOvr: 62, maxOvr: 76 },
-  { pos: "LB", count: 2, minOvr: 60, maxOvr: 73 },
-  { pos: "RB", count: 2, minOvr: 60, maxOvr: 73 },
-  { pos: "CDM", count: 2, minOvr: 63, maxOvr: 75 },
-  { pos: "CM", count: 3, minOvr: 64, maxOvr: 78 },
-  { pos: "CAM", count: 2, minOvr: 63, maxOvr: 77 },
-  { pos: "LW", count: 2, minOvr: 62, maxOvr: 76 },
-  { pos: "RW", count: 1, minOvr: 62, maxOvr: 76 },
-  { pos: "ST", count: 2, minOvr: 64, maxOvr: 79 },
+  { pos: "GK", count: 3, minOvr: 52, maxOvr: 76 },
+  { pos: "CB", count: 4, minOvr: 50, maxOvr: 78 },
+  { pos: "LB", count: 2, minOvr: 48, maxOvr: 74 },
+  { pos: "RB", count: 2, minOvr: 48, maxOvr: 74 },
+  { pos: "CDM", count: 2, minOvr: 52, maxOvr: 77 },
+  { pos: "CM", count: 3, minOvr: 54, maxOvr: 80 },
+  { pos: "CAM", count: 2, minOvr: 52, maxOvr: 79 },
+  { pos: "LW", count: 2, minOvr: 50, maxOvr: 78 },
+  { pos: "RW", count: 1, minOvr: 50, maxOvr: 78 },
+  { pos: "ST", count: 2, minOvr: 54, maxOvr: 82 },
 ];
 
 function generateStats(pos: Position, ovr: number): PlayerStats {
@@ -703,11 +705,11 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
   };
   const archetypeVal = pickArketipByStats(pos, allStats);
 
-  // v2.9.17: Trait sayılarını azalt — çok fazla trait oyuncuyu dağıtıyordu
-  // Eski: 1-3 pozitif, %30 ihtimalle 1 negatif
-  // Yeni: 0-1 pozitif, %15 ihtimalle 1 negatif
-  const traits = pickN(POSITIVE_TRAITS, rand(0, 1));
-  const negTraits = Math.random() < 0.15 ? pickN(NEGATIVE_TRAITS, 1) : [];
+  // v2.9.19: Trait dağılımı çok yoğundu — daha nadir yap
+  // Eski: 0-1 pozitif (%51 oyuncuda trait vardı)
+  // Yeni: %25 ihtimalle 1 pozitif, %8 ihtimalle 1 negatif
+  const traits = Math.random() < 0.25 ? pickN(POSITIVE_TRAITS, 1) : [];
+  const negTraits = Math.random() < 0.08 ? pickN(NEGATIVE_TRAITS, 1) : [];
 
   return {
     id: nextId("p"),
@@ -756,8 +758,8 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
 
     traits,
     negTraits,
-    // v2.9.17: Personality trait sayısını azalt — 0-1 yerine 0-1
-    personalityTraits: pickN(PERSONALITY_TRAITS, rand(0, 1)),
+    // v2.9.19: Personality trait çok nadir — %15 ihtimal
+    personalityTraits: Math.random() < 0.15 ? pickN(PERSONALITY_TRAITS, 1) : [],
     // v2.9.11: assignRandomPlayStyle kullan — pozisyona göre ağırlıklı seçim
     // Eski: pick(["Gegenpressing", "Tiki-Taka", "Catenaccio", "Counter-Attack", "Wing Play"])
     playStyle: assignRandomPlayStyle({ position: pos } as any)?.playStyle ?? "Possession Football",
