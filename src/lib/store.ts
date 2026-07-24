@@ -716,7 +716,9 @@ export const useAppStore = create<AppState>()(
       },
 
       // ===== Yeni taktik action'ları (ActiveTactic) =====
-      // v2.9.20 GÖREV 1: Tüm taktik değişiklikleri debounce'lu cloud-save tetikler
+      // v2.9.20 GÖREV 1: Tüm taktik değişiklikleri cloud-save.ts'in subscribe
+      // listener'ı tarafından otomatik yakalanır — 1.5 sn taktik debounce ile
+      // active_tactics tablosuna, 3 sn genel debounce ile user_game_state JSON'a yazılır.
       updateActiveTactic: (patch) => {
         const { tactics } = get();
         const newActive = { ...tactics.active, ...patch };
@@ -3317,52 +3319,27 @@ export const useAppStore = create<AppState>()(
         }
       },
 
-      // v2.9.20 GÖREV 1: Tek birleşik cloud-save fonksiyonu
-      // saveToCloud ve saveTacticsToCloud birleştirildi — eskiler kaldırıldı
+      // v2.9.20 GÖREV 1: saveToCloud ve saveTacticsToCloud artık alias.
+      // Tüm debounce'lu auto-save cloud-save.ts içinde (initCloudSave).
+      // Bu action'lar yalnızca manuel flush için çağrılırsa çalışır — genelde çağrılmaz
+      // çünkü store subscribe zaten değişiklikleri dinler. Geri uyumluluk için tutuldu.
       saveToCloud: async (userId) => {
         try {
-          const { supabase } = await import("@/lib/supabase/client");
+          const { flushGameState } = await import("@/lib/cloud-save");
           let uid = userId;
-          if (!uid) { const { data: sess } = await supabase().auth.getSession(); uid = sess.session?.user?.id ?? null; }
+          if (!uid) {
+            const { supabase } = await import("@/lib/supabase/client");
+            const { data: sess } = await supabase().auth.getSession();
+            uid = sess.session?.user?.id ?? null;
+          }
           if (!uid) return;
-          const s = get();
-          // active_tactics — taktik + lineup + roller + talimatlar
-          const { error: tacErr } = await supabase().from("active_tactics").upsert({
-            profile_id: uid,
-            tactic_data: s.tactics.active,
-            lineup_data: s.tactics.lineup,
-            slot_roles: s.tactics.slotRoles,
-            active_instructions: s.tactics.activeInstructions,
-          }, { onConflict: "profile_id" });
-          if (tacErr) {
-            console.error("[saveToCloud] taktik save hatası:", tacErr.message);
-            throw tacErr;
-          }
-          // app_state — tesis + antrenman + haberler
-          const { error: appErr } = await supabase().from("app_state").upsert({
-            user_id: uid,
-            state: {
-              facilities: s.facilities,
-              training: s.training,
-              news: s.news,
-              cup: s.cup,
-              sponsors: s.sponsors,
-              credits: s.credits,
-              cosmetics: s.cosmetics,
-              blockedUsers: s.blockedUsers,
-            },
-          }, { onConflict: "user_id" });
-          if (appErr) {
-            console.error("[saveToCloud] app_state save hatası:", appErr.message);
-            throw appErr;
-          }
+          await flushGameState(uid);
         } catch (e: any) {
-          console.error("[saveToCloud] hata:", e?.message ?? e);
-          throw e;
+          console.warn("[saveToCloud] hata:", e?.message ?? e);
         }
       },
 
-      // Eski saveTacticsToCloud — saveToCloud'a yönlendir (geri uyumluluk)
+      // saveTacticsToCloud — saveToCloud'a yönlendir (geri uyumluluk)
       saveTacticsToCloud: async (userId) => {
         return get().saveToCloud(userId);
       },

@@ -2552,3 +2552,186 @@ Stage Summary:
 - APK build sandbox'ta alınamadı — kullanıcı kendi makinesinde build almalı
 - Mevcut APK v2.9.3 (ErrorBoundary YOK) — Panel crash devam edebilir
 - Yeni APK build talimatları release notes'ta
+
+---
+Task ID: v2.9.20-G1
+Agent: main (Z.AI)
+Task: G1 — Taktik cloud-save fix (debounce'lu auto-save + dead code temizliği)
+
+Work Log:
+- Mevcut durum analizi:
+  * cloud-save.ts: zaten debounce'lu auto-save yapıyordu (3sn, saveGameState)
+  * store.ts saveToCloud action: dead code idi — sadece use-cloud-sync.ts tarafından çağrılıyordu
+  * store.ts saveTacticsToCloud: saveToCloud'a alias idi, yine dead code
+  * use-cloud-sync.ts hook: TAMAMEN dead code — hiçbir yerde useCloudSync() çağrılmıyordu
+  * Çift bulut-save mekanizması çakışıyordu: user_game_state JSON vs (active_tactics + app_state) ayrı tablolar
+  * loadMultiplayerState active_tactics + app_state tablolarına bağımlıydı ama bunlara yazan dead code idi → multiplayer modda bu tablolar güncellenmiyordu
+
+- Çözüm: Tek birleşik bulut-save mekanizması (cloud-save.ts içinde)
+  * cloud-save.ts refactor edildi
+  * Genel state için 3sn debounce (user_game_state JSON + active_tactics + app_state tabloları)
+  * Taktik için ayrı 1.5sn hızlı debounce (sadece active_tactics tablosuna)
+  * Subscribe listener'ta: tactics değiştiyse ek olarak hızlı debounce tetiklenir
+  * saveToMultiplayerTables(userId): active_tactics + app_state upsert (multiplayer uyumu)
+  * saveTacticsToTable(userId): sadece active_tactics upsert (hızlı debounce için)
+  * flushGameState: artık hem genel hem taktik immediate save yapıyor (800ms bekleme)
+
+- Dead code temizliği:
+  * /home/z/my-project/src/hooks/use-cloud-sync.ts SİLİNDİ
+  * store.ts saveToCloud action: artık flushGameState alias (geri uyumluluk için korundu)
+  * store.ts saveTacticsToCloud action: saveToCloud'a alias (korundu)
+  * updateActiveTactic yorumu güncellendi (eski "v2.9.20 GÖREV 1" notu → net açıklama)
+
+- Multiplayer tablolarına yazılan veri:
+  * active_tactics: tactic_data + lineup_data + slot_roles + active_instructions
+  * app_state.state: facilities + training + news + cup + sponsors + credits
+    + cosmetics + blockedUsers + seasonMatchday + seasonNumber + seasonStartStats
+    + transfer + youthAcademy
+
+Test Sonuçları:
+- npx tsc --noEmit: temiz
+- npx next build: başarılı (7.7s, 6 static page)
+
+Stage Summary:
+- Dead code temizlendi (use-cloud-sync.ts silindi)
+- Tek bulut-save mekanizması (cloud-save.ts) — JSON + ayrı tablolar birlikte yazılır
+- Taktik değişiklikleri artık 1.5 sn'de active_tactics tablosuna kaydedilir (multiplayer uyumu)
+- Diğer state değişiklikleri 3 sn debounce ile kaydedilir (performans)
+- Multiplayer modundaki tutarsızlık (active_tactics/app_state güncellenmiyordu) çözüldü
+- flushGameState: çıkış/sayfa kapanışında 3 tabloya da immediate write yapıyor
+
+Sonraki adım: G2 — Sunucu taraflı zamanlama (pg_cron + Edge Functions)
+
+---
+Task ID: v2.9.20-G2
+Agent: main (Z.AI)
+Task: G2 — Sunucu taraflı zamanlama (pg_cron + Edge Functions)
+
+Work Log:
+- Mevcut durum analizi:
+  * 3 Edge Function zaten var: daily-match-sim, daily-cup-sim, daily-training-sim
+  * Sadece 1 cron job tanımlıydı (touchline-daily-match-sim) — 003_cron_match_sim.sql
+  * cup-sim ve training-sim için cron job YOK — manuel çağrı gerekiyordu
+  * service_role_key placeholder olarak bırakılmıştı (YOUR_SERVICE_ROLE_KEY)
+
+- Çözüm: 014_cron_all_sims.sql migration'ı (3 cron job, idempotent)
+  * Job 1: touchline-daily-match-sim
+    - Schedule: '0 9,15 * * 1-5' (UTC 09:00, 15:00 → TR 12:00, 18:00, Pzt-Cum)
+    - Endpoint: /functions/v1/daily-match-sim
+  * Job 2: touchline-daily-cup-sim (YENİ)
+    - Schedule: '0 17 * * 3,6' (UTC 17:00 → TR 20:00, Çar + Cmt)
+    - Endpoint: /functions/v1/daily-cup-sim
+  * Job 3: touchline-daily-training-sim (YENİ)
+    - Schedule: '0 12,18 * * 1-5' (UTC 12:00, 18:00 → TR 15:00, 21:00, Pzt-Cum)
+    - Endpoint: /functions/v1/daily-training-sim
+
+- Her job:
+  * DO $$ ... $$ ile önce unschedule (idempotent — birden fazla çalıştırılabilir)
+  * http_post ile Edge Function çağırır
+  * Headers: Content-Type, Authorization (Bearer service_role), apikey
+  * Body: {"trigger": "cron"} — manuel ile ayrım için
+
+- 003_cron_match_sim.sql DEPRECATED olarak işaretlendi (yorum ile)
+  * 014 migration'ı onu kapsıyor — eski migration hala çalışır ama gereksiz
+
+- Güvenlik notu migration'a eklendi:
+  * service_role_key vault secret olarak saklanmalı (production)
+  * vault extension açıksa: SELECT vault.create_secret('...', 'supabase_service_role_key')
+  * Sonra placeholder'ı (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name=...) ile değiştir
+
+- Deploy talimatları migration'a comment olarak gömüldü:
+  1. Supabase Dashboard → service_role key kopyala
+  2. SQL editor'da 014 migration'ı çalıştır
+  3. YOUR_SERVICE_ROLE_KEY placeholder'larını gerçek key ile değiştir
+  4. Test: SELECT cron.run(jobid) FROM cron.job WHERE jobname='...';
+
+Test Sonuçları:
+- npx tsc --noEmit: temiz
+- SQL syntax doğrulaması: idempotent DO $$ ... $$ blokları dengeli
+- Migration dosyası 116 satır
+
+Stage Summary:
+- 3 cron job tam tanımlandı (match + cup + training)
+- Kupa simülasyonu haftada 2 kez (Çar + Cmt 20:00)
+- Antrenman günlük 2 kez (Pzt-Cum 15:00 + 21:00)
+- Lig maçı günlük 2 kez (Pzt-Cum 12:00 + 18:00)
+- Tüm job'lar idempotent (DROP IF EXISTS ile)
+- service_role_key placeholder olarak bırakıldı — vault kullanım önerisi eklendi
+- Deploy sonrası manuel adımlar migration'a comment olarak gömüldü
+
+NOT (kullanıcı için):
+- Supabase SQL editor'da 014_cron_all_sims.sql'i çalıştır
+- YOUR_SERVICE_ROLE_KEY yerine gerçek service_role key'i yaz (veya vault kullan)
+- Test: SELECT * FROM cron.job; ile job listesini kontrol et
+
+Sonraki adım: G3 — Dinamik lig genişletme (18 takım kapasite, otomatik departman açma)
+
+---
+Task ID: v2.9.20-G3
+Agent: main (Z.AI)
+Task: G3 — Dinamik lig genişletme (18 takım kapasite, otomatik departman açma)
+
+Work Log:
+- Mevcut durum analizi:
+  * 4 lig × 3 departman × 18 takım = 216 takım (sabit)
+  * init-multiplayer-league.ts script'i ile başlangıçta tüm bot takımlar oluşturuluyor
+  * teams.manager_user_id nullable — bot takımlar NULL, kullanıcı takımları UUID
+  * 005_team_assignment_rls.sql: manager_update_team policy (manager_user_id NULL → atanabilir)
+  * Atama mekanizması YOK — kullanıcı kayıt olunca takım atanmıyordu
+
+- Çözüm: 015_dynamic_league_expansion.sql migration'ı (2 RPC)
+  * rpc_assign_team_to_user(p_user_id, p_team_name, p_preferred_tier DEFAULT 4):
+    1. Kullanıcı daha önce takım almış mı? → early return
+    2. Takım adı temizle (trim, max 60 karakter, regex validation)
+    3. Short name üret (ilk 3 harf upper)
+    4. Tier fallback: 4 → 3 → 2 → 1 (en alttan başla)
+    5. Her tier'da manager_user_id NULL olan en az 1 bot takım var mı?
+       - Varsa: bot takımı kullanıcıya ata, ismini güncelle, min 200M bütçe
+       - Yoksa: bir sonraki departmana bak
+    6. Tüm departmanlar doluysa yeni departman aç:
+       - department_number = MAX + 1
+       - 18 takım için yer aç (initial kullanıcı takımı oluşturulur)
+    7. Return: { success, team_id, department_id, league_tier, league_id, new_department }
+
+  * rpc_get_department_capacity(p_dept_id):
+    - real_teams, bot_teams, total, capacity=18, is_full
+    - Frontend'de "X/18" göstergesi için kullanılabilir
+
+- RLS: Her iki RPC de SECURITY DEFINER (auth.users tablosu erişimi için)
+  * authenticated ve anon herkes çağırabilir (p_user_id parametre olarak geçer)
+  * Frontend auth.uid() değerini p_user_id olarak geçmeli
+
+- Tier fallback mantığı:
+  * Yeni kullanıcılar genelde tier 4 (en alt) başlar
+  * Eğer tier 4 doluysa tier 3'e bakılır (promotion slot gibi davranır)
+  * Sıralama: 4 → 3 → 2 → 1
+
+- Departman açma:
+  * Yeni departman league_id + department_number ile adlandırılır
+  * "Süper Lig - Grup 4" gibi isimler otomatik üretilir
+  * Bot takımlar (geri kalan 17 slot) init-multiplayer-league.ts tarafından sonradan doldurulabilir
+
+- Kullanıcının takım adı validasyonu:
+  * min 3 karakter (yoksa 'name_too_short')
+  * max 60 karakter (truncate)
+  * Regex ile alfanumerik + space filtre (short name için)
+  * Küfür/reklam filtresi G5'te (kayıt akışı) eklenecek
+
+Test Sonuçları:
+- npx tsc --noEmit: temiz
+- SQL syntax: PL/pgSQL blok dengeli, RETURN'ler tam
+
+Stage Summary:
+- 2 RPC tanımlandı: rpc_assign_team_to_user + rpc_get_department_capacity
+- Tier fallback (4→3→2→1) ile dinamik kapasite yönetimi
+- 18 takım limiti zorlanınca otomatik yeni departman açma
+- Bot takımlar kullanıcıya dönüşür (manager_user_id set, is_bot=false, is_user_team=true)
+- Minimum 200M € başlangıç bütçesi (GREATEST ile mevcut bütçe korunur)
+- Frontend entegrasyonu G5'te (kayıt akışı) yapılacak
+
+NOT (kullanıcı için):
+- Supabase SQL editor'da 015_dynamic_league_expansion.sql'i çalıştır
+- Test: SELECT * FROM rpc_get_department_capacity(1);
+- Test atama: SELECT * FROM rpc_assign_team_to_user('USER_UUID', 'FC Test', 4);
+
+Sonraki adım: G4 — Ülke bazlı lig sistemi (85 ülke, 4 kademe piramidi)

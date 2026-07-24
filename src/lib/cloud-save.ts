@@ -6,17 +6,19 @@ import { useAppStore } from "@/lib/store";
 /**
  * Cloud Save — kullanıcı oyun state'ini Supabase'e kaydeder/yükler.
  *
- * Mantık:
- * 1. Kullanıcı giriş yapınca: Supabase'den state yükle, varsa localStorage'ı güncelle
- * 2. State değişince: debounce'lu olarak Supabase'e kaydet (3 saniye gecikme)
- * 3. Çakışma yok — tek cihaz/multi-cihaz için "last write wins"
+ * v2.9.20 GÖREV 1: Birleşik debounce'lu auto-save.
+ * Tüm state değişiklikleri 3 sn genel debounce ile kaydedilir.
+ * Taktik değişiklikleri ek olarak 1.5 sn hızlı debounce ile ayrı
+ * active_tactics tablosuna da yazılır (multiplayer uyumu için).
  *
- * State JSON olarak user_game_state tablosunda saklanır.
+ * Tek bir bulut-save mekanizması:
+ * 1. user_game_state.state (JSONB) — tüm state'in tam kopyası (rx_load_game_state)
+ * 2. active_tactics — taktik + lineup + roller + talimatlar (multiplayer join'leri için)
+ * 3. app_state.state (JSONB) — tesis/antrenman/haberler/kupa/sponsor/kredi (multiplayer için)
  *
- * P0 FIX v2.9.0: BLACKLIST mantığı — TÜM state alanları kaydedilir,
- * sadece cihaza özel/geçici alanlar hariç tutulur. Yeni alan eklendiğinde
- * bu listeye eklenmesi gerekmez (otomatik kaydedilir). Bu, "yeni alan
- * eklendi ama cloud-save'e unutuldu" regresyonlarını yapısal olarak önler.
+ * Eskiden store.ts'te saveToCloud/saveTacticsToCloud vardı — dead code idi
+ * (use-cloud-sync.ts tarafından çağrılıyordu, o da çağrılmıyordu).
+ * Artık tek bulut-save mekanizması cloud-save.ts içinde.
  */
 
 // HARIÇ TUTULAN (blacklist) — cihaza özel veya geçici alanlar
@@ -28,40 +30,32 @@ const CLOUD_SAVE_BLACKLIST = new Set<string>([
 
 /**
  * BULGU #9 DÜZELTME (v2.9.2): Hibrit blacklist + convention yaklaşımı.
- * Gelecekte transient alan eklenecekse "_" prefix ile başlatmak yeterli —
- * otomatik olarak cloud-save'e yazılmaz. Bu, "yeni alan eklendi ama cloud-save'e
- * yanlışlıkla dahil edildi" regresyonlarını önler (örn: isSettingsModalOpen,
- * isSyncing, pendingAction gibi UI state'leri).
- *
- * Convention:
- * - Kalıcı veri: normal isim (managerName, clubs, tactics, ...)
- * - Transient UI state: "_" prefix (örn: _pendingAction, _isModalOpen)
- * - Session-only: isAuthed (blacklist'te)
+ * "_" prefix ile başlayan tüm alanlar transient sayılır.
  */
 function isBlacklisted(key: string): boolean {
   if (CLOUD_SAVE_BLACKLIST.has(key)) return true;
-  // "_" prefix ile başlayan tüm alanlar transient sayılır
   if (key.startsWith("_")) return true;
   return false;
 }
 
 /**
  * State'in tüm kalıcı alanlarını döndürür (blacklist hariç).
- * Yeni state alanı eklendiğinde otomatik olarak cloud-save'e dahil edilir.
  */
 function pickPersistentState(state: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const key of Object.keys(state)) {
     if (isBlacklisted(key)) continue;
-    // Function tipindeki alanları (action'lar) atla — sadece veri kaydedilmeli
     if (typeof state[key] === "function") continue;
     result[key] = state[key];
   }
   return result;
 }
 
-const SAVE_DEBOUNCE_MS = 3000;
-let saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
+const SAVE_DEBOUNCE_MS = 3000;           // Genel state için 3 sn
+const TACTICS_SAVE_DEBOUNCE_MS = 1500;   // Taktik için 1.5 sn (daha hızlı)
+
+let generalSaveTimeoutId: ReturnType<typeof setTimeout> | null = null;
+let tacticsSaveTimeoutId: ReturnType<typeof setTimeout> | null = null;
 let isLoaded = false;
 let unsubscribeFn: (() => void) | null = null;
 
@@ -70,8 +64,6 @@ const LOCAL_STORAGE_KEY = "tm_game_state_backup";
 
 /**
  * Kullanıcının cloud state'ini yükler.
- * Supabase'de state varsa localStorage'ı günceller.
- * Yoksa mevcut localStorage state'ini cloud'a yükler (ilk senkronizasyon).
  */
 export async function loadGameState(userId: string): Promise<boolean> {
   try {
@@ -80,12 +72,10 @@ export async function loadGameState(userId: string): Promise<boolean> {
 
     if (error) {
       console.warn("[cloud-save] Load error:", error.message);
-      // P0 FIX: Bulut yüklemesi başarısız olursa localStorage yedeğini dene
       return loadFromLocalStorage();
     }
 
     if (data && Object.keys(data).length > 0) {
-      // Cloud'da state var — store'u güncelle
       const cloudState = data as Record<string, unknown>;
 
       useAppStore.setState((prev) => ({
@@ -94,7 +84,6 @@ export async function loadGameState(userId: string): Promise<boolean> {
         isAuthed: true,
       }));
 
-      // P0 FIX: localStorage'a da yedekle
       saveToLocalStorage(cloudState);
 
       console.log("[cloud-save] State loaded from cloud");
@@ -104,19 +93,17 @@ export async function loadGameState(userId: string): Promise<boolean> {
 
     // Cloud'da state yok — mevcut state'i cloud'a yükle
     console.log("[cloud-save] No cloud state, uploading current");
-    await saveGameState(userId);
+    await saveGameState(userId, true);
     isLoaded = true;
     return true;
   } catch (e) {
     console.warn("[cloud-save] Load exception:", e);
-    // P0 FIX: Bulut hatasında localStorage yedeğini dene
     return loadFromLocalStorage();
   }
 }
 
 /**
  * P0 FIX: localStorage'a state yedeği kaydet.
- * Bulut bağlantısı yoksa veya hata verirse kullanılır.
  */
 function saveToLocalStorage(state: Record<string, unknown>) {
   try {
@@ -129,7 +116,6 @@ function saveToLocalStorage(state: Record<string, unknown>) {
 
 /**
  * P0 FIX: localStorage'dan state yükle.
- * Bulut bağlantısı yoksa kullanılır.
  */
 function loadFromLocalStorage(): boolean {
   try {
@@ -156,12 +142,88 @@ function loadFromLocalStorage(): boolean {
 }
 
 /**
+ * v2.9.20 GÖREV 1: Ayrı tablolara multiplayer uyumlu kayıt.
+ * - active_tactics: taktik + lineup + roller + talimatlar
+ * - app_state: tesis/antrenman/haberler/kupa/sponsor/kredi/cosmetics/blockedUsers
+ *
+ * Bu, loadMultiplayerState fonksiyonunun okuduğu tablolara yazar.
+ * Böylece multiplayer modda taktik ve tesis verisi güncel kalır.
+ */
+async function saveToMultiplayerTables(userId: string): Promise<void> {
+  try {
+    const { supabase: supabaseClient } = await import("@/lib/supabase/client");
+    const s = useAppStore.getState();
+
+    // active_tactics — taktik + lineup + roller + talimatlar
+    const { error: tacErr } = await supabaseClient().from("active_tactics").upsert({
+      profile_id: userId,
+      tactic_data: s.tactics.active,
+      lineup_data: s.tactics.lineup,
+      slot_roles: s.tactics.slotRoles,
+      active_instructions: s.tactics.activeInstructions,
+    }, { onConflict: "profile_id" });
+    if (tacErr) {
+      console.warn("[cloud-save] active_tactics save error:", tacErr.message);
+    }
+
+    // app_state — tesis/antrenman/haberler/kupa/sponsor/kredi/cosmetics/blockedUsers
+    // + sezon bilgisi (loadMultiplayerState tarafından app_state'ten okunur)
+    const { error: appErr } = await supabaseClient().from("app_state").upsert({
+      user_id: userId,
+      state: {
+        facilities: s.facilities,
+        training: s.training,
+        news: s.news,
+        cup: s.cup,
+        sponsors: s.sponsors,
+        credits: s.credits,
+        cosmetics: s.cosmetics,
+        blockedUsers: s.blockedUsers,
+        seasonMatchday: s.seasonMatchday,
+        seasonNumber: s.seasonNumber,
+        seasonStartStats: s.seasonStartStats,
+        transfer: s.transfer,
+        youthAcademy: s.youthAcademy,
+      },
+    }, { onConflict: "user_id" });
+    if (appErr) {
+      console.warn("[cloud-save] app_state save error:", appErr.message);
+    }
+  } catch (e: any) {
+    console.warn("[cloud-save] Multiplayer tables save exception:", e?.message ?? e);
+  }
+}
+
+/**
+ * Sadece active_tactics tablosuna kayıt yapar (taktik değiştiğinde çağrılır).
+ * app_state zaten genel debounce ile kaydedilecektir.
+ */
+async function saveTacticsToTable(userId: string): Promise<void> {
+  try {
+    const { supabase: supabaseClient } = await import("@/lib/supabase/client");
+    const s = useAppStore.getState();
+
+    const { error: tacErr } = await supabaseClient().from("active_tactics").upsert({
+      profile_id: userId,
+      tactic_data: s.tactics.active,
+      lineup_data: s.tactics.lineup,
+      slot_roles: s.tactics.slotRoles,
+      active_instructions: s.tactics.activeInstructions,
+    }, { onConflict: "profile_id" });
+    if (tacErr) {
+      console.warn("[cloud-save] tactics save error:", tacErr.message);
+    }
+  } catch (e: any) {
+    console.warn("[cloud-save] Tactics save exception:", e?.message ?? e);
+  }
+}
+
+/**
  * Mevcut store state'ini Supabase'e kaydeder.
  * Debounce'lu — 3 saniye içinde birden fazla çağrı gelirse sonuncusu çalışır.
  *
- * P0 FIX v2.9.0: BLACKLIST mantığı — TÜM kalıcı alanlar otomatik kaydedilir.
- * Yeni state alanı eklerseniz otomatik olarak dahil edilir (manuel liste YOK).
- * Sadece CLOUD_SAVE_BLACKLIST'teki alanlar ve function'lar (action'lar) hariç tutulur.
+ * v2.9.20: Artık user_game_state (JSONB) + active_tactics + app_state
+ * tablolarının üçüne de yazıyor (multiplayer uyumu için).
  */
 export function saveGameState(userId: string, immediate: boolean = false) {
   if (!isLoaded && !immediate) return;
@@ -169,13 +231,12 @@ export function saveGameState(userId: string, immediate: boolean = false) {
   const doSave = async () => {
     try {
       const state = useAppStore.getState();
-      // P0 FIX v2.9.0: pickPersistentState — blacklist hariç TÜM veri alanlarını kaydet
-      // Yeni state alanı eklendiğinde burayı güncellemeye GEREK YOK.
       const stateToSave = pickPersistentState(state as unknown as Record<string, unknown>);
 
       // P0 FIX: localStorage'a da yedekle
       saveToLocalStorage(stateToSave);
 
+      // user_game_state — tam state JSON olarak
       const { error } = await supabase.rpc("rpc_save_game_state", {
         p_profile_id: userId,
         p_state: stateToSave,
@@ -185,6 +246,10 @@ export function saveGameState(userId: string, immediate: boolean = false) {
       if (error) {
         console.warn("[cloud-save] Save error:", error.message);
       }
+
+      // v2.9.20: Multiplayer tablolarına da yaz (active_tactics + app_state)
+      // Eğer rpc_save_game_state başarısız olursa bile multiplayer tabloları denenecek
+      await saveToMultiplayerTables(userId);
     } catch (e) {
       console.warn("[cloud-save] Save exception:", e);
     }
@@ -196,37 +261,59 @@ export function saveGameState(userId: string, immediate: boolean = false) {
   }
 
   // Debounce
-  if (saveTimeoutId) clearTimeout(saveTimeoutId);
-  saveTimeoutId = setTimeout(doSave, SAVE_DEBOUNCE_MS);
+  if (generalSaveTimeoutId) clearTimeout(generalSaveTimeoutId);
+  generalSaveTimeoutId = setTimeout(doSave, SAVE_DEBOUNCE_MS);
+}
+
+/**
+ * v2.9.20 GÖREV 1: Taktik için hızlı debounce'lu kayıt.
+ * Taktik değişikliği daha kritik (kullanıcı anında görmek istiyor) — 1.5 sn.
+ * user_game_state JSON'a yazmaz, sadece active_tactics tablosuna yazar.
+ * (JSON'a yazım genel debounce ile 3 sn sonra yapılır.)
+ */
+export function saveTacticsState(userId: string, immediate: boolean = false) {
+  if (!isLoaded && !immediate) return;
+
+  const doSave = async () => {
+    await saveTacticsToTable(userId);
+  };
+
+  if (immediate) {
+    doSave();
+    return;
+  }
+
+  if (tacticsSaveTimeoutId) clearTimeout(tacticsSaveTimeoutId);
+  tacticsSaveTimeoutId = setTimeout(doSave, TACTICS_SAVE_DEBOUNCE_MS);
 }
 
 /**
  * Cloud save'i başlat — store değişikliklerini dinler.
  * Auth context'te kullanıcı giriş yapınca çağrılır.
  *
- * P0 FIX v2.9.0: BLACKLIST mantığı — TÜM kalıcı alanlar izlenir.
- * Yeni state alanı eklendiğinde otomatik olarak izlenir (manuel liste YOK).
- * Sadece function'lar (action'lar) ve blacklist'teki alanlar izlenmez.
+ * v2.9.20: Taktik değiştiyse ek olarak hızlı debounce tetiklenir.
  */
 export function initCloudSave(userId: string) {
   // Önce yükle
   loadGameState(userId).then(() => {
     // Sonra store değişikliklerini dinle
-    // P0 FIX v2.9.0: Duplicate subscribe önle — önce eski subscriber'ı temizle
     if (unsubscribeFn) {
       unsubscribeFn();
       unsubscribeFn = null;
     }
     unsubscribeFn = useAppStore.subscribe((state, prevState) => {
-      // P0 FIX v2.9.0: BLACKLIST mantığı — herhangi bir kalıcı alan değiştiyse tetikle
-      // Yeni state alanı eklendiğinde otomatik izlenir.
       const stateKeys = Object.keys(state);
       for (const key of stateKeys) {
         if (isBlacklisted(key)) continue;
         if (typeof (state as any)[key] === "function") continue;
         if ((state as any)[key] !== (prevState as any)[key]) {
+          // v2.9.20: Taktik değiştiyse ek olarak hızlı debounce tetikle
+          if (key === "tactics") {
+            saveTacticsState(userId);
+          }
+          // Genel debounce (user_game_state JSON + active_tactics + app_state)
           saveGameState(userId);
-          return; // bir değişiklik bulundu, save tetikle, çık
+          return;
         }
       }
     });
@@ -239,9 +326,13 @@ export function initCloudSave(userId: string) {
  * Cloud save'i durdur — kullanıcı çıkış yapınca.
  */
 export function stopCloudSave() {
-  if (saveTimeoutId) {
-    clearTimeout(saveTimeoutId);
-    saveTimeoutId = null;
+  if (generalSaveTimeoutId) {
+    clearTimeout(generalSaveTimeoutId);
+    generalSaveTimeoutId = null;
+  }
+  if (tacticsSaveTimeoutId) {
+    clearTimeout(tacticsSaveTimeoutId);
+    tacticsSaveTimeoutId = null;
   }
   if (unsubscribeFn) {
     unsubscribeFn();
@@ -253,16 +344,21 @@ export function stopCloudSave() {
 
 /**
  * State'i hemen Supabase'e kaydet (debounce beklemeden).
- * Çıkış yapmadan önce çağrılır.
+ * Çıkış yapmadan önce veya sayfa kapatılmadan önce çağrılır.
  */
 export async function flushGameState(userId: string): Promise<void> {
-  if (saveTimeoutId) {
-    clearTimeout(saveTimeoutId);
-    saveTimeoutId = null;
+  if (generalSaveTimeoutId) {
+    clearTimeout(generalSaveTimeoutId);
+    generalSaveTimeoutId = null;
+  }
+  if (tacticsSaveTimeoutId) {
+    clearTimeout(tacticsSaveTimeoutId);
+    tacticsSaveTimeoutId = null;
   }
   // Immediate save
   return new Promise((resolve) => {
     saveGameState(userId, true);
-    setTimeout(resolve, 500); // RPC'nin tamamlanması için kısa bekle
+    saveTacticsState(userId, true);
+    setTimeout(resolve, 800); // RPC'lerin tamamlanması için kısa bekle
   });
 }
