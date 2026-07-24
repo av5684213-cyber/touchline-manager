@@ -954,20 +954,50 @@ function generateSeasonHistory(
       seasonAssists = Math.round(Math.random() * (isAttacker ? 10 : isMid ? 12 : 5) * perfFactor);
     }
 
-    // Gol türü dağılımı — toplam = seasonGoals
+    // Gol türü dağılımı — v2.9.19: gerçekçi dağılım
+    // Eskiden Math.round() ile her sezon aynı oran → 3 gol = 1-1-1 (eşit)
+    // Şimdi: her gol için ayrı ağırlıklı rastgele seçim + sezona özel varyasyon
     let goalsPenalty = Math.round(seasonGoals * penaltyRate * (0.5 + Math.random()));
     let goalsFreekick = Math.round(seasonGoals * freekickRate * (0.3 + Math.random()));
-    // Penaltı + serbest vuruş toplam golleri aşmasın
     const setPieces = Math.min(goalsPenalty + goalsFreekick, seasonGoals);
     goalsPenalty = Math.min(goalsPenalty, setPieces);
     goalsFreekick = setPieces - goalsPenalty;
-    // Kalan goller açık oyundan — ayak/kafa dağıt
     const openGoals = seasonGoals - setPieces;
-    let goalsRight = Math.round(openGoals * wRight);
-    let goalsLeft = Math.round(openGoals * wLeft);
-    let goalsHead = openGoals - goalsRight - goalsLeft;
-    // Negatif olmasın, toplam doğru olsun
-    if (goalsHead < 0) { goalsRight += goalsHead; goalsHead = 0; }
+
+    // v2.9.19: Her sezona özel varyasyon ekle (baz profile ±%20 sapma)
+    let goalsRight = 0;
+    let goalsLeft = 0;
+    let goalsHead = 0;
+
+    if (openGoals > 0) {
+      const v = 0.2; // ±20% sezon varyasyonu
+      let sr = wRight * (1 - v + Math.random() * v * 2);
+      let sl = wLeft * (1 - v + Math.random() * v * 2);
+      let sh = wHead * (1 - v + Math.random() * v * 2);
+      const ss = sr + sl + sh;
+      sr /= ss; sl /= ss; sh /= ss;
+      // Her gol için ayrı ağırlıklı seç (3 gol → 2 sağ 1 kafa, 1-1-1 DEĞİL)
+      for (let g = 0; g < openGoals; g++) {
+        const r = Math.random();
+        if (r < sr) goalsRight++;
+        else if (r < sr + sl) goalsLeft++;
+        else goalsHead++;
+      }
+    }
+
+    // Penaltı gollerinin çoğu tercih edilen ayak
+    const penRight = foot === "Left" ? 0.25 : foot === "Both" ? 0.55 : 0.80;
+    for (let g = 0; g < goalsPenalty; g++) {
+      if (Math.random() < penRight) goalsRight++;
+      else goalsLeft++;
+    }
+    // Serbest vuruş gollerinin çoğu tercih edilen ayak
+    for (let g = 0; g < goalsFreekick; g++) {
+      if (Math.random() < penRight) goalsRight++;
+      else goalsLeft++;
+    }
+
+    // Toplam düzelt
     const drift = seasonGoals - (goalsRight + goalsLeft + goalsHead + goalsPenalty + goalsFreekick);
     if (drift !== 0) goalsRight += drift;
     if (goalsRight < 0) { goalsLeft += goalsRight; goalsRight = 0; }
