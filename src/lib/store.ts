@@ -716,6 +716,7 @@ export const useAppStore = create<AppState>()(
       },
 
       // ===== Yeni taktik action'ları (ActiveTactic) =====
+      // v2.9.20 GÖREV 1: Tüm taktik değişiklikleri debounce'lu cloud-save tetikler
       updateActiveTactic: (patch) => {
         const { tactics } = get();
         const newActive = { ...tactics.active, ...patch };
@@ -3316,6 +3317,8 @@ export const useAppStore = create<AppState>()(
         }
       },
 
+      // v2.9.20 GÖREV 1: Tek birleşik cloud-save fonksiyonu
+      // saveToCloud ve saveTacticsToCloud birleştirildi — eskiler kaldırıldı
       saveToCloud: async (userId) => {
         try {
           const { supabase } = await import("@/lib/supabase/client");
@@ -3323,28 +3326,45 @@ export const useAppStore = create<AppState>()(
           if (!uid) { const { data: sess } = await supabase().auth.getSession(); uid = sess.session?.user?.id ?? null; }
           if (!uid) return;
           const s = get();
-          await supabase().from("active_tactics").upsert({
-            profile_id: uid, tactic_data: s.tactics.active, lineup_data: s.tactics.lineup,
-            slot_roles: s.tactics.slotRoles, active_instructions: s.tactics.activeInstructions,
+          // active_tactics — taktik + lineup + roller + talimatlar
+          const { error: tacErr } = await supabase().from("active_tactics").upsert({
+            profile_id: uid,
+            tactic_data: s.tactics.active,
+            lineup_data: s.tactics.lineup,
+            slot_roles: s.tactics.slotRoles,
+            active_instructions: s.tactics.activeInstructions,
           }, { onConflict: "profile_id" });
-          await supabase().from("app_state").upsert({
-            user_id: uid, state: { facilities: s.facilities, training: s.training, news: s.news },
+          if (tacErr) {
+            console.error("[saveToCloud] taktik save hatası:", tacErr.message);
+            throw tacErr;
+          }
+          // app_state — tesis + antrenman + haberler
+          const { error: appErr } = await supabase().from("app_state").upsert({
+            user_id: uid,
+            state: {
+              facilities: s.facilities,
+              training: s.training,
+              news: s.news,
+              cup: s.cup,
+              sponsors: s.sponsors,
+              credits: s.credits,
+              cosmetics: s.cosmetics,
+              blockedUsers: s.blockedUsers,
+            },
           }, { onConflict: "user_id" });
-        } catch {}
+          if (appErr) {
+            console.error("[saveToCloud] app_state save hatası:", appErr.message);
+            throw appErr;
+          }
+        } catch (e: any) {
+          console.error("[saveToCloud] hata:", e?.message ?? e);
+          throw e;
+        }
       },
 
+      // Eski saveTacticsToCloud — saveToCloud'a yönlendir (geri uyumluluk)
       saveTacticsToCloud: async (userId) => {
-        try {
-          const { supabase } = await import("@/lib/supabase/client");
-          let uid = userId;
-          if (!uid) { const { data: sess } = await supabase().auth.getSession(); uid = sess.session?.user?.id ?? null; }
-          if (!uid) return;
-          const s = get();
-          await supabase().from("active_tactics").upsert({
-            profile_id: uid, tactic_data: s.tactics.active, lineup_data: s.tactics.lineup,
-            slot_roles: s.tactics.slotRoles, active_instructions: s.tactics.activeInstructions,
-          }, { onConflict: "profile_id" });
-        } catch {}
+        return get().saveToCloud(userId);
       },
     })
 );
