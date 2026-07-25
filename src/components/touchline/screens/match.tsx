@@ -200,6 +200,16 @@ export function MatchScreen() {
           awayTeam={awayTeam}
         />
 
+        {/* v2.9.23 Z2: Maç sırasında üstteki kutuda — takım ismi altında gol/asist/kartlar */}
+        {/* Sadece live/paused/halftime/finished durumunda gösterilir */}
+        {engine.state.status !== "idle" && (engine as any).events && (engine as any).events.length > 0 && (
+          <LiveMatchEventsBar
+            events={(engine as any).events ?? []}
+            homeTeam={homeTeam}
+            awayTeam={awayTeam}
+          />
+        )}
+
         {/* Referee & weather info banner */}
         <InfoBanner state={engine.state} />
 
@@ -450,6 +460,9 @@ export function MatchScreen() {
             awayScore={engine.state.awayScore}
             isHome={mySide === "home"}
             creditsEarned={0}
+            events={(engine as any).events ?? []}
+            homeTeam={homeTeam}
+            awayTeam={awayTeam}
             onClose={() => { setShowCelebration(false); setCelebrationShown(true); }}
           />
         )}
@@ -1640,6 +1653,61 @@ function PostMatch({
         >
           <Ban size={14} /> {t("match.post.new_match")}
         </button>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// v2.9.23 Z2: LiveMatchEventsBar — maç sırasında üstteki kutuda
+// takım ismi altında gol/asist/kartlar gösterilir (maç bitene kadar kalıcı)
+// =============================================================================
+
+function LiveMatchEventsBar({
+  events,
+  homeTeam,
+  awayTeam,
+}: {
+  events: any[];
+  homeTeam: any;
+  awayTeam: any;
+}) {
+  // Sadece önemli olayları ayıkla: goal, yellow_card, red_card, second_yellow
+  const importantEvents = events.filter((e) =>
+    e.type === "goal" || e.type === "yellow_card" || e.type === "red_card" || e.type === "second_yellow"
+  );
+
+  if (importantEvents.length === 0) return null;
+
+  return (
+    <div className="tm-card p-2 space-y-1">
+      <div className="text-[9px] text-muted-foreground uppercase font-bold tracking-wide px-1">
+        Maç Olayları
+      </div>
+      <div className="space-y-0.5 max-h-32 overflow-y-auto tm-thin-scrollbar">
+        {importantEvents.map((ev, i) => {
+          const teamName = ev.team === "home" ? homeTeam?.shortName : ev.team === "away" ? awayTeam?.shortName : "";
+          let icon = "⚽";
+          let color = "text-amber-400";
+          if (ev.type === "yellow_card" || ev.type === "second_yellow") {
+            icon = "🟨";
+            color = "text-amber-500";
+          } else if (ev.type === "red_card") {
+            icon = "🟥";
+            color = "text-red-500";
+          }
+          return (
+            <div key={i} className="flex items-center gap-1.5 text-[10px] py-0.5">
+              <span className="text-muted-foreground tabular-nums w-7 shrink-0">{ev.minute}'</span>
+              <span className={color}>{icon}</span>
+              <span className="font-semibold truncate flex-1">{ev.playerName || "Bilinmeyen"}</span>
+              <span className="text-[9px] text-muted-foreground shrink-0">({teamName})</span>
+              {ev.assistName && ev.type === "goal" && (
+                <span className="text-[9px] text-sky-400 shrink-0">A: {ev.assistName}</span>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

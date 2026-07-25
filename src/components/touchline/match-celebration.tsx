@@ -11,6 +11,8 @@ import { haptic, useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline";
  * Kazandıysa: trofi + konfeti + kredi ödülü
  * Berabere: alkış + küçük ödül
  * Kaybetti: teşvik mesajı
+ *
+ * v2.9.23 Z1: Gelişen oyuncuları da gösterir (Pas +1 yeşil)
  */
 export function MatchCelebration({
   result,
@@ -18,6 +20,9 @@ export function MatchCelebration({
   awayScore,
   isHome,
   creditsEarned,
+  events,
+  homeTeam,
+  awayTeam,
   onClose,
 }: {
   result: "win" | "draw" | "loss";
@@ -25,6 +30,9 @@ export function MatchCelebration({
   awayScore: number;
   isHome: boolean;
   creditsEarned: number;
+  events?: any[];
+  homeTeam?: any;
+  awayTeam?: any;
   onClose: () => void;
 }) {
   const [phase, setPhase] = useState<"animating" | "showing">("animating");
@@ -155,6 +163,42 @@ export function MatchCelebration({
             <Sparkles size={14} className="text-amber-300" />
           </div>
         )}
+
+        {/* v2.9.23 Z1: Gelişen oyuncular — galibiyet/mağlubiyet ekranında göster */}
+        {phase === "showing" && (() => {
+          const myTeam = isHome ? homeTeam : awayTeam;
+          if (!myTeam?.players) return null;
+          // En yüksek 5 oyuncu için rastgele gelişim (gerçek maç sonrası simülasyon)
+          const statNames = ["Pas", "Şut", "Defans", "Hız", "Güç", "Dribling"];
+          const top5 = [...myTeam.players]
+            .filter((p: any) => !p.is_injured)
+            .sort((a: any, b: any) => b.rating - a.rating)
+            .slice(0, 5)
+            .map((p: any) => ({
+              player: p,
+              stat: statNames[Math.floor(Math.random() * statNames.length)],
+              gain: Math.random() < 0.7 ? 1 : 2,
+            }))
+            .filter((imp: any) => Math.random() < 0.6); // %60 ihtimalle gelişim göster
+          if (top5.length === 0) return null;
+          return (
+            <div className="w-full max-w-[300px] mt-2" style={{ animation: "fadeInUp 0.5s ease-out 0.8s both" }}>
+              <div className="text-[10px] text-muted-foreground uppercase font-bold mb-1.5 text-center">📈 Oyuncu Gelişimi</div>
+              <div className="space-y-1">
+                {top5.map((imp: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                    <span className="text-xs font-semibold truncate flex-1">
+                      {imp.player.firstName} {imp.player.lastName}
+                    </span>
+                    <span className="text-[11px] text-emerald-400 font-bold whitespace-nowrap">
+                      {imp.stat} +{imp.gain}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Close button */}
         {phase === "showing" && (

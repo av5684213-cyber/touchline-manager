@@ -2056,9 +2056,11 @@ export const useAppStore = create<AppState>()(
             const isUserHome = f.homeId === myTeamId;
             const myScore = isUserHome ? (f.homeScore ?? 0) : (f.awayScore ?? 0);
             const oppScore = isUserHome ? (f.awayScore ?? 0) : (f.homeScore ?? 0);
-            if (myScore > oppScore) matchBonus += 200_000;      // Galibiyet
-            else if (myScore === oppScore) matchBonus += 100_000; // Beraberlik
-            else matchBonus += 50_000;                            // Yenilgi
+            // v2.9.23 Z3: Her maç sonrası 700K euro sabit maç parası (her takıma)
+            matchBonus += 700_000;
+            if (myScore > oppScore) matchBonus += 200_000;      // Galibiyet bonusu
+            else if (myScore === oppScore) matchBonus += 100_000; // Beraberlik bonusu
+            else matchBonus += 50_000;                            // Yenilgi bonusu
           }
           // P0 FIX: userMatchResult null ise = canlı maçtan gelmiş, applyPostMatchEffects gol dağıttı
           // userMatchResult varsa = Turu İlerlet yolu, gol dağıtımı BURADA yapılmalı
@@ -3057,6 +3059,10 @@ export const useAppStore = create<AppState>()(
         for (let i = 0; i < 3; i++) {
           const pos = positions[Math.floor(Math.random() * positions.length)];
           const player = generatePlayer(pos as any, ovrRange);
+          // v2.9.23 Z5: Mağaza paketlerinden çıkan futbolcular 17 yaşında olmalı
+          // (genç yetenek havuzu mantığı — paket = altyapıdan terfi)
+          player.age = 17;
+          // ID zaten generatePlayer tarafından benzersiz atanır
 
           // Kadro limiti kontrolü
           if (myTeam.players.length >= 25) {
