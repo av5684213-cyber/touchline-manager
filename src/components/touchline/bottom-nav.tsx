@@ -39,7 +39,8 @@ export type TabKey =
   | "cup"
   | "topscorers"
   | "shop" // P0: Mağaza sekmesi
-  | "market" // P0: Market sekmesi (kozmetik)
+  // v2.9.21 GÖREV 7: "market" sekmesi KALDIRILDI — kozmetik market kullanılmıyor,
+  // kullanıcı "market sekmesini kaldır, içindekileri sil" dedi. Shop sekmesi kaldı (kredi paketleri).
   | "leaderboard" // P0: Liderlik tablosu
   // Üst şerit sekmesi — coming-soon
   | "friendly";
@@ -55,7 +56,7 @@ export const MAIN_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: s
 export const OTHER_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: string }[] = [
   { key: "leaderboard", icon: Trophy, labelKey: "nav.leaderboard" },
   { key: "shop", icon: ShoppingBag, labelKey: "nav.shop" },
-  { key: "market", icon: Palette, labelKey: "nav.market" },
+  // v2.9.21 GÖREV 7: market sekmesi kaldırıldı
   { key: "youth", icon: GraduationCap, labelKey: "nav.youth" },
   { key: "topscorers", icon: Crown, labelKey: "nav.topscorers" },
   { key: "awards", icon: Award, labelKey: "nav.awards" },

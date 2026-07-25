@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { type Locale } from "@/lib/i18n/types";
 import {
   Clock,
   Dumbbell,
@@ -514,7 +515,7 @@ function ProgramCard({
   locale,
 }: {
   program: TrainingProgram;
-  locale: "tr" | "en";
+  locale: Locale;
 }) {
   const { t } = useI18n();
   const category = program.category;

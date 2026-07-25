@@ -613,14 +613,35 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
   const appearancesVal = rand(8, 28);
   const nation = isForeign ? "Yabancı" : "Türkiye";
   const foot: Foot = Math.random() < 0.7 ? "Right" : Math.random() < 0.5 ? "Left" : "Both";
-  // P0 FIX: Piyasa değeri — yaş ve potansiyel hesaba kat
-  // Peak yaş 24-29 → prim, 30+ → düşüş, 17-21 → potansiyel primi
-  const ageMult = age <= 21 ? 1.4 : age <= 23 ? 1.2 : age >= 24 && age <= 29 ? 1.0 : age >= 30 && age <= 32 ? 0.7 : age >= 33 ? 0.45 : 0.85;
-  // Potansiyel farkı primi (potential - rating büyükse → wonderkid primi)
-  const potentialDiff = (ovr + rand(0, 15)) - ovr;
-  const potentialMult = potentialDiff >= 10 ? 1.5 : potentialDiff >= 5 ? 1.2 : 1.0;
-  const marketValue = Math.round(ovr * rand(80_000, 180_000) * ageMult * potentialMult);
-  const weeklyWage = ovr * rand(800, 2200);
+  // v2.9.21 GÖREV 4: Piyasa değeri — TEK KANONİK FORMÜL (valuation.ts calculatePlayerValue ile birebir aynı)
+  // Eski tutarsız formüller kaldırıldı (data.ts'te ayrı, valuation.ts'te ayrı hesap).
+  // Şimdi her yerde aynı: base = rating² × 8000
+  const ageMultValue =
+    age <= 23 ? 1.30 :
+    age <= 27 ? 1.15 :
+    age <= 30 ? 1.00 :
+    age <= 33 ? 0.75 : 0.50;
+  const potentialVal = ovr + rand(0, 15);
+  const potentialBonus = Math.max(0, potentialVal - ovr) * 200_000;
+  const baseValue = Math.pow(ovr, 2) * 8000;
+  // Arketip henüz hesaplanmadı — generateStats sonrası archetype belirlenir
+  // Şimdilik 1.0 (aşağıda archetype belirlenince güncellenebilir)
+  const archetypeMultiplier = 1.0; // default — generateStats sonrası archetype güncellenir
+  // Pozisyon çarpanı
+  const posMultValue: Record<string, number> = {
+    GK: 1.10, CB: 0.90, LB: 0.95, RB: 0.95, LWB: 0.90, RWB: 0.90,
+    CDM: 1.00, CM: 1.00, CAM: 1.15,
+    LM: 0.95, RM: 0.95, LW: 1.10, RW: 1.10,
+    ST: 1.25, CF: 1.15,
+  };
+  const posMult = posMultValue[pos] ?? 1.00;
+  const marketValue = Math.max(50_000, Math.min(200_000_000,
+    Math.round((baseValue + potentialBonus) * ageMultValue * archetypeMultiplier * posMult)
+  ));
+  // Maaş da tek formül — calculateWeeklyWage ile aynı
+  const tierMultWage = 1.2; // 2. Lig default (data.ts'te tier bilgisi yok)
+  const ageBonusWage = (age >= 24 && age <= 29) ? 1.15 : (age < 22 ? 0.80 : (age > 32 ? 0.85 : 1.0));
+  const weeklyWage = Math.max(5000, Math.min(500_000, Math.round(ovr * 950 * tierMultWage * ageBonusWage)));
 
   // Pozisyon grubu
   const group = POSITION_GROUP[pos];
@@ -891,18 +912,28 @@ function generateSeasonHistory(
   const footRightShare = rightFootStat / totalFootStat; // 0..1
   const footLeftShare = leftFootStat / totalFootStat;
 
-  // foot tercihi tüm ağırlıkları kaydırır
+  // v2.9.21 EK1: foot tercihi gol dağılımını DAHA GÜÇLÜ etkiler (gerçekçi)
+  // Eskiden sadece *0.6 veya *0.8 çarpanı vardı — çok az etki.
+  // Şimdi: foot tercihi doğrudan ağırlıkları yeniden dağıtır.
   if (foot === "Left") {
-    // Solak: sol ayak ağırlığı artar
-    wLeft = Math.max(wLeft, wRight * 0.8);
-    wRight = wRight * 0.6;
+    // Solak: sol ayak baskın (%55-65), sağ ayak zayıf (%20-30), kafa azalır
+    wLeft = Math.max(wLeft, wRight * 1.3);
+    wRight = wRight * 0.5;
+    wHead = wHead * 0.75;
   } else if (foot === "Both") {
-    // Her iki ayak: dengeli
-    wRight = (wRight + wLeft) * 0.45;
-    wLeft = (wRight + wLeft) * 0.45;
+    // Her iki ayak: dengeli sağ-sol, kafa azalır (iki ayaklı oyuncular nadiren kafacı)
+    const footAvg = (wRight + wLeft) / 2;
+    wRight = footAvg * 0.95;
+    wLeft = footAvg * 0.95;
+    wHead = wHead * 0.6;
+  } else {
+    // Right (default): sağ ayak baskın
+    wRight = Math.max(wRight, wLeft * 1.3);
+    wLeft = wLeft * 0.55;
+    wHead = wHead * 0.9;
   }
-  // footStat oranına göre kaydır
-  const footDelta = (footRightShare - footLeftShare) * 0.3; // -0.3..+0.3
+  // footStat oranına göre kaydır (daha güçlü)
+  const footDelta = (footRightShare - footLeftShare) * 0.45; // -0.45..+0.45 (eski 0.3)
   wRight += footDelta;
   wLeft -= footDelta;
 

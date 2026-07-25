@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { type Locale } from "@/lib/i18n/types";
 import {
   Activity,
   AlertTriangle,
@@ -116,7 +117,7 @@ function MatchReport({
   team: Team;
   clubs: Team[];
   fixtures: FixtureRow[];
-  locale: "tr" | "en";
+  locale: Locale;
 }) {
   // Son 10 maç
   const myRecent = useMemo(() =>
@@ -348,7 +349,7 @@ function FinancialReport({
 }: {
   team: Team;
   facilities: any;
-  locale: "tr" | "en";
+  locale: Locale;
   seasonNumber: number;
   clubs: Team[];
   fixtures: FixtureRow[];
@@ -496,7 +497,7 @@ function PerformanceReport({
   team: Team;
   clubs: Team[];
   fixtures: FixtureRow[];
-  locale: "tr" | "en";
+  locale: Locale;
 }) {
   const players = team.players;
 
@@ -1243,7 +1244,7 @@ function FinRow({
   value: number;
   color: "emerald" | "red";
   bold?: boolean;
-  locale: "tr" | "en";
+  locale: Locale;
 }) {
   return (
     <div className="flex justify-between text-[10px]">

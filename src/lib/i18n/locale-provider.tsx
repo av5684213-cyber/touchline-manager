@@ -8,7 +8,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { DEFAULT_LOCALE, type Locale } from "./types";
+// v2.9.21 GÖREV 8: Genişletilmiş dil desteği + auto-detect
+import { DEFAULT_LOCALE, LOCALES, detectLocaleFromBrowser, type Locale } from "./types";
 import { dict } from "./dict";
 
 const STORAGE_KEY = "tm.locale";
@@ -29,17 +30,20 @@ function interpolate(template: string, params?: Record<string, string | number>)
 }
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  // Lazy initializer — bir kez çalışır, SSR-safe (window yoksa default döner).
-  // Hydration mismatch olursa html'deki suppressHydrationWarning yakalar.
+  // v2.9.21 GÖREV 8: Auto-detect browser language (Google Play'den indirenler için)
+  // 1. localStorage'da kullanıcı tercihi varsa onu kullan
+  // 2. Yoksa navigator.language'den tahmin et (detectLocaleFromBrowser)
+  // 3. O da yoksa DEFAULT_LOCALE (tr)
   const [locale, setLocaleState] = useState<Locale>(() => {
     if (typeof window === "undefined") return DEFAULT_LOCALE;
     try {
       const stored = localStorage.getItem(STORAGE_KEY) as Locale | null;
-      if (stored === "tr" || stored === "en") return stored;
+      if (stored && LOCALES.includes(stored)) return stored;
     } catch {
       /* ignore */
     }
-    return DEFAULT_LOCALE;
+    // v2.9.21 GÖREV 8: Browser dilini otomatik algıla
+    return detectLocaleFromBrowser();
   });
 
   const setLocale = useCallback((l: Locale) => {
@@ -55,7 +59,19 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     (key: string, params?: Record<string, string | number>) => {
       const entry = dict[key];
       if (!entry) return key;
-      const raw = entry[locale] ?? entry.tr;
+      // v2.9.21 GÖREV 8: Çeviri — eksik dil fallback yapar (translate fonksiyonu)
+      // Eski kod: entry[locale] ?? entry.tr
+      // Yeni: locale es/de/fr/pt ise ve Dict'te yoksa en'ye fallback
+      let raw: string;
+      switch (locale) {
+        case "tr": raw = entry.tr; break;
+        case "en": raw = entry.en; break;
+        case "es": raw = entry.es ?? entry.en; break;
+        case "de": raw = entry.de ?? entry.en; break;
+        case "fr": raw = entry.fr ?? entry.en; break;
+        case "pt": raw = entry.pt ?? entry.en; break;
+        default: raw = entry.en;
+      }
       return interpolate(raw, params);
     },
     [locale]

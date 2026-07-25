@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { type Locale } from "@/lib/i18n/types";
 import { X, User, Upload, ArrowLeftRight, Banknote } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { POSITION_GROUP, type Player, type SeasonStat } from "@/lib/mock/data";
@@ -261,7 +262,7 @@ function OverviewTab({
   technical: { label: string; value: number | undefined }[];
   mental: { label: string; value: number | undefined }[];
   physical: { label: string; value: number | undefined }[];
-  locale: "tr" | "en";
+  locale: Locale;
   t: (key: string, params?: Record<string, string | number>) => string;
   onArketipClick?: (ark: string) => void;
 }) {
@@ -517,7 +518,7 @@ function StatsTab({
 }: {
   player: Player;
   t: (key: string, params?: Record<string, string | number>) => string;
-  locale: "tr" | "en";
+  locale: Locale;
 }) {
   const isGK = player.specificPosition === "GK";
   // Eğer seasonHistory yoksa (ör. Supabase'den gelen oyuncu), mevcut stat'lardan üret
@@ -856,7 +857,7 @@ function computeGoalBreakdown(player: Player): {
 }
 
 // Güncel sezon kartı — sezon istatistikleri + gol türü dağılımı
-function CurrentSeasonCard({ player, locale }: { player: Player; locale: "tr" | "en" }) {
+function CurrentSeasonCard({ player, locale }: { player: Player; locale: Locale }) {
   const isGK = player.specificPosition === "GK";
   const goals = player.goals ?? 0;
   const breakdown = computeGoalBreakdown(player);
@@ -1265,7 +1266,7 @@ function ActionsTab({
   teamColor: string;
   onClose: () => void;
   t: (key: string, params?: Record<string, string | number>) => string;
-  locale: "tr" | "en";
+  locale: Locale;
 }) {
   const listPlayerForSale = useAppStore((s) => s.listPlayerForSale);
   const transfer = useAppStore((s) => s.transfer);

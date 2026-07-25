@@ -28,7 +28,7 @@ import { ReportsScreen } from "@/components/touchline/screens/reports";
 import { ComingSoonScreen } from "@/components/touchline/screens/coming-soon";
 import { FriendlyScreen } from "@/components/touchline/screens/friendly";
 import { ShopScreen } from "@/components/touchline/screens/shop";
-import { MarketScreen } from "@/components/touchline/screens/market";
+// v2.9.21 GÖREV 7: MarketScreen import'u KALDIRILDI
 import { LeaderboardScreen } from "@/components/touchline/screens/leaderboard";
 import { OtherDrawer } from "@/components/touchline/other-drawer";
 import { WelcomeModal } from "@/components/touchline/welcome-modal";
@@ -82,7 +82,7 @@ export default function Home() {
       case "cup": return <CupScreen />;
       case "friendly": return <FriendlyScreen />;
       case "shop": return <ShopScreen />;
-      case "market": return <MarketScreen />;
+      // v2.9.21 GÖREV 7: "market" case'i KALDIRILDI — kozmetik market artık yok
       case "leaderboard": return <LeaderboardScreen />;
       case "reports": return <ReportsScreen />;
       default: return <ComingSoonScreen title="Yakında" />;

@@ -1,4 +1,5 @@
 import type { Player, Team } from "@/lib/mock/data";
+import { type Locale } from "@/lib/i18n/types";
 
 /**
  * Match engine — canlı maç simülasyonu.
@@ -160,7 +161,7 @@ type Ctx = {
   home: Team;
   away: Team;
   tactics: { home: MatchTactics; away: MatchTactics };
-  locale: "tr" | "en";
+  locale: Locale;
 };
 
 function qualityGap(ctx: Ctx): number {

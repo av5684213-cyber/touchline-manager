@@ -45,6 +45,8 @@ import {
 import { DEFAULT_TACTIC, FORMATION_SLOTS, type ActiveTactic } from "@/lib/tactics/types";
 // P1: require() → top-level ES import (circular dependency riski yok, Next.js 16 Turbopack)
 import { TIER_BASE_BUDGETS } from "@/lib/match/engine/constants";
+// v2.9.21 GÖREV 1: Küme düşme/terfi kuralları — TEK KANONİK KAYNAK
+import { TEAMS_PER_LEAGUE, PROMOTION_COUNT, RELEGATION_COUNT, getLeagueZone, isPromotionZone, isRelegationZone } from "@/lib/league-rules";
 import { simulateEnhancedMatch } from "@/lib/match/engine/enhancedMatchEngine";
 import { getInflationMultiplier } from "@/lib/fm/inflation";
 import { applyCoachTrainingBoost } from "@/lib/staffBonus";
@@ -2774,8 +2776,8 @@ export const useAppStore = create<AppState>()(
           drawn: myStat?.drawn ?? 0,
           lost: myStat?.lost ?? 0,
           points: myStat?.points ?? 0,
-          promoted: myIdx < 3 && (team.leagueTier ?? 2) > 1,
-          relegated: myIdx >= 15 && (team.leagueTier ?? 2) < 4,
+          promoted: myIdx < PROMOTION_COUNT && (team.leagueTier ?? 2) > 1,
+          relegated: myIdx >= (TEAMS_PER_LEAGUE - RELEGATION_COUNT) && (team.leagueTier ?? 2) < 4,
           topScorer,
           retiredPlayers: retiredNames,
           newRegens: retiredNames.length,

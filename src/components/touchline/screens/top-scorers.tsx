@@ -1,35 +1,66 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Crown, TrendingUp, TrendingDown } from "lucide-react";
+import { Crown, TrendingUp, TrendingDown, Globe } from "lucide-react";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { PlayerAvatar } from "../ui-bits";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 import { PlayerProfileModal } from "../player-profile-modal";
+// v2.9.21 EK5: Global gol kralı yarışı — diğer liglerin oyuncularını üret
+import { generateClubsForLeague, type LeagueTier, type Department } from "@/lib/mock/data";
 import type { Player } from "@/lib/mock/data";
 
 type SortKey = "goals" | "assists" | "rating" | "motm" | "appearances";
+type TierFilter = "all" | "mine" | "global";
 
 export function TopScorersScreen() {
   const clubs = useAppStore((s) => s.clubs);
   const myTeam = useMyTeam();
   const [sortKey, setSortKey] = useState<SortKey>("goals");
-  const [tier, setTier] = useState<"all" | "mine">("all");
+  const [tier, setTier] = useState<TierFilter>("all");
   const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
 
+  // v2.9.21 EK5: Global modda tüm liglerin bot takımlarını üret
+  const globalClubs = useMemo(() => {
+    if (tier !== "global") return [];
+    const result: any[] = [];
+    // 4 tier × her tier 1-2 departman = 5-8 lig
+    for (let t = 1; t <= 4; t++) {
+      const deptCount = t === 4 ? 3 : 1; // tier 4'te 3 departman, diğerlerinde 1
+      for (let d = 1; d <= deptCount; d++) {
+        const generated = generateClubsForLeague(t as LeagueTier, d as Department);
+        result.push(...generated);
+      }
+    }
+    return result;
+  }, [tier]);
+
   const allPlayers = useMemo(() => {
-    const list: Array<{ player: any; team: any; isMyPlayer: boolean }> = [];
+    const list: Array<{ player: any; team: any; isMyPlayer: boolean; isGlobal?: boolean }> = [];
+    // Kullanıcının ligindeki oyuncular (gerçek state)
     for (const club of clubs) {
       for (const p of club.players) {
-        // ADDED: Sadece maça çıkmış oyuncuları listele (appearances > 0)
         if ((p.appearances ?? 0) > 0) {
           list.push({ player: p, team: club, isMyPlayer: club.id === myTeam?.id });
         }
       }
     }
+    // v2.9.21 EK5: Global modda diğer liglerin oyuncularını da ekle
+    if (tier === "global") {
+      for (const club of globalClubs) {
+        for (const p of club.players) {
+          // Global takımların oyuncularına sahte appearances + goals ekle (kullanıcının ligindeki rakipleri simüle)
+          if (!p.appearances) p.appearances = Math.floor(Math.random() * 25) + 5;
+          if (!p.goals) p.goals = p.specificPosition === "GK" ? 0 : Math.floor(Math.random() * 12);
+          if (!p.assists) p.assists = p.specificPosition === "GK" ? 0 : Math.floor(Math.random() * 8);
+          if (!p.motmAwards) p.motmAwards = Math.floor(Math.random() * 3);
+          list.push({ player: p, team: club, isMyPlayer: false, isGlobal: true });
+        }
+      }
+    }
     return list;
-  }, [clubs, myTeam]);
+  }, [clubs, myTeam, globalClubs, tier]);
 
   const ranked = useMemo(() => {
     let filtered = allPlayers;
@@ -63,11 +94,20 @@ export function TopScorersScreen() {
         <div className="flex items-center gap-2 mb-2">
           <Crown size={16} className="text-amber-400" />
           <span className="text-sm font-bold">
-            {sortKey === "goals" ? "Gol Kralı Yarışı" :
-             sortKey === "assists" ? "Asist Kralı Yarışı" :
-             sortKey === "rating" ? "Form Sıralaması" :
-             sortKey === "motm" ? "Maçın Adamı Sıralaması" :
-             "Oynama Süresi Sıralaması"}
+            {/* v2.9.21 EK5: Global modda farklı başlık */}
+            {tier === "global" ? (
+              sortKey === "goals" ? "🌍 Dünya Gol Kralı" :
+              sortKey === "assists" ? "🌍 Dünya Asist Kralı" :
+              sortKey === "rating" ? "🌍 Dünya Form Sıralaması" :
+              sortKey === "motm" ? "🌍 Dünya MOTM Sıralaması" :
+              "🌍 Dünya Oynama Süresi"
+            ) : (
+              sortKey === "goals" ? "Gol Kralı Yarışı" :
+              sortKey === "assists" ? "Asist Kralı Yarışı" :
+              sortKey === "rating" ? "Form Sıralaması" :
+              sortKey === "motm" ? "Maçın Adamı Sıralaması" :
+              "Oynama Süresi Sıralaması"
+            )}
           </span>
         </div>
         {ranked.length >= 3 && (
@@ -115,6 +155,12 @@ export function TopScorersScreen() {
           className={cn("tm-tap flex-1 py-1.5 rounded text-[10px] font-bold border",
             tier === "mine" ? "bg-primary text-primary-foreground border-primary" : "border-border bg-card text-muted-foreground")}>
           Benim Takımım
+        </button>
+        {/* v2.9.21 EK5: Global sekme — dünya geneli gol kralı */}
+        <button onClick={() => { haptic("light"); setTier("global"); }}
+          className={cn("tm-tap flex-1 py-1.5 rounded text-[10px] font-bold border flex items-center justify-center gap-1",
+            tier === "global" ? "bg-sky-500 text-white border-sky-500" : "border-border bg-card text-muted-foreground")}>
+          <Globe size={11} /> Global
         </button>
       </div>
 

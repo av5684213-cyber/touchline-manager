@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { type Locale } from "@/lib/i18n/types";
 import {
   simulateEnhancedMatch,
   type EnhancedMatchResult,
@@ -316,7 +317,7 @@ export type LiveMatchState = {
   halftimeSecondsLeft?: number; // devre arası geri sayım (30 sn)
 };
 
-export function useMatchEngine(home: Team, away: Team, locale: "tr" | "en", isFriendly: boolean = false) {
+export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendly: boolean = false) {
   // Tam simülasyon sonucu (start çağrılınca doluyor)
   const fullResultRef = useRef<EnhancedMatchResult | null>(null);
   // Kaçıncı event'e kadar gösterdiğimiz

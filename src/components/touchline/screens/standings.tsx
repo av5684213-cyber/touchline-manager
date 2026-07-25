@@ -8,6 +8,10 @@ import { ClubBadge } from "../ui-bits";
 import { TeamDetailModal } from "../team-detail-modal";
 import { TeamMessageModal } from "../team-message-modal";
 import { LEAGUE_NAMES, generateClubsForLeague, type Team, type LeagueTier, type Department } from "@/lib/mock/data";
+// v2.9.21 GÖREV 1: Küme düşme/terfi kuralları — TEK KANONİK KAYNAK (league-rules.ts)
+import { TEAMS_PER_LEAGUE, PROMOTION_COUNT, RELEGATION_COUNT, getLeagueZone } from "@/lib/league-rules";
+// v2.9.21 EK4: Toolbox açılır-kapanır
+import { ChevronDown, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 import type { FormResult } from "@/lib/mock/season";
@@ -15,16 +19,12 @@ import type { FormResult } from "@/lib/mock/season";
 // Lig başına 18 takım; 3. Lig (tier 4) 5 departman
 const TIER_DEPTS: Record<LeagueTier, number> = { 1: 1, 2: 1, 3: 1, 4: 5 };
 
-// 18 takım: idx 0-2 → üst lige çıkma, idx 15-17 → düşme
-// Backend (store.ts) ile tam senkron: myFinalIdx < 3 → promote, >= 15 → relegate
+// v2.9.21 GÖREV 1: getZone artık league-rules.ts'teki getLeagueZone fonksiyonu
+// - 18 takım: idx 0-2 promotion (3 takım), idx 15-17 relegation (3 takım)
+// - tier 1: terfi yok, sadece idx 15-17 düşme
+// - tier 4: düşme yok, sadece idx 0-2 terfi
 function getZone(idx: number, tier: number = 2): "promotion" | "relegation" | "middle" {
-  if (tier === 1) {
-    if (idx >= 15) return "relegation";
-    return "middle";
-  }
-  if (idx <= 2) return "promotion";
-  if (idx >= 15) return "relegation";
-  return "middle";
+  return getLeagueZone(idx, tier);
 }
 
 const ZONE_COLORS: Record<string, string> = {
@@ -46,6 +46,8 @@ export function StandingsScreen() {
   const team = useMyTeam();
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [messageTeam, setMessageTeam] = useState<Team | null>(null);
+  // v2.9.21 EK4: Toolbox açılır-kapanır (varsayılan: kapalı)
+  const [toolboxOpen, setToolboxOpen] = useState(false);
 
   // Seçili lig ve departman — varsayılan kullanıcının ligi
   const userTier = (team?.leagueTier ?? 2) as LeagueTier;
@@ -135,42 +137,67 @@ export function StandingsScreen() {
         </div>
       </div>
 
-      {/* Lig sekmeleri — toolbox */}
-      <div className="tm-card p-1.5 space-y-1.5">
-        {/* Tier tabs */}
-        <div className="flex gap-1">
-          {([1, 2, 3, 4] as LeagueTier[]).map((tier) => (
-            <button
-              key={tier}
-              onClick={() => onTierChange(tier)}
-              className={cn(
-                "tm-tap flex-1 py-1.5 rounded-md text-[10px] font-bold transition-colors",
-                selTier === tier
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted/40 text-muted-foreground hover:bg-muted"
-              )}
-            >
-              {LEAGUE_NAMES[tier][locale]}
-            </button>
-          ))}
-        </div>
-        {/* Department tabs — only for tier 4 */}
-        {TIER_DEPTS[selTier] > 1 && (
-          <div className="flex gap-1">
-            {Array.from({ length: TIER_DEPTS[selTier] }, (_, i) => (i + 1) as Department).map((dept) => (
-              <button
-                key={dept}
-                onClick={() => onDeptChange(dept)}
-                className={cn(
-                  "tm-tap flex-1 py-1 rounded-md text-[11px] font-bold transition-colors",
-                  selDept === dept
-                    ? "bg-amber-500 text-white"
-                    : "bg-muted/40 text-muted-foreground hover:bg-muted"
-                )}
-              >
-                D{dept}
-              </button>
-            ))}
+      {/* v2.9.21 EK4: Lig sekmeleri — açılır-kapanır toolbox */}
+      <div className="tm-card overflow-hidden">
+        {/* Toolbox header — tıklanınca açılır/kapanır */}
+        <button
+          onClick={() => { haptic("light"); setToolboxOpen(!toolboxOpen); }}
+          className="tm-tap w-full flex items-center justify-between px-3 py-2.5 hover:bg-accent/30 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal size={14} className="text-muted-foreground" />
+            <span className="text-xs font-bold">
+              {LEAGUE_NAMES[selTier][locale]}{TIER_DEPTS[selTier] > 1 ? ` · D${selDept}` : ""}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-muted-foreground">Değiştir</span>
+            <ChevronDown
+              size={14}
+              className={cn("text-muted-foreground transition-transform", toolboxOpen && "rotate-180")}
+            />
+          </div>
+        </button>
+
+        {/* Toolbox content — açıksa göster */}
+        {toolboxOpen && (
+          <div className="p-2 pt-0 space-y-1.5 border-t border-border">
+            {/* Tier tabs */}
+            <div className="flex gap-1 pt-2">
+              {([1, 2, 3, 4] as LeagueTier[]).map((tier) => (
+                <button
+                  key={tier}
+                  onClick={() => onTierChange(tier)}
+                  className={cn(
+                    "tm-tap flex-1 py-1.5 rounded-md text-[10px] font-bold transition-colors",
+                    selTier === tier
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted/40 text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  {LEAGUE_NAMES[tier][locale]}
+                </button>
+              ))}
+            </div>
+            {/* Department tabs — only for tier 4 */}
+            {TIER_DEPTS[selTier] > 1 && (
+              <div className="flex gap-1">
+                {Array.from({ length: TIER_DEPTS[selTier] }, (_, i) => (i + 1) as Department).map((dept) => (
+                  <button
+                    key={dept}
+                    onClick={() => onDeptChange(dept)}
+                    className={cn(
+                      "tm-tap flex-1 py-1 rounded-md text-[11px] font-bold transition-colors",
+                      selDept === dept
+                        ? "bg-amber-500 text-white"
+                        : "bg-muted/40 text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    D{dept}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -196,7 +223,8 @@ export function StandingsScreen() {
               {standings.map((row, idx) => {
                 const isMe = row.teamId === team?.id;
                 const zone = getZone(idx, selTier);
-                const gd = row.goalsFor - row.goalsAgainst;
+                // v2.9.21 GÖREV 2: goal_diff alanı doğrudan kullanılır (gd yerine)
+                const gd = row.goal_diff;
                 const teamData = leagueClubs.find((c) => c.id === row.teamId);
                 return (
                   <button
@@ -206,9 +234,10 @@ export function StandingsScreen() {
                       if (teamData) setSelectedTeam(teamData);
                     }}
                     className={cn(
-                      "grid grid-cols-[24px_1fr_22px_22px_22px_22px_24px_28px_22px_22px] gap-1 px-2 py-2 text-xs items-center border-l-2 border-b border-border/40 last:border-b-0 w-full text-left hover:bg-accent/50 transition-colors min-w-[360px]",
-                      ZONE_COLORS[zone],
-                      isMe && "bg-primary/5"
+                      "grid grid-cols-[24px_1fr_22px_22px_22px_22px_24px_28px_22px_22px] gap-1 px-2 py-2 text-xs items-center border-l-2 border-b border-border/40 last:border-b-0 w-full text-left transition-colors min-w-[360px]",
+                      ZONE_COLORS[zone]
+                      // v2.9.21 EK3: hover/bg parlaklığı kaldırıldı — kullanıcı şikayeti
+                      // isMe && "bg-primary/5" → kaldırıldı (çok parlak)
                     )}
                   >
                     <div className="flex items-center gap-1 sticky left-0 bg-background z-10">

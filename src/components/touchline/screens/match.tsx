@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { type Locale } from "@/lib/i18n/types";
 import {
   Ban,
   ChevronDown,
@@ -718,7 +719,7 @@ function EventFeed({
 }: {
   events: MatchEvent[];
   emptyText: string;
-  locale: "tr" | "en";
+  locale: Locale;
   homeTeam?: any;
   awayTeam?: any;
 }) {
@@ -779,7 +780,7 @@ function getEventText(ev: MatchEvent, homeTeam: any, awayTeam: any): string {
   return texts[ev.type] || base || `${playerName} — ${ev.type}`;
 }
 
-function EventRow({ ev, locale, homeTeam, awayTeam }: { ev: MatchEvent; locale: "tr" | "en"; homeTeam?: any; awayTeam?: any }) {
+function EventRow({ ev, locale, homeTeam, awayTeam }: { ev: MatchEvent; locale: Locale; homeTeam?: any; awayTeam?: any }) {
   const side = (ev.team as string) ?? "neutral";
   const sideColor = side === "home" ? "border-l-emerald-500" :
     side === "away" ? "border-l-sky-500" : "border-l-amber-500";

@@ -65,8 +65,10 @@ export function TransferNegotiationModal({
       else aiScore -= 5;
     }
 
-    // Random factor
-    aiScore += Math.floor(Math.random() * 20) - 10;
+    // Random factor KALDIRILDI — v2.9.21 GÖREV 6
+    // Eski: aiScore += Math.floor(Math.random() * 20) - 10;
+    // Artık deterministic: aynı teklif her zaman aynı cevabı alır
+    // (kullanıcı tekrar deneyince daha iyi şans beklememeli)
 
     if (aiScore >= 60) {
       haptic("success");

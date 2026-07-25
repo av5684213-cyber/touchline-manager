@@ -1,6 +1,8 @@
 "use client";
 
-export function formatEuro(amount: number, locale: "tr" | "en" = "tr"): string {
+import { type Locale } from "@/lib/i18n/types";
+
+export function formatEuro(amount: number, locale: Locale = "tr"): string {
   const localeTag = locale === "tr" ? "tr-TR" : "en-US";
   if (Math.abs(amount) >= 1_000_000) {
     return new Intl.NumberFormat(localeTag, {
@@ -17,13 +19,13 @@ export function formatEuro(amount: number, locale: "tr" | "en" = "tr"): string {
   }).format(amount);
 }
 
-export function formatNumber(n: number, locale: "tr" | "en" = "tr"): string {
+export function formatNumber(n: number, locale: Locale = "tr"): string {
   return new Intl.NumberFormat(locale === "tr" ? "tr-TR" : "en-US").format(n);
 }
 
 export function formatDate(
   iso: string,
-  locale: "tr" | "en" = "tr"
+  locale: Locale = "tr"
 ): string {
   return new Intl.DateTimeFormat(locale === "tr" ? "tr-TR" : "en-US", {
     day: "2-digit",
@@ -35,7 +37,7 @@ export function formatDate(
 
 export function relativeTime(
   iso: string,
-  locale: "tr" | "en" = "tr"
+  locale: Locale = "tr"
 ): string {
   const diff = Date.now() - new Date(iso).getTime();
   const sec = Math.floor(diff / 1000);
@@ -56,7 +58,7 @@ export function relativeTime(
   }
 }
 
-export function countdownParts(target: Date, locale: "tr" | "en") {
+export function countdownParts(target: Date, locale: Locale) {
   const diff = target.getTime() - Date.now();
   if (diff <= 0) {
     return locale === "tr" ? "başladı" : "live now";

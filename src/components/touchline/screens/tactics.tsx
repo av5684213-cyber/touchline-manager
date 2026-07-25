@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { type Locale } from "@/lib/i18n/types";
 import {
   ChevronDown,
   GitCompare,
@@ -45,10 +46,13 @@ import { calculateTotalStyleSynergy } from "@/lib/match/engine/playStyles";
 
 // Mevki pozisyon grubuna göre satır arka planı — orta ton (belirgin ama göz yormaz)
 const POSITION_ROW_BG: Record<PositionGroup, string> = {
-  GK: "bg-amber-100/70 dark:bg-amber-950/30",
-  DEF: "bg-sky-100/70 dark:bg-sky-950/30",
-  MID: "bg-emerald-100/70 dark:bg-emerald-950/30",
-  FWD: "bg-rose-100/70 dark:bg-rose-950/30",
+  // v2.9.21 EK2: Çok parlak renkler normale getirildi (kullanıcı şikayeti)
+  // Eski: bg-amber-100/70 → çok parlak sarı/mavi/yeşil/pembe
+  // Yeni: /30 opacity + sadece sol kenar border ile pozisyon belirgin
+  GK: "bg-amber-50/30 dark:bg-amber-950/20 border-l-2 border-l-amber-400",
+  DEF: "bg-sky-50/30 dark:bg-sky-950/20 border-l-2 border-l-sky-400",
+  MID: "bg-emerald-50/30 dark:bg-emerald-950/20 border-l-2 border-l-emerald-400",
+  FWD: "bg-rose-50/30 dark:bg-rose-950/20 border-l-2 border-l-rose-400",
 };
 
 // Mevki sıralaması — listelemede önce kaleci, sonra defans, orta saha, forvet
@@ -1095,7 +1099,7 @@ function CompareTab({
   setCompareIds: React.Dispatch<React.SetStateAction<string[]>>;
   onPlayerTap: (p: PlayerT) => void;
   t: (key: string, params?: Record<string, string | number>) => string;
-  locale: "tr" | "en";
+  locale: Locale;
 }) {
   const [filter, setFilter] = useState<PositionGroup | "ALL">("ALL");
 
@@ -1194,8 +1198,8 @@ function CompareTab({
               }}
               className={cn(
                 "tm-tap w-full flex items-center gap-3 p-2.5 text-left transition-colors",
-                POSITION_ROW_BG[posGroup],
-                isSelected && "bg-primary/10"
+                POSITION_ROW_BG[posGroup]
+                // v2.9.21 EK2: isSelected parlak bg-primary/10 kaldırıldı
               )}
             >
               <div className="flex-1 min-w-0">

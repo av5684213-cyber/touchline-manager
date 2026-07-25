@@ -58,6 +58,7 @@ export type StandingRow = {
   lost: number;
   goalsFor: number;
   goalsAgainst: number;
+  goal_diff: number;  // v2.9.21 GÖREV 2: Kanonik alan adı "goal_diff" (gd değil)
   points: number;
   form: FormResult[]; // en yeni son sırada, en fazla 5
 };
@@ -179,6 +180,7 @@ export function computeStandings(
       lost: 0,
       goalsFor: 0,
       goalsAgainst: 0,
+      goal_diff: 0,  // v2.9.21 GÖREV 2: goal_diff başlangıçta 0
       points: 0,
       form: [],
     });
@@ -221,17 +223,18 @@ export function computeStandings(
     }
   }
 
-  // Her takım için son 5 maçı al
+  // Her takım için son 5 maçı al + goal_diff hesapla
   for (const row of map.values()) {
     row.form = row.form.slice(-5);
+    // v2.9.21 GÖREV 2: goal_diff kanonik olarak hesaplanır
+    row.goal_diff = row.goalsFor - row.goalsAgainst;
   }
 
   return Array.from(map.values()).sort((a, b) => {
     // P0 FIX: Önce puan, sonra averaj, sonra atılan gol, sonra isim
     if (b.points !== a.points) return b.points - a.points;
-    const gdA = a.goalsFor - a.goalsAgainst;
-    const gdB = b.goalsFor - b.goalsAgainst;
-    if (gdB !== gdA) return gdB - gdA;
+    // v2.9.21 GÖREV 2: goal_diff kullan (gd değil)
+    if (b.goal_diff !== a.goal_diff) return b.goal_diff - a.goal_diff;
     if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
     if (b.won !== a.won) return b.won - a.won; // galibiyet sayısı tiebreaker
     return a.teamName.localeCompare(b.teamName);
