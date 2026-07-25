@@ -11,7 +11,7 @@ type AuthContextValue = {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, managerName: string) => Promise<{ error?: string }>;
+  signUp: (email: string, password: string, managerName: string, teamName?: string, countryCode?: string) => Promise<{ error?: string }>;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signInWithGoogle: () => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
@@ -71,6 +71,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // Cloud save başlat
         initCloudSave(newSession.user.id);
+
+        // v2.9.20 GÖREV 5: İlk kez giriş yapıyorsa — ülke + takım adı ile takım ata
+        // user_metadata'da team_name varsa rpc_assign_team_to_user_v2 çağır
+        const metadata = newSession.user.user_metadata as any ?? {};
+        const teamName = metadata.team_name;
+        const countryCode = metadata.country_code ?? "TR";
+        if (teamName && typeof teamName === "string" && teamName.length >= 3) {
+          pendingTimeouts.push(
+            setTimeout(async () => {
+              try {
+                const { supabase: supabaseClient } = await import("@/lib/supabase/client");
+                const { data: assignResult, error: assignErr } = await supabaseClient().rpc(
+                  "rpc_assign_team_to_user_v2",
+                  {
+                    p_user_id: newSession!.user.id,
+                    p_team_name: teamName,
+                    p_country_code: countryCode,
+                    p_preferred_tier: 4,
+                  }
+                );
+                if (assignErr) {
+                  console.warn("[auth] rpc_assign_team_to_user_v2 error:", assignErr.message);
+                } else if (assignResult?.success) {
+                  console.log("[auth] Team assigned:", assignResult);
+                  // multiplayer state'i yeniden yükle (yeni takım gösterilsin)
+                  await useAppStore.getState().loadMultiplayerState(newSession!.user.id);
+                }
+              } catch (e: any) {
+                console.warn("[auth] Team assignment exception:", e?.message ?? e);
+              }
+            }, 1500)  // cloud-save load bitmesini bekle
+          );
+        }
+
         // P0 FIX BUG #14: Engellenen kullanıcıları Supabase'ten yükle
         // BULGU #7 DÜZELTME (v2.9.1): merge yapıldığından sıralı çağırmaya gerek yok,
         // ama 500ms gecikme yine de race'i minimize eder.
@@ -105,7 +139,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [user]);
 
-  const signUp = async (email: string, password: string, managerName: string) => {
+  const signUp = async (
+    email: string,
+    password: string,
+    managerName: string,
+    teamName?: string,
+    countryCode?: string
+  ) => {
     // Supabase yapılandırılmamışsa — placeholder URL'e istek atmasın
     if (!isSupabaseConfigured()) {
       return { error: "Supabase yapılandırılmamış. Geliştirici Modu ile devam edin." };
@@ -115,7 +155,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         password,
         options: {
-          data: { manager_name: managerName, full_name: managerName },
+          data: {
+            manager_name: managerName,
+            full_name: managerName,
+            // v2.9.20 GÖREV 5: Kayıt akışı — ülke + takım adı metadata'ya gömülür
+            team_name: teamName ?? null,
+            country_code: countryCode ?? "TR",
+          },
         },
       });
       if (error) return { error: error.message };

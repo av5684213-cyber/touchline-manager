@@ -343,6 +343,36 @@ public class MainActivity extends Activity {
                     jsBackLock.notifyAll();
                 }
             }
+
+            // v2.9.20 GÖREV 8: FCM Push Notification Token
+            // JS'den AndroidNative.getFCMToken() çağrıldığında token döner.
+            // Firebase SDK olmadan: cihaz UUID'sini token olarak kullan (geçici).
+            // İleride Firebase Messaging SDK eklenince gerçek FCM token döndür.
+            @android.webkit.JavascriptInterface
+            public String getFCMToken() {
+                try {
+                    // Cihaz ID'sini al (Android ID — applications için unique)
+                    android.content.Context ctx = getApplicationContext();
+                    String androidId = android.provider.Settings.Secure.getString(
+                        ctx.getContentResolver(),
+                        android.provider.Settings.Secure.ANDROID_ID
+                    );
+                    // UID prefix ile FCM-like token oluştur
+                    if (androidId != null && !androidId.isEmpty()) {
+                        return "tm_" + androidId;
+                    }
+                    return "";
+                } catch (Exception e) {
+                    android.util.Log.w(TAG, "getFCMToken failed: " + e.getMessage());
+                    return "";
+                }
+            }
+
+            // v2.9.20 GÖREV 8: Platform bilir
+            @android.webkit.JavascriptInterface
+            public String getPlatform() {
+                return "android";
+            }
         }, "AndroidNative");
 
         // WebChromeClient — progress tracking + JS console message yakalama

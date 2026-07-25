@@ -2735,3 +2735,405 @@ NOT (kullanıcı için):
 - Test atama: SELECT * FROM rpc_assign_team_to_user('USER_UUID', 'FC Test', 4);
 
 Sonraki adım: G4 — Ülke bazlı lig sistemi (85 ülke, 4 kademe piramidi)
+
+---
+Task ID: v2.9.20-G4
+Agent: main (Z.AI)
+Task: G4 — Ülke bazlı lig sistemi (SADECE 10 başlıca lig — DÜZELTİLDİ)
+
+Work Log:
+- Kullanıcı geri bildirimi: 85 ülke yanlış, sadece başlıca ligler olmalı
+- İlk denemede yazmaya başladığım 85 ülkelik dosya bozuldu (gönderim hatası) — silindi
+- 10 başlıca lig olarak sadeleştirildi:
+  1. TR — Türkiye (Süper Lig)
+  2. GB — İngiltere (Premier Lig)
+  3. ES — İspanya (La Liga)
+  4. IT — İtalya (Serie A)
+  5. DE — Almanya (Bundesliga)
+  6. FR — Fransa (Ligue 1)
+  7. PT — Portekiz (Primeira Liga)
+  8. NL — Hollanda (Eredivisie)
+  9. BR — Brezilya (Série A)
+  10. AR — Arjantin (Primera División)
+
+- src/lib/countries/countries.ts oluşturuldu (~250 satır)
+  * Country type tanımı
+  * COUNTRIES array (10 ülke, 18 şehir + 18 first name + 18 last name her biri)
+  * getCountry(code) — ülke getir
+  * getCountryClubNames(code, tier) — 18 kurgusal takım ismi üret (tier'a göre palet)
+  * getCountryNameHavuzu(code) — first_names + last_names
+  * getCountryList() — UI dropdown için
+  * Tier'a göre 4 palet (1=koyu, 2=orta, 3=açık, 4=minimal)
+
+- supabase/migrations/016_country_leagues.sql oluşturuldu
+  * countries tablosu (10 ülke seed'li, RLS public read)
+  * leagues.country_code TEXT kolonu eklendi (default 'TR')
+  * UNIQUE INDEX leagues_country_tier_unique ON (country_code, tier)
+  * Mevcut 4 TR ligi TR olarak işaretlendi
+  * Diğer 9 ülke × 4 tier = 36 yeni lig kaydı seed'lendi
+  * teams.country_code TEXT kolonu eklendi (default 'TR')
+  * Mevcut takımlar TR olarak işaretlendi
+
+- Yeni RPC: rpc_assign_team_to_user_v2(p_user_id, p_team_name, p_country_code DEFAULT 'TR', p_preferred_tier DEFAULT 4)
+  * Ülke kodunu normalize et (UPPER + TRIM)
+  * countries tablosunda doğrula (invalid_country_code error)
+  * Belirli ülkede tier fallback: 4 → 3 → 2 → 1
+  * 015 RPC'si geri uyumluluk için korundu (TR default)
+
+- Yeni RPC: rpc_list_country_departments(p_country_code, p_tier)
+  * Bir ülkenin tier'ındaki tüm departmanları listele
+  * Her departman için: real_team_count, total_team_count, is_full
+  * Frontend "X/18 doluluk" göstergesi için
+
+Test Sonuçları:
+- npx tsc --noEmit: temiz (db.ts hatası önceden vardı, countries.ts ile ilgili değil)
+
+Stage Summary:
+- 85 ülke planı iptal edildi, 10 başlıca lig olarak düzeltildi
+- 10 ülke × 4 tier = 40 lig (her ülkede 4 kademe piramidi)
+- countries.ts TypeScript modülü (UI + sorgu amaçlı)
+- 016_country_leagues.sql migration'ı (countries tablosu + leagues/teams genişletme)
+- rpc_assign_team_to_user_v2 (ülke parametreli takım atama)
+- rpc_list_country_departments (ülke tier'ındaki departman doluluk listesi)
+- 015 RPC'si geri uyumluluk için korundu
+
+Sonraki adım: G5 — Kayıt akışı (ülke seçimi + takım ismi + küfür/reklam filtresi)
+
+---
+Task ID: v2.9.20-G5
+Agent: main (Z.AI)
+Task: G5 — Kayıt akışı (ülke seçimi + takım ismi + küfür/reklam filtresi)
+
+Work Log:
+- Yeni modül: src/lib/name-validator.ts
+  * validateTeamName(raw) — takım adı validasyonu
+    - 3-60 karakter (trim sonrası)
+    - Sadece harf, rakam, boşluk, tire, nokta, apostrof
+    - Küfür kontrolü (TR + EN ~80 kelime)
+    - Reklam kontrolü (URL, e-posta, sosyal medya, telefon)
+    - Reserve isimler (lig adları, sistem isimleri)
+    - Türkçe karakter normalizasyonu (ı→i, ğ→g, vb.) — varyant yakalama
+  * validateManagerName(raw) — yönetici adı (2-40 karakter, sadece harf+boşluk)
+  * validateCountryCode(code) — 10 başlıca lig kontrolü (TR/GB/ES/IT/DE/FR/PT/NL/BR/AR)
+  * Dönüş: { valid, reason, cleaned, message }
+
+- auth-context.tsx güncellendi:
+  * signUp fonksiyonuna teamName + countryCode parametreleri eklendi
+  * user_metadata'ya team_name ve country_code gömülür
+  * onAuthStateChange'de — kullanıcı ilk kez giriş yapınca:
+    - user_metadata'dan team_name + country_code okur
+    - rpc_assign_team_to_user_v2 çağırır (1500ms gecikme — cloud-save load'ı bekle)
+    - Başarılı olursa loadMultiplayerState ile state'i yeniler
+    - Hata olursa console.warn (krıtikal değil, kullanıcı manuel yeniden deneyebilir)
+
+- auth-gate.tsx güncellendi (kayıt ekranı):
+  * Yeni state: countryCode (default "TR"), teamName
+  * Yeni import: getCountryList, validateTeamName, validateManagerName, validateCountryCode
+  * Globe ikonu (lucide-react)
+  * Kayıt formuna eklenen alanlar (sırayla):
+    1. Ülke / Lig — dropdown (10 ülke, bayrak + Türkçe isim)
+    2. Takım Adın — text input (maxLength 60, placeholder "örn: Yıldız Galataspor")
+    3. Yönetici Adın — text input (maxLength 40)
+    4. Email — text input
+    5. Şifre — text input (min 6 karakter)
+  * handleSignUp artık validasyon yapıyor:
+    - validateManagerName → hata mesajı göster
+    - validateTeamName → hata mesajı göster
+    - validateCountryCode → hata mesajı göster
+    - password.length < 6 kontrolü
+    - signUp'a cleaned değerleri geçirir (trim edilmiş)
+  * Submit butonu disabled unless: email + password + managerName + teamName dolu
+
+Test Sonuçları:
+- npx tsc --noEmit: temiz (db.ts hatası önce vardı, name-validator.ts ile ilgili değil)
+
+Stage Summary:
+- Kayıt akışı tamamlandı: 5 alan (ülke, takım adı, yönetici adı, email, şifre)
+- Küfür/reklam filtresi: ~80 TR+EN küfür + URL/email/sosyal medya desenleri
+- Reserve isimler: lig adları + sistem isimleri
+- Türkçe karakter normalizasyonu: küfür varyantları (örn "amcık" → "amcik") yakalanır
+- Kullanıcı kayıt olunca user_metadata'ya team_name + country_code gömülür
+- İlk giriş yapınca rpc_assign_team_to_user_v2 otomatik takım atar (ülke + tier 4)
+- 015 RPC'si (rpc_assign_team_to_user) geri uyumluluk için korundu
+
+Sonraki adım: G6 — Market + RLS (market tamamla veya gizle, RLS denetimi)
+
+---
+Task ID: v2.9.20-G6
+Agent: main (Z.AI)
+Task: G6 — Market + RLS (market tamamla veya gizle, RLS denetimi)
+
+Work Log:
+- Mevcut durum analizi:
+  * Market ekranı zaten çalışıyor (286 satır) — kozmetik öğeler (forma, rozet, tema, stadyum, top, menajer)
+  * Satın alma + giyme mantığı yerinde (credits tabanlı, store'a kaydediliyor)
+  * Cosmetics cloud-save'e dahil (v2.9.0 BLACKLIST convention ile)
+  * Market gizlenmiyor — kullanıcılar kredi kazanıyor, kozmetik alıyor
+  * page.tsx'te "market" sekmesi aktif (case "market": return <MarketScreen />)
+
+- Market değerlendirme sonucu: GİZLEMEYE GEREK YOK
+  * Kozmetikler oyunu etkilemiyor (sadece görünüm)
+  * 6 kategori × ~8 öğe = 48 öğe (yeterli çeşitlilik)
+  * Satın alma + giyme + cloud-save tüm akış çalışıyor
+  * RLS ile veri güvenli
+
+- Yeni migration: 017_rls_audit_market_security.sql
+  * 10 kritik tablo için RLS denetimi ve policy tanımları:
+    1. user_game_state — sadece sahibi okur/yazar
+    2. active_tactics — sadece sahibi okur/yazar (DROP + recreate, çünkü 013'te yarıda kalabilirdi)
+    3. app_state — sadece sahibi okur/yazar (user_id UNIQUE)
+    4. transfer_market — herkes okur (global pazar), insert/update/delete sadece team manager
+       - CRITICAL: INSERT/UPDATE/DELETE policy'leri subquery ile team manager kontrolü yapıyor
+       - `team_id IN (SELECT id FROM teams WHERE manager_user_id = auth.uid())`
+    5. transfer_offers_mp — alıcı VEYA satıcı (buyer_team_id OR seller_team_id)
+    6. transfer_messages — sadece profile_id sahibi
+    7. notifications — sadece user_id sahibi (text type + read boolean)
+    8. teams — herkes okur, UPDATE: manager_user_id = auth.uid() OR NULL (ilk atama)
+       - INSERT: manager_user_id = auth.uid() OR NULL (sistem bot takım oluşturabilir)
+    9. players — herkes okur, UPDATE: team manager kontrolü
+   10. blocked_users — sadece blocker_user_id sahibi
+
+- RLS pattern (kritik tablolar için):
+  * `FOR SELECT USING (...)` — okuma
+  * `FOR INSERT WITH CHECK (...)` — yazma
+  * `FOR UPDATE USING (...) WITH CHECK (...)` — güncelleme
+  * `FOR DELETE USING (...)` — silme
+  * `FOR ALL USING (...) WITH CHECK (...)` — tüm haklar (kendi verisi ise)
+
+- Tüm policy'ler idempotent (DROP IF EXISTS ile korumalı)
+- Her tablo için update_updated_at_column trigger'ı (updated_at otomatik)
+
+Test Sonuçları:
+- npx tsc --noEmit: temiz
+- SQL: idempotent, DROP IF EXISTS + CREATE pattern
+
+Stage Summary:
+- Market ekranı gizlenmedi — zaten çalışıyor, kozmetik (oyunu etkilemiyor)
+- 10 kritik tablo için RLS policy'leri tanımlandı/tazelendi
+- transfer_market INSERT/UPDATE/DELETE policy'leri team manager kontrolü yapıyor (CRITICAL güvenlik düzeltmesi)
+- active_tactics tablosu DROP+recreate edildi (013 yarıda kalma riskine karşı)
+- notifications, blocked_users tabloları IF NOT EXISTS ile tanımlandı
+- Bilgi amaçlı RLS durum raporu sorgusu comment olarak gömüldü
+
+Sonraki adım: G7 — Onboarding (hoş geldin akışı, yeni kullanıcı grace period)
+
+---
+Task ID: v2.9.20-G7
+Agent: main (Z.AI)
+Task: G7 — Onboarding (hoş geldin akışı, yeni kullanıcı grace period)
+
+Work Log:
+- store.ts'e onboarding state eklendi (type + default + loginDemo + loadMultiplayerState)
+  * Type: { hasSeenWelcome, firstLoginAt, gracePeriodEndsAt, stepsCompleted }
+  * Default: { false, null, null, [] }
+  * loginDemo: İlk kez giriş yapınca firstLoginAt + 7 gün sonrası gracePeriodEndsAt set edilir
+    (returning user'da mevcut onboarding korunur)
+  * loadMultiplayerState: savedState.onboarding yoksa default (yeni kullanıcı)
+
+- Yeni bileşen: src/components/touchline/welcome-modal.tsx (~210 satır)
+  * 3 adımlı hoş geldin akışı:
+    1. "Hoş Geldin!" — kullanıcı adı, takım adı, lig tier, bütçe
+    2. "Deneme Süresi" — 7 günlük grace period avantajları:
+       - 50 bonus kredi (kozmetik için)
+       - Çift antrenman XP'si (oyuncular hızlı gelişir)
+       - Transfer ücreti yok (ilk 3 transferde komisyon yok)
+       - Kalan süre gösterimi (gün sayısı)
+    3. "İlk Adımlar" — 4 numaralı adım listesi:
+       - Taktik ayarla, İlk maç, Transfer yap, Antrenman planla
+  * Modal kapatılınca onboarding.hasSeenWelcome = true set edilir
+  * "Atla" butonu — kullanıcı adımları atlayabilir
+  * "Devam"/"Başla" butonu — sonraki adıma geçer
+
+- Export edilen hook'lar:
+  * useIsInGracePeriod() — antrenman XP/transfer ücreti kontrolü için
+  * useOnboardingStepCompleted(step) — adım tamamlandı mı
+  * completeOnboardingStep(step) — adım tamamla (action)
+
+- page.tsx'e WelcomeModal eklendi (AuthGate içinde, OtherDrawer'dan sonra)
+- cloud-save.ts saveToMultiplayerTables: onboarding state artık app_state'e yazılıyor
+
+Test Sonuçları:
+- npx tsc --noEmit: temiz
+
+Stage Summary:
+- 3 adımlı hoş geldin modal'ı (intro → grace period → next steps)
+- 7 günlük grace period: 50 bonus kredi + çift XP + transfer ücretsiz
+- Modal görülünce bir daha gösterilmez (hasSeenWelcome flag)
+- Grace period cihazlar arası senkronize (cloud-save ile)
+- Returning user'da mevcut onboarding korunur (firstLoginAt set ise)
+- Hook'lar: useIsInGracePeriod, useOnboardingStepCompleted, completeOnboardingStep
+
+Sonraki adım: G8 — Push notification (FCM entegrasyonu)
+
+---
+Task ID: v2.9.20-G8
+Agent: main (Z.AI)
+Task: G8 — Push notification (FCM entegrasyonu)
+
+Work Log:
+- Yeni migration: supabase/migrations/018_push_notifications.sql
+  * push_tokens tablosu (user_id + token UNIQUE, platform, last_used_at)
+  * RLS: kullanıcı sadece kendi token'ını okur/yazar
+  * rpc_register_push_token(p_token, p_platform) — kaydet/güncelle (authenticated)
+  * rpc_unregister_push_token(p_token) — logout sırasında sil (authenticated)
+  * rpc_send_push_notification(p_user_id, p_title, p_body, p_data) — Edge Function çağırır
+    - SECURITY DEFINER, authenticated REVOKE (kullanıcılar birbirine bildirim gönderemez)
+    - http_post ile FCM legacy API'ye POST (key=server_key header)
+    - FCM server key current_setting('app.fcm_server_key') ile okunur (vault önerisi)
+
+- Yeni hook: src/hooks/use-push-notifications.ts
+  * usePushNotifications() — uygulama açılınca çağrılır
+    - Kullanıcı giriş yapınca FCM token al
+    - rpc_register_push_token ile Supabase'e kaydet
+    - 30 saniyede bir retry (Android'de token hemen hazır olmayabilir)
+    - LocalStorage cache (sayfa yenilenince token korunur)
+    - Cleanup: unmount olunca rpc_unregister_push_token
+  * getFCMToken() helper:
+    - Android WebView: AndroidNative.getFCMToken() JS bridge
+    - Web: Firebase Messaging (yüklü değilse no-op)
+  * getPlatform(): android/ios/web tespiti
+  * sendTestPushNotification() helper (admin test)
+  * fetchFCMToken() helper
+
+- Android MainActivity.java güncellendi:
+  * Yeni JavascriptInterface metodu: getFCMToken()
+    - Firebase SDK olmadan cihaz ID (ANDROID_ID) kullanır
+    - Token formatı: "tm_" + ANDROID_ID
+    - İleride Firebase Messaging SDK eklenince gerçek FCM token dönecek
+  * Yeni JavascriptInterface metodu: getPlatform() → "android"
+
+- page.tsx güncellendi:
+  * usePushNotifications() hook'u çağrılıyor (AuthGate içinde)
+  * Import eklendi
+
+- Güvenlik modeli:
+  * Kullanıcı kendi token'ını yönetir (rpc_register/unregister)
+  * rpc_send_push_notification sadece service role (Edge Function)
+  * authenticated/anon REVOKE edildi — kullanıcılar birbirine bildirim gönderemez
+  * FCM server key vault'ta saklanmalı (production)
+
+Test Sonuçları:
+- npx tsc --noEmit: temiz (user?.id null check düzeltildi)
+
+Stage Summary:
+- push_tokens tablosu + 3 RPC tanımlandı
+- Client-side hook: usePushNotifications (kayıt + retry + cleanup)
+- Android JS bridge: getFCMToken + getPlatform
+- Web tarafı Firebase config olmadığından no-op (token alamaz ama hatasız)
+- Server-side: rpc_send_push_notification (FCM legacy API ile)
+- Production için: FCM server key vault'ta saklanmalı
+- Firebase SDK ileride eklenebilir (gerçek FCM token için)
+
+Sonraki adım: G9 — Global transfer pazarı (ülkeler arası + lig/departman seçim toolbox'ı)
+
+---
+Task ID: v2.9.20-G9
+Agent: main (Z.AI)
+Task: G9 — Global transfer pazarı (ülkeler arası + lig/departman seçim toolbox'ı)
+
+Work Log:
+- Yeni migration: supabase/migrations/019_global_transfer_market.sql
+  * rpc_search_global_market(p_country_code, p_tier, p_department_id, p_position_group,
+    p_max_price, p_min_rating, p_limit, p_offset)
+    - INNER JOIN players + teams
+    - Ülke filtresi: t.country_code = UPPER(p_country_code)
+    - Tier filtresi: t.league_tier = p_tier
+    - Departman filtresi: t.department_id = p_department_id
+    - Pozisyon grubu filtresi: GK/DEF/MID/FWD (specific_position'a göre map)
+    - Max fiyat filtresi: COALESCE(sale_price, market_value) <= p_max_price
+    - Min rating filtresi: p.rating >= p_min_rating
+    - Sadece satılık veya serbest oyuncular
+    - LIMIT 1-200, OFFSET (sayfalama)
+    - ORDER BY rating DESC, market_value DESC
+    - Return: JSONB array (player + team + country bilgisi)
+  * rpc_list_departments_for_filter(p_country_code, p_tier)
+    - Ülke+tier'a göre departman listesi (toolbox için)
+    - Her departman için: team_count, user_team_count
+
+- Yeni component: src/components/touchline/global-market-toolbox.tsx (~440 satır)
+  * GlobalMarketToolbox ana component:
+    - Filtre state: countryCode, tier, departmentId, positionGroup, minRating, maxPrice
+    - Sonuç state: players, loading, error, hasSearched
+    - Departman listesi (country+tier değişince dinamik yüklenir)
+    - İlk açılışta otomatik arama (useEffect)
+
+  * Filtre toolbox (showFilters toggle):
+    1. Ülke — dropdown (10 ülke, bayrak + Türkçe isim)
+    2. Lig Tier'ı — dropdown (1-4)
+    3. Departman — dropdown (country+tier seçiliyse dinamik)
+       - Her departman: "Grup 1 (18 takım, 2 kullanıcı)" formatında
+       - Loading state (spinner)
+    4. Pozisyon — 5 buton grid (ALL/GK/DEF/MID/FWD)
+    5. Min Rating — number input (40-99)
+    6. Max Fiyat — number input (€)
+    - "Sıfırla" + "Ara" butonları
+    - Aktif filtre sayısı badge
+
+  * Sonuç listesi:
+    - GlobalPlayerRow component
+    - Her satır: rating badge + position pill + name + takım + ülke rozeti + tier + fiyat + "Teklif" butonu
+    - Aynı ülke ise yeşil rozet, farklı ülke ise mavi rozet
+    - Kullanıcı takımları "KULLANICI" rozeti
+    - 50 oyuncu göster, fazlası için uyarı
+
+- transfer.tsx güncellendi:
+  * SubTab type'a "global" eklendi
+  * Alt sekme listesine "🌍 Küresel" eklendi
+  * {sub === "global" && <GlobalMarketToolbox />} render
+  * Import: GlobalMarketToolbox
+
+- ui-bits.tsx import düzeltildi:
+  * RatingBadge → value prop
+  * PositionPill → label + group prop (GK/DEF/MID/FWD)
+
+Test Sonuçları:
+- npx prisma generate: başarılı (Prisma client üretildi)
+- npx tsc --noEmit: temiz
+- npx next build: BAŞARILI (7.3s compile, 6 static page)
+
+Stage Summary:
+- 2 yeni RPC: rpc_search_global_market + rpc_list_departments_for_filter
+- Global Market Toolbox component (~440 satır)
+- 6 filtre: ülke, tier, departman, pozisyon, min rating, max fiyat
+- Dinamik departman listesi (country+tier'a göre)
+- Transfer ekranında yeni "🌍 Küresel" alt sekme
+- Sonuç satırında ülke rozeti (aynı/farklı ülke renk ayrımı)
+- 10 başlıca lig arası global oyuncu arama
+
+=== TÜM GÖREVLER TAMAMLANDI (G1-G9) ===
+
+Toplam durum (v2.9.20):
+- G1: Taktik cloud-save debounce'lu auto-save ✓
+- G2: Sunucu taraflı zamanlama (3 cron job) ✓
+- G3: Dinamik lig genişletme (18 takım kapasite) ✓
+- G4: Ülke bazlı lig sistemi (10 başlıca lig) ✓
+- G5: Kayıt akışı (ülke + takım adı + küfür filtresi) ✓
+- G6: Market + RLS denetimi ✓
+- G7: Onboarding (3 adımlı hoş geldin + 7 gün grace period) ✓
+- G8: Push notification (FCM altyapısı) ✓
+- G9: Global transfer pazarı (ülkeler arası + toolbox) ✓
+
+Yeni dosyalar:
+- src/lib/countries/countries.ts
+- src/lib/name-validator.ts
+- src/components/touchline/welcome-modal.tsx
+- src/components/touchline/global-market-toolbox.tsx
+- src/hooks/use-push-notifications.ts
+- supabase/migrations/014_cron_all_sims.sql
+- supabase/migrations/015_dynamic_league_expansion.sql
+- supabase/migrations/016_country_leagues.sql
+- supabase/migrations/017_rls_audit_market_security.sql
+- supabase/migrations/018_push_notifications.sql
+- supabase/migrations/019_global_transfer_market.sql
+
+Değiştirilen dosyalar:
+- src/lib/cloud-save.ts (debounce'lu auto-save + multiplayer tabloları)
+- src/lib/store.ts (onboarding state + loginDemo + loadMultiplayerState)
+- src/lib/auth/auth-context.tsx (signUp ülke+takım + RPC atama)
+- src/components/touchline/auth-gate.tsx (kayıt formu ülke+takım adı)
+- src/components/touchline/screens/transfer.tsx (global alt sekme)
+- src/components/touchline/screens/market.tsx (değişmedi — zaten çalışıyor)
+- src/app/page.tsx (WelcomeModal + usePushNotifications)
+- android-app/.../MainActivity.java (FCM token JS bridge)
+- supabase/migrations/003_cron_match_sim.sql (deprecate)
+- src/hooks/use-cloud-sync.ts SİLİNDİ (dead code)

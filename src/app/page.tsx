@@ -31,9 +31,11 @@ import { ShopScreen } from "@/components/touchline/screens/shop";
 import { MarketScreen } from "@/components/touchline/screens/market";
 import { LeaderboardScreen } from "@/components/touchline/screens/leaderboard";
 import { OtherDrawer } from "@/components/touchline/other-drawer";
+import { WelcomeModal } from "@/components/touchline/welcome-modal";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useBodyScrollLock } from "@/hooks/touchline";
 import { useKeyboardScrollLock } from "@/hooks/use-keyboard-scroll-lock";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 
 const TAB_ORDER: TabKey[] = [
   "dashboard",
@@ -49,6 +51,8 @@ export default function Home() {
 
   useBodyScrollLock(otherOpen);
   useKeyboardScrollLock();
+  // v2.9.20 GÖREV 8: FCM push notification token kaydı (kullanıcı giriş yapınca)
+  usePushNotifications();
 
   // Yatay swipe ile sekme geçişi iptal edildi — kullanıcı yanlışlıkla sekme değiştirmesin
 
@@ -107,6 +111,8 @@ export default function Home() {
           activeTab={tab}
           tabs={OTHER_TABS}
         />
+        {/* v2.9.20 GÖREV 7: Yeni kullanıcı hoş geldin modal'ı */}
+        <WelcomeModal />
       </div>
     </AuthGate>
   );

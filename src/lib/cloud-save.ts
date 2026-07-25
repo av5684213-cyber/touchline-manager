@@ -184,6 +184,8 @@ async function saveToMultiplayerTables(userId: string): Promise<void> {
         seasonStartStats: s.seasonStartStats,
         transfer: s.transfer,
         youthAcademy: s.youthAcademy,
+        // v2.9.20 GÖREV 7: onboarding state — grace period için
+        onboarding: s.onboarding,
       },
     }, { onConflict: "user_id" });
     if (appErr) {

@@ -6,8 +6,10 @@ import { LocaleSwitcher } from "@/lib/i18n/locale-switcher";
 import { useAppStore } from "@/lib/store";
 import { useSupabaseAuth } from "@/lib/auth/auth-context";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import { Trophy, Mail, Lock, User, Loader2, Shield, ChevronRight, Wifi, WifiOff } from "lucide-react";
+import { Trophy, Mail, Lock, User, Loader2, Shield, ChevronRight, Wifi, WifiOff, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getCountryList } from "@/lib/countries/countries";
+import { validateTeamName, validateManagerName, validateCountryCode } from "@/lib/name-validator";
 
 // Yönetici hesapları — hardcoded (Supabase auth'da bu emailler varsa yönetici modu)
 const ADMIN_EMAILS = [
@@ -25,6 +27,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [managerName, setManagerName] = useState("");
+  // v2.9.20 GÖREV 5: Kayıt akışı — ülke + takım adı
+  const [countryCode, setCountryCode] = useState("TR");
+  const [teamName, setTeamName] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -73,8 +78,19 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   const handleSignUp = async () => {
     setError("");
-    if (!managerName.trim()) {
-      setError(t("auth.error.name_required"));
+    // v2.9.20 GÖREV 5: manager_name + team_name + country_code validasyonu
+    const managerResult = validateManagerName(managerName);
+    if (!managerResult.valid) {
+      setError(managerResult.message ?? "Geçersiz yönetici adı.");
+      return;
+    }
+    const teamResult = validateTeamName(teamName);
+    if (!teamResult.valid) {
+      setError(teamResult.message ?? "Geçersiz takım adı.");
+      return;
+    }
+    if (!validateCountryCode(countryCode)) {
+      setError("Geçersiz ülke seçimi.");
       return;
     }
     if (password.length < 6) {
@@ -82,7 +98,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       return;
     }
     setSubmitting(true);
-    const result = await signUp(email, password, managerName);
+    const result = await signUp(email, password, managerResult.cleaned!, teamResult.cleaned, countryCode);
     setSubmitting(false);
     if (result.error) {
       if (result.error === "EMAIL_CONFIRM_REQUIRED") {
@@ -252,20 +268,62 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        {/* REGISTER — kayıt */}
+        {/* REGISTER — kayıt: ülke + takım adı + yönetici adı + email + şifre */}
         {mode === "register" && (
-          <div className="w-full max-w-[280px] space-y-3 mt-6">
+          <div className="w-full max-w-[300px] space-y-3 mt-6">
             <h2 className="text-lg font-bold mb-2">{t("auth.register")}</h2>
-            <div className="relative">
-              <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder={t("auth.manager_name")}
-                value={managerName}
-                onChange={(e) => setManagerName(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-card border border-border text-sm"
-              />
+            {/* Ülke seçimi */}
+            <div>
+              <label className="text-[10px] text-muted-foreground mb-1 block ml-1">Ülke / Lig</label>
+              <div className="relative">
+                <Globe size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10" />
+                <select
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-card border border-border text-sm appearance-none cursor-pointer"
+                >
+                  {getCountryList().map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.flag_emoji} {c.name_tr}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-[9px] text-muted-foreground mt-1 ml-1">
+                Seçtiğin ülkenin 4. liginden başlayacaksın (otomatik takım atanır)
+              </p>
             </div>
+            {/* Takım adı */}
+            <div>
+              <label className="text-[10px] text-muted-foreground mb-1 block ml-1">Takım Adın</label>
+              <div className="relative">
+                <Trophy size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="örn: Yıldız Galataspor"
+                  value={teamName}
+                  onChange={(e) => setTeamName(e.target.value)}
+                  maxLength={60}
+                  className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-card border border-border text-sm"
+                />
+              </div>
+            </div>
+            {/* Yönetici adı */}
+            <div>
+              <label className="text-[10px] text-muted-foreground mb-1 block ml-1">Yönetici Adın</label>
+              <div className="relative">
+                <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder={t("auth.manager_name")}
+                  value={managerName}
+                  onChange={(e) => setManagerName(e.target.value)}
+                  maxLength={40}
+                  className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-card border border-border text-sm"
+                />
+              </div>
+            </div>
+            {/* Email */}
             <div className="relative">
               <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -277,6 +335,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                 autoCapitalize="none"
               />
             </div>
+            {/* Şifre */}
             <div className="relative">
               <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -291,7 +350,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             {error && <p className="text-[11px] text-red-400 text-center">{error}</p>}
             <button
               onClick={handleSignUp}
-              disabled={submitting || !email || !password || !managerName}
+              disabled={submitting || !email || !password || !managerName || !teamName}
               className="tm-tap w-full py-3 rounded-xl text-sm font-bold text-white shadow-md active:scale-[0.98] transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
               style={{ background: "var(--primary)" }}
             >

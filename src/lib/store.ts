@@ -198,6 +198,15 @@ type AppState = {
     seasonNumber: number; // bu oyuncuların üretildiği sezon
     players: Player[]; // altyapıdaki genç oyuncular
   };
+  // v2.9.20 GÖREV 7: Onboarding state — yeni kullanıcı hoş geldin akışı
+  // İlk kez giriş yapan kullanıcı için 7 günlük grace period (deneme süresi)
+  // Bu sürede: kredi hediyesi, antrenman bonusu, transfer ücretsiz
+  onboarding: {
+    hasSeenWelcome: boolean;          // hoş geldin modal'ı görüldü mü
+    firstLoginAt: number | null;      // ilk giriş timestamp (ms)
+    gracePeriodEndsAt: number | null; // grace period bitiş timestamp (ms)
+    stepsCompleted: string[];         // tamamlanan onboarding adımları
+  };
 
   // actions
   loginDemo: (name?: string) => void;
@@ -523,6 +532,16 @@ export const useAppStore = create<AppState>()(
         players: [],
       },
 
+      // v2.9.20 GÖREV 7: Onboarding default state
+      // hasSeenWelcome=false → hoş geldin modal'ı göster
+      // firstLoginAt/gracePeriodEndsAt: loginDemo çağrılınca set edilir
+      onboarding: {
+        hasSeenWelcome: false,
+        firstLoginAt: null,
+        gracePeriodEndsAt: null,
+        stepsCompleted: [],
+      },
+
       loginDemo: (name) => {
         // Already-initialized clubs varsa yeniden üretme
         let clubs = get().clubs;
@@ -612,6 +631,21 @@ export const useAppStore = create<AppState>()(
               }
             }
             return map;
+          })(),
+          // v2.9.20 GÖREV 7: İlk kez giriş yapan kullanıcı için onboarding state set et
+          onboarding: (() => {
+            const existing = get().onboarding;
+            if (existing?.firstLoginAt) {
+              return existing;
+            }
+            const now = Date.now();
+            const GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000;
+            return {
+              hasSeenWelcome: false,
+              firstLoginAt: now,
+              gracePeriodEndsAt: now + GRACE_PERIOD_MS,
+              stepsCompleted: [],
+            };
           })(),
         });
 
@@ -3311,6 +3345,13 @@ export const useAppStore = create<AppState>()(
             cosmetics: savedState?.cosmetics ?? { owned: [], equipped: {} },
             blockedUsers: savedState?.blockedUsers ?? [],
             youthAcademy: savedState?.youthAcademy ?? get().youthAcademy,
+            // v2.9.20 GÖREV 7: Onboarding state — savedState'ten yükle, yoksa default
+            onboarding: savedState?.onboarding ?? {
+              hasSeenWelcome: false,
+              firstLoginAt: Date.now(),
+              gracePeriodEndsAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+              stepsCompleted: [],
+            },
           });
           return { success: true };
         } catch (err: any) {

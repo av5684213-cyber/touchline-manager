@@ -37,8 +37,9 @@ import { incrementTransferCount } from "@/components/touchline/achievements";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
+import { GlobalMarketToolbox } from "../global-market-toolbox";
 
-type SubTab = "market" | "allleagues" | "freeagents" | "loan" | "watchlist" | "incoming" | "mylisted";
+type SubTab = "market" | "allleagues" | "global" | "freeagents" | "loan" | "watchlist" | "incoming" | "mylisted";
 
 export function TransferScreen() {
   const { t } = useI18n();
@@ -131,6 +132,7 @@ export function TransferScreen() {
           [
             { key: "market", label: t("transfer.tab.market"), count: transfer.freeAgents.length },
             { key: "allleagues", label: "Tüm Ligler", count: allClubPlayers.length },
+            { key: "global", label: "🌍 Küresel", count: 0 },
             { key: "freeagents", label: "Takımsız", count: transfer.freeAgentListings?.length ?? 0 },
             { key: "loan", label: "Kiralık", count: transfer.loanListings?.length ?? 0 },
             { key: "watchlist", label: t("transfer.tab.watchlist"), count: transfer.watchlist.length },
@@ -204,6 +206,11 @@ export function TransferScreen() {
             })}
           </div>
         </>
+      )}
+
+      {/* v2.9.20 GÖREV 9: Global Market tab — küresel oyuncu arama */}
+      {sub === "global" && (
+        <GlobalMarketToolbox />
       )}
 
       {/* Market tab */}
