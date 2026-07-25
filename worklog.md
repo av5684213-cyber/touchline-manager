@@ -3137,3 +3137,92 @@ Değiştirilen dosyalar:
 - android-app/.../MainActivity.java (FCM token JS bridge)
 - supabase/migrations/003_cron_match_sim.sql (deprecate)
 - src/hooks/use-cloud-sync.ts SİLİNDİ (dead code)
+
+---
+Task ID: v2.9.21-final
+Agent: main (Z.AI)
+Task: v2.9.21 — 8 Görev + 5 Ek Görev + GitHub push + SQL + APK
+
+Work Log:
+- 8 ana görev tamamlandı:
+  G1: Küme düşme UI=backend (3 promote + 3 relegate) — league-rules.ts
+  G2: AV sıralama goal_diff kanonik alan (gd yerine)
+  G3: Antrenman cron gerçek stat büyütür (sadece form_rating değil)
+  G4: Piyasa değeri tek formül (rating² × 8000 — data.ts = valuation.ts)
+  G5: Maaş hesaplama tek formül (rating × 950 × tier)
+  G6: Oyuncu talepleri deterministic (random factor kaldırıldı)
+  G7: Market sekmesi KALDIRILDI (screens/market.tsx silindi, bottom-nav'dan kaldırıldı)
+  G8: i18n 6 dil (tr/en/es/de/fr/pt) + auto-detect browser language (Google Play için)
+
+- 5 ek görev tamamlandı:
+  E1: Gol dağılımı ayak/kafa gerçekçi (foot tercihi daha güçlü etki +0.45)
+  E2: Takımım oyuncu satırları parlaklığı normale (POSITION_ROW_BG /30 → /50)
+  E3: Puan durumu satır parlaklığı normale (hover:bg-accent/50 + bg-primary/5 kaldırıldı)
+  E4: Puan durumu toolbox açılır-kapanır (SlidersHorizontal + ChevronDown)
+  E5: Gol Kralı Yarışı'na 🌍 Global sekme (tüm liglerin bot takımları dahil)
+
+Yeni dosyalar:
+- src/lib/league-rules.ts (TEAMS_PER_LEAGUE, PROMOTION_COUNT, RELEGATION_COUNT, getLeagueZone)
+- /home/z/my-project/download/supabase-migrations-v2.9.21.sql (tüm migration'lar tek dosyada)
+
+Değiştirilen dosyalar:
+- src/lib/store.ts (PROMOTION_COUNT/RELEGATION_COUNT kullanımı)
+- src/lib/mock/data.ts (marketValue/weeklyWage tek formül, gol dağılımı güçlü foot)
+- src/lib/mock/season.ts (goal_diff kanonik alan + getZone league-rules'ten)
+- src/components/touchline/screens/standings.tsx (getZone + toolbox açılır + satır parlaklık)
+- src/components/touchline/screens/tactics.tsx (POSITION_ROW_BG sönük)
+- src/components/touchline/screens/top-scorers.tsx (global sekme + globe ikonu)
+- src/components/touchline/screens/transfer.tsx (MarketScreen kaldırıldı, GlobalMarketToolbox kullanımda)
+- src/components/touchline/bottom-nav.tsx (market kaldırıldı)
+- src/components/touchline/transfer-negotiation-modal.tsx (random factor kaldırıldı)
+- src/app/page.tsx (MarketScreen import/case kaldırıldı)
+- src/lib/i18n/types.ts (6 dil + detectLocaleFromBrowser)
+- src/lib/i18n/locale-provider.tsx (auto-detect browser)
+- src/lib/i18n/locale-switcher.tsx (dropdown 6 dil)
+- src/lib/format.ts, src/lib/match/engine.ts, src/hooks/use-match-engine.ts (Locale tipi)
+- src/components/touchline/player-profile-modal.tsx (Locale)
+- src/components/touchline/screens/reports.tsx, training.tsx, match.tsx (Locale)
+- supabase/functions/daily-training-sim/index.ts (gerçek stat büyüme)
+
+Silinen dosyalar:
+- src/components/touchline/screens/market.tsx
+
+Build/Test Sonuçları:
+- npx prisma generate: başarılı
+- npx tsc --noEmit: temiz
+- npx next build: BAŞARILI (7.3s)
+- Local APK build: sandbox limiti nedeniyle başarısız (gradle daemon fork öldü)
+  → Çözüm: GitHub Actions (tag push ile otomatik tetiklenir)
+
+Git:
+- Commit: 3113d9e (v2.9.21)
+- Tag: v2.9.21 (push edildi)
+- GitHub: https://github.com/av5684213-cyber/touchline-manager/releases/tag/v2.9.21
+- GitHub Actions otomatik APK build başlattı (tag push trigger)
+- Release: ~5-10 dk içinde APK asset olarak eklenecek
+
+SQL Migration:
+- /home/z/my-project/download/supabase-migrations-v2.9.21.sql
+  * 3 cron job (match + cup + training) — YOUR_SERVICE_ROLE_KEY placeholder
+  * countries tablosu + 10 ülke seed
+  * leagues.country_code + teams.country_code
+  * rpc_assign_team_to_user_v2 (ülke parametreli)
+  * rpc_list_country_departments
+  * RLS: user_game_state, active_tactics, app_state, transfer_market, notifications, push_tokens
+  * rpc_register_push_token + rpc_unregister_push_token
+  * rpc_search_global_market (global transfer pazarı)
+
+Stage Summary:
+- 8 ana + 5 ek = 13 görevin tamamı tamamlandı
+- Market sekmesi tamamen kaldırıldı (kozmetik market)
+- i18n 6 dile genişletildi, browser dili otomatik algılanıyor
+- Tek kanonik formüller: piyasa değeri, maaş, küme düşme sayısı, gol averajı alan adı
+- Antrenman cron artık gerçek stat büyütüyor (eski: sadece form_rating)
+- GitHub'a push edildi, v2.9.21 tag'i GitHub Actions'ı tetikledi
+- SQL migration dosyası /home/z/my-project/download/ içinde hazır
+
+Kullanıcı için sonraki adım:
+1. /home/z/my-project/download/supabase-migrations-v2.9.21.sql'i Supabase SQL editor'da çalıştır
+2. YOUR_SERVICE_ROLE_KEY placeholder'ı Supabase Dashboard → API → service_role key ile değiştir
+3. GitHub Actions'ın APK build'i tamamlamasını bekle (5-10 dk)
+4. https://github.com/av5684213-cyber/touchline-manager/releases/tag/v2.9.21 adresinden APK indir
