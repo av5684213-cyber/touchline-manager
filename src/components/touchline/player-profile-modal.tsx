@@ -1410,9 +1410,23 @@ function ActionsTab({
       if (res.reason === "budget") {
         setFeedback("✗ Yetersiz bütçe! Transfer ücreti + %8 ek maliyet gerekiyor.");
       } else if (res.reason === "not-found") {
-        setFeedback("✗ Oyuncu bulunamadı veya serbest ajan.");
+        // v2.9.22 Y7: Takımsız oyuncu için özel mesaj + otomatik bedelsiz imza
+        // Eğer oyuncu is_free_agent ise, doğrudan Kontrat İmzala akışına yönlendir
+        if (player.is_free_agent) {
+          setFeedback("ℹ Bu oyuncu takımsız. 'Kontrat İmzala' butonunu kullan (bedelsiz).");
+        } else {
+          setFeedback("✗ Oyuncu bulunamadı. Listeyi yenileyin.");
+        }
+      } else if (res.reason === "squad-full") {
+        setFeedback("✗ Kadro dolu (25/25). Oyuncu sat veya serbest bırak.");
+      } else if (res.reason === "gk-limit") {
+        setFeedback("✗ 3 kaleci zaten var. Başka kaleci alınamaz.");
+      } else if (res.reason === "window-closed") {
+        setFeedback("✗ Transfer penceresi kapalı.");
+      } else if (res.reason === "no-team") {
+        setFeedback("✗ Takımın bulunamadı.");
       } else {
-        setFeedback("✗ Transfer teklifi gönderilemedi.");
+        setFeedback(`✗ Transfer başarısız: ${res.reason ?? "bilinmeyen sebep"}`);
       }
     } else if (res.response === "accepted") {
       haptic("success");

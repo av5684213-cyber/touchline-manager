@@ -458,6 +458,17 @@ export function MatchScreen() {
 
         {engine.state.status === "finished" && !engine.replay.active && (
           <>
+            {/* v2.9.22 Y2+Y3: Maç Sonu Özet — gol/asist/kartlar + gelişim */}
+            <MatchEndSummary
+              events={(engine as any).events ?? []}
+              homeTeam={homeTeam}
+              awayTeam={awayTeam}
+              homeScore={engine.state.homeScore}
+              awayScore={engine.state.awayScore}
+              mySide={mySide === "home" ? "home" : "away"}
+              onPlayerClick={(p) => setPitchProfilePlayer(p)}
+            />
+
             {/* TEST/SOLO MOD: Maç bitti → sonraki maça hazırla */}
             <div className="tm-card p-4 bg-emerald-50/40 border-emerald-200 text-center space-y-3">
               <Trophy size={28} className="text-emerald-600 mx-auto" />
@@ -1630,6 +1641,161 @@ function PostMatch({
           <Ban size={14} /> {t("match.post.new_match")}
         </button>
       </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// v2.9.22 Y2+Y3: MatchEndSummary — maç sonu özet
+// =============================================================================
+
+function MatchEndSummary({
+  events,
+  homeTeam,
+  awayTeam,
+  homeScore,
+  awayScore,
+  mySide,
+  onPlayerClick,
+}: {
+  events: any[];
+  homeTeam: any;
+  awayTeam: any;
+  homeScore: number;
+  awayScore: number;
+  mySide: "home" | "away";
+  onPlayerClick: (player: any) => void;
+}) {
+  const goals = events.filter((e) => e.type === "goal");
+  const yellowCards = events.filter((e) => e.type === "yellow_card" || e.type === "second_yellow");
+  const redCards = events.filter((e) => e.type === "red_card");
+  const motmEvents = events.filter((e) => e.type === "motm" || e.type === "man_of_match");
+  const motmPlayerName = motmEvents[0]?.playerName;
+
+  const motmPlayer = (() => {
+    if (!motmPlayerName) return null;
+    const findInTeam = (t: any) => t.players?.find((p: any) => `${p.firstName} ${p.lastName}` === motmPlayerName);
+    return findInTeam(homeTeam) || findInTeam(awayTeam);
+  })();
+
+  const improvements = useMemo(() => {
+    const myTeam = mySide === "home" ? homeTeam : awayTeam;
+    if (!myTeam?.players) return [];
+    const statNames = ["Pas", "Şut", "Defans", "Hız", "Güç", "Dribling"];
+    const top5 = [...myTeam.players]
+      .filter((p: any) => !p.is_injured)
+      .sort((a: any, b: any) => b.rating - a.rating)
+      .slice(0, 5);
+    return top5.map((p: any) => {
+      const stat = statNames[Math.floor(Math.random() * statNames.length)];
+      const gain = Math.random() < 0.7 ? 1 : 2;
+      return { player: p, stat, gain };
+    });
+  }, [homeTeam, awayTeam, mySide]);
+
+  return (
+    <div className="tm-card p-3 space-y-3">
+      <div className="flex items-center gap-2 pb-2 border-b border-border">
+        <Trophy size={14} className="text-amber-400" />
+        <span className="text-xs font-bold">Maç Özeti</span>
+        <span className="text-[10px] text-muted-foreground ml-auto">
+          {homeTeam.shortName} {homeScore}-{awayScore} {awayTeam.shortName}
+        </span>
+      </div>
+
+      {goals.length > 0 && (
+        <div>
+          <div className="text-[10px] text-muted-foreground uppercase font-bold mb-1">⚽ Goller</div>
+          <div className="space-y-1">
+            {goals.map((g, i) => {
+              const teamName = g.team === "home" ? homeTeam?.shortName : awayTeam?.shortName;
+              const isMyTeam = g.team === mySide;
+              return (
+                <div key={`goal-${i}`} className="flex items-center gap-2 text-xs">
+                  <span className="text-[10px] text-muted-foreground tabular-nums w-8">{g.minute}'</span>
+                  <span className="text-amber-400 font-bold">⚽</span>
+                  <span className={cn("font-semibold truncate", isMyTeam && "text-emerald-400")}>
+                    {g.playerName || "Bilinmeyen"}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">({teamName})</span>
+                  {g.assistName && (
+                    <span className="text-[10px] text-sky-400 ml-1">A: {g.assistName}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {(yellowCards.length > 0 || redCards.length > 0) && (
+        <div>
+          <div className="text-[10px] text-muted-foreground uppercase font-bold mb-1">🃏 Kartlar</div>
+          <div className="space-y-1">
+            {yellowCards.map((c, i) => (
+              <div key={`y-${i}`} className="flex items-center gap-2 text-xs">
+                <span className="text-[10px] text-muted-foreground tabular-nums w-8">{c.minute}'</span>
+                <span className="w-3 h-4 bg-amber-400 rounded-sm shrink-0" />
+                <span className="font-semibold truncate">{c.playerName || "Bilinmeyen"}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  ({c.team === "home" ? homeTeam?.shortName : awayTeam?.shortName})
+                </span>
+              </div>
+            ))}
+            {redCards.map((c, i) => (
+              <div key={`r-${i}`} className="flex items-center gap-2 text-xs">
+                <span className="text-[10px] text-muted-foreground tabular-nums w-8">{c.minute}'</span>
+                <span className="w-3 h-4 bg-red-500 rounded-sm shrink-0" />
+                <span className="font-semibold truncate">{c.playerName || "Bilinmeyen"}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  ({c.team === "home" ? homeTeam?.shortName : awayTeam?.shortName})
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {motmPlayer && (
+        <div>
+          <div className="text-[10px] text-muted-foreground uppercase font-bold mb-1">🏆 Maçın Adamı</div>
+          <button
+            onClick={() => { haptic("light"); onPlayerClick(motmPlayer); }}
+            className="tm-tap w-full flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 transition-colors"
+          >
+            <span className="w-8 h-8 rounded-full bg-amber-500/30 flex items-center justify-center text-amber-300 font-bold text-xs">
+              {motmPlayer.rating ?? 0}
+            </span>
+            <div className="flex-1 text-left min-w-0">
+              <div className="text-xs font-bold truncate">{motmPlayer.firstName} {motmPlayer.lastName}</div>
+              <div className="text-[10px] text-muted-foreground">{motmPlayer.specificPosition}</div>
+            </div>
+            <Trophy size={14} className="text-amber-400" />
+          </button>
+        </div>
+      )}
+
+      {improvements.length > 0 && (
+        <div>
+          <div className="text-[10px] text-muted-foreground uppercase font-bold mb-1">📈 Gelişim</div>
+          <div className="space-y-1">
+            {improvements.map((imp, i) => (
+              <button
+                key={`imp-${i}`}
+                onClick={() => { haptic("light"); onPlayerClick(imp.player); }}
+                className="tm-tap w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-accent/30 transition-colors"
+              >
+                <span className="text-xs font-semibold flex-1 text-left truncate">
+                  {imp.player.firstName} {imp.player.lastName}
+                </span>
+                <span className="text-[11px] text-emerald-400 font-bold">
+                  {imp.stat} +{imp.gain}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

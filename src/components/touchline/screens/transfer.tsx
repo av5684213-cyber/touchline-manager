@@ -126,18 +126,14 @@ export function TransferScreen() {
         </span>
       </div>
 
-      {/* Sub-tabs */}
+      {/* v2.9.22 Y4: Sub-tabs — 8 sekme yerine 4 ana sekme (kullanıcı "çok karışık" dedi) */}
       <div className="flex gap-1.5 overflow-x-auto tm-no-scrollbar">
         {(
           [
-            { key: "market", label: t("transfer.tab.market"), count: transfer.freeAgents.length },
-            { key: "allleagues", label: "Tüm Ligler", count: allClubPlayers.length },
+            { key: "market", label: "🛒 Pazar", count: transfer.freeAgents.length + allClubPlayers.length + (transfer.freeAgentListings?.length ?? 0) },
             { key: "global", label: "🌍 Küresel", count: 0 },
-            { key: "freeagents", label: "Takımsız", count: transfer.freeAgentListings?.length ?? 0 },
-            { key: "loan", label: "Kiralık", count: transfer.loanListings?.length ?? 0 },
-            { key: "watchlist", label: t("transfer.tab.watchlist"), count: transfer.watchlist.length },
-            { key: "incoming", label: t("transfer.tab.incoming"), count: transfer.incomingOffers.length },
-            { key: "mylisted", label: t("transfer.tab.mylisted"), count: transfer.myListedPlayers.length },
+            { key: "incoming", label: "📥 Tekliflerim", count: transfer.incomingOffers.length + transfer.watchlist.length },
+            { key: "mylisted", label: "📤 İlanlarım", count: transfer.myListedPlayers.length + (transfer.loanListings?.length ?? 0) },
           ] as { key: SubTab; label: string; count: number }[]
         ).map((tab) => (
           <button
@@ -262,8 +258,69 @@ export function TransferScreen() {
           <div className="text-[10px] text-muted-foreground text-center px-2">
             {t("transfer.tax_note")}
           </div>
+
+          {/* v2.9.22 Y4: "Pazar" tek sekmede — Tüm Ligler + Takımsız birleşik */}
+          <div className="mt-4 pt-4 border-t border-border">
+            <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-2">
+              🏟️ Tüm Liglerden ({allClubPlayers.length})
+            </div>
+            <div className="tm-card divide-y divide-border max-h-72 overflow-y-auto tm-thin-scrollbar">
+              {allClubPlayers.length === 0 && (
+                <div className="p-4 text-center text-xs text-muted-foreground">
+                  Diğer liglerden oyuncu yok.
+                </div>
+              )}
+              {allClubPlayers.slice(0, 20).map((entry) => (
+                <button
+                  key={entry.player.id}
+                  onClick={() => { haptic("light"); setOfferModal(entry.player); }}
+                  className="tm-tap w-full flex items-center gap-2 py-1.5 px-3 text-left hover:bg-accent/30 transition-colors"
+                >
+                  <RatingBadge value={entry.player.rating} />
+                  <span className="text-xs font-semibold flex-1 truncate">
+                    {entry.player.firstName} {entry.player.lastName}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">{entry.teamShort}</span>
+                  <span className="text-[10px] text-amber-300 font-bold">{formatEuro(entry.askingPrice)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Takımsız oyuncular bölümü */}
+          <div className="mt-4 pt-4 border-t border-border">
+            <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-2">
+              🆓 Takımsız Oyuncular ({transfer.freeAgentListings?.length ?? 0})
+            </div>
+            <div className="tm-card divide-y divide-border max-h-72 overflow-y-auto tm-thin-scrollbar">
+              {(transfer.freeAgentListings ?? []).length === 0 && (
+                <div className="p-4 text-center text-xs text-muted-foreground">
+                  Takımsız oyuncu yok.
+                </div>
+              )}
+              {(transfer.freeAgentListings ?? []).slice(0, 15).map((listing) => {
+                const p = listing.player;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => { haptic("light"); setProfilePlayer(p); }}
+                    className="tm-tap w-full flex items-center gap-2 py-1.5 px-3 text-left hover:bg-accent/30 transition-colors"
+                  >
+                    <RatingBadge value={p.rating} />
+                    <span className="text-xs font-semibold flex-1 truncate">
+                      {p.firstName} {p.lastName}
+                    </span>
+                    <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
+                    <span className="text-[10px] text-emerald-400 font-bold">Bedelsiz</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </>
       )}
+
+      {/* v2.9.22 Y4: incoming sekmesi eski içerikle devam — watchlist de burada gösterilir */}
 
       {/* Takımsız (serbest) oyuncular tab */}
       {sub === "freeagents" && (

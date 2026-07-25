@@ -578,17 +578,15 @@ function FriendlyLiveView({
         </div>
       </div>
 
-      {/* P0: Sohbet — rakip ile mesajlaşma */}
+      {/* v2.9.22 Y10: Boşluk — chat butonu için sabit alan */}
+      {s.status !== "finished" && <div className="h-16" />}
+
+      {/* v2.9.22 Y10: Sabit chat box — fixed en altta, açılınca yukarı doğru */}
       {s.status !== "finished" && (
-        <div>
-          <button
-            onClick={() => { haptic("light"); setShowChat(!showChat); }}
-            className="tm-tap w-full py-2 rounded-md bg-sky-600/20 text-sky-400 text-xs font-bold border border-sky-500/30 flex items-center justify-center gap-1.5"
-          >
-            {showChat ? "Sohbeti Gizle" : "💬 Rakip ile Sohbet"}
-          </button>
+        <div className="fixed bottom-0 left-0 right-0 z-50 px-3 pb-3 pointer-events-none">
+          {/* Chat panel — yukarı doğru açılır */}
           {showChat && (
-            <div className="mt-2">
+            <div className="pointer-events-auto mb-2 max-h-[300px] overflow-y-auto tm-thin-scrollbar bg-card border border-border rounded-t-lg shadow-lg">
               <MatchChatPanel
                 matchId={matchId}
                 userId={stableUserId}
@@ -597,6 +595,13 @@ function FriendlyLiveView({
               />
             </div>
           )}
+          {/* Sabit chat toggle butonu — her zaman görünür */}
+          <button
+            onClick={() => { haptic("light"); setShowChat(!showChat); }}
+            className="pointer-events-auto tm-tap w-full py-2.5 rounded-md bg-sky-600 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg"
+          >
+            {showChat ? "▼ Sohbeti Kapat" : "💬 Rakip ile Sohbet"}
+          </button>
         </div>
       )}
     </div>

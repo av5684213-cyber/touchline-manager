@@ -1094,22 +1094,25 @@ export const useAppStore = create<AppState>()(
         }
 
         if (response === "accepted") {
-          // Transferi gerçekleştir
-          myTeam.budget -= total;
-          sellerTeam.budget += fee;
-          // Oyuncuyu satıcıdan al, alıcıya ekle
-          sellerTeam.players = sellerTeam.players.filter((p) => p.id !== playerId);
-          myTeam.players = [...myTeam.players, player];
-          // Maaş güncelle
-          player.weeklyWage = wage;
-          player.salary = wage;
+          // v2.9.22 Y8: Immutable update — myTeam/sellerTeam mutation yapma
+          // Eski: myTeam.budget -= total (mutation, React state güncellenmiyor)
+          // Yeni: clubs.map ile yeni nesne oluştur
+          const updatedClubs = clubs.map((c) => {
+            if (c.id === myTeam.id) {
+              return { ...c, budget: c.budget - total, players: [...c.players, { ...player, weeklyWage: wage, salary: wage }] };
+            }
+            if (sellerTeam && c.id === sellerTeam.id) {
+              return { ...c, budget: c.budget + fee, players: c.players.filter((p) => p.id !== playerId) };
+            }
+            return c;
+          });
 
           // Haber ekle
           const newNews: NewsItem = {
             id: `news_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
             category: "transfer",
             headline: "Transfer Kabul Edildi",
-            body: `${player.firstName} ${player.lastName} ${sellerTeam.name} takımından ${formatEuroShort(fee)} karşılığında transfer edildi.`,
+            body: `${player.firstName} ${player.lastName} ${sellerTeam?.name ?? "?"} takımından ${formatEuroShort(fee)} karşılığında transfer edildi.`,
             timestamp: Date.now(),
             importance: 2,
             read: false,
@@ -1119,9 +1122,9 @@ export const useAppStore = create<AppState>()(
           const newMsg: MessageItem = {
             id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
             kind: "transfer_accepted",
-            fromTeamName: sellerTeam.name,
-            fromTeamShort: sellerTeam.shortName,
-            fromTeamColor: sellerTeam.primaryColor,
+            fromTeamName: sellerTeam?.name ?? "Bilinmeyen",
+            fromTeamShort: sellerTeam?.shortName ?? "???",
+            fromTeamColor: sellerTeam?.primaryColor ?? "#1a3a2a",
             message: `${player.firstName} ${player.lastName} için ${formatEuroShort(fee)} teklifiniz KABUL EDİLDİ. Oyuncu kadronuza eklendi.`,
             at: Date.now(),
             read: false,
@@ -1130,7 +1133,7 @@ export const useAppStore = create<AppState>()(
           };
 
           set({
-            clubs: [...clubs],
+            clubs: updatedClubs,
             news: [newNews, ...news],
             transfer: { ...transfer, messages: [newMsg, ...transfer.messages] },
           });
@@ -3037,37 +3040,69 @@ export const useAppStore = create<AppState>()(
           return { success: false, reason: "Yetersiz kredi" };
         }
 
-        // 3 oyuncu üret
-        
+        const myTeam = clubs.find((c) => c.id === myTeamId);
+        if (!myTeam) {
+          return { success: false, reason: "Takım bulunamadı" };
+        }
+
+        // v2.9.22 Y9: Paketten gelen oyuncular DOĞRUDAN takıma eklenir
+        // Eski: transfer.freeAgents listesine ekleniyordu — kullanıcı "takıma katılmıyor" diyordu
+        // Yeni: kadro limiti (25) ve GK limiti (3) kontrolü ile doğrudan takıma ekle
         const ovrRange = PACK_OVR[packType];
         const positions = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
         const pulledPlayers: any[] = [];
+        const addedPlayers: any[] = [];
+        const skippedReasons: string[] = [];
+
         for (let i = 0; i < 3; i++) {
           const pos = positions[Math.floor(Math.random() * positions.length)];
           const player = generatePlayer(pos as any, ovrRange);
-          // Paketten gelen oyuncuları serbest ajan listesine ekle
-          // Kullanıcı normal bütçeyle imzalamak zorunda — pay-to-win değil
+
+          // Kadro limiti kontrolü
+          if (myTeam.players.length >= 25) {
+            skippedReasons.push(`${player.firstName} ${player.lastName}: Kadro dolu (25/25)`);
+            continue;
+          }
+          // GK limiti
+          if (player.specificPosition === "GK") {
+            const gkCount = myTeam.players.filter((p) => p.specificPosition === "GK").length;
+            if (gkCount >= 3) {
+              skippedReasons.push(`${player.firstName} ${player.lastName}: 3 kaleci zaten var`);
+              continue;
+            }
+          }
+
           pulledPlayers.push(player);
+          addedPlayers.push(player);
+          // Takıma ekle
+          myTeam.players = [...myTeam.players, player];
         }
 
-        // Serbest ajan listesine ekle
-        const newFreeAgents = pulledPlayers.map(p => ({
-          player: p,
-          askingPrice: Math.round((p.marketValue ?? p.market_value ?? 500_000) * 0.8), // %20 indirim
-          wageDemand: Math.round((p.weeklyWage ?? 5000) * 0.8),
-          daysListed: 1,
-          offers: 0,
-        }));
+        // Haber ekle
+        const newNews: NewsItem = {
+          id: `news_pack_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          category: "transfer",
+          headline: "Paket Açıldı",
+          body: `${packType.toUpperCase()} paketten ${addedPlayers.length} oyuncu takıma katıldı: ${addedPlayers.map(p => `${p.firstName} ${p.lastName} (${p.rating})`).join(", ")}.`,
+          timestamp: Date.now(),
+          importance: 2,
+          read: false,
+        };
+
+        // Clubs immutable update
+        const updatedClubs = clubs.map((c) =>
+          c.id === myTeamId
+            ? { ...c, players: [...myTeam.players] }
+            : c
+        );
 
         set({
           credits: credits - price,
-          transfer: {
-            ...transfer,
-            freeAgents: [...newFreeAgents, ...(transfer.freeAgents ?? [])],
-          },
+          clubs: updatedClubs,
+          news: [newNews, ...(get().news ?? [])],
         });
 
-        return { success: true, players: pulledPlayers };
+        return { success: true, players: pulledPlayers, skipped: skippedReasons };
       },
 
       // ===== Message actions =====
@@ -3170,7 +3205,10 @@ export const useAppStore = create<AppState>()(
         if (!team) return { success: false, reason: "no-team" };
         const msg = transfer.messages.find((m) => m.relatedOfferId === offerId);
         if (!msg || !msg.counterOffer) return { success: false, reason: "no-offer" };
-        if (team.budget < msg.counterOffer) return { success: false, reason: "budget" };
+        // v2.9.22 Y8: Bütçe kontrolü — agent fee (%5) + signing bonus (%3) DAHİL
+        // Eski: sadece counterOffer kontrol ediliyordu → 108M alım 11M bütçe ile yapılabiliyordu
+        const totalCost = (msg.counterOffer ?? 0) + Math.round((msg.counterOffer ?? 0) * 0.05) + Math.round((msg.counterOffer ?? 0) * 0.03);
+        if (team.budget < totalCost) return { success: false, reason: "budget" };
 
         const playerId = msg.playerId;
         if (playerId) {
@@ -3193,9 +3231,11 @@ export const useAppStore = create<AppState>()(
             const updatedPlayer = { ...player, weeklyWage: player.weeklyWage, salary: player.weeklyWage };
             const updatedClubs = clubs.map((c) => {
               if (c.id === team.id) {
-                return { ...c, budget: c.budget - (msg.counterOffer ?? 0), players: [...c.players, updatedPlayer] };
+                // v2.9.22 Y8: Bütçeden totalCost düş (counterOffer + %5 agent + %3 signing)
+                return { ...c, budget: c.budget - totalCost, players: [...c.players, updatedPlayer] };
               }
               if (sellerTeam && c.id === sellerTeam.id) {
+                // Satıcı sadece counterOffer miktarını alır (agent/signing alıcıda)
                 return { ...c, budget: c.budget + (msg.counterOffer ?? 0), players: c.players.filter((p) => p.id !== playerId) };
               }
               return c;

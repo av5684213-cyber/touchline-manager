@@ -46,13 +46,13 @@ import { calculateTotalStyleSynergy } from "@/lib/match/engine/playStyles";
 
 // Mevki pozisyon grubuna göre satır arka planı — orta ton (belirgin ama göz yormaz)
 const POSITION_ROW_BG: Record<PositionGroup, string> = {
-  // v2.9.21 EK2: Çok parlak renkler normale getirildi (kullanıcı şikayeti)
-  // Eski: bg-amber-100/70 → çok parlak sarı/mavi/yeşil/pembe
-  // Yeni: /30 opacity + sadece sol kenar border ile pozisyon belirgin
-  GK: "bg-amber-50/30 dark:bg-amber-950/20 border-l-2 border-l-amber-400",
-  DEF: "bg-sky-50/30 dark:bg-sky-950/20 border-l-2 border-l-sky-400",
-  MID: "bg-emerald-50/30 dark:bg-emerald-950/20 border-l-2 border-l-emerald-400",
-  FWD: "bg-rose-50/30 dark:bg-rose-950/20 border-l-2 border-l-rose-400",
+  // v2.9.22 Y6: Parlaklık tamamen kaldırıldı — sadece sol kenar border ile pozisyon belirgin
+  // Kullanıcı: "renkler aynı kalacak ancak parlaklığı kıs yani ana renklere döndür"
+  // bg yok, sadece 4px sol border
+  GK: "border-l-4 border-l-amber-500",
+  DEF: "border-l-4 border-l-sky-500",
+  MID: "border-l-4 border-l-emerald-500",
+  FWD: "border-l-4 border-l-rose-500",
 };
 
 // Mevki sıralaması — listelemede önce kaleci, sonra defans, orta saha, forvet
@@ -111,8 +111,10 @@ export function TacticsScreen() {
   const pitchCoords = FORMATION_PITCH[formation] ?? FORMATION_PITCH["4-4-2"];
 
   // Yedek kulübesi — lineup'ta olmayan tüm oyuncular (rating'e göre sıralı)
-  // P2 FIX: lineup'taki oyuncu ID'lerini Set olarak topla, team.players'tan bu ID'leri çıkar
-  // Referans tutarsızlığını önlemek için ID bazlı kontrol yap
+  // v2.9.22 Y1: Bench = 7 yedek + kalan tüm oyuncular ayrı listede
+  // Gerçek futbol: 11 ilk 11 + 7 yedek = 18 maç kadrosu
+  // Geri kalan oyuncular "Diğer Oyuncular" bölümünde gösterilir, tıklayınca yine değişebilir
+  const BENCH_SIZE = 7;
   const benchPlayers = useMemo(() => {
     if (!team) return [];
     // tactics.lineup'taki tüm dolu slotların ID'lerini topla
@@ -121,10 +123,15 @@ export function TacticsScreen() {
       if (p && p.id) lineupIds.add(p.id);
     }
     // team.players'tan lineup'ta OLMAYAN oyuncuları al
-    return team.players
+    const allBench = team.players
       .filter((p) => !lineupIds.has(p.id))
       .sort((a, b) => b.rating - a.rating);
+    return allBench;
   }, [team, tactics.lineup]);
+
+  // İlk 7 yedek (maç kadrosu), geri kalan "diğer oyuncular"
+  const matchDayBench = benchPlayers.slice(0, BENCH_SIZE);
+  const otherPlayers = benchPlayers.slice(BENCH_SIZE);
 
   // Taktik skoru — 3 alt skor + toplam
   const { score, roleScore, instructionScore, attributeScore, strengths, weaknesses } = useMemo(() => {
@@ -616,17 +623,19 @@ export function TacticsScreen() {
             </div>
           </div>
         ) : (
-          // Yedek oyuncu listesi — yatay kaydırılabilir
-          <div className="px-2 py-2 overflow-x-auto tm-no-scrollbar">
-            <div className="flex gap-1.5 min-w-min">
-              {benchPlayers.length === 0 && (
-                <div className="text-[10px] text-muted-foreground text-center py-3 w-full">
-                  Tüm oyuncular ilk 11'de — yedek yok.
-                </div>
-              )}
-              {benchPlayers.map((p) => {
+          // v2.9.22 Y1: Yedek oyuncu listesi — 7 yedek (yatay kaydırılabilir) + Diğer Oyuncular
+          <div className="px-2 py-2 space-y-2">
+            {/* Maç kadrosu yedekleri — 7 oyuncu */}
+            <div className="overflow-x-auto tm-no-scrollbar">
+              <div className="text-[10px] text-muted-foreground font-bold uppercase mb-1">Yedek Kulübesi ({matchDayBench.length}/7)</div>
+              <div className="flex gap-1.5 min-w-min">
+                {matchDayBench.length === 0 && (
+                  <div className="text-[10px] text-muted-foreground text-center py-3 w-full">
+                    Tüm oyuncular ilk 11'de — yedek yok.
+                  </div>
+                )}
+                {matchDayBench.map((p) => {
                 const posGroup = POSITION_GROUP[p.specificPosition] ?? "MID";
-                const roleId = tactics.slotRoles[Object.keys(tactics.slotRoles).find(k => tactics.lineup[Number(k)]?.id === p.id) ?? "-1"];
                 return (
                   <button
                     key={p.id}
@@ -656,15 +665,57 @@ export function TacticsScreen() {
                     {p.is_injured && (
                       <span className="text-[11px] text-red-400 font-bold">🤕</span>
                     )}
-                    {/* P0 FIX BUG #11: Cezalı rozeti — yedek kulübesi listesinde */}
-                    {/* BULGU #10 DÜZELTME: reactive seasonMatchday kullan */}
                     {p.suspended_until && Number(p.suspended_until) > seasonMatchday && (
                       <span className="text-[11px] text-amber-400 font-bold" title="Cezalı">🟥</span>
                     )}
                   </button>
                 );
               })}
+              </div>
             </div>
+
+            {/* Diğer Oyuncular — yedek kulübesi dışındaki tüm oyuncular */}
+            {otherPlayers.length > 0 && (
+              <div className="overflow-x-auto tm-no-scrollbar pt-2 border-t border-border/40">
+                <div className="text-[10px] text-muted-foreground font-bold uppercase mb-1">Diğer Oyuncular ({otherPlayers.length})</div>
+                <div className="flex gap-1.5 min-w-min">
+                  {otherPlayers.map((p) => {
+                    const posGroup = POSITION_GROUP[p.specificPosition] ?? "MID";
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => { haptic("light"); setBenchModeSlot(p.id); }}
+                        className={cn(
+                          "tm-tap shrink-0 w-[68px] flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-md border-2 transition-colors opacity-70",
+                          "hover:border-primary/50 hover:bg-accent/30 hover:opacity-100",
+                          POSITION_ROW_BG[posGroup],
+                        )}
+                      >
+                        <span
+                          className="inline-flex items-center justify-center rounded-full text-[10px] font-bold text-white border border-white/30"
+                          style={{
+                            width: 28, height: 28,
+                            background: team.primaryColor ?? "#1a3a2a",
+                          }}
+                        >
+                          {p.rating}
+                        </span>
+                        <span className="text-[10px] font-semibold truncate w-full text-center">
+                          {p.firstName} {p.lastName}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">{p.specificPosition}</span>
+                        {p.is_injured && (
+                          <span className="text-[11px] text-red-400 font-bold">🤕</span>
+                        )}
+                        {p.suspended_until && Number(p.suspended_until) > seasonMatchday && (
+                          <span className="text-[11px] text-amber-400 font-bold" title="Cezalı">🟥</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
