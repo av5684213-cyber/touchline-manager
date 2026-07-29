@@ -3226,3 +3226,82 @@ Kullanıcı için sonraki adım:
 2. YOUR_SERVICE_ROLE_KEY placeholder'ı Supabase Dashboard → API → service_role key ile değiştir
 3. GitHub Actions'ın APK build'i tamamlamasını bekle (5-10 dk)
 4. https://github.com/av5684213-cyber/touchline-manager/releases/tag/v2.9.21 adresinden APK indir
+
+---
+Task ID: v2.9.45
+Agent: main (Z.AI)
+Task: Oyunun tüm sekmelerini, mantığını, düzenini denetle — eksik bağlamları düzelt
+
+Work Log:
+- 18 ekran + 12 bileşen + 8 lib dosyası tarandı (tüm oyun yapısı)
+- TypeScript ve Next.js build doğrulandı (temiz)
+- 5 KRİTİK bug bulundu ve düzeltildi:
+
+1. Finansal tutarlılık (HAKSIZ DURUM):
+   - finance.tsx doluluk cap 0.8 → 0.85 (store ile aynı) + tier bonus eklendi
+   - finance.tsx merch formülüne academy seviyesi eklendi
+   - reports.tsx FinancialReport TAMAMEN farklı formüller kullanıyordu:
+     * stadiumCap 5K+l*10K → 5K+l*5K (2x şişirilmiş)
+     * stadiumMult 1+l*0.1 → 1+l*0.05 (2x şişirilmiş)
+     * sponsor 200K+l*30K → 50K+l*10K (4x şişirilmiş)
+     * tv 150K → 50K (3x şişirilmiş)
+     * merch cap*0.4*2 → cap*0.2+academy*5K
+     * facilityCost l*5K → l*20K (4x düşük)
+   - Kullanıcı reports'ta 5-10M gelir görüyordu, gerçekte 1-2M alıyordu
+
+2. Transfer ekranı 4 erişilemeyen sekme:
+   - SubTab tipinde 8 sekme vardı, sadece 4'ü için buton vardı
+   - watchlist (İzleme) + loan (Kiralık) butonları eklendi
+   - allleagues + freeagents zaten market sekmesinde birleşik
+
+3. Orphan ekranlar menüye bağlandı:
+   - NewsScreen (Haberler) + MessagesScreen (Mesajlar) kullanılmıyordu
+   - WeeklyReportScreen orphan import kaldırıldı (dashboard'ta zaten var)
+   - TabKey'e "news" + "messages" eklendi
+   - OTHER_TABS'a Newspaper + Inbox icon'ları ile 2 yeni sekme
+   - i18n: nav.news + nav.messages (tr/en/es/de/fr/pt — 6 dil)
+
+4. Top scorers random fake data:
+   - Başka liglerin bot oyuncularına her açılışta farklı random stats üretiyordu
+   - Deterministic hash (playerId + seasonNumber) ile değiştirildi
+   - Aynı oyuncu açıldığında aynı istatistik gösterilir
+
+5. Match screen 'TEST/SOLO MOD' yanıltıcı yazı:
+   - Gerçek oyun akışında 'test modu' yazıyordu
+   - 'YENİ MAÇ BAŞLAT' + 'Sonraki maç için tıkla' olarak değiştirildi
+
+Değiştirilen dosyalar:
+- package.json (version 2.9.45)
+- src/app/page.tsx (NewsScreen + MessagesScreen import + case)
+- src/components/touchline/bottom-nav.tsx (TabKey + OTHER_TABS + 2 yeni icon)
+- src/components/touchline/screens/finance.tsx (formül store ile senkron)
+- src/components/touchline/screens/match.tsx (test modu yazısı kaldırıldı)
+- src/components/touchline/screens/reports.tsx (formül store ile senkron)
+- src/components/touchline/screens/top-scorers.tsx (deterministic hash)
+- src/components/touchline/screens/transfer.tsx (watchlist + loan butonları)
+- src/lib/i18n/dict.ts (nav.news + nav.messages)
+
+Build/Test Sonuçları:
+- npx tsc --noEmit: temiz
+- npx next build: BAŞARILI (8.2s)
+
+Git:
+- Commit: 3ade512 (v2.9.45)
+- Tag: v2.9.45 (push edildi)
+- GitHub: https://github.com/av5684213-cyber/touchline-manager/releases/tag/v2.9.45
+- GitHub Actions otomatik APK build başlattı (5-10 dk içinde hazır)
+
+Stage Summary:
+- 5 kritik bug düzeltildi (4'ü "haksız durum" kategorisinde)
+- 3 orphan ekran menüye bağlandı (news + messages) veya temizlendi (weekly-report)
+- Finansal tutarlılık sağlandı: store = finance = reports (aynı formüller)
+- Transfer'de 4 unreachable sekme artık erişilebilir
+- i18n 6 dilde yeni anahtarlar eklendi
+- GitHub'a push edildi, APK build otomatik başladı
+
+Kullanıcı için sonraki adım:
+1. GitHub Actions'ın APK build'i tamamlamasını bekle (5-10 dk)
+2. https://github.com/av5684213-cyber/touchline-manager/releases/tag/v2.9.45 adresinden APK indir
+3. Diğer drawer'da yeni "Haberler" ve "Mesajlar" sekmelerini test et
+4. Transfer ekranında yeni "İzleme" ve "Kiralık" sekmelerini test et
+5. Finans ve Raporlar sekmelerindeki gelir rakamlarının artık aynı olduğunu doğrula
