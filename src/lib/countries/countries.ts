@@ -187,6 +187,14 @@ export function getCountryClubNames(countryCode: string, tier: number = 4): Arra
     return [];
   }
 
+  // v2.9.37: Tier'a göre farklı isim suffix'leri — aynı şehirler farklı liglerde farklı isimlerle
+  const tierSuffixes: Record<number, string[]> = {
+    1: ["FC", "United", "City", "Athletic", "Sporting"],  // Süper Lig — prestijli
+    2: ["SC", "United", "FC", "SV", "AS"],                 // 2. Lig
+    3: ["FK", "SK", "CF", "BK", "VV"],                     // 3. Lig
+    4: ["spor", "SK", "İds", "Gençlik", "Belediye"],      // 4. Lig — yerel
+  };
+
   // Tier'a göre renk paletleri
   const tierPalettes: Record<number, Array<[string, string]>> = {
     1: [  // Süper Lig — koyu renkler
@@ -220,16 +228,13 @@ export function getCountryClubNames(countryCode: string, tier: number = 4): Arra
   };
 
   const palette = tierPalettes[tier] ?? tierPalettes[4];
+  const suffixes = tierSuffixes[tier] ?? tierSuffixes[4];
 
   return country.cities.slice(0, 18).map((city, idx) => {
     const [c1, c2] = palette[idx % palette.length];
-    const nameSuffix = country.name_template.replace("city_", "");
-    const suffix =
-      nameSuffix === "spor" ? "spor" :
-      nameSuffix === "fc" ? " FC" :
-      nameSuffix === "united" ? " United" :
-      nameSuffix === "sc" ? " SC" : " AC";
-    const name = `${city}${suffix}`;
+    // v2.9.37: Tier'a göre suffix seç — aynı şehir farklı liglerde farklı isim
+    const suffix = suffixes[idx % suffixes.length];
+    const name = `${city} ${suffix}`;
     return {
       name,
       short: city.slice(0, 3).toUpperCase(),
