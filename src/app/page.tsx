@@ -27,6 +27,7 @@ import { WeeklyReportScreen } from "@/components/touchline/screens/weekly-report
 import { ReportsScreen } from "@/components/touchline/screens/reports";
 import { ComingSoonScreen } from "@/components/touchline/screens/coming-soon";
 import { FriendlyScreen } from "@/components/touchline/screens/friendly";
+import { ForumScreen } from "@/components/touchline/screens/forum";
 import { ShopScreen } from "@/components/touchline/screens/shop";
 // v2.9.21 GÖREV 7: MarketScreen import'u KALDIRILDI
 import { LeaderboardScreen } from "@/components/touchline/screens/leaderboard";
@@ -81,6 +82,7 @@ export default function Home() {
       case "topscorers": return <TopScorersScreen />;
       case "cup": return <CupScreen />;
       case "friendly": return <FriendlyScreen />;
+      case "forum": return <ForumScreen />;
       case "shop": return <ShopScreen />;
       // v2.9.21 GÖREV 7: "market" case'i KALDIRILDI — kozmetik market artık yok
       case "leaderboard": return <LeaderboardScreen />;

@@ -16,6 +16,7 @@ import {
   Crown,
   ShoppingBag,
   Palette,
+  MessageSquare,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { haptic } from "@/hooks/touchline";
@@ -42,6 +43,7 @@ export type TabKey =
   // v2.9.21 GÖREV 7: "market" sekmesi KALDIRILDI — kozmetik market kullanılmıyor,
   // kullanıcı "market sekmesini kaldır, içindekileri sil" dedi. Shop sekmesi kaldı (kredi paketleri).
   | "leaderboard" // P0: Liderlik tablosu
+  | "forum" // v2.9.32: Forum
   // Üst şerit sekmesi — coming-soon
   | "friendly";
 
@@ -55,6 +57,7 @@ export const MAIN_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: s
 
 export const OTHER_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: string }[] = [
   { key: "leaderboard", icon: Trophy, labelKey: "nav.leaderboard" },
+  { key: "forum", icon: MessageSquare, labelKey: "nav.forum" },
   { key: "shop", icon: ShoppingBag, labelKey: "nav.shop" },
   // v2.9.21 GÖREV 7: market sekmesi kaldırıldı
   { key: "youth", icon: GraduationCap, labelKey: "nav.youth" },
