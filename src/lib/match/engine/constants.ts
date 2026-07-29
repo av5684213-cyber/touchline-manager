@@ -324,7 +324,8 @@ export const PHILOSOPHY_BONUSES = {
 } as const;
 
 // ─── Sezon Ayarları ────────────────────────────────────────────────
-export const TEAMS_PER_LEAGUE = 18;
+// v2.9.30 T-08: TEAMS_PER_LEAGUE SİLİNDİ — tek kaynak league-rules.ts
+// import { TEAMS_PER_LEAGUE } from "@/lib/league-rules" kullanın
 export const MAX_WEEKS_PER_SEASON = 34;
 
 // ─── Enflasyon Sistemi ─────────────────────────────────────────────

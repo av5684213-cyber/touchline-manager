@@ -31,8 +31,10 @@ import { formatCountdown } from "@/lib/match/scheduler";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 
-// Antrenman saatleri (TR saatiyle) — her gün 15:00 ve 21:00
-// Maçlar: 12:00, 18:00 → antrenman 15:00, 21:00 (maçlarla çakışmaz)
+// v2.9.30 T-16: Antrenman saatleri — cron ile BİREBİR AYNI
+// Cron: '0 12,18 * * 1-5' (UTC 12:00, 18:00 = TR 15:00, 21:00)
+// Edge Function: supabase/functions/daily-training-sim/index.ts
+// Cron gerçek stat büyümesi yapıyor (sadece form_rating değil) — v2.9.21 G3'de düzeltildi
 const TRAINING_HOUR_TR = [15, 21] as const;
 const TRAINING_WINDOW_MINUTES = 60;
 
