@@ -13,6 +13,8 @@ import { TIER_TEAM_NAMES, TEAM_NAME_BANK } from "@/lib/match/engine/constants";
 import { assignRandomPlayStyle } from "@/lib/match/engine/playStyles";
 // v2.9.30 T-06: Maaş hesaplama — tek kanonik kaynak
 import { calculateSalaryRange } from "@/lib/fm/salaryUtils";
+// v2.9.35: Ülke bazlı isim havuzları (circular dependency YOK)
+import { getCountryNameHavuzu, getCountryClubNames } from "@/lib/countries/countries";
 
 export type Position =
   | "GK"
@@ -108,7 +110,7 @@ export type Player = {
   hidden_potential: number;
   rating: number; // 0-100 (OVR, motor beklediği format)
   formRating: number; // 0-10 (UI için ondalık form puanı)
-  nationality: "TR" | "foreign";
+  nationality: string; // v2.9.35: "TR" | "foreign" | ülke kodu (DE, FR, ES...)
   nation: string; // ülke adı
   foot: Foot;
   preferred_foot?: Foot;
@@ -602,18 +604,36 @@ function generateStats(pos: Position, ovr: number): PlayerStats {
   }
 }
 
-export function generatePlayer(pos: Position, ovrRange: { min: number; max: number }): Player {
+export function generatePlayer(pos: Position, ovrRange: { min: number; max: number }, countryCode?: string): Player {
   const ovr = rand(ovrRange.min, ovrRange.max);
-  const isForeign = Math.random() < 0.25;
-  const first = isForeign ? pick(FIRST_NAMES_FOREIGN) : pick(FIRST_NAMES_TR);
-  const last = pick(LAST_NAMES_TR);
+  // v2.9.35: Ülke bazlı isim havuzu — countryCode verilirse o ülkenin isimlerini kullan
+  let first: string;
+  let last: string;
+  let nation: string;
+  if (countryCode && countryCode !== "TR") {
+    const namePool = getCountryNameHavuzu(countryCode);
+    if (namePool.first_names.length > 0 && namePool.last_names.length > 0) {
+      first = pick(namePool.first_names);
+      last = pick(namePool.last_names);
+      nation = countryCode;
+    } else {
+      first = pick(FIRST_NAMES_TR);
+      last = pick(LAST_NAMES_TR);
+      nation = "Türkiye";
+    }
+  } else {
+    const isForeign = Math.random() < 0.25;
+    first = isForeign ? pick(FIRST_NAMES_FOREIGN) : pick(FIRST_NAMES_TR);
+    last = pick(LAST_NAMES_TR);
+    nation = isForeign ? "Yabancı" : "Türkiye";
+  }
   const age = rand(17, 36);
   const stats = generateStats(pos, ovr);
   const goals = pos === "GK" ? 0 : rand(0, pos.startsWith("ST") || pos === "CF" ? 12 : 6);
   const assists = pos === "GK" ? 0 : rand(0, 8);
   const saves = pos === "GK" ? rand(10, 60) : 0;
   const appearancesVal = rand(8, 28);
-  const nation = isForeign ? "Yabancı" : "Türkiye";
+  // v2.9.35: nation yukarıda countryCode bazlı set edildi
   const foot: Foot = Math.random() < 0.7 ? "Right" : Math.random() < 0.5 ? "Left" : "Both";
   // v2.9.30 T-05: Piyasa değeri — TEK KANONİK FORMÜL (valuation.ts calculatePlayerValue ile birebir aynı)
   // NOT: Circular dependency nedeniyle data.ts → valuation.ts import edemez (valuation.ts Player'ı data.ts'ten import eder).
@@ -746,7 +766,7 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
     hidden_potential: ovr + rand(0, 20),
     rating: ovr,
     formRating: Math.round((ovr / 10 + (Math.random() * 2 - 1)) * 10) / 10,
-    nationality: isForeign ? "foreign" : "TR",
+    nationality: nation === "Türkiye" ? "TR" : nation === "Yabancı" ? "foreign" : nation,
     nation,
     foot,
     preferred_foot: foot,
@@ -1074,7 +1094,8 @@ function generateSeasonHistory(
 export function generateTeam(
   meta: { name: string; short: string; c1: string; c2: string },
   leagueTier: LeagueTier = 2,
-  department: Department = 1
+  department: Department = 1,
+  countryCode?: string
 ): Team {
   const players: Player[] = [];
   // Lig seviyesine göre OVR aralıkları
@@ -1084,7 +1105,7 @@ export function generateTeam(
     for (let i = 0; i < slot.count; i++) {
       const adjustedMin = Math.max(30, Math.round(slot.minOvr * mult));
       const adjustedMax = Math.max(35, Math.round(slot.maxOvr * mult));
-      players.push(generatePlayer(slot.pos, { min: adjustedMin, max: adjustedMax }));
+      players.push(generatePlayer(slot.pos, { min: adjustedMin, max: adjustedMax }, countryCode));
     }
   }
   // Lig seviyesine göre bütçe
@@ -1134,20 +1155,14 @@ export function generateAllClubs(): Team[] {
 
 // Belirli bir lig/departman için 18 takım üret
 export function generateClubsForLeague(tier: LeagueTier, dept: Department, countryCode?: string): Team[] {
-  // v2.9.33: countryCode verilirse o ülkenin takım isimlerini kullan
+  // v2.9.35: countryCode verilirse o ülkenin takım isimlerini + oyuncu isimlerini kullan
   if (countryCode && countryCode !== "TR") {
-    try {
-      // Dinamik import — circular dependency önle
-      const { getCountryClubNames } = require("@/lib/countries/countries");
-      const countryClubs = getCountryClubNames(countryCode, tier);
-      if (countryClubs && countryClubs.length > 0) {
-        return countryClubs.map((m: any) => generateTeam(m, tier, dept));
-      }
-    } catch (e) {
-      // Hata olursa default TR isimleri kullan
+    const countryClubs = getCountryClubNames(countryCode, tier);
+    if (countryClubs && countryClubs.length > 0) {
+      return countryClubs.map((m: any) => generateTeam(m, tier, dept, countryCode));
     }
   }
-  return FICTIONAL_CLUB_NAMES.map((m) => generateTeam(m, tier, dept));
+  return FICTIONAL_CLUB_NAMES.map((m) => generateTeam(m, tier, dept, countryCode));
 }
 
 export function getInitials(p: Player): string {
