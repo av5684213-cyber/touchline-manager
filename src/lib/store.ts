@@ -32,6 +32,8 @@ import {
   type IncomingOffer,
   type LoanListing,
   type TransferListing,
+  // v2.9.30 T-07: Transfer vergisi tek kaynak — mock/transfer.ts
+  calculateBuyerCost,
 } from "@/lib/mock/transfer";
 import {
   assignMentor as assignMentorFn,
@@ -966,7 +968,7 @@ export const useAppStore = create<AppState>()(
         }
 
         // Toplam maliyet (transfer + %5 agent + %3 imza)
-        const total = fee + Math.round(fee * 0.05) + Math.round(fee * 0.03);
+        const total = calculateBuyerCost(fee).total; // v2.9.30 T-07: tek kaynak
         if (team.budget < total) {
           return { success: false, reason: "budget" };
         }
@@ -1027,7 +1029,7 @@ export const useAppStore = create<AppState>()(
         }
 
         // Toplam maliyet: transfer ücreti + %5 agent + %3 imza
-        const total = fee + Math.round(fee * 0.05) + Math.round(fee * 0.03);
+        const total = calculateBuyerCost(fee).total; // v2.9.30 T-07: tek kaynak
         if (myTeam.budget < total) {
           return { success: false, reason: "budget" };
         }
@@ -3253,7 +3255,7 @@ export const useAppStore = create<AppState>()(
             }
             // v2.9.29 P1-4: completeTransfer'da agent+signing fee hesapla
             // Eski kod sadece msg.amount düşüyordu — makeTransferOffer ile tutarsız
-            const completeTotal = (msg.counterOffer ?? 0) + Math.round((msg.counterOffer ?? 0) * 0.05) + Math.round((msg.counterOffer ?? 0) * 0.03);
+            const completeTotal = calculateBuyerCost(msg.counterOffer ?? 0).total; // v2.9.30 T-07: tek kaynak
             const updatedPlayer = { ...player, weeklyWage: player.weeklyWage, salary: player.weeklyWage };
             const updatedClubs = clubs.map((c) => {
               if (c.id === team.id) {
@@ -3294,7 +3296,7 @@ export const useAppStore = create<AppState>()(
         if (!msg || !msg.counterOffer) return { success: false, reason: "no-offer" };
         // v2.9.22 Y8: Bütçe kontrolü — agent fee (%5) + signing bonus (%3) DAHİL
         // Eski: sadece counterOffer kontrol ediliyordu → 108M alım 11M bütçe ile yapılabiliyordu
-        const totalCost = (msg.counterOffer ?? 0) + Math.round((msg.counterOffer ?? 0) * 0.05) + Math.round((msg.counterOffer ?? 0) * 0.03);
+        const totalCost = calculateBuyerCost(msg.counterOffer ?? 0).total; // v2.9.30 T-07: tek kaynak
         if (team.budget < totalCost) return { success: false, reason: "budget" };
 
         const playerId = msg.playerId;

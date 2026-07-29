@@ -77,46 +77,6 @@ export function calculatePlayerValue(player: Player): number {
   return Math.max(50_000, Math.min(200_000_000, value));
 }
 
-/**
- * Maaş hesaplama — tek kaynak.
- * rating × 950 × tier_multiplier (1. Lig: 1.5, 2. Lig: 1.2, 3. Lig: 1.0, 4. Lig: 0.8)
- * Min 5K, max 500K/hafta
- */
-export function calculateWeeklyWage(player: Player, leagueTier: number = 2): number {
-  const rating = player.rating ?? 50;
-  const age = player.age ?? 25;
-
-  const tierMult: Record<number, number> = {
-    1: 1.5, 2: 1.2, 3: 1.0, 4: 0.8,
-  };
-  const mult = tierMult[leagueTier] ?? 1.0;
-
-  // Yaş bonusu — prime yaş (24-29) daha yüksek maaş
-  let ageBonus = 1.0;
-  if (age >= 24 && age <= 29) ageBonus = 1.15;
-  else if (age < 22) ageBonus = 0.80; // genç oyuncular daha az
-  else if (age > 32) ageBonus = 0.85;
-
-  const wage = Math.round(rating * 950 * mult * ageBonus);
-  return Math.max(5000, Math.min(500_000, wage));
-}
-
-/**
- * Transfer vergisi — tek kaynak.
- * Satıcıdan %2.5, alıcıya %5 agent + %3 imza bonusu
- */
-export const TRANSFER_TAX_RATE = 0.025;
-export const AGENT_FEE_RATE = 0.05;
-export const SIGNING_BONUS_RATE = 0.03;
-
-export function calculateBuyerCost(askingPrice: number) {
-  const agentFee = Math.round(askingPrice * AGENT_FEE_RATE);
-  const signingBonus = Math.round(askingPrice * SIGNING_BONUS_RATE);
-  const total = askingPrice + agentFee + signingBonus;
-  return { transferFee: askingPrice, agentFee, signingBonus, total };
-}
-
-export function calculateSellerNet(salePrice: number) {
-  const tax = Math.round(salePrice * TRANSFER_TAX_RATE);
-  return { salePrice, tax, net: salePrice - tax };
-}
+// v2.9.30 T-06: calculateWeeklyWage SİLİNDİ — salaryUtils.ts calculateSalaryRange tek kaynak
+// v2.9.30 T-07: TRANSFER_TAX_RATE, AGENT_FEE_RATE, SIGNING_BONUS_RATE, calculateBuyerCost, calculateSellerNet
+// SİLİNDİ — mock/transfer.ts tek kaynak

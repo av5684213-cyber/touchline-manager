@@ -11,6 +11,8 @@
 import { TIER_TEAM_NAMES, TEAM_NAME_BANK } from "@/lib/match/engine/constants";
 // v2.9.11: Oyun stili atama (pozisyona göre ağırlıklı)
 import { assignRandomPlayStyle } from "@/lib/match/engine/playStyles";
+// v2.9.30 T-06: Maaş hesaplama — tek kanonik kaynak
+import { calculateSalaryRange } from "@/lib/fm/salaryUtils";
 
 export type Position =
   | "GK"
@@ -638,10 +640,10 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
   const marketValue = Math.max(50_000, Math.min(200_000_000,
     Math.round((baseValue + potentialBonus) * ageMultValue * archetypeMultiplier * posMult)
   ));
-  // Maaş da tek formül — calculateWeeklyWage ile aynı
-  const tierMultWage = 1.2; // 2. Lig default (data.ts'te tier bilgisi yok)
-  const ageBonusWage = (age >= 24 && age <= 29) ? 1.15 : (age < 22 ? 0.80 : (age > 32 ? 0.85 : 1.0));
-  const weeklyWage = Math.max(5000, Math.min(500_000, Math.round(ovr * 950 * tierMultWage * ageBonusWage)));
+  // v2.9.30 T-06: Maaş — tek kanonik kaynak salaryUtils.ts calculateSalaryRange
+  // data.ts'te tier bilgisi yok → 2. Lig default (TIER_SALARY_MULTIPLIER[2] = 1.0)
+  // Circular dependency yok: salaryUtils.ts → inflation.ts (data.ts'ye bağımlı değil)
+  const { suggested: weeklyWage } = calculateSalaryRange(ovr, 1.0, 1, age);
 
   // Pozisyon grubu
   const group = POSITION_GROUP[pos];
