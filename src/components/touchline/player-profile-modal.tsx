@@ -543,8 +543,10 @@ function StatsTab({
   locale: Locale;
 }) {
   const isGK = player.specificPosition === "GK";
-  // Eğer seasonHistory yoksa (ör. Supabase'den gelen oyuncu), mevcut stat'lardan üret
+  // v2.9.44: AchievementsTab ile AYNI seasonHistory kaynağı — paralel olmalı
+  // StatsTab de aynı history'yi kullanır → başarılar ve geçmiş istatistikler uyumlu
   const history: SeasonStat[] = player.seasonHistory ?? generateFallbackHistory(player);
+  const seasonHistory = history; // v2.9.44: alias — achievements ile aynı kaynak
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
   // Kariyer toplamları
@@ -965,7 +967,8 @@ function SeasonStatMini({ label, value, color }: { label: string; value: number;
 
 function generateFallbackHistory(player: Player): SeasonStat[] {
   const age = player.age ?? 20;
-  const careerStartAge = 17;
+  // v2.9.44: AchievementsTab ile aynı yaş mantığı — paralel olmalı
+  const careerStartAge = Math.max(15, age - 3);
   if (age <= careerStartAge) return [];
 
   const totalSeasons = Math.min(age - careerStartAge, 18);
@@ -2509,9 +2512,10 @@ function AchievementsTab({
   t: (key: string, params?: Record<string, string | number>) => string;
   locale: Locale;
 }) {
-  const seasonHistory = player.seasonHistory ?? [];
+  // v2.9.44: AchievementsTab ile AYNI veri kaynağı — player.seasonHistory veya generateFallbackHistory
+  const seasonHistory = player.seasonHistory ?? generateFallbackHistory(player);
 
-  // Kariyer toplamları
+  // Kariyer toplamları — sezon geçmişi + bu sezon gerçek stats (player.goals vb.)
   const totals = seasonHistory.reduce(
     (acc, s) => {
       acc.apps += s.appearances;
@@ -2530,49 +2534,50 @@ function AchievementsTab({
     { apps: 0, goals: 0, assists: 0, yellow: 0, red: 0, minutes: 0, right: 0, left: 0, head: 0, penalty: 0, freekick: 0 }
   );
 
-  // Mevcut sezon stats
-  const currentGoals = player.goals ?? 0;
-  const currentAssists = player.assists ?? 0;
-  const currentApps = player.appearances ?? 0;
-  const currentMotm = player.motmAwards ?? 0;
+  // v2.9.44: Mevcut sezon + geçmiş toplamı → kariyer toplamı
+  // Geçmiş sezonlarda yapılanlar + bu sezon yapılanlar = gerçek kariyer
+  const careerGoals = totals.goals + (player.goals ?? 0);
+  const careerAssists = totals.assists + (player.assists ?? 0);
+  const careerApps = totals.apps + (player.appearances ?? 0);
+  const careerMotm = player.motmAwards ?? 0;
 
-  // Başarı rozetleri
+  // Başarı rozetleri — v2.9.44: kariyer toplamı (geçmiş + bu sezon) bazlı
   const achievements: { icon: string; title: string; desc: string; unlocked: boolean }[] = [
     {
       icon: "⚽",
       title: "İlk Gol",
       desc: "Kariyerindeki ilk gol",
-      unlocked: totals.goals > 0,
+      unlocked: careerGoals > 0,
     },
     {
       icon: "🎯",
       title: "Hat-trick",
-      desc: "Bir maçta 3 gol",
-      unlocked: seasonHistory.some(s => s.goals >= 3),
+      desc: "Bir sezonda 3+ gol",
+      unlocked: seasonHistory.some(s => s.goals >= 3) || (player.goals ?? 0) >= 3,
     },
     {
       icon: "🅰",
       title: "Asist Kralı",
       desc: "Kariyerinde 10+ asist",
-      unlocked: totals.assists >= 10,
+      unlocked: careerAssists >= 10,
     },
     {
       icon: "🏆",
       title: "Maçın Adamı",
-      desc: `${currentMotm} kez maçın adamı`,
-      unlocked: currentMotm > 0,
+      desc: `${careerMotm} kez maçın adamı`,
+      unlocked: careerMotm > 0,
     },
     {
       icon: "💯",
       title: "Yüncü",
       desc: "100 maç oyna",
-      unlocked: totals.apps >= 100,
+      unlocked: careerApps >= 100,
     },
     {
       icon: "🥇",
       title: "Gol Kralı",
       desc: "Bir sezonda 15+ gol",
-      unlocked: seasonHistory.some(s => s.goals >= 15),
+      unlocked: seasonHistory.some(s => s.goals >= 15) || (player.goals ?? 0) >= 15,
     },
     {
       icon: "🦶",
@@ -2607,38 +2612,38 @@ function AchievementsTab({
         <div className="text-[11px] text-muted-foreground uppercase font-bold mb-2">Bu Sezon</div>
         <div className="grid grid-cols-4 gap-2 text-center">
           <div>
-            <div className="text-lg font-bold text-amber-300 tabular-nums">{currentApps}</div>
+            <div className="text-lg font-bold text-amber-300 tabular-nums">{player.appearances ?? 0}</div>
             <div className="text-[9px] text-muted-foreground">Maç</div>
           </div>
           <div>
-            <div className="text-lg font-bold text-emerald-400 tabular-nums">{currentGoals}</div>
+            <div className="text-lg font-bold text-emerald-400 tabular-nums">{player.goals ?? 0}</div>
             <div className="text-[9px] text-muted-foreground">Gol</div>
           </div>
           <div>
-            <div className="text-lg font-bold text-sky-400 tabular-nums">{currentAssists}</div>
+            <div className="text-lg font-bold text-sky-400 tabular-nums">{player.assists ?? 0}</div>
             <div className="text-[9px] text-muted-foreground">Asist</div>
           </div>
           <div>
-            <div className="text-lg font-bold text-purple-400 tabular-nums">{currentMotm}</div>
+            <div className="text-lg font-bold text-purple-400 tabular-nums">{careerMotm}</div>
             <div className="text-[9px] text-muted-foreground">MOTM</div>
           </div>
         </div>
       </div>
 
-      {/* Kariyer toplamları */}
+      {/* Kariyer toplamları — v2.9.44: geçmiş + bu sezon */}
       <div className="tm-card p-3">
         <div className="text-[11px] text-muted-foreground uppercase font-bold mb-2">Kariyer Toplamı</div>
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="bg-muted/30 rounded-lg p-2">
-            <div className="text-sm font-bold tabular-nums">{totals.apps}</div>
+            <div className="text-sm font-bold tabular-nums">{careerApps}</div>
             <div className="text-[9px] text-muted-foreground">Maç</div>
           </div>
           <div className="bg-muted/30 rounded-lg p-2">
-            <div className="text-sm font-bold tabular-nums text-emerald-400">{totals.goals}</div>
+            <div className="text-sm font-bold tabular-nums text-emerald-400">{careerGoals}</div>
             <div className="text-[9px] text-muted-foreground">Gol</div>
           </div>
           <div className="bg-muted/30 rounded-lg p-2">
-            <div className="text-sm font-bold tabular-nums text-sky-400">{totals.assists}</div>
+            <div className="text-sm font-bold tabular-nums text-sky-400">{careerAssists}</div>
             <div className="text-[9px] text-muted-foreground">Asist</div>
           </div>
         </div>
