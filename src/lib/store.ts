@@ -49,6 +49,8 @@ import { DEFAULT_TACTIC, FORMATION_SLOTS, type ActiveTactic } from "@/lib/tactic
 import { TIER_BASE_BUDGETS } from "@/lib/match/engine/constants";
 // v2.9.21 GÖREV 1: Küme düşme/terfi kuralları — TEK KANONİK KAYNAK
 import { TEAMS_PER_LEAGUE, PROMOTION_COUNT, RELEGATION_COUNT, getLeagueZone, isPromotionZone, isRelegationZone } from "@/lib/league-rules";
+// v2.9.30 T-10: Tesis yükseltme maliyeti tek kaynak
+import { calculateUpgradeCost } from "@/lib/stadiumMatrix";
 import { simulateEnhancedMatch } from "@/lib/match/engine/enhancedMatchEngine";
 import { getInflationMultiplier } from "@/lib/fm/inflation";
 import { applyCoachTrainingBoost } from "@/lib/staffBonus";
@@ -1596,8 +1598,8 @@ export const useAppStore = create<AppState>()(
           return { success: false, reason: "max-level" };
         }
 
-        // Maliyet: 250K × 2.2^level
-        const cost = Math.floor(250000 * Math.pow(2.2, currentLevel));
+        // v2.9.30 T-10/T-24: Tek kanonik kaynak — stadiumMatrix.ts calculateUpgradeCost
+        const cost = calculateUpgradeCost(facilityId, currentLevel, get().seasonNumber ?? 1);
         if (team.budget < cost) {
           return { success: false, reason: "budget" };
         }

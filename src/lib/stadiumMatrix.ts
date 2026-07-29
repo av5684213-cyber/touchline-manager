@@ -276,9 +276,34 @@ export function getFacilityBenefit(id: FacilityId, level: number): string {
 }
 
 // ===== Maliyet ve süre hesapları =====
-export function calculateUpgradeCost(baseCost: number, level: number): number {
-  // level: hedef seviye (1 = ilk geliştirme)
-  return Math.floor(baseCost * Math.pow(2.2, level - 1));
+
+// v2.9.30 T-10/T-24: Per-facility base cost — hardcoded 250K yerine her tesis için ayrı
+export const FACILITY_BASE_COSTS: Record<string, number> = {
+  stadium: 300_000,   // Stadyum — en pahalı (fiziksel yapı)
+  pitch: 200_000,     // Saha kalitesi
+  academy: 250_000,   // Altyapı akademisi
+  gym: 150_000,       // Antrenman salonu
+  medical: 200_000,   // Medikal tesis
+  analysis: 150_000,  // Analiz merkezi
+};
+
+/**
+ * Tesis yükseltme maliyeti — TEK KANONİK FONKSİYON.
+ *
+ * @param facilityId tesis ID'si (stadium/pitch/academy/gym/medical/analysis)
+ * @param currentLevel mevcut seviye (0 = başlangıç)
+ * @param seasonNumber sezon numarası (enflasyon için, default 1)
+ * @returns yükseltme maliyeti (€)
+ *
+ * v2.9.30 T-10/T-24: Hem store.ts hem facilities.tsx bu fonksiyonu çağırır.
+ * Enflasyon merkezi burada uygulanır — UI ve bütçe düşümü aynı değeri görür.
+ */
+export function calculateUpgradeCost(facilityId: string, currentLevel: number, seasonNumber: number = 1): number {
+  const baseCost = FACILITY_BASE_COSTS[facilityId] ?? 250_000;
+  const rawCost = Math.floor(baseCost * Math.pow(2.2, currentLevel));
+  // v2.9.30 T-10: Enflasyon uygula
+  const inflationMultiplier = 1 + (seasonNumber - 1) * 0.08; // %8 per sezon
+  return Math.floor(rawCost * inflationMultiplier);
 }
 
 export function getUpgradeDuration(level: number): number {

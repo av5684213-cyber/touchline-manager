@@ -58,11 +58,13 @@ const STAFF_TYPE_ORDER: StaffMember["type"][] = [
   "scout", "coach", "physio", "analyst", "youth_coordinator", "sporting_director",
 ];
 
-// Tesis yükseltme maliyeti — baz × level çarpanı × enflasyon
-function calcUpgradeCost(currentLevel: number): number {
+// v2.9.30 T-10/T-24: Tesis yükseltme maliyeti — TEK KANONİK KAYNAK
+// stadiumMatrix.ts calculateUpgradeCost (per-facility baseCost + inflation)
+import { calculateUpgradeCost as calcCostFromMatrix } from "@/lib/stadiumMatrix";
+
+function calcUpgradeCost(facilityId: string, currentLevel: number): number {
   const seasonNumber = useAppStore.getState().seasonNumber ?? 1;
-  const baseCost = Math.floor(250000 * Math.pow(2.2, currentLevel));
-  return applyInflation(baseCost, seasonNumber);
+  return calcCostFromMatrix(facilityId, currentLevel, seasonNumber);
 }
 function calcUpgradeDays(currentLevel: number): number {
   return currentLevel <= 1 ? 2 : Math.floor(2 * Math.pow(1.5, currentLevel - 2));
@@ -231,7 +233,7 @@ export function FacilitiesScreen() {
           const level = facilities.levels[key];
           const isMax = level >= meta.maxLevel;
           const isUpgrading = activeUpgrade?.facilityId === key;
-          const cost = calcUpgradeCost(level);
+          const cost = calcUpgradeCost(key, level);
           const days = calcUpgradeDays(level);
           const canUpgrade = !activeUpgrade && !isMax && team.budget >= cost;
           return (
