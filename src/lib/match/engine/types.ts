@@ -488,28 +488,9 @@ export interface TrainingSessionResult {
   staminaLost: number;
 }
 
-export interface Operation {
-  id: string;
-  name: string;
-  tier: number;
-  description: string;
-  cost: number;
-  successRate: number;
-  scandalRisk: number;
-  impactType: 'stamina' | 'luck' | 'referee' | 'error_rate' | 'money' | 'points' | 'defense' | 'cleanup';
-  impactValue: number;
-  type?: 'ATTACK' | 'DEFENSE' | 'CLEANUP';
-  category?: string;
-  infoKey?: string;
-}
-
-export interface ActiveOperation {
-  id: string;
-  operationId: string;
-  status: 'pending' | 'success' | 'scandal' | 'completed';
-  timestamp: string;
-  resultText?: string;
-}
+// v2.9.30 T-13: Operation, ActiveOperation, impactType SİLİNDİ — ölü kod
+// Maç motoru (enhancedMatchEngine.ts) bunları hiç kullanmıyordu.
+// "Dark operations" sistemi donduruldu — ileride yeniden eklenebilirse types geri getirilebilir.
 
 export interface Message {
   id: string;
@@ -566,8 +547,7 @@ export interface TrainingState {
   assignments: TrainingAssignment[];
   coachQuality: number;
   lastSessionResults: Record<string, TrainingSessionResult>;
-  activeOperations?: ActiveOperation[];
-  operationReports?: string[];
+  // v2.9.30 T-13: activeOperations + operationReports SİLİNDİ (ölü kod)
   inbox?: Message[];
   scouting?: ScoutingState;
   labSettings?: LabSettings;
