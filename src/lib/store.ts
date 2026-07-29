@@ -3549,17 +3549,10 @@ export const useAppStore = create<AppState>()(
                 return p; // oyuncuda bu negatif trait yok — kart uygulanamaz
               }
               updated.negTraits = negTraits.filter(t => t !== negTraitName);
-              // Penaltıyı da geri al (eğer effectData.penalty varsa)
-              if (card.effectData?.penalty) {
-                for (const [stat, value] of Object.entries(card.effectData.penalty)) {
-                  const penaltyVal = value as number;
-                  // penalty negatifti, geri almak için ekle
-                  (updated as any)[stat] = ((updated as any)[stat] ?? 50) - penaltyVal;
-                  if (updated.stats && (updated.stats as any)[stat] !== undefined) {
-                    (updated.stats as any)[stat] = (updated.stats as any)[stat] - penaltyVal;
-                  }
-                }
-              }
+              // v2.9.28 FIX: Penaltıyı geri ALMA — penalty baz stat'lara hiç uygulanmadı.
+              // Penalty sadece maç motoru simülasyon sırasında geçici olarak uygulanıyor.
+              // Sadece trait adını kaldırmak yeterli — maç motoru artık penaltı uygulamayacak.
+              // Eski kod (updated as any)[stat] += ... haksız bonus veriyordu.
             }
           } else if (card.cardType === "arketip") {
             // Arketip değiştir
