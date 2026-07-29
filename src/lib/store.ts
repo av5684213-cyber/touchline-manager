@@ -272,7 +272,7 @@ type AppState = {
   };
 
   // actions
-  loginDemo: (name?: string) => void;
+  loginDemo: (name?: string, countryCode?: string) => void;
   logout: () => Promise<void>;
   setFormation: (key: string) => void;
   setSlider: (key: keyof Tactics["sliders"], value: number) => void;
@@ -375,12 +375,13 @@ function formatEuroShort(amount: number): string {
   return `${amount} €`;
 }
 
-function buildInitialClubs(): Team[] {
+function buildInitialClubs(countryCode?: string): Team[] {
   // Kullanıcı rastgele bir lig/departmana atanacak
   // Sadece o lig/departmandaki 18 takımı üret
+  // v2.9.38: countryCode verilirse o ülkenin takım/oyuncu isimlerini kullan
   const tier = ([1, 2, 2, 2, 3, 3, 3, 4, 4, 4] as const)[Math.floor(Math.random() * 10)];
   const dept = ([1, 1, 2, 2, 3, 3, 4, 4] as const)[Math.floor(Math.random() * 8)] as 1 | 2 | 3 | 4;
-  return generateClubsForLeague(tier as 1 | 2 | 3 | 4, dept);
+  return generateClubsForLeague(tier as 1 | 2 | 3 | 4, dept, countryCode);
 }
 
 function buildInitialFixtures(clubs: Team[]): FixtureRow[] {
@@ -616,11 +617,11 @@ export const useAppStore = create<AppState>()(
         stepsCompleted: [],
       },
 
-      loginDemo: (name) => {
+      loginDemo: (name, countryCode) => {
         // Already-initialized clubs varsa yeniden üretme
         let clubs = get().clubs;
         if (clubs.length === 0) {
-          clubs = buildInitialClubs();
+          clubs = buildInitialClubs(countryCode); // v2.9.38: countryCode geçir
         }
         let fixtures = get().fixtures;
         if (fixtures.length === 0) {

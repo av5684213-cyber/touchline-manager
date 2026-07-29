@@ -898,9 +898,13 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
         const oppUpdatedPlayers = opponentClub.players.map((p) => {
           const isOppInjured = injuredIds.has(p.id);
           const isOppSuspended = suspendedIds.has(p.id);
-          if (!isOppInjured && !isOppSuspended) return p;
-
           const oppUpdates: any = {};
+
+          // v2.9.38 P0-2: Kondisyonu HER oynayan oyuncuya düşür (sadece sakat/cezalılara değil)
+          const oppCondDrain = Math.floor(8 + Math.random() * 8);
+          oppUpdates.cond = Math.max(20, Math.min(100, p.cond - oppCondDrain));
+          oppUpdates.condition = oppUpdates.cond;
+
           if (isOppInjured) {
             const oppInjuryDuration = Math.floor(Math.random() * 14) + 3;
             const oppSeverity = Math.floor(Math.random() * 5) + 1;
@@ -913,11 +917,6 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
           if (isOppSuspended && !isFriendly) {
             oppUpdates.suspended_until = String(useAppStore.getState().seasonMatchday + 2);
           }
-
-          // Kondisyon düşür (basit — maç oynadılar)
-          const oppCondDrain = Math.floor(8 + Math.random() * 8);
-          oppUpdates.cond = Math.max(20, Math.min(100, p.cond - oppCondDrain));
-          oppUpdates.condition = oppUpdates.cond;
 
           return { ...p, ...oppUpdates };
         });

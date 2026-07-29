@@ -67,7 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           (newSession.user.user_metadata as any)?.full_name ??
           (newSession.user.user_metadata as any)?.manager_name ??
           email.split("@")[0];
-        loginDemo(managerName);
+        const metaCountryCode = (newSession.user.user_metadata as any)?.country_code ?? "TR";
+        loginDemo(managerName, metaCountryCode); // v2.9.38: countryCode geçir
 
         // Cloud save başlat
         initCloudSave(newSession.user.id);
