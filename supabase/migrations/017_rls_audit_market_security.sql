@@ -31,9 +31,9 @@ CREATE POLICY "user_game_state_own_write" ON user_game_state
   FOR ALL USING (profile_id = auth.uid()) WITH CHECK (profile_id = auth.uid());
 
 -- ─── 2) active_tactics — sadece sahibi ─────────────────────────────────────
--- 013 migration'ında tanımlı ama tekrar ediyelim (idempotent)
-DROP TABLE IF EXISTS active_tactics CASCADE;
-CREATE TABLE active_tactics (
+-- v2.9.30 G0: DROP TABLE CASCADE KALDIRILDI — veri kaybını önle
+-- Yerine CREATE TABLE IF NOT EXISTS + ALTER TABLE ADD COLUMN IF NOT EXISTS kullan
+CREATE TABLE IF NOT EXISTS active_tactics (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   profile_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   tactic_data JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -44,6 +44,13 @@ CREATE TABLE active_tactics (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(profile_id)
 );
+-- Eksik kolonlar varsa ekle (idempotent — mevcut veriyi korur)
+ALTER TABLE active_tactics ADD COLUMN IF NOT EXISTS tactic_data JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE active_tactics ADD COLUMN IF NOT EXISTS lineup_data JSONB;
+ALTER TABLE active_tactics ADD COLUMN IF NOT EXISTS slot_roles JSONB;
+ALTER TABLE active_tactics ADD COLUMN IF NOT EXISTS active_instructions JSONB;
+ALTER TABLE active_tactics ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE active_tactics ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 
 ALTER TABLE active_tactics ENABLE ROW LEVEL SECURITY;
 

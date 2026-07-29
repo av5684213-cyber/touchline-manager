@@ -1,5 +1,9 @@
 -- 013_fix_schema_conflicts.sql
 -- v2.9.4 — Şema çakışmalarını çöz (001 vs sonraki migration'lar)
+-- v2.9.30 G0: UYARI — Bu migration DROP TABLE CASCADE kullanıyor!
+-- SADECE ilk kurulumda (boş veritabanı) çalıştırılmalı.
+-- Mevcut veri olan bir veritabanında ÇALIŞTIRMA — kullanıcı verisi silinir.
+-- Mevcut veritabanı için: 017 ve sonraki migration'lar yeterli.
 --
 -- PROBLEM: 001_initial_schema.sql ile sonraki migration'lar (002, 004, 006, 007, 008)
 -- arasında 7 tabloda şema çakışması var. CREATE TABLE IF NOT EXISTS deseni
