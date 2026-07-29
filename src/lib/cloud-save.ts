@@ -199,24 +199,70 @@ async function saveToMultiplayerTables(userId: string): Promise<void> {
 /**
  * Sadece active_tactics tablosuna kayıt yapar (taktik değiştiğinde çağrılır).
  * app_state zaten genel debounce ile kaydedilecektir.
+ *
+ * v2.9.27 G1: Retry mekanizması eklendi — başarısız olursa 3 kez dener
+ * (1s, 2s, 4s gecikme ile exponential backoff).
  */
 async function saveTacticsToTable(userId: string): Promise<void> {
-  try {
-    const { supabase: supabaseClient } = await import("@/lib/supabase/client");
-    const s = useAppStore.getState();
+  const MAX_RETRIES = 3;
+  const RETRY_DELAYS = [1000, 2000, 4000]; // exponential backoff
 
-    const { error: tacErr } = await supabaseClient().from("active_tactics").upsert({
-      profile_id: userId,
-      tactic_data: s.tactics.active,
-      lineup_data: s.tactics.lineup,
-      slot_roles: s.tactics.slotRoles,
-      active_instructions: s.tactics.activeInstructions,
-    }, { onConflict: "profile_id" });
-    if (tacErr) {
-      console.warn("[cloud-save] tactics save error:", tacErr.message);
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const { supabase: supabaseClient } = await import("@/lib/supabase/client");
+      const s = useAppStore.getState();
+
+      const { error: tacErr } = await supabaseClient().from("active_tactics").upsert({
+        profile_id: userId,
+        tactic_data: s.tactics.active,
+        lineup_data: s.tactics.lineup,
+        slot_roles: s.tactics.slotRoles,
+        active_instructions: s.tactics.activeInstructions,
+      }, { onConflict: "profile_id" });
+
+      if (tacErr) {
+        console.warn(`[cloud-save] tactics save error (attempt ${attempt + 1}/${MAX_RETRIES + 1}):`, tacErr.message);
+        if (attempt < MAX_RETRIES) {
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAYS[attempt]));
+          continue;
+        }
+        // Son deneme de başarısız — localStorage'a yedekle
+        if (typeof window !== "undefined") {
+          try {
+            const state = useAppStore.getState();
+            localStorage.setItem("tm_tactics_pending_sync", JSON.stringify({
+              tactics: state.tactics,
+              _pendingAt: Date.now(),
+            }));
+          } catch { /* ignore */ }
+        }
+        return;
+      }
+
+      // Başarılı — pending sync varsa temizle
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.removeItem("tm_tactics_pending_sync");
+        } catch { /* ignore */ }
+      }
+      return; // başarılı, döngüden çık
+    } catch (e: any) {
+      console.warn(`[cloud-save] Tactics save exception (attempt ${attempt + 1}/${MAX_RETRIES + 1}):`, e?.message ?? e);
+      if (attempt < MAX_RETRIES) {
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAYS[attempt]));
+        continue;
+      }
+      // Son deneme de başarısız — localStorage'a yedekle
+      if (typeof window !== "undefined") {
+        try {
+          const state = useAppStore.getState();
+          localStorage.setItem("tm_tactics_pending_sync", JSON.stringify({
+            tactics: state.tactics,
+            _pendingAt: Date.now(),
+          }));
+        } catch { /* ignore */ }
+      }
     }
-  } catch (e: any) {
-    console.warn("[cloud-save] Tactics save exception:", e?.message ?? e);
   }
 }
 

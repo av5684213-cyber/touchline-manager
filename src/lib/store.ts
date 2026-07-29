@@ -55,6 +55,39 @@ import { checkAndAwardBadges, checkAchievements } from "@/components/touchline/a
 // v2.9.18: Bot AI sistemi
 import { simulateBotMatch, findWeakestPosition, shouldBotBuy, shouldBotSell, getBotFormation } from "@/lib/botAI";
 
+/**
+ * v2.9.27 G1: Taktik değişikliklerinde debounce'lu cloud-save tetikleyicisi.
+ *
+ * Her taktik/kadro/formasyon action'ından sonra çağrılır.
+ * cloud-save.ts'teki saveTacticsState fonksiyonunu dinamik import ile çağırır.
+ * - Kullanıcı giriş yapmışsa (auth.uid() var): 1.5sn debounce ile active_tactics tablosuna kaydeder
+ * - Giriş yapmamışsa: sessizce geç (demo mode)
+ *
+ * Bu, subscribe listener'a EK olarak çalışır — çift güvenlik.
+ * beforeunload + logout tetikleyicileri de korunur.
+ */
+function triggerTacticsSave(): void {
+  if (typeof window === "undefined") return; // SSR guard
+  try {
+    // Dinamik import — circular dependency önle
+    import("@/lib/cloud-save").then(({ saveTacticsState, initCloudSave }) => {
+      // Kullanıcı giriş yapmış mı? Supabase session'dan al
+      import("@/lib/supabase/client").then(({ supabase }) => {
+        supabase().auth.getSession().then(({ data }) => {
+          const userId = data.session?.user?.id;
+          if (userId) {
+            // Debounce'lu kayıt — 1.5sn sonra active_tactics tablosuna
+            saveTacticsState(userId);
+          }
+          // Giriş yapmamışsa: demo mode, cloud-save yok
+        }).catch(() => { /* session alınamazsa sessizce geç */ });
+      }).catch(() => { /* supabase import hatası */ });
+    }).catch(() => { /* cloud-save import hatası */ });
+  } catch (e) {
+    console.warn("[store] triggerTacticsSave exception:", e);
+  }
+}
+
 type Tactics = {
   // Yeni şema — eski oyunun ActiveTactic'i ile birebir
   active: ActiveTactic;
@@ -694,6 +727,7 @@ export const useAppStore = create<AppState>()(
             lineup: autoFillLineup(team, formation, seasonMatchday ?? 0),
           },
         });
+        triggerTacticsSave(); // v2.9.27 G1: debounce'lu auto-save
       },
 
       setSlider: (key, value) => {
@@ -703,6 +737,7 @@ export const useAppStore = create<AppState>()(
             sliders: { ...get().tactics.sliders, [key]: value },
           },
         });
+        triggerTacticsSave(); // v2.9.27 G1
       },
 
       swapLineupSlot: (slotIndex, playerId) => {
@@ -740,6 +775,7 @@ export const useAppStore = create<AppState>()(
         }
         newLineup[slotIndex] = player;
         set({ tactics: { ...tactics, lineup: newLineup } });
+        triggerTacticsSave(); // v2.9.27 G1
       },
 
       setRole: (slotIndex, role) => {
@@ -749,6 +785,7 @@ export const useAppStore = create<AppState>()(
             roles: { ...get().tactics.roles, [slotIndex]: role },
           },
         });
+        triggerTacticsSave(); // v2.9.27 G1
       },
 
       // ===== Yeni taktik action'ları (ActiveTactic) =====
@@ -826,6 +863,7 @@ export const useAppStore = create<AppState>()(
             slotRoles: patch.formation && patch.formation !== tactics.active.formation ? {} : tactics.slotRoles,
           },
         });
+        triggerTacticsSave(); // v2.9.27 G1
       },
 
       setSlotRole: (slotIndex, roleId) => {
@@ -836,6 +874,7 @@ export const useAppStore = create<AppState>()(
             slotRoles: { ...tactics.slotRoles, [slotIndex]: roleId },
           },
         });
+        triggerTacticsSave(); // v2.9.27 G1
       },
 
       // P0: Kaptan seç — special_role'ü "kaptan" yap, diğerlerini temizle
@@ -862,6 +901,7 @@ export const useAppStore = create<AppState>()(
             activeInstructions: { ...tactics.activeInstructions, [name]: option },
           },
         });
+        triggerTacticsSave(); // v2.9.27 G1
       },
 
       resetInstruction: (name) => {
@@ -871,6 +911,7 @@ export const useAppStore = create<AppState>()(
         set({
           tactics: { ...tactics, activeInstructions: next },
         });
+        triggerTacticsSave(); // v2.9.27 G1
       },
 
       // ===== Transfer actions =====
