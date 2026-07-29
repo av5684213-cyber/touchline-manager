@@ -182,6 +182,7 @@ async function saveToMultiplayerTables(userId: string): Promise<void> {
         seasonMatchday: s.seasonMatchday,
         seasonNumber: s.seasonNumber,
         seasonStartStats: s.seasonStartStats,
+        pendingGains: s.pendingGains, // v2.9.34 F2
         transfer: s.transfer,
         youthAcademy: s.youthAcademy,
         // v2.9.29 P2-5: cardInventory multiplayer save'e ekle

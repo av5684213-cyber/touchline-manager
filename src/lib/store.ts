@@ -233,6 +233,9 @@ type AppState = {
   cup: CupState;
   // P5: Sezon başı oyuncu stats'ları — gelişim rozeti için (playerId → { rating, finishing, ... })
   seasonStartStats: Record<string, Record<string, number>>;
+  // v2.9.34 F2: Sezon boyunca maç sonrası kazandırılan stat artışları
+  // playerId → { statName: gainAmount } — sezon sonunda kalıcı stata eklenir
+  pendingGains: Record<string, Record<string, number>>;
   // ADDED: Sponsor sistemi — aktif + teklif sponsorlar
   sponsors: {
     active: any[]; // aktif imzalı sponsorlar
@@ -345,6 +348,9 @@ type AppState = {
   buyCard: (cardId: string, cardType: "trait_positive" | "trait_negative_removal" | "arketip", cardName: string, groupName: string, price: number, description: string, effectData?: any) => { success: boolean; reason?: string };
   applyCardToPlayer: (cardId: string, playerId: string) => { success: boolean; reason?: string };
   getCardInventory: () => CardItem[];
+  // v2.9.34 F2: Maç sonrası stat artışı ekle + sezon sonu kalıcı uygula
+  addPendingGain: (playerId: string, statName: string, amount: number) => void;
+  applyPendingGains: () => void; // Sezon sonu — pendingGains'i kalıcı stata ekle, sonra temizle
 };
 
 export type SeasonSummary = {
@@ -570,6 +576,7 @@ export const useAppStore = create<AppState>()(
 
       // P5: Sezon başı stats'ları — boş başlar, loginDemo'da doldurulur
       seasonStartStats: {},
+      pendingGains: {}, // v2.9.34 F2: maç sonrası stat artışları
 
       // ADDED: Sponsor sistemi — boş başlar
       sponsors: {
@@ -2768,6 +2775,9 @@ export const useAppStore = create<AppState>()(
         // P0 FIX: buildCupFixtures kullan — kullanıcı zorunlu dahil
         const newCupMatches = buildCupFixtures(updatedClubs, myTeamId);
 
+        // v2.9.34 F3: Sezon sonu — pendingGains'i kalıcı stata ekle
+        get().applyPendingGains();
+
         set({
           clubs: updatedClubs,
           fixtures: newFixtures,
@@ -3480,6 +3490,7 @@ export const useAppStore = create<AppState>()(
             sponsors: savedState?.sponsors ?? { active: [], offers: [] },
             credits: savedState?.credits ?? 50,
             seasonStartStats: savedState?.seasonStartStats ?? {},
+            pendingGains: savedState?.pendingGains ?? {}, // v2.9.34 F2
             transfer: savedState?.transfer ?? get().transfer,
             // BULGU #4 DÜZELTME (v2.9.3): cosmetics, blockedUsers, youthAcademy yükle
             // — v2.9.0/v2.9.2'de store'a eklendi ama loadMultiplayerState'e unutulmuştu
@@ -3625,6 +3636,87 @@ export const useAppStore = create<AppState>()(
 
       getCardInventory: () => {
         return get().cardInventory;
+      },
+
+      // v2.9.34 F2: Maç sonrası stat artışı ekle (pendingGains'e)
+      addPendingGain: (playerId, statName, amount) => {
+        const { pendingGains } = get();
+        const playerGains = pendingGains[playerId] ?? {};
+        playerGains[statName] = (playerGains[statName] ?? 0) + amount;
+        set({
+          pendingGains: { ...pendingGains, [playerId]: playerGains },
+        });
+      },
+
+      // v2.9.34 F3: Sezon sonu — pendingGains'i kalıcı stata ekle, sonra temizle
+      applyPendingGains: () => {
+        const { pendingGains, clubs, myTeamId } = get();
+        if (Object.keys(pendingGains).length === 0) return;
+
+        const myTeam = clubs.find(c => c.id === myTeamId);
+        if (!myTeam) return;
+
+        const updatedPlayers = myTeam.players.map(p => {
+          const gains = pendingGains[p.id];
+          if (!gains) return p;
+
+          const updated = { ...p, stats: { ...p.stats } };
+          for (const [stat, amount] of Object.entries(gains)) {
+            // Top-level attribute güncelle
+            const currentVal = (updated as any)[stat] ?? 50;
+            (updated as any)[stat] = Math.min(99, currentVal + amount);
+            // stats alt nesnesini de güncelle (varsa)
+            if (updated.stats && (updated.stats as any)[stat] !== undefined) {
+              (updated.stats as any)[stat] = Math.min(99, (updated.stats as any)[stat] + amount);
+            }
+          }
+
+          // Rating yeniden hesapla (6 stat ortalaması)
+          const pace = (updated as any).speed ?? updated.stats?.pace ?? 50;
+          const shooting = (updated as any).shooting ?? updated.stats?.shooting ?? 50;
+          const passing = (updated as any).passing ?? updated.stats?.passing ?? 50;
+          const defending = (updated as any).defending ?? updated.stats?.defending ?? 50;
+          const physical = (updated as any).power ?? updated.stats?.physical ?? 50;
+          const dribbling = (updated as any).dribbling ?? updated.stats?.dribbling ?? 50;
+          updated.rating = Math.round((pace + shooting + passing + defending + physical + dribbling) / 6);
+
+          return updated;
+        });
+
+        const updatedClubs = clubs.map(c =>
+          c.id === myTeamId ? { ...c, players: updatedPlayers } : c
+        );
+
+        // pendingGains'i temizle + seasonStartStats'ı güncelle (yeni sezon başı)
+        const newSeasonStartStats: Record<string, Record<string, number>> = {};
+        for (const p of updatedPlayers) {
+          newSeasonStartStats[p.id] = {
+            rating: p.rating ?? 50,
+            finishing: p.finishing ?? 50,
+            dribbling: p.dribbling ?? 50,
+            passing: p.passing ?? 50,
+            shooting: p.shooting ?? 50,
+            tackling: p.tackling ?? 50,
+            marking: p.marking ?? 50,
+            heading: p.heading ?? 50,
+            speed: p.speed ?? p.stats?.pace ?? 50,
+            stamina: p.stamina ?? 50,
+            strength: p.strength ?? 50,
+            vision: p.vision ?? 50,
+            technique: p.technique ?? 50,
+            crossing: p.crossing ?? 50,
+            longShots: p.longShots ?? 50,
+            firstTouch: p.firstTouch ?? 50,
+            offTheBall: p.offTheBall ?? 50,
+          };
+        }
+
+        set({
+          clubs: updatedClubs,
+          pendingGains: {},
+          seasonStartStats: newSeasonStartStats,
+        });
+        triggerTacticsSave();
       },
 
       // v2.9.20 GÖREV 1: saveToCloud ve saveTacticsToCloud artık alias.

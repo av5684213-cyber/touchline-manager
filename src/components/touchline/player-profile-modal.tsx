@@ -1213,6 +1213,18 @@ function StatValue({ value, playerId, statKey }: { value: number | undefined; pl
     : displayValue >= 35 ? "text-orange-400"
     : "text-red-400";
 
+  // v2.9.34 F2: pendingGains rozeti — bu sezonda maçlardan kazanılan stat artışları
+  let pendingGain: number | null = null;
+  if (playerId && statKey) {
+    try {
+      const store = useAppStore.getState();
+      const gains = store.pendingGains?.[playerId];
+      if (gains && gains[statKey]) {
+        pendingGain = gains[statKey];
+      }
+    } catch { /* ignore */ }
+  }
+
   // P2: Gelişim rozeti — sezon başına göre, tam sayı
   let growth: number | null = null;
   if (playerId && statKey) {
@@ -1231,7 +1243,14 @@ function StatValue({ value, playerId, statKey }: { value: number | undefined; pl
 
   return (
     <span className="flex items-center gap-0.5">
-      {growth !== null && (
+      {/* v2.9.34 F2: pendingGains — bu sezonda maçlardan kazanılmış ama henüz kalıcı olmamış artış */}
+      {pendingGain !== null && (
+        <span className="text-[11px] font-bold text-emerald-400 leading-none bg-emerald-500/10 px-1 rounded">
+          +{pendingGain}
+        </span>
+      )}
+      {/* P2: sezon başı farkı */}
+      {growth !== null && growth > 0 && pendingGain === null && (
         <span className="text-[11px] font-bold text-emerald-400 leading-none">
           +{growth}
         </span>

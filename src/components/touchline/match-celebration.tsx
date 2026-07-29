@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Trophy, X, Sparkles, Coins, TrendingUp, Award } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { haptic, useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline";
+import { useAppStore } from "@/lib/store"; // v2.9.34 F2: addPendingGain
 
 /**
  * Maç Sonu Ödül Töreni — gol kutlaması animasyonu.
@@ -165,21 +166,29 @@ export function MatchCelebration({
         )}
 
         {/* v2.9.23 Z1: Gelişen oyuncular — galibiyet/mağlubiyet ekranında göster */}
+        {/* v2.9.34 F2: Artık addPendingGain ile store'a yazılıyor — sezon sonuna kadar kalıcı */}
         {phase === "showing" && (() => {
           const myTeam = isHome ? homeTeam : awayTeam;
           if (!myTeam?.players) return null;
-          // En yüksek 5 oyuncu için rastgele gelişim (gerçek maç sonrası simülasyon)
-          const statNames = ["Pas", "Şut", "Defans", "Hız", "Güç", "Dribling"];
+          const statMap: Record<string, string> = {
+            "Pas": "passing", "Şut": "shooting", "Defans": "defending",
+            "Hız": "speed", "Güç": "power", "Dribling": "dribbling",
+          };
+          const statNames = Object.keys(statMap);
           const top5 = [...myTeam.players]
             .filter((p: any) => !p.is_injured)
             .sort((a: any, b: any) => b.rating - a.rating)
             .slice(0, 5)
-            .map((p: any) => ({
-              player: p,
-              stat: statNames[Math.floor(Math.random() * statNames.length)],
-              gain: Math.random() < 0.7 ? 1 : 2,
-            }))
-            .filter((imp: any) => Math.random() < 0.6); // %60 ihtimalle gelişim göster
+            .map((p: any) => {
+              const statTr = statNames[Math.floor(Math.random() * statNames.length)];
+              const gain = Math.random() < 0.7 ? 1 : 2;
+              // v2.9.34 F2: Store'a yaz — pendingGains'e ekle
+              try {
+                useAppStore.getState().addPendingGain(p.id, statMap[statTr], gain);
+              } catch (e) { /* store yoksa sessiz geç */ }
+              return { player: p, stat: statTr, gain };
+            })
+            .filter((imp: any) => Math.random() < 0.6);
           if (top5.length === 0) return null;
           return (
             <div className="w-full max-w-[300px] mt-2" style={{ animation: "fadeInUp 0.5s ease-out 0.8s both" }}>

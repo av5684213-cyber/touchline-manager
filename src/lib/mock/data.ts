@@ -890,8 +890,10 @@ function generateSeasonHistory(
   leftFootStat: number = 30,
   archetype: string = ""
 ): SeasonStat[] {
-  // Kariyer başlangıcı: 17 yaşında
-  const careerStartAge = 17;
+  // v2.9.34 F1: Kariyer başlangıcı yaşı — oyuncunun yaşına göre dinamik
+  // Eski: hardcoded 17 → 15 yaşında oyuncunun 2 sezon geçmişi olurdu (doğmadan önce oynamış!)
+  // Yeni: max(15, age-3) → 15 yaşında oyuncu → geçmiş yok, 18 yaşında → 15'ten başla
+  const careerStartAge = Math.max(15, age - 3);
   if (age <= careerStartAge) return [];
 
   const seasons: SeasonStat[] = [];
