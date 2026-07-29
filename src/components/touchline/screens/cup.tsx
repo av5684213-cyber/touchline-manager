@@ -5,6 +5,8 @@ import { Trophy, Eye, Calendar, ChevronRight } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 // v2.9.39: Özel Kupa paneli
 import { SpecialCupPanel } from "../special-cup-panel";
+// v2.9.41: Şampiyonlar Ligi paneli
+import { ChampionsLeaguePanel } from "../champions-league-panel";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { ClubBadge } from "../ui-bits";
 import { cn } from "@/lib/utils";
@@ -291,6 +293,11 @@ export function CupScreen() {
           Kupa bu sezon tamamlandı. Yeni sezonda yeniden başlayacak.
         </div>
       )}
+
+      {/* v2.9.41: Şampiyonlar Ligi paneli */}
+      <div className="pt-2 border-t border-border">
+        <ChampionsLeaguePanel />
+      </div>
 
       {/* v2.9.39: Özel Kupa bölümü */}
       <div className="pt-2 border-t border-border">

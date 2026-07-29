@@ -15,6 +15,8 @@ import {
   type Position,
   type Team,
 } from "@/lib/mock/data";
+// v2.9.41: Şampiyonlar Ligi için ülke listesi
+import { COUNTRIES } from "@/lib/countries/countries";
 import {
   autoFillLineup,
   computeStandings,
@@ -216,6 +218,40 @@ type CupState = {
   eliminated: boolean; // kullanıcı elendi mi
 };
 
+// v2.9.41: Şampiyonlar Ligi — sezon sonu ilk 3 takım, tek maç eleme
+type ChampionsLeagueState = {
+  active: boolean;
+  participants: Array<{
+    teamId: string;
+    teamName: string;
+    teamShort: string;
+    teamColor: string;
+    country: string;
+    tier: number;
+    finalPosition: number; // lig sıralaması
+    isUser: boolean;
+  }>;
+  matches: Array<{
+    round: number;
+    homeId: string;
+    awayId: string;
+    homeName: string;
+    awayName: string;
+    homeShort: string;
+    awayShort: string;
+    homeColor: string;
+    awayColor: string;
+    homeScore?: number;
+    awayScore?: number;
+    winnerId?: string;
+    played: boolean;
+  }>;
+  currentRound: number;
+  champion?: string;
+  eliminated: boolean;
+  startMatchday: number; // şampiyonlar ligi hangi günde başladı
+};
+
 type AppState = {
   isAuthed: boolean;
   managerName: string;
@@ -231,6 +267,8 @@ type AppState = {
   facilities: FacilitiesState;
   // Kupa sistemi — store'da tutulur, component state değil
   cup: CupState;
+  // v2.9.41: Şampiyonlar Ligi
+  championsLeague: ChampionsLeagueState;
   // P5: Sezon başı oyuncu stats'ları — gelişim rozeti için (playerId → { rating, finishing, ... })
   seasonStartStats: Record<string, Record<string, number>>;
   // v2.9.34 F2: Sezon boyunca maç sonrası kazandırılan stat artışları
@@ -311,6 +349,9 @@ type AppState = {
   setTicketPrice: (price: number) => void;
   // cup actions
   playCupRound: () => { success: boolean; myResult?: string; champion?: string };
+  // v2.9.41: Şampiyonlar Ligi
+  startChampionsLeague: () => void;
+  playChampionsLeagueRound: () => { success: boolean; myResult?: string; champion?: string };
   // season actions
   endSeason: () => { success: boolean; summary?: SeasonSummary };
   advanceMatchday: () => void;
@@ -573,6 +614,17 @@ export const useAppStore = create<AppState>()(
         currentRound: 1, // P0 FIX: Son 16'dan başla
         champion: undefined,
         eliminated: false,
+      },
+
+      // v2.9.41: Şampiyonlar Ligi — sezon sonu başlar
+      championsLeague: {
+        active: false,
+        participants: [],
+        matches: [],
+        currentRound: 0,
+        champion: undefined,
+        eliminated: false,
+        startMatchday: 0,
       },
 
       // P5: Sezon başı stats'ları — boş başlar, loginDemo'da doldurulur
@@ -1955,6 +2007,127 @@ export const useAppStore = create<AppState>()(
         return { success: true, myResult, champion };
       },
 
+      // v2.9.41: Şampiyonlar Ligi başlat
+      startChampionsLeague: () => {
+        const cl = get().championsLeague;
+        if (cl.active) return;
+        // Sezon bittiğinde endSeason zaten CL'yi başlatır
+        // Bu action manuel başlatma için (test/debug)
+      },
+
+      // v2.9.41: Şampiyonlar Ligi turu oyna
+      playChampionsLeagueRound: () => {
+        const cl = get().championsLeague;
+        if (!cl.active || cl.champion) return { success: false };
+
+        const currentRound = cl.currentRound;
+        const roundMatches = cl.matches.filter(m => m.round === currentRound && !m.played);
+        if (roundMatches.length === 0) {
+          // Tüm maçlar oynandı — sonraki tur veya şampiyon
+          const winners = cl.matches
+            .filter(m => m.round === currentRound && m.played)
+            .map(m => m.winnerId!)
+            .filter(Boolean);
+
+          if (winners.length <= 1) {
+            // Şampiyon
+            const champion = winners[0];
+            const champTeam = cl.participants.find(p => p.teamId === champion);
+            set({
+              championsLeague: {
+                ...cl,
+                champion,
+                active: false,
+                currentRound: 0,
+              },
+            });
+            return { success: true, champion: champTeam?.teamName };
+          }
+
+          // Sonraki tur eşleşmelerini oluştur
+          const nextRound = currentRound + 1;
+          const newMatches: typeof cl.matches = [];
+          for (let i = 0; i < winners.length - 1; i += 2) {
+            const home = cl.participants.find(p => p.teamId === winners[i]);
+            const away = cl.participants.find(p => p.teamId === winners[i + 1]);
+            if (home && away) {
+              newMatches.push({
+                round: nextRound,
+                homeId: home.teamId,
+                awayId: away.teamId,
+                homeName: home.teamName,
+                awayName: away.teamName,
+                homeShort: home.teamShort,
+                awayShort: away.teamShort,
+                homeColor: home.teamColor,
+                awayColor: away.teamColor,
+                played: false,
+              });
+            }
+          }
+
+          set({
+            championsLeague: {
+              ...cl,
+              matches: [...cl.matches, ...newMatches],
+              currentRound: nextRound,
+            },
+          });
+          return { success: true };
+        }
+
+        // Bu turdaki maçları simüle et
+        const updatedMatches = cl.matches.map(m => {
+          if (m.round !== currentRound || m.played) return m;
+
+          // Takım güçlerini hesapla
+          const homeParticipant = cl.participants.find(p => p.teamId === m.homeId);
+          const awayParticipant = cl.participants.find(p => p.teamId === m.awayId);
+
+          // Bot takım güçleri — tier bazlı
+          const homeStrength = homeParticipant
+            ? (homeParticipant.isUser ? 70 : 50 + (5 - homeParticipant.tier) * 8 + Math.random() * 20)
+            : 50;
+          const awayStrength = awayParticipant
+            ? (awayParticipant.isUser ? 70 : 50 + (5 - awayParticipant.tier) * 8 + Math.random() * 20)
+            : 50;
+
+          // Skor üret
+          const homeAdv = homeStrength > awayStrength ? 0.3 : 0;
+          const hs = Math.max(0, Math.floor(Math.random() * 4 + homeAdv * 2));
+          const as = Math.max(0, Math.floor(Math.random() * 3 - homeAdv * 2));
+          const winnerId = hs >= as ? m.homeId : m.awayId;
+
+          return {
+            ...m,
+            homeScore: hs,
+            awayScore: as,
+            winnerId,
+            played: true,
+          };
+        });
+
+        // Kullanıcı elendi mi?
+        const userMatch = roundMatches.find(m => m.homeId === get().myTeamId || m.awayId === get().myTeamId);
+        const userEliminated = userMatch
+          ? updatedMatches.find(m => m === updatedMatches.find(um => um.homeId === userMatch.homeId && um.awayId === userMatch.awayId))?.winnerId !== get().myTeamId
+          : false;
+
+        set({
+          championsLeague: {
+            ...cl,
+            matches: updatedMatches,
+            eliminated: cl.eliminated || (userEliminated ?? false),
+          },
+        });
+
+        const myResult = userMatch
+          ? (updatedMatches.find(m => m.homeId === userMatch.homeId && m.awayId === userMatch.awayId)?.winnerId === get().myTeamId ? "won" : "lost")
+          : undefined;
+
+        return { success: true, myResult };
+      },
+
       // ===== Season actions =====
       advanceMatchday: () => {
         const { fixtures, clubs, myTeamId, transfer, news, seasonMatchday } = get();
@@ -2779,6 +2952,76 @@ export const useAppStore = create<AppState>()(
         // v2.9.34 F3: Sezon sonu — pendingGains'i kalıcı stata ekle
         get().applyPendingGains();
 
+        // v2.9.41: Şampiyonlar Ligi — sezon sonu ilk 3 takımı topla
+        // Tüm ülkelerin tüm tier'larından ilk 3'er takım üret
+        const clParticipants: ChampionsLeagueState["participants"] = [];
+        try {
+          // v2.9.41: Tüm ülkelerin tüm tier'larından ilk 3'er takım üret
+          for (const country of COUNTRIES) {
+            for (let t = 1; t <= 4; t++) {
+              const deptCount = t === 4 ? 5 : 1;
+              for (let d = 1; d <= deptCount; d++) {
+                const clClubs = generateClubsForLeague(t as any, d as any, country.code);
+                // Her ligden ilk 3'ü al (rating bazlı)
+                const top3 = [...clClubs].sort((a, b) =>
+                  b.players.reduce((s: number, p: any) => s + p.rating, 0) / b.players.length -
+                  a.players.reduce((s: number, p: any) => s + p.rating, 0) / a.players.length
+                ).slice(0, 3);
+                top3.forEach((club: any, idx: number) => {
+                  clParticipants.push({
+                    teamId: `${country.code}_T${t}_D${d}_${idx}`,
+                    teamName: club.name,
+                    teamShort: club.shortName,
+                    teamColor: club.primaryColor,
+                    country: country.code,
+                    tier: t,
+                    finalPosition: idx + 1,
+                    isUser: false,
+                  });
+                });
+              }
+            }
+          }
+          // Kullanıcın takımını eğer ilk 3'teyse dahil et
+          const userFinalIdx = standings.findIndex(s => s.teamId === myTeamId);
+          if (userFinalIdx < 3) {
+            // Kullanıcın gerçek takımını ekle (bot yerine)
+            const userTeamData = clubs.find(c => c.id === myTeamId);
+            if (userTeamData) {
+              clParticipants.push({
+                teamId: myTeamId,
+                teamName: userTeamData.name,
+                teamShort: userTeamData.shortName,
+                teamColor: userTeamData.primaryColor,
+                country: "TR", // kullanıcının ülkesi
+                tier: team.leagueTier ?? 2,
+                finalPosition: userFinalIdx + 1,
+                isUser: true,
+              });
+            }
+          }
+        } catch (e) {
+          console.warn("[endSeason] CL participants error:", e);
+        }
+
+        // CL bracket oluştur — rastgele eşleştirme
+        const clShuffled = [...clParticipants].sort(() => Math.random() - 0.5);
+        const clMatches: ChampionsLeagueState["matches"] = [];
+        for (let i = 0; i < clShuffled.length - 1; i += 2) {
+          clMatches.push({
+            round: 1,
+            homeId: clShuffled[i].teamId,
+            awayId: clShuffled[i + 1].teamId,
+            homeName: clShuffled[i].teamName,
+            awayName: clShuffled[i + 1].teamName,
+            homeShort: clShuffled[i].teamShort,
+            awayShort: clShuffled[i + 1].teamShort,
+            homeColor: clShuffled[i].teamColor,
+            awayColor: clShuffled[i + 1].teamColor,
+            played: false,
+          });
+        }
+
         set({
           clubs: updatedClubs,
           fixtures: newFixtures,
@@ -2791,7 +3034,16 @@ export const useAppStore = create<AppState>()(
             champion: undefined,
             eliminated: false,
           },
-          // P1 FIX: Transfer state temizle — ghost oyuncu referansları kalmasın
+          // v2.9.41: Şampiyonlar Ligi — sezon sonu başlat
+          championsLeague: {
+            active: clParticipants.length >= 4,
+            participants: clParticipants,
+            matches: clMatches,
+            currentRound: clParticipants.length >= 4 ? 1 : 0,
+            champion: undefined,
+            eliminated: false,
+            startMatchday: 1, // pazartesi = yeni sezon başlangıcı
+          },
           // P0 FIX: Yeni sezonda serbest oyuncuları yaşlandır + 40+ oyuncuları kaldır
           // P0 FIX: Yeni sezonda sponsor state'i sıfırla
           transfer: (() => {
@@ -3492,6 +3744,7 @@ export const useAppStore = create<AppState>()(
             credits: savedState?.credits ?? 50,
             seasonStartStats: savedState?.seasonStartStats ?? {},
             pendingGains: savedState?.pendingGains ?? {}, // v2.9.34 F2
+            championsLeague: savedState?.championsLeague ?? { active: false, participants: [], matches: [], currentRound: 0, champion: undefined, eliminated: false, startMatchday: 0 },
             transfer: savedState?.transfer ?? get().transfer,
             // BULGU #4 DÜZELTME (v2.9.3): cosmetics, blockedUsers, youthAcademy yükle
             // — v2.9.0/v2.9.2'de store'a eklendi ama loadMultiplayerState'e unutulmuştu
