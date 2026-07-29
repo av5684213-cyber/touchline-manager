@@ -10,8 +10,10 @@ import { TeamMessageModal } from "../team-message-modal";
 import { LEAGUE_NAMES, generateClubsForLeague, type Team, type LeagueTier, type Department } from "@/lib/mock/data";
 // v2.9.21 GÖREV 1: Küme düşme/terfi kuralları — TEK KANONİK KAYNAK (league-rules.ts)
 import { TEAMS_PER_LEAGUE, PROMOTION_COUNT, RELEGATION_COUNT, getLeagueZone } from "@/lib/league-rules";
+// v2.9.33: Ülke seçimi
+import { getCountryList } from "@/lib/countries/countries";
 // v2.9.21 EK4: Toolbox açılır-kapanır
-import { ChevronDown, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, SlidersHorizontal, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 import type { FormResult } from "@/lib/mock/season";
@@ -52,19 +54,20 @@ export function StandingsScreen() {
   // Seçili lig ve departman — varsayılan kullanıcının ligi
   const userTier = (team?.leagueTier ?? 2) as LeagueTier;
   const userDept = (team?.department ?? 1) as Department;
+  const [selCountry, setSelCountry] = useState<string>("TR");
   const [selTier, setSelTier] = useState<LeagueTier>(userTier);
   const [selDept, setSelDept] = useState<Department>(userDept);
 
   // Kullanıcının kendi ligi mi?
-  const isMyLeague = selTier === userTier && selDept === userDept;
+  const isMyLeague = selCountry === "TR" && selTier === userTier && selDept === userDept;
 
   // Seçili ligdeki kulüpler — kullanıcı kendi ligi ise store'dan, değilse generate et
   // Sabit seed ile — her açılışta aynı takımlar görünsün
   const leagueClubs = useMemo<Team[]>(() => {
     if (isMyLeague) return clubs;
-    // Diğer ligler için de generate et ama stable tut
-    return generateClubsForLeague(selTier, selDept);
-  }, [isMyLeague, clubs, selTier, selDept]);
+    // v2.9.33: Ülke bazlı takım üretimi
+    return generateClubsForLeague(selTier, selDept, selCountry);
+  }, [isMyLeague, clubs, selTier, selDept, selCountry]);
 
   // Diğer ligler için de sahte fikstür üret + standings hesapla
   const otherLeagueFixtures = useMemo(() => {
@@ -124,6 +127,11 @@ export function StandingsScreen() {
         <div>
           <h1 className="text-base font-bold">{t("standings.title")}</h1>
           <p className="text-[11px] text-muted-foreground">
+            {/* v2.9.33: Ülke + lig bilgisi */}
+            {selCountry !== "TR" && (() => {
+              const c = getCountryList().find(co => co.code === selCountry);
+              return c ? `${c.flag_emoji} ` : "";
+            })()}
             {LEAGUE_NAMES[selTier][locale]}{TIER_DEPTS[selTier] > 1 ? ` D${selDept}` : ""} · {t("standings.matchday")} {SEASON_INFO.matchday}/{SEASON_INFO.totalMatchdays}
           </p>
         </div>
@@ -162,8 +170,29 @@ export function StandingsScreen() {
         {/* Toolbox content — açıksa göster */}
         {toolboxOpen && (
           <div className="p-2 pt-0 space-y-1.5 border-t border-border">
+            {/* v2.9.33: Ülke dropdown */}
+            <div className="pt-2">
+              <label className="text-[9px] text-muted-foreground block mb-1 flex items-center gap-1">
+                <Globe size={10} /> Ülke
+              </label>
+              <select
+                value={selCountry}
+                onChange={(e) => {
+                  haptic("light");
+                  setSelCountry(e.target.value);
+                  setSelDept(1 as Department);
+                }}
+                className="w-full px-2.5 py-2 rounded-md bg-muted/40 border border-border text-xs cursor-pointer"
+              >
+                {getCountryList().map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.flag_emoji} {c.name_tr}
+                  </option>
+                ))}
+              </select>
+            </div>
             {/* Tier tabs */}
-            <div className="flex gap-1 pt-2">
+            <div className="flex gap-1 pt-1">
               {([1, 2, 3, 4] as LeagueTier[]).map((tier) => (
                 <button
                   key={tier}

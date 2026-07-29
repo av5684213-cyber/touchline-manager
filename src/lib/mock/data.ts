@@ -1131,7 +1131,20 @@ export function generateAllClubs(): Team[] {
 }
 
 // Belirli bir lig/departman için 18 takım üret
-export function generateClubsForLeague(tier: LeagueTier, dept: Department): Team[] {
+export function generateClubsForLeague(tier: LeagueTier, dept: Department, countryCode?: string): Team[] {
+  // v2.9.33: countryCode verilirse o ülkenin takım isimlerini kullan
+  if (countryCode && countryCode !== "TR") {
+    try {
+      // Dinamik import — circular dependency önle
+      const { getCountryClubNames } = require("@/lib/countries/countries");
+      const countryClubs = getCountryClubNames(countryCode, tier);
+      if (countryClubs && countryClubs.length > 0) {
+        return countryClubs.map((m: any) => generateTeam(m, tier, dept));
+      }
+    } catch (e) {
+      // Hata olursa default TR isimleri kullan
+    }
+  }
   return FICTIONAL_CLUB_NAMES.map((m) => generateTeam(m, tier, dept));
 }
 

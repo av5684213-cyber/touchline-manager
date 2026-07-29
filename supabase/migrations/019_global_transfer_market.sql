@@ -90,8 +90,9 @@ BEGIN
     AND (p_max_price IS NULL OR COALESCE(p.sale_price, p.market_value) <= p_max_price)
     -- Rating filtresi
     AND (p_min_rating IS NULL OR p.rating >= p_min_rating)
-    -- Sadece satılabilir veya serbest oyuncular
-    AND (p.is_for_sale = true OR p.is_free_agent = true)
+    -- v2.9.33: is_for_sale/is_free_agent filtresi KALDIRILDI — tüm oyuncular listelenir
+    -- Bot takımların oyuncuları hiçbir zaman is_for_sale=true yapılmıyordu, bu yüzden liste boş dönüyordu
+    -- Kullanıcı her oyuncuya teklif gönderebilir (satıcı kabul/reddeder)
   LIMIT v_limit
   OFFSET v_offset;
 
