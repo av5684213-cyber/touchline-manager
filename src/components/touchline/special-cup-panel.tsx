@@ -424,6 +424,9 @@ function CupDetail({
 
   const hasJoined = participants.some(p => p.user_id === userId);
   const isFull = participants.length >= cup.size;
+  const isCreator = cup.creator_id === userId;
+  const minTeamsMet = participants.length >= 4; // v2.9.40: min 4 takım
+  const canStart = isCreator && minTeamsMet && cup.status === "waiting";
 
   const handleJoin = async () => {
     if (!userId || !myTeam) return;
@@ -476,6 +479,66 @@ function CupDetail({
       } catch { /* user cancelled */ }
     } else {
       handleCopyLink();
+    }
+  };
+
+  // v2.9.40: Kurucu kupayı başlat — bracket oluştur
+  const handleStart = async () => {
+    if (!isCreator || !minTeamsMet) return;
+    haptic("medium");
+    try {
+      // Bracket eşleşmelerini oluştur
+      const shuffled = [...participants].sort(() => Math.random() - 0.5);
+      const matchesToCreate: any[] = [];
+      const rounds = Math.log2(cup.size); // 4→2, 8→3, 12→4 (approx)
+      const firstRoundMatchCount = Math.floor(shuffled.length / 2);
+
+      for (let i = 0; i < firstRoundMatchCount; i++) {
+        const home = shuffled[i * 2];
+        const away = shuffled[i * 2 + 1];
+        if (home && away) {
+          matchesToCreate.push({
+            cup_id: cup.id,
+            round: 1,
+            match_order: i,
+            home_participant_id: home.id,
+            away_participant_id: away.id,
+            home_team_name: home.team_name,
+            away_team_name: away.team_name,
+            home_team_short: home.team_short,
+            away_team_short: away.team_short,
+            home_team_color: home.team_color,
+            away_team_color: away.team_color,
+            status: "pending",
+          });
+        }
+      }
+
+      // Eşleşmeleri Supabase'e yaz
+      if (matchesToCreate.length > 0) {
+        const { error: matchErr } = await supabase.from("special_cup_matches").insert(matchesToCreate);
+        if (matchErr) {
+          onFeedback(`Eşleşme hatası: ${matchErr.message}`);
+          return;
+        }
+      }
+
+      // Kupa durumunu güncelle
+      const { error: updateErr } = await supabase
+        .from("special_cups")
+        .update({ status: "in_progress", current_round: 1 })
+        .eq("id", cup.id);
+
+      if (updateErr) {
+        onFeedback(`Durum güncelleme hatası: ${updateErr.message}`);
+        return;
+      }
+
+      haptic("success");
+      onFeedback("🏆 Kupa başladı! Eşleşmeler oluşturuldu.");
+      loadData();
+    } catch (e: any) {
+      onFeedback(e?.message ?? "Kupa başlatma hatası");
     }
   };
 
@@ -619,6 +682,24 @@ function CupDetail({
             </>
           )}
 
+          {/* v2.9.40: Kurucu "Kupayı Başlat" butonu — min 4 takım, bot yok */}
+          {canStart && (
+            <button
+              onClick={handleStart}
+              className="tm-tap w-full py-2.5 rounded-lg bg-amber-600 text-white text-xs font-bold flex items-center justify-center gap-1.5"
+            >
+              <Trophy size={14} /> Kupayı Başlat ({participants.length} takım)
+            </button>
+          )}
+
+          {/* Min 4 takım bilgilendirmesi */}
+          {cup.status === "waiting" && isCreator && !minTeamsMet && (
+            <div className="tm-card p-2 text-center text-[10px] text-amber-400 bg-amber-500/10">
+              Kupayı başlatmak için en az 4 takım gerekli (şu an {participants.length}).
+              <br />Bot katılımcı YOK — sadece gerçek kullanıcılar.
+            </div>
+          )}
+
           {/* Bekleme mesajı */}
           {cup.status === "waiting" && !hasJoined && isFull && (
             <div className="tm-card p-3 text-center text-[11px] text-muted-foreground">
@@ -626,9 +707,15 @@ function CupDetail({
             </div>
           )}
 
-          {cup.status === "waiting" && hasJoined && (
+          {cup.status === "waiting" && hasJoined && !isCreator && (
             <div className="tm-card p-2 text-center text-[10px] text-emerald-400 bg-emerald-500/10">
-              ✓ Bu kupaya katıldın. Yeterli takım dolunca kupa başlayacak.
+              ✓ Bu kupaya katıldın. Kupa kurucusunun onayı bekleniyor.
+            </div>
+          )}
+
+          {cup.status === "waiting" && hasJoined && isCreator && !canStart && (
+            <div className="tm-card p-2 text-center text-[10px] text-sky-400 bg-sky-500/10">
+              ✓ Katıldın. En az 4 takım olunca "Kupayı Başlat" butonu aktif olacak.
             </div>
           )}
         </>

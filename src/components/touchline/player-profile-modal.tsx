@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import { type Locale } from "@/lib/i18n/types";
-import { X, User, Upload, ArrowLeftRight, Banknote, Wand2, Crown } from "lucide-react";
+import { X, User, Upload, ArrowLeftRight, Banknote, Wand2, Crown, Check } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { POSITION_GROUP, ARKETIPLER, type Player, type SeasonStat } from "@/lib/mock/data";
 import { TIER_TEAM_NAMES, TEAM_NAME_BANK } from "@/lib/match/engine/constants";
@@ -24,7 +24,7 @@ import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 
-type Tab = "overview" | "stats" | "actions";
+type Tab = "overview" | "stats" | "actions" | "achievements";
 
 export function PlayerProfileModal({
   player,
@@ -202,6 +202,15 @@ export function PlayerProfileModal({
           >
             Eylemler
           </button>
+          <button
+            onClick={() => setTab("achievements")}
+            className={cn(
+              "tm-tap flex-1 py-2 text-xs font-bold",
+              tab === "achievements" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"
+            )}
+          >
+            🏆 Başarılar
+          </button>
         </div>
 
         {/* Content — scrollable */}
@@ -225,6 +234,10 @@ export function PlayerProfileModal({
           {tab === "stats" && <StatsTab player={player} t={t} locale={locale} />}
           {tab === "actions" && (
             <ActionsTab player={player} teamColor={teamColor} onClose={onClose} t={t} locale={locale} />
+          )}
+          {/* v2.9.40: Başarılar sekmesi — lig + kupa maçları kaydı */}
+          {tab === "achievements" && (
+            <AchievementsTab player={player} t={t} locale={locale} />
           )}
         </div>
       </div>
@@ -2479,6 +2492,225 @@ function PlayerCardPickerModal({ player, onClose }: { player: Player; onClose: (
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// v2.9.40: AchievementsTab — Lig + Kupa maçları başarı kayıtları
+// ============================================================================
+
+function AchievementsTab({
+  player,
+  t,
+  locale,
+}: {
+  player: Player;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  locale: Locale;
+}) {
+  const seasonHistory = player.seasonHistory ?? [];
+
+  // Kariyer toplamları
+  const totals = seasonHistory.reduce(
+    (acc, s) => {
+      acc.apps += s.appearances;
+      acc.goals += s.goals;
+      acc.assists += s.assists;
+      acc.yellow += s.yellowCards;
+      acc.red += s.redCards;
+      acc.minutes += s.minutesPlayed;
+      acc.right += s.goalsRight ?? 0;
+      acc.left += s.goalsLeft ?? 0;
+      acc.head += s.goalsHead ?? 0;
+      acc.penalty += s.goalsPenalty ?? 0;
+      acc.freekick += s.goalsFreekick ?? 0;
+      return acc;
+    },
+    { apps: 0, goals: 0, assists: 0, yellow: 0, red: 0, minutes: 0, right: 0, left: 0, head: 0, penalty: 0, freekick: 0 }
+  );
+
+  // Mevcut sezon stats
+  const currentGoals = player.goals ?? 0;
+  const currentAssists = player.assists ?? 0;
+  const currentApps = player.appearances ?? 0;
+  const currentMotm = player.motmAwards ?? 0;
+
+  // Başarı rozetleri
+  const achievements: { icon: string; title: string; desc: string; unlocked: boolean }[] = [
+    {
+      icon: "⚽",
+      title: "İlk Gol",
+      desc: "Kariyerindeki ilk gol",
+      unlocked: totals.goals > 0,
+    },
+    {
+      icon: "🎯",
+      title: "Hat-trick",
+      desc: "Bir maçta 3 gol",
+      unlocked: seasonHistory.some(s => s.goals >= 3),
+    },
+    {
+      icon: "🅰",
+      title: "Asist Kralı",
+      desc: "Kariyerinde 10+ asist",
+      unlocked: totals.assists >= 10,
+    },
+    {
+      icon: "🏆",
+      title: "Maçın Adamı",
+      desc: `${currentMotm} kez maçın adamı`,
+      unlocked: currentMotm > 0,
+    },
+    {
+      icon: "💯",
+      title: "Yüncü",
+      desc: "100 maç oyna",
+      unlocked: totals.apps >= 100,
+    },
+    {
+      icon: "🥇",
+      title: "Gol Kralı",
+      desc: "Bir sezonda 15+ gol",
+      unlocked: seasonHistory.some(s => s.goals >= 15),
+    },
+    {
+      icon: "🦶",
+      title: "Çift Ayak",
+      desc: "Hem sağ hem sol ayakla gol",
+      unlocked: totals.right > 0 && totals.left > 0,
+    },
+    {
+      icon: "💪",
+      title: "Kafa Ustası",
+      desc: "5+ kafa golü",
+      unlocked: totals.head >= 5,
+    },
+    {
+      icon: "🎯",
+      title: "Penaltı Uzmanı",
+      desc: "3+ penaltı golü",
+      unlocked: totals.penalty >= 3,
+    },
+    {
+      icon: "🔴",
+      title: "Kart Manyağı",
+      desc: "5+ kırmızı kart",
+      unlocked: totals.red >= 5,
+    },
+  ];
+
+  return (
+    <div className="space-y-3">
+      {/* Mevcut sezon özeti */}
+      <div className="tm-card p-3">
+        <div className="text-[11px] text-muted-foreground uppercase font-bold mb-2">Bu Sezon</div>
+        <div className="grid grid-cols-4 gap-2 text-center">
+          <div>
+            <div className="text-lg font-bold text-amber-300 tabular-nums">{currentApps}</div>
+            <div className="text-[9px] text-muted-foreground">Maç</div>
+          </div>
+          <div>
+            <div className="text-lg font-bold text-emerald-400 tabular-nums">{currentGoals}</div>
+            <div className="text-[9px] text-muted-foreground">Gol</div>
+          </div>
+          <div>
+            <div className="text-lg font-bold text-sky-400 tabular-nums">{currentAssists}</div>
+            <div className="text-[9px] text-muted-foreground">Asist</div>
+          </div>
+          <div>
+            <div className="text-lg font-bold text-purple-400 tabular-nums">{currentMotm}</div>
+            <div className="text-[9px] text-muted-foreground">MOTM</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Kariyer toplamları */}
+      <div className="tm-card p-3">
+        <div className="text-[11px] text-muted-foreground uppercase font-bold mb-2">Kariyer Toplamı</div>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="bg-muted/30 rounded-lg p-2">
+            <div className="text-sm font-bold tabular-nums">{totals.apps}</div>
+            <div className="text-[9px] text-muted-foreground">Maç</div>
+          </div>
+          <div className="bg-muted/30 rounded-lg p-2">
+            <div className="text-sm font-bold tabular-nums text-emerald-400">{totals.goals}</div>
+            <div className="text-[9px] text-muted-foreground">Gol</div>
+          </div>
+          <div className="bg-muted/30 rounded-lg p-2">
+            <div className="text-sm font-bold tabular-nums text-sky-400">{totals.assists}</div>
+            <div className="text-[9px] text-muted-foreground">Asist</div>
+          </div>
+        </div>
+
+        {/* Gol türleri */}
+        {totals.goals > 0 && (
+          <div className="mt-2 pt-2 border-t border-border">
+            <div className="text-[9px] text-muted-foreground mb-1">Gol Dağılımı</div>
+            <div className="flex gap-2 text-[10px]">
+              <span className="text-muted-foreground">🦶 Sağ: <span className="font-bold text-foreground">{totals.right}</span></span>
+              <span className="text-muted-foreground">🦶 Sol: <span className="font-bold text-foreground">{totals.left}</span></span>
+              <span className="text-muted-foreground">🧠 Kafa: <span className="font-bold text-foreground">{totals.head}</span></span>
+              {totals.penalty > 0 && <span className="text-muted-foreground">🎯 Penaltı: <span className="font-bold text-foreground">{totals.penalty}</span></span>}
+              {totals.freekick > 0 && <span className="text-muted-foreground">🎯 Serbest: <span className="font-bold text-foreground">{totals.freekick}</span></span>}
+            </div>
+          </div>
+        )}
+
+        {/* Kartlar */}
+        <div className="mt-2 flex gap-2 text-[10px]">
+          <span className="text-amber-400">🟨 {totals.yellow}</span>
+          <span className="text-red-400">🟥 {totals.red}</span>
+          <span className="text-muted-foreground">⏱️ {Math.round(totals.minutes / 60)}sa</span>
+        </div>
+      </div>
+
+      {/* Başarı rozetleri */}
+      <div>
+        <div className="text-[11px] text-muted-foreground uppercase font-bold mb-2">Başarılar</div>
+        <div className="grid grid-cols-2 gap-2">
+          {achievements.map((ach, i) => (
+            <div
+              key={i}
+              className={cn(
+                "tm-card p-2.5 flex items-center gap-2",
+                ach.unlocked ? "opacity-100" : "opacity-40"
+              )}
+            >
+              <div className={cn(
+                "w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0",
+                ach.unlocked ? "bg-amber-500/20" : "bg-muted/30 grayscale"
+              )}>
+                {ach.icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] font-bold truncate">{ach.title}</div>
+                <div className="text-[9px] text-muted-foreground truncate">{ach.desc}</div>
+              </div>
+              {ach.unlocked && <Check size={12} className="text-emerald-400 shrink-0" />}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Sezon geçmişi (özet) */}
+      {seasonHistory.length > 0 && (
+        <div>
+          <div className="text-[11px] text-muted-foreground uppercase font-bold mb-2">Sezon Geçmişi</div>
+          <div className="space-y-1">
+            {seasonHistory.slice(-5).reverse().map((s, i) => (
+              <div key={i} className="tm-card p-2 flex items-center justify-between text-[10px]">
+                <span className="font-bold">{s.season}</span>
+                <div className="flex gap-2">
+                  <span className="text-muted-foreground">{s.appearances} maç</span>
+                  <span className="text-emerald-400 font-bold">{s.goals}G</span>
+                  <span className="text-sky-400 font-bold">{s.assists}A</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
