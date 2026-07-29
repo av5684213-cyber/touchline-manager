@@ -7,6 +7,7 @@ import {
   generateAllClubs,
   generateClubsForLeague,
   generatePlayer,
+  ARKETIPLER,
   type Formation,
   type LeagueTier,
   type Department,
@@ -3562,6 +3563,11 @@ export const useAppStore = create<AppState>()(
             return { success: false, reason: "Bu oyuncuda ilgili negatif trait yok" };
           }
         } else if (card.cardType === "arketip") {
+          // v2.9.31: Pozisyon uyumu kontrolü (server-side güvenlik)
+          const validArketips = ARKETIPLER[player.specificPosition] ?? [];
+          if (!validArketips.includes(card.cardName)) {
+            return { success: false, reason: "Bu arketip bu pozisyon için uygun değil" };
+          }
           if (player.archetype === card.cardName) {
             return { success: false, reason: "Oyuncu zaten bu arketipte" };
           }

@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { X, Wand2, Check, AlertCircle, Crown } from "lucide-react";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { PlayerAvatar, PositionPill, RatingBadge } from "./ui-bits";
-import { POSITION_GROUP } from "@/lib/mock/data";
+import { POSITION_GROUP, ARKETIPLER } from "@/lib/mock/data";
 import { cn } from "@/lib/utils";
 import { haptic, useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline";
 import type { ShopCard } from "@/lib/card-system";
@@ -47,6 +47,9 @@ export function CardApplyModal({
       return (player.negTraits ?? []).includes(negTraitName);
     }
     if (card.cardType === "arketip") {
+      // v2.9.31: Pozisyon uyumu kontrolü — defans oyuncusuna forvet arketipi basılamaz
+      const validArketips = ARKETIPLER[player.specificPosition] ?? [];
+      if (!validArketips.includes(card.cardName)) return false;
       // Aynı arketip varsa değiştirme
       return player.archetype !== card.cardName;
     }

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { type Locale } from "@/lib/i18n/types";
 import { X, User, Upload, ArrowLeftRight, Banknote, Wand2, Crown } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
-import { POSITION_GROUP, type Player, type SeasonStat } from "@/lib/mock/data";
+import { POSITION_GROUP, ARKETIPLER, type Player, type SeasonStat } from "@/lib/mock/data";
 import { TIER_TEAM_NAMES, TEAM_NAME_BANK } from "@/lib/match/engine/constants";
 import { getArketipEtkiOzet, getOvrFactorPercent } from "@/lib/match/engine/arketipEffects";
 import { SEASON_INFO, isTransferWindowOpen } from "@/lib/mock/season";
@@ -423,19 +423,26 @@ function OverviewTab({
         </div>
       </div>
 
-      {/* Traits */}
-      {(player.traits.length > 0 || (player.negTraits && player.negTraits.length > 0)) && (
+      {/* v2.9.31: Traits — kart basılınca burada görünür (pozitif=yeşil, negatif=kırmızı) */}
+      {((player.traits?.length ?? 0) > 0 || (player.negTraits?.length ?? 0) > 0) && (
         <div>
-          <div className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">Yetenekler</div>
+          <div className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">
+            Yetenekler {((player.traits?.length ?? 0) > 0) && (
+              <span className="text-emerald-400">({player.traits!.length} pozitif)</span>
+            )}
+            {((player.negTraits?.length ?? 0) > 0) && (
+              <span className="text-red-400"> · {player.negTraits!.length} negatif</span>
+            )}
+          </div>
           <div className="flex flex-wrap gap-1">
-            {player.traits.map((tr) => (
+            {player.traits?.map((tr) => (
               <span key={tr} className="px-1.5 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                {tr}
+                ✅ {tr}
               </span>
             ))}
             {player.negTraits?.map((tr) => (
               <span key={tr} className="px-1.5 py-0.5 rounded text-[11px] font-semibold bg-red-500/20 text-red-300 border border-red-500/30">
-                🚩 {tr}
+                ❌ {tr}
               </span>
             ))}
           </div>
@@ -2338,6 +2345,9 @@ function PlayerCardPickerModal({ player, onClose }: { player: Player; onClose: (
       return (player.negTraits ?? []).includes(negTraitName);
     }
     if (card.cardType === "arketip") {
+      // v2.9.31: Pozisyon uyumu kontrolü
+      const validArketips = ARKETIPLER[player.specificPosition] ?? [];
+      if (!validArketips.includes(card.cardName)) return false;
       return player.archetype !== card.cardName;
     }
     return false;
