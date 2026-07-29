@@ -887,6 +887,48 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
     const updatedTeam = { ...team, players: updatedPlayers };
     const updatedClubs = clubs.map((c) => (c.id === teamId ? updatedTeam : c));
 
+    // v2.9.29 P0-1: RAKİP (bot) takımın oyuncularına da sakatlık + kart cezası uygula
+    // Eski kod SADECE kullanıcı takımına uyguluyordu → bot yıldızları hep tam güç oynuyordu (haksızlık)
+    // home/away parametrelerinden rakip takımı bul
+    const opponentTeam = teamId === home.id ? away : home;
+    const opponentId = opponentTeam?.id;
+    if (opponentId && opponentId !== teamId) {
+      const opponentClub = updatedClubs.find((c) => c.id === opponentId);
+      if (opponentClub) {
+        const oppUpdatedPlayers = opponentClub.players.map((p) => {
+          const isOppInjured = injuredIds.has(p.id);
+          const isOppSuspended = suspendedIds.has(p.id);
+          if (!isOppInjured && !isOppSuspended) return p;
+
+          const oppUpdates: any = {};
+          if (isOppInjured) {
+            const oppInjuryDuration = Math.floor(Math.random() * 14) + 3;
+            const oppSeverity = Math.floor(Math.random() * 5) + 1;
+            const oppInjuryType = oppSeverity <= 2 ? "light" as const
+              : oppSeverity <= 4 ? "chronic" as const
+              : "risky" as const;
+            oppUpdates.is_injured = true;
+            oppUpdates.injury = { type: oppInjuryType, remaining_days: oppInjuryDuration, severity: oppSeverity };
+          }
+          if (isOppSuspended && !isFriendly) {
+            oppUpdates.suspended_until = String(useAppStore.getState().seasonMatchday + 2);
+          }
+
+          // Kondisyon düşür (basit — maç oynadılar)
+          const oppCondDrain = Math.floor(8 + Math.random() * 8);
+          oppUpdates.cond = Math.max(20, Math.min(100, p.cond - oppCondDrain));
+          oppUpdates.condition = oppUpdates.cond;
+
+          return { ...p, ...oppUpdates };
+        });
+        // Rakip takımın oyuncularını güncelle
+        const oppClubIndex = updatedClubs.findIndex((c) => c.id === opponentId);
+        if (oppClubIndex >= 0) {
+          updatedClubs[oppClubIndex] = { ...updatedClubs[oppClubIndex], players: oppUpdatedPlayers };
+        }
+      }
+    }
+
     // MOTM ödul sayısını artır
     if (result.manOfTheMatch) {
       const motmClub = updatedClubs.find((c) => c.players.some((p) => p.id === result.manOfTheMatch));

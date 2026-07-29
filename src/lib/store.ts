@@ -1395,9 +1395,11 @@ export const useAppStore = create<AppState>()(
           ? clubs.find((c) => c.id === offer.buyerTeamId)
           : null;
         if (!buyerTeam) {
-          // Sahte buyerTeamId veya buyerTeamId yok — bütçesi yeterli rastgele bot seç
+          // v2.9.29 P0-2: Bot alıcıda 25-oyuncu + GK limiti kontrolü ekle
           const candidates = clubs.filter((c) =>
             c.id !== myTeamId && c.is_bot && c.budget >= offer.offerAmount
+            && c.players.length < 25 // kadro limiti
+            && (player.specificPosition !== "GK" || c.players.filter(p => p.specificPosition === "GK").length < 3) // GK limiti
           );
           if (candidates.length > 0) {
             buyerTeam = candidates[Math.floor(Math.random() * candidates.length)];
@@ -3242,13 +3244,23 @@ export const useAppStore = create<AppState>()(
             if (team.players.length >= 25) {
               return { success: false, reason: "squad-full" };
             }
+            // v2.9.29 P1-3: GK limiti kontrolü (acceptCounterOffer)
+            if (player.specificPosition === "GK") {
+              const gkCount = team.players.filter(p => p.specificPosition === "GK").length;
+              if (gkCount >= 3) {
+                return { success: false, reason: "gk-limit" };
+              }
+            }
+            // v2.9.29 P1-4: completeTransfer'da agent+signing fee hesapla
+            // Eski kod sadece msg.amount düşüyordu — makeTransferOffer ile tutarsız
+            const completeTotal = (msg.counterOffer ?? 0) + Math.round((msg.counterOffer ?? 0) * 0.05) + Math.round((msg.counterOffer ?? 0) * 0.03);
             const updatedPlayer = { ...player, weeklyWage: player.weeklyWage, salary: player.weeklyWage };
             const updatedClubs = clubs.map((c) => {
               if (c.id === team.id) {
-                return { ...c, budget: c.budget - (msg.amount ?? 0), players: [...c.players, updatedPlayer] };
+                return { ...c, budget: c.budget - completeTotal, players: [...c.players, updatedPlayer] };
               }
               if (sellerTeam && c.id === sellerTeam.id) {
-                return { ...c, budget: c.budget + (msg.amount ?? 0), players: c.players.filter((p) => p.id !== playerId) };
+                return { ...c, budget: c.budget + (msg.counterOffer ?? 0), players: c.players.filter((p) => p.id !== playerId) };
               }
               return c;
             });
@@ -3302,6 +3314,13 @@ export const useAppStore = create<AppState>()(
           if (player) {
             if (team.players.length >= 25) {
               return { success: false, reason: "squad-full" };
+            }
+            // v2.9.29 P1-3: GK limiti kontrolü (acceptCounterOffer)
+            if (player.specificPosition === "GK") {
+              const gkCount = team.players.filter(p => p.specificPosition === "GK").length;
+              if (gkCount >= 3) {
+                return { success: false, reason: "gk-limit" };
+              }
             }
             const updatedPlayer = { ...player, weeklyWage: player.weeklyWage, salary: player.weeklyWage };
             const updatedClubs = clubs.map((c) => {
@@ -3528,31 +3547,40 @@ export const useAppStore = create<AppState>()(
         const player = myTeam.players.find(p => p.id === playerId);
         if (!player) return { success: false, reason: "Oyuncu bulunamadı" };
 
+        // v2.9.29 P2-7: Kart uygulanabilirlik kontrolü (map öncesi — israfı önle)
+        if (card.cardType === "trait_positive") {
+          if ((player.traits ?? []).includes(card.cardName)) {
+            return { success: false, reason: "Bu oyuncuda zaten bu trait var" };
+          }
+        } else if (card.cardType === "trait_negative_removal") {
+          const negTraitName = card.effectData?.negTraitName;
+          if (!(player.negTraits ?? []).includes(negTraitName)) {
+            return { success: false, reason: "Bu oyuncuda ilgili negatif trait yok" };
+          }
+        } else if (card.cardType === "arketip") {
+          if (player.archetype === card.cardName) {
+            return { success: false, reason: "Oyuncu zaten bu arketipte" };
+          }
+        }
+
         // Kart tipine göre uygula
         const updatedPlayers = myTeam.players.map(p => {
           if (p.id !== playerId) return p;
           const updated = { ...p };
 
           if (card.cardType === "trait_positive") {
-            // Pozitif trait ekle (aynısı varsa tekrar ekleme)
+            // Pozitif trait ekle
             const traits = updated.traits ?? [];
-            if (!traits.includes(card.cardName)) {
-              updated.traits = [...traits, card.cardName];
-            }
+            updated.traits = [...traits, card.cardName];
           } else if (card.cardType === "trait_negative_removal") {
             // Negatif trait kaldır
-            // card.effectData.negTraitName → kaldırılacak negatif trait adı
             const negTraitName = card.effectData?.negTraitName;
             if (negTraitName) {
               const negTraits = updated.negTraits ?? [];
-              if (!negTraits.includes(negTraitName)) {
-                return p; // oyuncuda bu negatif trait yok — kart uygulanamaz
-              }
               updated.negTraits = negTraits.filter(t => t !== negTraitName);
               // v2.9.28 FIX: Penaltıyı geri ALMA — penalty baz stat'lara hiç uygulanmadı.
               // Penalty sadece maç motoru simülasyon sırasında geçici olarak uygulanıyor.
               // Sadece trait adını kaldırmak yeterli — maç motoru artık penaltı uygulamayacak.
-              // Eski kod (updated as any)[stat] += ... haksız bonus veriyordu.
             }
           } else if (card.cardType === "arketip") {
             // Arketip değiştir
@@ -3561,15 +3589,7 @@ export const useAppStore = create<AppState>()(
           return updated;
         });
 
-        // Eğer oyuncu bulunamadıysa veya negatif trait yoksa uygulanamaz
-        const targetPlayer = updatedPlayers.find(p => p.id === playerId);
-        if (card.cardType === "trait_negative_removal") {
-          const negTraitName = card.effectData?.negTraitName;
-          const originalPlayer = myTeam.players.find(p => p.id === playerId);
-          if (originalPlayer && !(originalPlayer.negTraits ?? []).includes(negTraitName)) {
-            return { success: false, reason: "Bu oyuncuda ilgili negatif trait yok" };
-          }
-        }
+        // v2.9.29: Eski redundant kontrol kaldırıldı — map öncesi kontrol yeterli
 
         // Envanterden 1 adet düşür
         const updatedInventory = cardInventory
