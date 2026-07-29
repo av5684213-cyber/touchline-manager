@@ -126,23 +126,77 @@ export function GlobalMarketToolbox() {
     setError(null);
     setHasSearched(true);
     try {
-      const { supabase } = await import("@/lib/supabase/client");
-      const { data, error: searchErr } = await supabase().rpc("rpc_search_global_market", {
-        p_country_code: countryCode || null,
-        p_tier: tier === "" ? null : tier,
-        p_department_id: departmentId === "" ? null : departmentId,
-        p_position_group: positionGroup === "ALL" ? null : positionGroup,
-        p_max_price: maxPrice === "" ? null : maxPrice,
-        p_min_rating: minRating === "" ? null : minRating,
-        p_limit: 50,
-        p_offset: 0,
-      });
-      if (searchErr) {
-        setError(searchErr.message);
-        setPlayers([]);
-      } else {
-        setPlayers(data?.players ?? []);
+      // v2.9.36: Supabise RPC yerine frontend'de üret — bot takımlar Supabase'te yok
+      // Tüm ülkelerin tüm liglerinden oyuncu üret + filtre uygula
+      const { generateClubsForLeague } = await import("@/lib/mock/data");
+      const { COUNTRIES } = await import("@/lib/countries/countries");
+
+      const allPlayers: GlobalPlayer[] = [];
+
+      // Hangi ülkeleri tara?
+      const countriesToSearch = countryCode
+        ? COUNTRIES.filter(c => c.code === countryCode)
+        : COUNTRIES;
+
+      for (const country of countriesToSearch) {
+        // Hangi tier'ları tara?
+        const tiersToSearch = tier === "" ? [1, 2, 3, 4] : [tier];
+
+        for (const t of tiersToSearch) {
+          // Hangi departmanları tara?
+          const deptCount = t === 4 ? 5 : 1;
+          const deptsToSearch = departmentId === "" ? Array.from({ length: deptCount }, (_, i) => i + 1) : [departmentId];
+
+          for (const d of deptsToSearch) {
+            const clubs = generateClubsForLeague(t as any, d as any, country.code);
+            for (const club of clubs) {
+              for (const p of club.players) {
+                // Pozisyon grubu hesapla
+                const posGroup = p.specificPosition === "GK" ? "GK"
+                  : ["CB", "LB", "RB", "LWB", "RWB"].includes(p.specificPosition) ? "DEF"
+                  : ["CDM", "CM", "CAM", "LM", "RM"].includes(p.specificPosition) ? "MID"
+                  : "FWD";
+
+                // Filtreleri uygula
+                if (positionGroup !== "ALL" && posGroup !== positionGroup) continue;
+                if (minRating !== "" && p.rating < Number(minRating)) continue;
+                const askingPrice = p.marketValue ?? p.market_value ?? 500000;
+                if (maxPrice !== "" && askingPrice > Number(maxPrice)) continue;
+
+                allPlayers.push({
+                  player_id: p.id,
+                  first_name: p.firstName,
+                  last_name: p.lastName,
+                  name: p.name,
+                  position: p.specificPosition,
+                  position_group: posGroup,
+                  age: p.age,
+                  rating: p.rating,
+                  potential: p.potential,
+                  nationality: p.nationality ?? "TR",
+                  preferred_foot: p.preferred_foot ?? p.foot ?? "Right",
+                  market_value: askingPrice,
+                  is_for_sale: true,
+                  sale_price: p.sale_price ?? null,
+                  is_free_agent: false,
+                  team_id: club.id,
+                  team_name: club.name,
+                  team_short_name: club.shortName,
+                  team_country_code: country.code,
+                  team_league_tier: t,
+                  team_department_id: d,
+                  is_user_team: false,
+                  is_bot: true,
+                });
+              }
+            }
+          }
+        }
       }
+
+      // Rating'e göre sırala, en iyi 50'yi al
+      allPlayers.sort((a, b) => b.rating - a.rating);
+      setPlayers(allPlayers.slice(0, 50));
     } catch (e: any) {
       setError(e?.message ?? "Arama hatası");
       setPlayers([]);
