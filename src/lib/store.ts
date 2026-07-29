@@ -2578,11 +2578,12 @@ export const useAppStore = create<AppState>()(
         const currentDept = team.department ?? 1;
         let newTier = currentTier;
         let newDept = currentDept;
-        if (myFinalIdx < 3 && currentTier > 1) {
+        // v2.9.25 K1: league-rules.ts'teki sabitleri kullan (hardcoded 3/15 değil)
+        if (myFinalIdx < PROMOTION_COUNT && currentTier > 1) {
           // Promosyon — bir üst lig
           newTier = (currentTier - 1) as LeagueTier;
           newDept = currentDept; // aynı departman
-        } else if (myFinalIdx >= 15 && currentTier < 4) {
+        } else if (myFinalIdx >= (TEAMS_PER_LEAGUE - RELEGATION_COUNT) && currentTier < 4) {
           // Relegasyon — bir alt lig
           newTier = (currentTier + 1) as LeagueTier;
           newDept = currentDept;

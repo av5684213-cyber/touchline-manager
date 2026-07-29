@@ -64,6 +64,8 @@ import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 import { PreMatchScreen } from "../pre-match-screen";
 import { isPlayerAvailableAt } from "@/lib/player-availability";
+// v2.9.25 K4: Resmi maçlarda da rakip ile sohbet
+import { MatchChatPanel } from "../match-chat";
 
 // BULGU #5 DÜZELTME (v2.9.3): silentlySimulateMatch fonksiyonu kaldırıldı.
 // v2.9.1'de çağrımı kaldırılmıştı (BULGU #2) ama tanımı duruyordu — dead code.
@@ -129,6 +131,9 @@ export function MatchScreen() {
   }));
   // ADDED: Saha oyuncusu profil modal'ı
   const [pitchProfilePlayer, setPitchProfilePlayer] = useState<PlayerT | null>(null);
+  // v2.9.25 K4: Resmi maçta rakip ile sohbet (fixed bottom bar)
+  const [showChat, setShowChat] = useState(false);
+  const [stableUserId] = useState(() => `user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
 
   // P1 FIX: Gerçek saat kilidi kaldırıldı — FM/CM mantığı
   // Artık scheduler kullanılmıyor, oyuncu istediği an oynar
@@ -527,6 +532,35 @@ export function MatchScreen() {
           }
           onClose={() => setPitchProfilePlayer(null)}
         />
+      )}
+
+      {/* v2.9.25 K4: Resmi maçta rakip ile sohbet — fixed bottom bar
+          Maç live/paused/halftime durumundayken görünür.
+          Chat açılınca yukarı doğru box açılır, maç anlatımı sabit kalır. */}
+      {(engine.state.status === "live" || engine.state.status === "paused" || engine.state.status === "halftime") && (
+        <>
+          {/* Boşluk — chat butonu için sabit alan */}
+          <div className="h-16" />
+          {/* Sabit chat box — fixed en altta, açılınca yukarı doğru */}
+          <div className="fixed bottom-0 left-0 right-0 z-40 px-3 pb-3 pointer-events-none">
+            {showChat && (
+              <div className="pointer-events-auto mb-2 max-h-[280px] overflow-y-auto tm-thin-scrollbar bg-card border border-border rounded-t-lg shadow-lg">
+                <MatchChatPanel
+                  matchId={currentMatchId}
+                  userId={stableUserId}
+                  userName={team?.name ?? "Menajer"}
+                  onClose={() => setShowChat(false)}
+                />
+              </div>
+            )}
+            <button
+              onClick={() => { haptic("light"); setShowChat(!showChat); }}
+              className="pointer-events-auto tm-tap w-full py-2.5 rounded-md bg-sky-600 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg"
+            >
+              {showChat ? "▼ Sohbeti Kapat" : "💬 Rakip ile Sohbet"}
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
