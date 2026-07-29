@@ -10,6 +10,7 @@ import { haptic } from "@/hooks/touchline";
 import { PlayerProfileModal } from "../player-profile-modal";
 // v2.9.24: Dropdown ile her lig + departman seçilebilir
 import { generateClubsForLeague, LEAGUE_NAMES, type LeagueTier, type Department } from "@/lib/mock/data";
+import { getCountryList } from "@/lib/countries/countries";
 import type { Player } from "@/lib/mock/data";
 
 type SortKey = "goals" | "assists" | "rating" | "motm" | "appearances";
@@ -27,21 +28,21 @@ export function TopScorersScreen() {
   const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
 
   // v2.9.24: "Tüm Lig" sekmesinde lig + departman dropdown
-  // Kullanıcı kendi liginde değil, başka lig/departman da seçebilir
+  // v2.9.39: Ülke dropdown eklendi
   const userTier = (myTeam?.leagueTier ?? 2) as LeagueTier;
   const userDept = (myTeam?.department ?? 1) as Department;
+  const [selCountry, setSelCountry] = useState<string>("TR");
   const [selTier, setSelTier] = useState<LeagueTier>(userTier);
   const [selDept, setSelDept] = useState<Department>(userDept);
 
   // Seçili lig kullanıcının kendi ligi mi?
-  const isMyLeague = selTier === userTier && selDept === userDept;
+  const isMyLeague = selCountry === "TR" && selTier === userTier && selDept === userDept;
 
-  // v2.9.24: Başka lig/departman seçilirse, o ligin bot takımlarını üret
-  // Kullanıcının liginde clubs state'i kullanılır, diğerlerinde generateClubsForLeague
+  // v2.9.39: Başka lig/departman/ülke seçilirse, o ligin bot takımlarını üret
   const otherLeagueClubs = useMemo(() => {
     if (isMyLeague) return [];
-    return generateClubsForLeague(selTier, selDept);
-  }, [isMyLeague, selTier, selDept]);
+    return generateClubsForLeague(selTier, selDept, selCountry);
+  }, [isMyLeague, selTier, selDept, selCountry]);
 
   const allPlayers = useMemo(() => {
     const list: Array<{ player: any; team: any; isMyPlayer: boolean; isOtherLeague?: boolean }> = [];
@@ -169,11 +170,30 @@ export function TopScorersScreen() {
         </button>
       </div>
 
-      {/* v2.9.24: Lig + Departman dropdown — sadece "Tüm Lig" sekmesinde */}
+      {/* v2.9.39: Ülke + Lig + Departman dropdown — sadece "Tüm Lig" sekmesinde */}
       {tier === "all" && (
         <div className="tm-card p-2.5 space-y-2">
           <div className="text-[10px] text-muted-foreground uppercase font-bold flex items-center gap-1">
             <ChevronDown size={11} /> Lig Seç
+          </div>
+          {/* Ülke dropdown */}
+          <div>
+            <label className="text-[9px] text-muted-foreground block mb-0.5">Ülke</label>
+            <select
+              value={selCountry}
+              onChange={(e) => {
+                haptic("light");
+                setSelCountry(e.target.value);
+                setSelDept(1 as Department);
+              }}
+              className="w-full px-2.5 py-2 rounded-lg bg-card border border-border text-xs cursor-pointer"
+            >
+              {getCountryList().map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.flag_emoji} {c.name_tr}
+                </option>
+              ))}
+            </select>
           </div>
           {/* Lig (tier) dropdown */}
           <div>
