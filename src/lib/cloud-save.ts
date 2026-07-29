@@ -268,16 +268,35 @@ export function saveGameState(userId: string, immediate: boolean = false) {
 }
 
 /**
- * v2.9.20 GÖREV 1: Taktik için hızlı debounce'lu kayıt.
+ * v2.9.26 T1: Taktik için hızlı debounce'lu kayıt.
  * Taktik değişikliği daha kritik (kullanıcı anında görmek istiyor) — 1.5 sn.
  * user_game_state JSON'a yazmaz, sadece active_tactics tablosuna yazar.
  * (JSON'a yazım genel debounce ile 3 sn sonra yapılır.)
+ *
+ * v2.9.26 T1: isLoaded kontrolü KALDIRILDI — taktik her zaman kaydedilsin.
+ * Eski: isLoaded false ise taktik kaydedilmiyordu (loadGameState bitmeden önce).
+ * Yeni: isLoaded bağımsız, taktik değişikliği her zaman kaydedilir.
+ * Bu, Android'de beforeunload güvenilmez olduğu için kritik —
+ * kullanıcı taktik değiştirip ana ekrana dönerse, değişiklik 1.5 sn içinde kaydedilir.
  */
 export function saveTacticsState(userId: string, immediate: boolean = false) {
-  if (!isLoaded && !immediate) return;
-
+  // v2.9.26: isLoaded kontrolü yok — her zaman kaydet
   const doSave = async () => {
-    await saveTacticsToTable(userId);
+    try {
+      await saveTacticsToTable(userId);
+      // v2.9.26: localStorage'a da taktik yedekle (offline koruma)
+      if (typeof window !== "undefined") {
+        try {
+          const state = useAppStore.getState();
+          const tacticsBackup = { tactics: state.tactics, _timestamp: Date.now() };
+          localStorage.setItem("tm_tactics_backup", JSON.stringify(tacticsBackup));
+        } catch {
+          /* localStorage erişilemezse sessizce geç */
+        }
+      }
+    } catch (e: any) {
+      console.warn("[cloud-save] Tactics save failed:", e?.message ?? e);
+    }
   };
 
   if (immediate) {
@@ -294,8 +313,13 @@ export function saveTacticsState(userId: string, immediate: boolean = false) {
  * Auth context'te kullanıcı giriş yapınca çağrılır.
  *
  * v2.9.20: Taktik değiştiyse ek olarak hızlı debounce tetiklenir.
+ * v2.9.26 T1: visibilitychange ile arka plana atınca hemen kaydet (Android güvenilirliği)
  */
+let currentUserId: string | null = null;
+let visibilityHandler: (() => void) | null = null;
+
 export function initCloudSave(userId: string) {
+  currentUserId = userId;
   // Önce yükle
   loadGameState(userId).then(() => {
     // Sonra store değişikliklerini dinle
@@ -320,6 +344,33 @@ export function initCloudSave(userId: string) {
       }
     });
 
+    // v2.9.26 T1: visibilitychange — Android'de arka plana atınca hemen kaydet
+    // beforeunload güvenilir değil, ama visibilitychange daha güvenilir.
+    // Kullanıcı ana ekran tuşuna basınca document.visibilityState = 'hidden' olur.
+    if (typeof document !== "undefined") {
+      // Eski handler'ı temizle
+      if (visibilityHandler) {
+        document.removeEventListener("visibilitychange", visibilityHandler);
+      }
+      visibilityHandler = () => {
+        if (document.visibilityState === "hidden" && currentUserId) {
+          // Bekleyen debounce'lu save'leri hemen çalıştır
+          if (tacticsSaveTimeoutId) {
+            clearTimeout(tacticsSaveTimeoutId);
+            tacticsSaveTimeoutId = null;
+          }
+          if (generalSaveTimeoutId) {
+            clearTimeout(generalSaveTimeoutId);
+            generalSaveTimeoutId = null;
+          }
+          // Immediate save — arka plana atılmadan önce kaydet
+          saveTacticsState(currentUserId, true);
+          saveGameState(currentUserId, true);
+        }
+      };
+      document.addEventListener("visibilitychange", visibilityHandler);
+    }
+
     console.log("[cloud-save] Auto-save started for user:", userId);
   });
 }
@@ -340,6 +391,12 @@ export function stopCloudSave() {
     unsubscribeFn();
     unsubscribeFn = null;
   }
+  // v2.9.26 T1: visibilitychange handler'ı temizle
+  if (visibilityHandler && typeof document !== "undefined") {
+    document.removeEventListener("visibilitychange", visibilityHandler);
+    visibilityHandler = null;
+  }
+  currentUserId = null;
   isLoaded = false;
   console.log("[cloud-save] Stopped");
 }

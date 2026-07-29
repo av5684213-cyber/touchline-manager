@@ -641,11 +641,13 @@ export const dict: Dict = {
 
   // ---- friendly ----
   "friendly.title": { tr: "Hazırlık Maçı", en: "Friendly Match" },
-  "friendly.join_queue": { tr: "Online Sıraya Gir", en: "Join Online Queue" },
-  "friendly.instant_match": { tr: "Hemen Maç", en: "Instant Match" },
-  "friendly.searching": { tr: "Aranıyor...", en: "Searching..." },
+  "friendly.join_queue": { tr: "Bot Rakiple Oyna", en: "Play vs Bot" },
+  "friendly.instant_match": { tr: "Hemen Maç Başlat", en: "Start Match Now" },
+  "friendly.searching": { tr: "Hazırlanıyor...", en: "Preparing..." },
   "friendly.cancel": { tr: "İptal Et", en: "Cancel" },
-  "friendly.online_searching": { tr: "Online kullanıcı aranıyor...", en: "Searching for online users..." },
+  "friendly.online_searching": { tr: "Bot rakip hazırlanıyor...", en: "Bot opponent preparing..." },
+  // v2.9.26 T2: Gerçeği yansıtan ek metinler
+  "friendly.desc": { tr: "Bot takımlarla dostluk maçı oyna. Sonuç kaydedilmez.", en: "Play friendly match vs bot teams. Result not saved." },
 
   // ---- common extras ----
   "common.credits": { tr: "Kredi", en: "Credits" },

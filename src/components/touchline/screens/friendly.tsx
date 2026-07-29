@@ -311,7 +311,7 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
           className="tm-tap flex flex-col items-center gap-1 p-3 rounded-lg bg-emerald-600 text-white text-xs font-bold active:scale-[0.98] transition-transform disabled:opacity-50"
         >
           <Users size={20} />
-          {queueStatus === "searching" ? "Aranıyor..." : "Online Sohbet + Maç"}
+          {queueStatus === "searching" ? "Hazırlanıyor..." : "Bot Rakiple Oyna"}
         </button>
         <button
           onClick={handleInstantMatch}
@@ -320,7 +320,7 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
         >
           <Search size={20} />
           <span className="flex items-center gap-1">
-            Hemen Maç
+            Hemen Maç Başlat
             <span className="flex items-center gap-0.5 px-1 py-0.5 rounded-full bg-amber-500/30">
               <Coins size={10} /> 2
             </span>
@@ -328,9 +328,9 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
         </button>
       </div>
 
-      {/* P0 FIX BUG #12: Dürüst açıklama — online mod gerçekte nedir? */}
+      {/* v2.9.26 T2: Dürüst açıklama — bot rakiple pratik maçı */}
       <div className="tm-card p-2.5 bg-sky-500/5 border-sky-500/20 text-[10px] text-muted-foreground leading-relaxed">
-        ℹ️ <strong className="text-foreground">Online Sohbet + Maç:</strong> Diğer online oyuncularla eşleşir, maç sırasında sohbet edebilirsiniz. Maç, rakibin OVR'sine yakın bir <strong className="text-foreground">bot takıma</strong> karşı oynanır (gerçek online maç henüz desteklenmiyor).
+        ℹ️ <strong className="text-foreground">Bot Rakiple Oyna:</strong> Rakibinin OVR'sine yakın bir <strong className="text-foreground">bot takıma</strong> karşı dostluk maçı oynarsın. Sonuç kaydedilmez, sadece pratik. Maç sırasında rakip ile sohbet edebilirsin.
       </div>
 
       {/* Queue searching indicator */}
