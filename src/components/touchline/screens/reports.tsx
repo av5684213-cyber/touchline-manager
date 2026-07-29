@@ -357,18 +357,26 @@ function FinancialReport({
   // P1 FIX: Reaktif okuma — getState() yerine hook kullan
   const transfer = useAppStore((s) => s.transfer);
 
-  // Gelir hesapları
-  const stadiumCap = 5000 + facilities.levels.stadium * 10000;
-  const stadiumMult = 1 + facilities.levels.stadium * 0.1;
-  const ticketRev = Math.round(stadiumCap * 0.6 * facilities.ticketPrice * stadiumMult);
-  const sponsor = 200_000 + facilities.levels.stadium * 30_000;
-  const tv = 150_000;
-  const merch = Math.round(stadiumCap * 0.4 * 2);
+  // v2.9.45 FIX: Gelir hesapları — store.ts advanceMatchday ve finance.tsx ile BİREBİR AYNI
+  // Eski kod 5-10x şişirilmiş değerler gösteriyordu → kullanıcı yanıltıcıydı
+  const stadiumCap = 5000 + facilities.levels.stadium * 5000;
+  const stadiumMult = 1 + facilities.levels.stadium * 0.05;
+  const myTier = team.leagueTier ?? 2;
+  const tierBonus = (5 - myTier) * 0.04;
+  const fillRate = Math.max(0.2, Math.min(0.85, 1 - (facilities.ticketPrice / 250) + tierBonus));
+  const ticketRev = Math.round(stadiumCap * fillRate * facilities.ticketPrice * stadiumMult);
+  const dynamicSponsorIncome = (useAppStore.getState().sponsors?.active ?? []).reduce(
+    (s: number, sp: any) => s + (sp.amount ?? 0), 0
+  );
+  const sponsor = 50_000 + facilities.levels.stadium * 10_000 + dynamicSponsorIncome;
+  const tv = 50_000;
+  const merch = Math.round(stadiumCap * 0.2 + facilities.levels.academy * 5000);
   const totalIncome = ticketRev + sponsor + tv + merch;
 
-  // Gider hesapları — P0 FIX: Oyuncu maaşları kaldırıldı, sadece personel + tesis
+  // Gider hesapları — store.ts ile BİREBİR AYNI: seviye başına 20K/hafta
+  // Eski kod 5K kullanıyordu → gider düşük görünüyordu
   const staffWages = facilities.staff.reduce((s: number, st: any) => s + st.weeklyWage, 0);
-  const facilityCost = Object.values(facilities.levels).reduce((s: number, l: any) => s + l * 5000, 0);
+  const facilityCost = Object.values(facilities.levels).reduce((s: number, l: any) => s + l * 20000, 0);
   const totalExpense = staffWages + facilityCost;
   const net = totalIncome - totalExpense;
 

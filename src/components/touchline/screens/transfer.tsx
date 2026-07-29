@@ -126,14 +126,22 @@ export function TransferScreen() {
         </span>
       </div>
 
-      {/* v2.9.22 Y4: Sub-tabs — 8 sekme yerine 4 ana sekme (kullanıcı "çok karışık" dedi) */}
+      {/* v2.9.22 Y4: Sub-tabs — v2.9.45 düzeltme: 4 unreachable tab artık erişilebilir
+          - "market" → serbest ajanlar + tüm ligler + takımsız (tek sekmede birleşik)
+          - "global" → küresel transfer arama
+          - "incoming" → gelen teklifler + watchlist (aynı sekmede)
+          - "mylisted" → satılık oyuncular + kiralık listesi (aynı sekmede)
+          Yeni 2 sekme: "watchlist" ve "loan" — kullanıcı bunlara erişemiyordu
+      */}
       <div className="flex gap-1.5 overflow-x-auto tm-no-scrollbar">
         {(
           [
             { key: "market", label: "🛒 Pazar", count: transfer.freeAgents.length + allClubPlayers.length + (transfer.freeAgentListings?.length ?? 0) },
             { key: "global", label: "🌍 Küresel", count: 0 },
-            { key: "incoming", label: "📥 Tekliflerim", count: transfer.incomingOffers.length + transfer.watchlist.length },
-            { key: "mylisted", label: "📤 İlanlarım", count: transfer.myListedPlayers.length + (transfer.loanListings?.length ?? 0) },
+            { key: "watchlist", label: "⭐ İzleme", count: transfer.watchlist.length },
+            { key: "loan", label: "🔄 Kiralık", count: transfer.loanListings?.length ?? 0 },
+            { key: "incoming", label: "📥 Tekliflerim", count: transfer.incomingOffers.length },
+            { key: "mylisted", label: "📤 İlanlarım", count: transfer.myListedPlayers.length },
           ] as { key: SubTab; label: string; count: number }[]
         ).map((tab) => (
           <button

@@ -17,6 +17,9 @@ import {
   ShoppingBag,
   Palette,
   MessageSquare,
+  Inbox,
+  Newspaper,
+  type LucideIcon,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { haptic } from "@/hooks/touchline";
@@ -44,6 +47,9 @@ export type TabKey =
   // kullanıcı "market sekmesini kaldır, içindekileri sil" dedi. Shop sekmesi kaldı (kredi paketleri).
   | "leaderboard" // P0: Liderlik tablosu
   | "forum" // v2.9.32: Forum
+  // v2.9.45: Önceden orphan olan 3 ekran artık menüde
+  | "news" // Haberler
+  | "messages" // Mesajlar (tam liste)
   // Üst şerit sekmesi — coming-soon
   | "friendly";
 
@@ -55,7 +61,7 @@ export const MAIN_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: s
   { key: "finance", icon: Wallet, labelKey: "nav.finance" },
 ];
 
-export const OTHER_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: string }[] = [
+export const OTHER_TABS: { key: TabKey; icon: LucideIcon; labelKey: string }[] = [
   { key: "leaderboard", icon: Trophy, labelKey: "nav.leaderboard" },
   { key: "forum", icon: MessageSquare, labelKey: "nav.forum" },
   { key: "shop", icon: ShoppingBag, labelKey: "nav.shop" },
@@ -64,6 +70,9 @@ export const OTHER_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: 
   { key: "topscorers", icon: Crown, labelKey: "nav.topscorers" },
   { key: "awards", icon: Award, labelKey: "nav.awards" },
   { key: "reports", icon: BarChart3, labelKey: "nav.reports" },
+  // v2.9.45: Önceden orphan olan 2 ekran — haberler + mesajlar
+  { key: "news", icon: Newspaper, labelKey: "nav.news" },
+  { key: "messages", icon: Inbox, labelKey: "nav.messages" },
 ];
 
 export function BottomNav({

@@ -58,14 +58,27 @@ export function TopScorersScreen() {
           }
         }
       } else {
-        // Başka lig — bot takımların oyuncularını üret + sahte maç verisi ekle
-        // (kullanıcının ligindeki rakipleri simüle — sezon boyunca oynuyorlar)
+        // v2.9.45 FIX: Başka lig — bot takımların oyuncularına STABİL sahte maç verisi ekle
+        // Eski kod: Math.random() kullanıyordu → her açılışta farklı istatistik gösteriyordu
+        // Şimdi: oyuncu ID'sine göre deterministic hash ile sahte gol/asist üret
+        // Böylece kullanıcı aynı oyuncuyu tekrar açtığında aynı değerleri görür
+        const hash = (s: string): number => {
+          let h = 0;
+          for (let i = 0; i < s.length; i++) {
+            h = ((h << 5) - h) + s.charCodeAt(i);
+            h |= 0;
+          }
+          return Math.abs(h);
+        };
+        const seasonNumber = useAppStore.getState().seasonNumber ?? 1;
         for (const club of otherLeagueClubs) {
           for (const p of club.players) {
-            if (!p.appearances) p.appearances = Math.floor(Math.random() * 25) + 5;
-            if (!p.goals) p.goals = p.specificPosition === "GK" ? 0 : Math.floor(Math.random() * 12);
-            if (!p.assists) p.assists = p.specificPosition === "GK" ? 0 : Math.floor(Math.random() * 8);
-            if (!p.motmAwards) p.motmAwards = Math.floor(Math.random() * 3);
+            // Oyuncu ID + sezon sayısı → deterministic seed
+            const seed = hash(`${p.id}_${seasonNumber}`);
+            if (!p.appearances) p.appearances = 5 + (seed % 25);
+            if (!p.goals) p.goals = p.specificPosition === "GK" ? 0 : (seed % 13);
+            if (!p.assists) p.assists = p.specificPosition === "GK" ? 0 : ((seed >> 4) % 9);
+            if (!p.motmAwards) p.motmAwards = (seed >> 8) % 3;
             list.push({ player: p, team: club, isMyPlayer: false, isOtherLeague: true });
           }
         }

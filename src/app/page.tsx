@@ -23,7 +23,8 @@ import { FinanceScreen } from "@/components/touchline/screens/finance";
 import { AwardsScreen } from "@/components/touchline/screens/awards";
 import { CupScreen } from "@/components/touchline/screens/cup";
 import { TopScorersScreen } from "@/components/touchline/screens/top-scorers";
-import { WeeklyReportScreen } from "@/components/touchline/screens/weekly-report";
+// v2.9.45: WeeklyReportScreen import'u KALDIRILDI — orphan code, hiçbir yerde kullanılmıyordu
+// (Dashboard'da zaten weekly bilgiler gösteriliyor; gelecekte "reports" sekmesine taşınabilir)
 import { ReportsScreen } from "@/components/touchline/screens/reports";
 import { ComingSoonScreen } from "@/components/touchline/screens/coming-soon";
 import { FriendlyScreen } from "@/components/touchline/screens/friendly";
@@ -31,6 +32,9 @@ import { ForumScreen } from "@/components/touchline/screens/forum";
 import { ShopScreen } from "@/components/touchline/screens/shop";
 // v2.9.21 GÖREV 7: MarketScreen import'u KALDIRILDI
 import { LeaderboardScreen } from "@/components/touchline/screens/leaderboard";
+// v2.9.45: Önceden orphan olan ekranlar artık menüde
+import { NewsScreen } from "@/components/touchline/screens/news";
+import { MessagesScreen } from "@/components/touchline/screens/messages";
 import { OtherDrawer } from "@/components/touchline/other-drawer";
 import { WelcomeModal } from "@/components/touchline/welcome-modal";
 import { useI18n } from "@/lib/i18n/locale-provider";
@@ -87,6 +91,11 @@ export default function Home() {
       // v2.9.21 GÖREV 7: "market" case'i KALDIRILDI — kozmetik market artık yok
       case "leaderboard": return <LeaderboardScreen />;
       case "reports": return <ReportsScreen />;
+      // v2.9.45: Önceden orphan olan ekranlar artık menüde
+      case "news": return <NewsScreen />;
+      case "messages": return <MessagesScreen />;
+      // v2.9.45: WeeklyReportScreen orphan import'u kaldırıldı — şu an kullanılmıyor
+      // (Dashboard'da zaten weekly bilgiler gösteriliyor; gelecekte "reports" sekmesine taşınabilir)
       default: return <ComingSoonScreen title="Yakında" />;
     }
   };

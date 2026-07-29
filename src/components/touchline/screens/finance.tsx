@@ -40,12 +40,15 @@ export function FinanceScreen() {
     const totalFacilityLevels = Object.values(facilities.levels).reduce((s, l) => s + l, 0);
     const facilityMaintenance = totalFacilityLevels * 20000;
 
-    // Haftalık gelir — store advanceMatchday ile BIREBIR AYNI formüller
+    // Haftalık gelir — store advanceMatchday ile BIREBIR AYNI formüller (v2.9.45 düzeltme)
     // Bilet: doluluk × capacity × ticketPrice × stadiumMult
     const stadiumCapacity = 5000 + facilities.levels.stadium * 5000;
     const stadiumMult = 1 + facilities.levels.stadium * 0.05;
-    // P0 FIX: Doluluk oranı — bilet fiyatına göre azalır (store ile aynı)
-    const fillRate = Math.max(0.2, Math.min(0.8, 1 - (facilities.ticketPrice / 250)));
+    // v2.9.45 FIX: Doluluk oranı store ile BİREBİR AYNI olmalı — cap 0.85 + tier bonus
+    // Eski kod: Math.max(0.2, Math.min(0.8, ...)) → store 0.85 kullanıyordu, kullanıcı düşük görüyordu
+    const myTier = team.leagueTier ?? 2;
+    const tierBonus = (5 - myTier) * 0.04; // tier 1: +0.16, tier 4: +0.04
+    const fillRate = Math.max(0.2, Math.min(0.85, 1 - (facilities.ticketPrice / 250) + tierBonus));
     const ticketRevenue = Math.round(
       stadiumCapacity * fillRate * facilities.ticketPrice * stadiumMult
     );
@@ -55,8 +58,9 @@ export function FinanceScreen() {
     const sponsor = baseSponsor + dynamicSponsorIncome;
     // TV: store ile aynı
     const tv = 50_000;
-    // Merch: store ile aynı
-    const merch = Math.round(stadiumCapacity * 0.2 * 1);
+    // v2.9.45 FIX: Merch — store ile BİREBİR AYNI: stadiumCap * 0.2 + academyLevel * 5000
+    // Eski kod: stadiumCapacity * 0.2 * 1 → academy bonusu yoktu, store daha çok veriyordu
+    const merch = Math.round(stadiumCapacity * 0.2 + facilities.levels.academy * 5000);
 
     const totalIncome = ticketRevenue + sponsor + tv + merch;
     // P0 FIX: Futbolcu maaşları tamamen kaldırıldı — sadece personel + tesis

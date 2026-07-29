@@ -487,7 +487,8 @@ export function MatchScreen() {
               onPlayerClick={(p) => setPitchProfilePlayer(p)}
             />
 
-            {/* TEST/SOLO MOD: Maç bitti → sonraki maça hazırla */}
+            {/* v2.9.45: "TEST/SOLO MOD" etiketi kaldırıldı — kullanıcı yanıltıcıydı
+                Bu, gerçek oyun akışıdır. Maç bitince kullanıcı sonraki hazırlık maçına geçebilir. */}
             <div className="tm-card p-4 bg-emerald-50/40 border-emerald-200 text-center space-y-3">
               <Trophy size={28} className="text-emerald-600 mx-auto" />
               <div className="text-sm font-bold text-emerald-700">Maç tamamlandı</div>
@@ -502,10 +503,10 @@ export function MatchScreen() {
                 className="tm-tap w-full py-3 rounded-lg bg-emerald-600 text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
               >
                 <Play size={16} />
-                SONRAKİ MAÇA HAZIRLAN
+                YENİ MAÇ BAŞLAT
               </button>
               <div className="text-[10px] text-emerald-400/70">
-                Test modu — sonraki maç için tıkla
+                Sonraki maç için tıkla — taktikleri güncelleyip oyna
               </div>
             </div>
           </>

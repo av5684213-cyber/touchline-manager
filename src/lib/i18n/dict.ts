@@ -45,6 +45,9 @@ export const dict: Dict = {
   "nav.market": { tr: "Market", en: "Market" },
   "nav.leaderboard": { tr: "Liderlik", en: "Leaderboard" },
   "nav.forum": { tr: "Forum", en: "Forum" },
+  // v2.9.45: Önceden orphan olan 2 sekme için i18n anahtarları
+  "nav.news": { tr: "Haberler", en: "News", es: "Noticias", de: "Nachrichten", fr: "Actualités", pt: "Notícias" },
+  "nav.messages": { tr: "Mesajlar", en: "Messages", es: "Mensajes", de: "Nachrichten", fr: "Messages", pt: "Mensagens" },
 
   // ---- common ----
   "common.loading": { tr: "Yükleniyor…", en: "Loading…" },
