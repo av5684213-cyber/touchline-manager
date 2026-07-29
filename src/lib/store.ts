@@ -54,7 +54,7 @@ import { TIER_BASE_BUDGETS } from "@/lib/match/engine/constants";
 import { TEAMS_PER_LEAGUE, PROMOTION_COUNT, RELEGATION_COUNT, getLeagueZone, isPromotionZone, isRelegationZone } from "@/lib/league-rules";
 // v2.9.30 T-10: Tesis yükseltme maliyeti tek kaynak
 import { calculateUpgradeCost } from "@/lib/stadiumMatrix";
-import { simulateEnhancedMatch } from "@/lib/match/engine/enhancedMatchEngine";
+import { simulateEnhancedMatch, simulatePenaltyShootout } from "@/lib/match/engine/enhancedMatchEngine";
 import { getInflationMultiplier } from "@/lib/fm/inflation";
 import { applyCoachTrainingBoost } from "@/lib/staffBonus";
 import { generateSponsorOffers, getTotalSponsorIncome } from "@/lib/sponsorSystem";
@@ -1812,10 +1812,16 @@ export const useAppStore = create<AppState>()(
           const result = simulateBotMatch(home, away, get().seasonMatchday ?? 1);
           let hs = result.homeScore;
           let as = result.awayScore;
-          // Beraberlikte rastgele penaltı
+          // v2.9.43: Beraberlikte gerçek penaltı atışları
           if (hs === as) {
-            if (Math.random() < 0.5) hs += 1;
-            else as += 1;
+            const homeGK = home.players.find((p: any) => p.specificPosition === "GK");
+            const awayGK = away.players.find((p: any) => p.specificPosition === "GK");
+            const penResult = simulatePenaltyShootout(
+              home.players, away.players,
+              homeGK?.archetype, awayGK?.archetype
+            );
+            hs = penResult.homeScore;
+            as = penResult.awayScore;
           }
           return { hs, as };
         };
@@ -1842,9 +1848,22 @@ export const useAppStore = create<AppState>()(
             );
             let hs = result.homeScore;
             let as = result.awayScore;
-            // Kupa = eleme — beraberlik olamaz, penaltılara gerek yok (rastgele)
+            // v2.9.43: Kupa eleme — beraberlik = gerçek penaltı atışları
             if (hs === as) {
-              if (Math.random() < 0.5) hs += 1; else as += 1;
+              const home = clubs.find(c => c.id === homeId);
+              const away = clubs.find(c => c.id === awayId);
+              if (home && away) {
+                const homeGK = home.players.find((p: any) => p.specificPosition === "GK");
+                const awayGK = away.players.find((p: any) => p.specificPosition === "GK");
+                const penResult = simulatePenaltyShootout(
+                  home.players, away.players,
+                  homeGK?.archetype, awayGK?.archetype
+                );
+                hs = penResult.homeScore;
+                as = penResult.awayScore;
+              } else {
+                if (Math.random() < 0.5) hs += 1; else as += 1;
+              }
             }
             return { hs, as };
           } catch (e) {
@@ -2165,9 +2184,45 @@ export const useAppStore = create<AppState>()(
             }
           }
 
-          // v2.9.42: Eleme — beraberlik olamaz, penaltı (rastgele)
+          // v2.9.43: Şampiyonlar Ligi eleme — beraberlik = gerçek penaltı atışları
           if (hs === as) {
-            if (Math.random() < 0.5) hs += 1; else as += 1;
+            try {
+              const homeClubs2 = generateClubsForLeague(
+                homeParticipant!.tier as any, 1 as any, homeParticipant!.country
+              );
+              const awayClubs2 = generateClubsForLeague(
+                awayParticipant!.tier as any, 1 as any, awayParticipant!.country
+              );
+              const homeTeam2 = homeClubs2[0];
+              const awayTeam2 = awayClubs2[0];
+              if (homeTeam2 && awayTeam2) {
+                const homeGK2 = homeTeam2.players.find((p: any) => p.specificPosition === "GK");
+                const awayGK2 = awayTeam2.players.find((p: any) => p.specificPosition === "GK");
+                // Kullanıcın maçıysa gerçek oyuncuları kullan
+                const homePlayers2 = m.homeId === myTeamId
+                  ? (clubs.find(c => c.id === myTeamId)?.players ?? homeTeam2.players)
+                  : homeTeam2.players;
+                const awayPlayers2 = m.awayId === myTeamId
+                  ? (clubs.find(c => c.id === myTeamId)?.players ?? awayTeam2.players)
+                  : awayTeam2.players;
+                const homeGKFinal = m.homeId === myTeamId
+                  ? homePlayers2.find((p: any) => p.specificPosition === "GK")
+                  : homeGK2;
+                const awayGKFinal = m.awayId === myTeamId
+                  ? awayPlayers2.find((p: any) => p.specificPosition === "GK")
+                  : awayGK2;
+                const penResult = simulatePenaltyShootout(
+                  homePlayers2, awayPlayers2,
+                  homeGKFinal?.archetype, awayGKFinal?.archetype
+                );
+                hs = penResult.homeScore;
+                as = penResult.awayScore;
+              } else {
+                if (Math.random() < 0.5) hs += 1; else as += 1;
+              }
+            } catch {
+              if (Math.random() < 0.5) hs += 1; else as += 1;
+            }
           }
           const winnerId = hs > as ? m.homeId : m.awayId;
 

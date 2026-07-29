@@ -4021,3 +4021,100 @@ export const matchEngine = {
     return runUnifiedMatch(homeSquad, awaySquad, options);
   },
 };
+
+// ═══ v2.9.43: Penaltı Atışı Sistemi ═══════════════════════════════════════
+/**
+ * Gerçek penaltı atışları — futbolcu stats + arketip bazlı.
+ *
+ * 5'er penaltı atışı, eşitse sudden death.
+ * Atıcı: finishing + composure + trait/arketip bonusları
+ * Kaleci: reflexes + arketip "Penaltı Uzmanı"/"Refleks Canavarı" bonusları
+ */
+export function simulatePenaltyShootout(
+  homePlayers: any[],
+  awayPlayers: any[],
+  homeGkArchetype?: string,
+  awayGkArchetype?: string
+): { homeScore: number; awayScore: number } {
+  const pickPenaltyTakers = (players: any[]) =>
+    players
+      .filter(p => p.specificPosition !== "GK")
+      .sort((a, b) => {
+        const aScore = (a.finishing ?? 50) + (a.composure ?? 50);
+        const bScore = (b.finishing ?? 50) + (b.composure ?? 50);
+        return bScore - aScore;
+      })
+      .slice(0, 5);
+
+  const pickGK = (players: any[]) => players.find(p => p.specificPosition === "GK");
+
+  const homeTakers = pickPenaltyTakers(homePlayers);
+  const awayTakers = pickPenaltyTakers(awayPlayers);
+  const homeGK = pickGK(homePlayers);
+  const awayGK = pickGK(awayPlayers);
+
+  const getGKSaveChance = (gk: any, archetype?: string) => {
+    let chance = 0.18;
+    if (gk) chance += ((gk.reflexes ?? 50) - 50) / 200;
+    if (archetype === "Penaltı Uzmanı") chance += 0.14;
+    if (archetype === "Refleks Canavarı") chance += 0.08;
+    if (archetype === "Büyük Maç Kalecisi") chance += 0.06;
+    return Math.min(0.45, Math.max(0.10, chance));
+  };
+
+  const getScorerChance = (taker: any) => {
+    let chance = 0.72;
+    chance += ((taker.finishing ?? 50) - 50) / 200;
+    chance += ((taker.composure ?? 50) - 50) / 300;
+    if (taker.traits?.includes("Penaltı ustası")) chance += 0.20;
+    if (taker.archetype === "Gol Makinesi") chance += 0.10;
+    if (taker.archetype === "Bitirici") chance += 0.08;
+    return Math.min(0.95, Math.max(0.40, chance));
+  };
+
+  const awaySaveChance = getGKSaveChance(awayGK, awayGkArchetype);
+  const homeSaveChance = getGKSaveChance(homeGK, homeGkArchetype);
+
+  let homeScore = 0;
+  let awayScore = 0;
+
+  for (let i = 0; i < 5; i++) {
+    if (homeTakers[i]) {
+      const goalChance = getScorerChance(homeTakers[i]) * (1 - awaySaveChance);
+      if (Math.random() < goalChance) homeScore++;
+    }
+    if (awayTakers[i]) {
+      const goalChance = getScorerChance(awayTakers[i]) * (1 - homeSaveChance);
+      if (Math.random() < goalChance) awayScore++;
+    }
+    if (i >= 2) {
+      const remaining = 5 - (i + 1);
+      if (Math.abs(homeScore - awayScore) > remaining) break;
+    }
+  }
+
+  // Sudden death
+  let sdRound = 0;
+  while (homeScore === awayScore && sdRound < 10) {
+    const homeTaker = homeTakers[sdRound % 5] ?? homePlayers[0];
+    const awayTaker = awayTakers[sdRound % 5] ?? awayPlayers[0];
+    let homeGoal = false;
+    let awayGoal = false;
+    if (homeTaker) {
+      homeGoal = Math.random() < getScorerChance(homeTaker) * (1 - awaySaveChance);
+    }
+    if (awayTaker) {
+      awayGoal = Math.random() < getScorerChance(awayTaker) * (1 - homeSaveChance);
+    }
+    if (homeGoal) homeScore++;
+    if (awayGoal) awayScore++;
+    if (homeGoal !== awayGoal) break;
+    sdRound++;
+  }
+
+  if (homeScore === awayScore) {
+    if (Math.random() < 0.5) homeScore++; else awayScore++;
+  }
+
+  return { homeScore, awayScore };
+}
