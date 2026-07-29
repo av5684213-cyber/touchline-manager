@@ -1,70 +1,90 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Crown, TrendingUp, TrendingDown, Globe } from "lucide-react";
+import { Crown, TrendingUp, TrendingDown, ChevronDown } from "lucide-react";
+import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { PlayerAvatar } from "../ui-bits";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 import { PlayerProfileModal } from "../player-profile-modal";
-// v2.9.21 EK5: Global gol kralı yarışı — diğer liglerin oyuncularını üret
-import { generateClubsForLeague, type LeagueTier, type Department } from "@/lib/mock/data";
+// v2.9.24: Dropdown ile her lig + departman seçilebilir
+import { generateClubsForLeague, LEAGUE_NAMES, type LeagueTier, type Department } from "@/lib/mock/data";
 import type { Player } from "@/lib/mock/data";
 
 type SortKey = "goals" | "assists" | "rating" | "motm" | "appearances";
-type TierFilter = "all" | "mine" | "global";
+type TierFilter = "all" | "mine";
+
+// Lig başına 18 takım; 3. Lig (tier 4) 5 departman
+const TIER_DEPTS: Record<LeagueTier, number> = { 1: 1, 2: 1, 3: 1, 4: 5 };
 
 export function TopScorersScreen() {
+  const { t, locale } = useI18n();
   const clubs = useAppStore((s) => s.clubs);
   const myTeam = useMyTeam();
   const [sortKey, setSortKey] = useState<SortKey>("goals");
   const [tier, setTier] = useState<TierFilter>("all");
   const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
 
-  // v2.9.21 EK5: Global modda tüm liglerin bot takımlarını üret
-  const globalClubs = useMemo(() => {
-    if (tier !== "global") return [];
-    const result: any[] = [];
-    // 4 tier × her tier 1-2 departman = 5-8 lig
-    for (let t = 1; t <= 4; t++) {
-      const deptCount = t === 4 ? 3 : 1; // tier 4'te 3 departman, diğerlerinde 1
-      for (let d = 1; d <= deptCount; d++) {
-        const generated = generateClubsForLeague(t as LeagueTier, d as Department);
-        result.push(...generated);
-      }
-    }
-    return result;
-  }, [tier]);
+  // v2.9.24: "Tüm Lig" sekmesinde lig + departman dropdown
+  // Kullanıcı kendi liginde değil, başka lig/departman da seçebilir
+  const userTier = (myTeam?.leagueTier ?? 2) as LeagueTier;
+  const userDept = (myTeam?.department ?? 1) as Department;
+  const [selTier, setSelTier] = useState<LeagueTier>(userTier);
+  const [selDept, setSelDept] = useState<Department>(userDept);
+
+  // Seçili lig kullanıcının kendi ligi mi?
+  const isMyLeague = selTier === userTier && selDept === userDept;
+
+  // v2.9.24: Başka lig/departman seçilirse, o ligin bot takımlarını üret
+  // Kullanıcının liginde clubs state'i kullanılır, diğerlerinde generateClubsForLeague
+  const otherLeagueClubs = useMemo(() => {
+    if (isMyLeague) return [];
+    return generateClubsForLeague(selTier, selDept);
+  }, [isMyLeague, selTier, selDept]);
 
   const allPlayers = useMemo(() => {
-    const list: Array<{ player: any; team: any; isMyPlayer: boolean; isGlobal?: boolean }> = [];
-    // Kullanıcının ligindeki oyuncular (gerçek state)
-    for (const club of clubs) {
-      for (const p of club.players) {
-        if ((p.appearances ?? 0) > 0) {
-          list.push({ player: p, team: club, isMyPlayer: club.id === myTeam?.id });
+    const list: Array<{ player: any; team: any; isMyPlayer: boolean; isOtherLeague?: boolean }> = [];
+
+    if (tier === "all") {
+      if (isMyLeague) {
+        // Kullanıcının kendi ligindeki gerçek takımlar (gerçek maç verisi)
+        for (const club of clubs) {
+          for (const p of club.players) {
+            if ((p.appearances ?? 0) > 0) {
+              list.push({ player: p, team: club, isMyPlayer: club.id === myTeam?.id });
+            }
+          }
         }
-      }
-    }
-    // v2.9.21 EK5: Global modda diğer liglerin oyuncularını da ekle
-    if (tier === "global") {
-      for (const club of globalClubs) {
-        for (const p of club.players) {
-          // Global takımların oyuncularına sahte appearances + goals ekle (kullanıcının ligindeki rakipleri simüle)
-          if (!p.appearances) p.appearances = Math.floor(Math.random() * 25) + 5;
-          if (!p.goals) p.goals = p.specificPosition === "GK" ? 0 : Math.floor(Math.random() * 12);
-          if (!p.assists) p.assists = p.specificPosition === "GK" ? 0 : Math.floor(Math.random() * 8);
-          if (!p.motmAwards) p.motmAwards = Math.floor(Math.random() * 3);
-          list.push({ player: p, team: club, isMyPlayer: false, isGlobal: true });
+      } else {
+        // Başka lig — bot takımların oyuncularını üret + sahte maç verisi ekle
+        // (kullanıcının ligindeki rakipleri simüle — sezon boyunca oynuyorlar)
+        for (const club of otherLeagueClubs) {
+          for (const p of club.players) {
+            if (!p.appearances) p.appearances = Math.floor(Math.random() * 25) + 5;
+            if (!p.goals) p.goals = p.specificPosition === "GK" ? 0 : Math.floor(Math.random() * 12);
+            if (!p.assists) p.assists = p.specificPosition === "GK" ? 0 : Math.floor(Math.random() * 8);
+            if (!p.motmAwards) p.motmAwards = Math.floor(Math.random() * 3);
+            list.push({ player: p, team: club, isMyPlayer: false, isOtherLeague: true });
+          }
         }
       }
     }
     return list;
-  }, [clubs, myTeam, globalClubs, tier]);
+  }, [clubs, myTeam, tier, isMyLeague, otherLeagueClubs]);
 
   const ranked = useMemo(() => {
     let filtered = allPlayers;
-    if (tier === "mine") filtered = allPlayers.filter((x) => x.isMyPlayer);
+    if (tier === "mine") {
+      // "Benim Takımım" — kullanıcının kendi takımının oyuncuları
+      filtered = clubs
+        .filter((c) => c.id === myTeam?.id)
+        .flatMap((club) =>
+          club.players
+            .filter((p) => (p.appearances ?? 0) > 0)
+            .map((p) => ({ player: p, team: club, isMyPlayer: true }))
+        );
+    }
     return [...filtered].sort((a, b) => {
       const pa = a.player, pb = b.player;
       switch (sortKey) {
@@ -76,7 +96,7 @@ export function TopScorersScreen() {
         default: return 0;
       }
     });
-  }, [allPlayers, sortKey, tier]);
+  }, [allPlayers, sortKey, tier, clubs, myTeam]);
 
   const top20 = ranked.slice(0, 20);
   const totalGoals = allPlayers.reduce((s, x) => s + (x.player.goals ?? 0), 0);
@@ -94,20 +114,11 @@ export function TopScorersScreen() {
         <div className="flex items-center gap-2 mb-2">
           <Crown size={16} className="text-amber-400" />
           <span className="text-sm font-bold">
-            {/* v2.9.21 EK5: Global modda farklı başlık */}
-            {tier === "global" ? (
-              sortKey === "goals" ? "🌍 Dünya Gol Kralı" :
-              sortKey === "assists" ? "🌍 Dünya Asist Kralı" :
-              sortKey === "rating" ? "🌍 Dünya Form Sıralaması" :
-              sortKey === "motm" ? "🌍 Dünya MOTM Sıralaması" :
-              "🌍 Dünya Oynama Süresi"
-            ) : (
-              sortKey === "goals" ? "Gol Kralı Yarışı" :
-              sortKey === "assists" ? "Asist Kralı Yarışı" :
-              sortKey === "rating" ? "Form Sıralaması" :
-              sortKey === "motm" ? "Maçın Adamı Sıralaması" :
-              "Oynama Süresi Sıralaması"
-            )}
+            {sortKey === "goals" ? "Gol Kralı Yarışı" :
+             sortKey === "assists" ? "Asist Kralı Yarışı" :
+             sortKey === "rating" ? "Form Sıralaması" :
+             sortKey === "motm" ? "Maçın Adamı Sıralaması" :
+             "Oynama Süresi Sıralaması"}
           </span>
         </div>
         {ranked.length >= 3 && (
@@ -156,13 +167,66 @@ export function TopScorersScreen() {
             tier === "mine" ? "bg-primary text-primary-foreground border-primary" : "border-border bg-card text-muted-foreground")}>
           Benim Takımım
         </button>
-        {/* v2.9.21 EK5: Global sekme — dünya geneli gol kralı */}
-        <button onClick={() => { haptic("light"); setTier("global"); }}
-          className={cn("tm-tap flex-1 py-1.5 rounded text-[10px] font-bold border flex items-center justify-center gap-1",
-            tier === "global" ? "bg-sky-500 text-white border-sky-500" : "border-border bg-card text-muted-foreground")}>
-          <Globe size={11} /> Global
-        </button>
       </div>
+
+      {/* v2.9.24: Lig + Departman dropdown — sadece "Tüm Lig" sekmesinde */}
+      {tier === "all" && (
+        <div className="tm-card p-2.5 space-y-2">
+          <div className="text-[10px] text-muted-foreground uppercase font-bold flex items-center gap-1">
+            <ChevronDown size={11} /> Lig Seç
+          </div>
+          {/* Lig (tier) dropdown */}
+          <div>
+            <label className="text-[9px] text-muted-foreground block mb-0.5">Lig</label>
+            <select
+              value={selTier}
+              onChange={(e) => {
+                haptic("light");
+                const newTier = Number(e.target.value) as LeagueTier;
+                setSelTier(newTier);
+                setSelDept(1 as Department); // lig değişince 1. departmana sıfırla
+              }}
+              className="w-full px-2.5 py-2 rounded-lg bg-card border border-border text-xs cursor-pointer"
+            >
+              {([1, 2, 3, 4] as LeagueTier[]).map((tierNum) => (
+                <option key={tierNum} value={tierNum}>
+                  {tierNum === userTier ? "⭐ " : ""}{LEAGUE_NAMES[tierNum][locale]}
+                </option>
+              ))}
+            </select>
+          </div>
+          {/* Departman dropdown — sadece tier 4'te (5 departman) */}
+          {TIER_DEPTS[selTier] > 1 && (
+            <div>
+              <label className="text-[9px] text-muted-foreground block mb-0.5">Departman</label>
+              <div className="flex gap-1">
+                {Array.from({ length: TIER_DEPTS[selTier] }, (_, i) => (i + 1) as Department).map((dept) => (
+                  <button
+                    key={dept}
+                    onClick={() => { haptic("light"); setSelDept(dept); }}
+                    className={cn(
+                      "tm-tap flex-1 py-1.5 rounded-md text-[11px] font-bold transition-colors",
+                      selDept === dept
+                        ? "bg-amber-500 text-white"
+                        : "bg-muted/40 text-muted-foreground"
+                    )}
+                  >
+                    D{dept}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Seçili lig bilgisi */}
+          <div className="text-[10px] text-muted-foreground text-center pt-1 border-t border-border/40">
+            {isMyLeague ? (
+              <span className="text-emerald-400 font-semibold">⭐ Senin Ligin</span>
+            ) : (
+              <span>📍 {LEAGUE_NAMES[selTier][locale]}{TIER_DEPTS[selTier] > 1 ? ` · D${selDept}` : ""} (simülasyon)</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Sıralama listesi */}
       <div className="space-y-1.5">
