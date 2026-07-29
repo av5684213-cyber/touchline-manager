@@ -88,6 +88,22 @@ function triggerTacticsSave(): void {
   }
 }
 
+/**
+ * v2.9.28 GÖREV 5: Kart envanteri için tip.
+ * Kartlar mağazadan satın alınıp envantere eklenir, oyunculara uygulanır.
+ */
+type CardItem = {
+  cardId: string;          // benzersiz ID (örn "trait_pos_Ofsayt ustası_defans")
+  cardType: "trait_positive" | "trait_negative_removal" | "arketip";
+  cardName: string;        // kart adı (örn "Ofsayt ustası" veya "Hız Eğitimi Kartı")
+  groupName: string;       // hangi pozisyon grubuna ait (defans/orta_saha/forvet/kaleci/arketip)
+  quantity: number;        // kaç adet sahip
+  purchasedAt: number;     // satın alma timestamp (ms)
+  price: number;           // satın alındığı fiyat
+  description: string;     // kart açıklaması
+  effectData?: any;        // kartın etkisi (trait def, penalty vs.)
+};
+
 type Tactics = {
   // Yeni şema — eski oyunun ActiveTactic'i ile birebir
   active: ActiveTactic;
@@ -233,7 +249,11 @@ type AppState = {
     seasonNumber: number; // bu oyuncuların üretildiği sezon
     players: Player[]; // altyapıdaki genç oyuncular
   };
-  // v2.9.20 GÖREV 7: Onboarding state — yeni kullanıcı hoş geldin akışı
+  // v2.9.28 GÖREV 5: Kart envanteri — satın alınıp henüz kullanılmayan kartlar
+  // Her kart: { cardId, cardType, cardName, quantity, purchasedAt }
+  // cardType: "trait_positive" | "trait_negative_removal" | "arketip"
+  cardInventory: CardItem[];
+  // v2.9.28 GÖREV 7: Onboarding state — yeni kullanıcı hoş geldin akışı
   // İlk kez giriş yapan kullanıcı için 7 günlük grace period (deneme süresi)
   // Bu sürede: kredi hediyesi, antrenman bonusu, transfer ücretsiz
   onboarding: {
@@ -316,6 +336,10 @@ type AppState = {
   loadMultiplayerState: (userId: string) => Promise<{ success: boolean; reason?: string }>;
   saveToCloud: (userId: string) => Promise<void>;
   saveTacticsToCloud: (userId: string) => Promise<void>;
+  // v2.9.28 GÖREV 5: Kart envanteri action'ları
+  buyCard: (cardId: string, cardType: "trait_positive" | "trait_negative_removal" | "arketip", cardName: string, groupName: string, price: number, description: string, effectData?: any) => { success: boolean; reason?: string };
+  applyCardToPlayer: (cardId: string, playerId: string) => { success: boolean; reason?: string };
+  getCardInventory: () => CardItem[];
 };
 
 export type SeasonSummary = {
@@ -566,6 +590,9 @@ export const useAppStore = create<AppState>()(
         seasonNumber: 1,
         players: [],
       },
+
+      // v2.9.28 GÖREV 5: Kart envanteri — boş başlat
+      cardInventory: [],
 
       // v2.9.20 GÖREV 7: Onboarding default state
       // hasSeenWelcome=false → hoş geldin modal'ı göster
@@ -3435,6 +3462,8 @@ export const useAppStore = create<AppState>()(
             cosmetics: savedState?.cosmetics ?? { owned: [], equipped: {} },
             blockedUsers: savedState?.blockedUsers ?? [],
             youthAcademy: savedState?.youthAcademy ?? get().youthAcademy,
+            // v2.9.28 GÖREV 5: Kart envanteri yükle
+            cardInventory: savedState?.cardInventory ?? [],
             // v2.9.20 GÖREV 7: Onboarding state — savedState'ten yükle, yoksa default
             onboarding: savedState?.onboarding ?? {
               hasSeenWelcome: false,
@@ -3448,6 +3477,131 @@ export const useAppStore = create<AppState>()(
           console.error("[loadMultiplayer] exception:", err);
           return { success: false, reason: err?.message ?? "unknown" };
         }
+      },
+
+      // v2.9.28 GÖREV 5: Kart envanteri action'ları
+      buyCard: (cardId, cardType, cardName, groupName, price, description, effectData) => {
+        const { credits, cardInventory } = get();
+        if (credits < price) {
+          return { success: false, reason: "Yetersiz kredi" };
+        }
+        // Aynı karttan varsa quantity artır, yoksa yeni ekle
+        const existing = cardInventory.find(c => c.cardId === cardId);
+        let updatedInventory: CardItem[];
+        if (existing) {
+          updatedInventory = cardInventory.map(c =>
+            c.cardId === cardId
+              ? { ...c, quantity: c.quantity + 1, purchasedAt: Date.now() }
+              : c
+          );
+        } else {
+          const newCard: CardItem = {
+            cardId,
+            cardType,
+            cardName,
+            groupName,
+            quantity: 1,
+            purchasedAt: Date.now(),
+            price,
+            description,
+            effectData,
+          };
+          updatedInventory = [...cardInventory, newCard];
+        }
+        set({
+          credits: credits - price,
+          cardInventory: updatedInventory,
+        });
+        triggerTacticsSave(); // cloud-save tetikle
+        return { success: true };
+      },
+
+      applyCardToPlayer: (cardId, playerId) => {
+        const { cardInventory, clubs, myTeamId } = get();
+        const card = cardInventory.find(c => c.cardId === cardId);
+        if (!card) return { success: false, reason: "Kart envanterde yok" };
+        if (card.quantity <= 0) return { success: false, reason: "Kart adedi yetersiz" };
+
+        // Oyuncuyu bul
+        const myTeam = clubs.find(c => c.id === myTeamId);
+        if (!myTeam) return { success: false, reason: "Takım bulunamadı" };
+        const player = myTeam.players.find(p => p.id === playerId);
+        if (!player) return { success: false, reason: "Oyuncu bulunamadı" };
+
+        // Kart tipine göre uygula
+        const updatedPlayers = myTeam.players.map(p => {
+          if (p.id !== playerId) return p;
+          const updated = { ...p };
+
+          if (card.cardType === "trait_positive") {
+            // Pozitif trait ekle (aynısı varsa tekrar ekleme)
+            const traits = updated.traits ?? [];
+            if (!traits.includes(card.cardName)) {
+              updated.traits = [...traits, card.cardName];
+            }
+          } else if (card.cardType === "trait_negative_removal") {
+            // Negatif trait kaldır
+            // card.effectData.negTraitName → kaldırılacak negatif trait adı
+            const negTraitName = card.effectData?.negTraitName;
+            if (negTraitName) {
+              const negTraits = updated.negTraits ?? [];
+              if (!negTraits.includes(negTraitName)) {
+                return p; // oyuncuda bu negatif trait yok — kart uygulanamaz
+              }
+              updated.negTraits = negTraits.filter(t => t !== negTraitName);
+              // Penaltıyı da geri al (eğer effectData.penalty varsa)
+              if (card.effectData?.penalty) {
+                for (const [stat, value] of Object.entries(card.effectData.penalty)) {
+                  const penaltyVal = value as number;
+                  // penalty negatifti, geri almak için ekle
+                  (updated as any)[stat] = ((updated as any)[stat] ?? 50) - penaltyVal;
+                  if (updated.stats && (updated.stats as any)[stat] !== undefined) {
+                    (updated.stats as any)[stat] = (updated.stats as any)[stat] - penaltyVal;
+                  }
+                }
+              }
+            }
+          } else if (card.cardType === "arketip") {
+            // Arketip değiştir
+            updated.archetype = card.cardName;
+          }
+          return updated;
+        });
+
+        // Eğer oyuncu bulunamadıysa veya negatif trait yoksa uygulanamaz
+        const targetPlayer = updatedPlayers.find(p => p.id === playerId);
+        if (card.cardType === "trait_negative_removal") {
+          const negTraitName = card.effectData?.negTraitName;
+          const originalPlayer = myTeam.players.find(p => p.id === playerId);
+          if (originalPlayer && !(originalPlayer.negTraits ?? []).includes(negTraitName)) {
+            return { success: false, reason: "Bu oyuncuda ilgili negatif trait yok" };
+          }
+        }
+
+        // Envanterden 1 adet düşür
+        const updatedInventory = cardInventory
+          .map(c =>
+            c.cardId === cardId
+              ? { ...c, quantity: c.quantity - 1 }
+              : c
+          )
+          .filter(c => c.quantity > 0); // 0 olanları kaldır
+
+        // Clubs güncelle
+        const updatedClubs = clubs.map(c =>
+          c.id === myTeamId ? { ...c, players: updatedPlayers } : c
+        );
+
+        set({
+          clubs: updatedClubs,
+          cardInventory: updatedInventory,
+        });
+        triggerTacticsSave(); // cloud-save tetikle
+        return { success: true };
+      },
+
+      getCardInventory: () => {
+        return get().cardInventory;
       },
 
       // v2.9.20 GÖREV 1: saveToCloud ve saveTacticsToCloud artık alias.

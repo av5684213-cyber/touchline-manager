@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { type Locale } from "@/lib/i18n/types";
-import { X, User, Upload, ArrowLeftRight, Banknote } from "lucide-react";
+import { X, User, Upload, ArrowLeftRight, Banknote, Wand2, Crown } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { POSITION_GROUP, type Player, type SeasonStat } from "@/lib/mock/data";
 import { TIER_TEAM_NAMES, TEAM_NAME_BANK } from "@/lib/match/engine/constants";
 import { getArketipEtkiOzet, getOvrFactorPercent } from "@/lib/match/engine/arketipEffects";
 import { SEASON_INFO, isTransferWindowOpen } from "@/lib/mock/season";
 import { useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline";
+// v2.9.28 GÖREV 4: Kart basma
+import { getCardById, getRarityColor, type ShopCard } from "@/lib/card-system";
 
 // Oyun içi takım havuzu — Supabase'den gelen oyuncular için fallback
 const FALLBACK_CLUBS: string[] = Array.from(new Set([
@@ -1787,6 +1789,10 @@ function ActionsTab({
           {/* P2: Haftalık Maaş KALDIRILDI — oyunda maaş yok */}
         </div>
       </div>
+
+      {/* v2.9.28 GÖREV 4: Kart Bas — envanterden kart uygula */}
+      <CardApplyButton player={player} teamColor={teamColor} />
+
     </div>
   );
 }
@@ -2239,6 +2245,209 @@ function ArkInfoModal({
           </>
         ) : (
           <p className="text-xs text-muted-foreground">Bu arketip için detaylı bilgi bulunmuyor.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// v2.9.28 GÖREV 4: CardApplyButton — oyuncuya kart bas
+// ============================================================================
+
+function CardApplyButton({ player, teamColor }: { player: Player; teamColor: string }) {
+  const cardInventory = useAppStore((s) => s.cardInventory);
+  const [showModal, setShowModal] = useState(false);
+
+  // Sadece kullanıcının kendi takımının oyuncuları için göster
+  const myTeam = useMyTeam();
+  const isMyPlayer = myTeam?.players.some(p => p.id === player.id);
+
+  if (!isMyPlayer) return null; // başka takımın oyuncusuna kart basılamaz
+
+  const totalCards = cardInventory.reduce((s, c) => s + c.quantity, 0);
+
+  return (
+    <>
+      <button
+        onClick={() => {
+          haptic("light");
+          if (totalCards === 0) {
+            // Envanter boş — mağazaya yönlendir mesajı
+            return;
+          }
+          setShowModal(true);
+        }}
+        disabled={totalCards === 0}
+        className={cn(
+          "tm-tap w-full py-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors",
+          totalCards > 0
+            ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white"
+            : "bg-muted/30 text-muted-foreground/50"
+        )}
+      >
+        <Wand2 size={14} />
+        {totalCards > 0 ? `Kart Bas (${totalCards} kart)` : "Kart Bas (envanter boş)"}
+      </button>
+
+      {totalCards === 0 && (
+        <div className="text-[9px] text-muted-foreground text-center -mt-1.5">
+          Mağazadan kart satın al
+        </div>
+      )}
+
+      {showModal && (
+        <PlayerCardPickerModal
+          player={player}
+          onClose={() => setShowModal(false)}
+        />
+      )}
+    </>
+  );
+}
+
+/**
+ * Oyuncuya kart basma modal'ı — envanterden kart seç
+ */
+function PlayerCardPickerModal({ player, onClose }: { player: Player; onClose: () => void }) {
+  const cardInventory = useAppStore((s) => s.cardInventory);
+  const applyCardToPlayer = useAppStore((s) => s.applyCardToPlayer);
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  useEscapeToClose(onClose);
+  useBodyScrollLock(true);
+
+  // Envanterdeki kartları ShopCard ile eşleştir
+  const inventoryCards = useMemo(() => {
+    return cardInventory
+      .map(item => {
+        const shopCard = getCardById(item.cardId);
+        if (!shopCard) return null;
+        return { ...shopCard, quantity: item.quantity };
+      })
+      .filter(Boolean) as (ShopCard & { quantity: number })[];
+  }, [cardInventory]);
+
+  // Kartın bu oyuncuya uygulanabilir olup olmadığını kontrol et
+  const isApplicable = (card: ShopCard & { quantity: number }): boolean => {
+    if (card.cardType === "trait_positive") {
+      return !(player.traits ?? []).includes(card.cardName);
+    }
+    if (card.cardType === "trait_negative_removal") {
+      const negTraitName = card.effectData?.negTraitName;
+      return (player.negTraits ?? []).includes(negTraitName);
+    }
+    if (card.cardType === "arketip") {
+      return player.archetype !== card.cardName;
+    }
+    return false;
+  };
+
+  const handleApply = (card: ShopCard & { quantity: number }) => {
+    haptic("medium");
+    const result = applyCardToPlayer(card.cardId, player.id);
+    if (result.success) {
+      haptic("success");
+      setFeedback(`✓ ${card.cardName} basıldı!`);
+      setTimeout(() => onClose(), 1200);
+    } else {
+      haptic("error");
+      setFeedback(`✗ ${result.reason ?? "Kart uygulanamadı"}`);
+      setTimeout(() => setFeedback(null), 2500);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="tm-card w-full max-w-[400px] max-h-[85vh] flex flex-col">
+        {/* Header */}
+        <div className="p-3 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Wand2 size={16} className="text-purple-400" />
+            <div>
+              <div className="text-sm font-bold">Kart Bas</div>
+              <div className="text-[10px] text-muted-foreground">{player.firstName} {player.lastName}</div>
+            </div>
+          </div>
+          <button onClick={onClose} className="tm-tap p-1 text-muted-foreground hover:text-foreground">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Oyuncu bilgisi */}
+        <div className="p-2 bg-muted/20 border-b border-border">
+          <div className="flex flex-wrap gap-1">
+            {(player.traits ?? []).map((t: string) => (
+              <span key={t} className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
+                ✅ {t}
+              </span>
+            ))}
+            {(player.negTraits ?? []).map((t: string) => (
+              <span key={t} className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-300">
+                ❌ {t}
+              </span>
+            ))}
+            {player.archetype && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300">
+                {player.archetype}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Kart listesi */}
+        <div className="flex-1 overflow-y-auto tm-thin-scrollbar p-2">
+          {inventoryCards.length === 0 && (
+            <div className="text-center py-8 text-xs text-muted-foreground">
+              Envanterinde kart yok. Mağazadan kart satın al.
+            </div>
+          )}
+          <div className="space-y-1.5">
+            {inventoryCards.map((card) => {
+              const applicable = isApplicable(card);
+              return (
+                <button
+                  key={card.cardId}
+                  onClick={() => applicable && handleApply(card)}
+                  disabled={!applicable}
+                  className={cn(
+                    "tm-tap w-full flex items-center gap-2 p-2 rounded-lg border transition-colors text-left",
+                    applicable
+                      ? "border-border hover:bg-accent/30"
+                      : "border-border/50 opacity-40 cursor-not-allowed"
+                  )}
+                >
+                  <div className={cn("w-8 h-8 rounded-md flex items-center justify-center shrink-0", getRarityColor(card.rarity))}>
+                    {card.cardType === "trait_positive" && <Wand2 size={14} className="text-emerald-400" />}
+                    {card.cardType === "trait_negative_removal" && <X size={14} className="text-red-400" />}
+                    {card.cardType === "arketip" && <Crown size={14} className="text-amber-400" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold truncate flex items-center gap-1">
+                      {card.cardName}
+                      <span className="text-[9px] text-muted-foreground">×{card.quantity}</span>
+                    </div>
+                    <div className="text-[9px] text-muted-foreground truncate">{card.description}</div>
+                  </div>
+                  {!applicable && (
+                    <span className="text-[8px] px-1 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+                      Uygun değil
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Feedback */}
+        {feedback && (
+          <div className={cn(
+            "p-2 text-center text-[11px] font-bold border-t border-border",
+            feedback.startsWith("✓") ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+          )}>
+            {feedback}
+          </div>
         )}
       </div>
     </div>

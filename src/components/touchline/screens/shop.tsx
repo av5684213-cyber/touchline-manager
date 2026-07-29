@@ -1,14 +1,29 @@
 "use client";
 
-import { useState } from "react";
-import { Coins, Package, Sparkles, X, Zap, Crown, Award, ShoppingBag } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Coins, Package, Sparkles, X, Zap, Crown, Award, ShoppingBag, Layers, Wand2, Archive } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { PlayerAvatar, PositionPill, RatingBadge } from "../ui-bits";
 import { POSITION_GROUP } from "@/lib/mock/data";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
+// v2.9.28 GÖREV 1: Kart sistemi
+import {
+  getAllShopCards,
+  getCardsByType,
+  getRarityColor,
+  getRarityLabel,
+  getLevelColor,
+  getLevelLabel,
+  getGroupLabel,
+  type ShopCard,
+  type CardType,
+} from "@/lib/card-system";
+import { CardInventoryView } from "../card-inventory-view";
+import { CardApplyModal } from "../card-apply-modal";
 
 type PackType = "bronze" | "silver" | "gold" | "platinum";
+type ShopTab = "packs" | "cards" | "inventory";
 
 const PACKS: Record<PackType, {
   name: string;
@@ -65,11 +80,15 @@ const PACKS: Record<PackType, {
 export function ShopScreen() {
   const credits = useAppStore((s) => s.credits);
   const buyPlayerPack = useAppStore((s) => s.buyPlayerPack);
+  const buyCard = useAppStore((s) => s.buyCard);
+  const [tab, setTab] = useState<ShopTab>("packs");
   const [opening, setOpening] = useState<PackType | null>(null);
   const [phase, setPhase] = useState<"idle" | "shaking" | "revealing" | "done">("idle");
   const [pulledPlayers, setPulledPlayers] = useState<any[]>([]);
   const [revealIndex, setRevealIndex] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
+  // v2.9.28 GÖREV 4: Kart basma modal'ı
+  const [applyCard, setApplyCard] = useState<ShopCard | null>(null);
 
   const handleBuy = (packType: PackType) => {
     const pack = PACKS[packType];
@@ -86,14 +105,12 @@ export function ShopScreen() {
     setPulledPlayers([]);
     setRevealIndex(0);
 
-    // Paket açma animasyonu — 2 saniye sallanma
     setTimeout(() => {
       const result = buyPlayerPack(packType);
       if (result.success && result.players) {
         haptic("success");
         setPulledPlayers(result.players);
         setPhase("revealing");
-        // İlk oyuncuyu göster
         setTimeout(() => {
           setPhase("done");
           haptic("success");
@@ -123,6 +140,34 @@ export function ShopScreen() {
     }
   };
 
+  // v2.9.28 GÖREV 1: Kart satın alma
+  const handleBuyCard = (card: ShopCard) => {
+    if (credits < card.price) {
+      haptic("error");
+      setFeedback(`✗ Yetersiz kredi! ${card.cardName} için ${card.price} kredi gerek.`);
+      setTimeout(() => setFeedback(null), 3000);
+      return;
+    }
+    const result = buyCard(
+      card.cardId,
+      card.cardType,
+      card.cardName,
+      card.groupName,
+      card.price,
+      card.description,
+      card.effectData
+    );
+    if (result.success) {
+      haptic("success");
+      setFeedback(`✓ ${card.cardName} satın alındı! Envanterine eklendi.`);
+      setTimeout(() => setFeedback(null), 2500);
+    } else {
+      haptic("error");
+      setFeedback(`✗ ${result.reason ?? "Satın alma başarısız"}`);
+      setTimeout(() => setFeedback(null), 3000);
+    }
+  };
+
   return (
     <div className="px-4 py-4 pb-24 space-y-3">
       {/* Header */}
@@ -138,8 +183,42 @@ export function ShopScreen() {
           </div>
         </div>
         <p className="text-[10px] text-muted-foreground leading-relaxed">
-          Futbolcu paketleri aç, yeni yetenekler keşfet. Paketten çıkan oyuncular serbest ajan listesine eklenir — imzalamak için bütçe gerekir (pay-to-win değil).
+          Futbolcu paketleri aç, kartlar satın al. Kartlarla oyuncularına trait/arketip ekle veya negatif özelliklerini gider.
         </p>
+      </div>
+
+      {/* Tab selector */}
+      <div className="flex gap-1.5">
+        <button
+          onClick={() => { haptic("light"); setTab("packs"); }}
+          className={cn(
+            "tm-tap flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-colors",
+            tab === "packs" ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground"
+          )}
+        >
+          <Package size={14} />
+          Paketler
+        </button>
+        <button
+          onClick={() => { haptic("light"); setTab("cards"); }}
+          className={cn(
+            "tm-tap flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-colors",
+            tab === "cards" ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground"
+          )}
+        >
+          <Layers size={14} />
+          Kartlar
+        </button>
+        <button
+          onClick={() => { haptic("light"); setTab("inventory"); }}
+          className={cn(
+            "tm-tap flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-colors",
+            tab === "inventory" ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground"
+          )}
+        >
+          <Archive size={14} />
+          Envanterim
+        </button>
       </div>
 
       {/* Feedback */}
@@ -149,75 +228,65 @@ export function ShopScreen() {
         </div>
       )}
 
-      {/* Paket grid */}
-      <div className="grid grid-cols-2 gap-3">
-        {(Object.keys(PACKS) as PackType[]).map((type) => {
-          const pack = PACKS[type];
-          const Icon = pack.icon;
-          const canAfford = credits >= pack.price;
-          return (
-            <button
-              key={type}
-              onClick={() => handleBuy(type)}
-              disabled={!canAfford}
-              className={cn(
-                "tm-tap relative rounded-xl p-4 flex flex-col items-center gap-2 border-2 transition-all active:scale-[0.97]",
-                pack.bgColor,
-                pack.borderColor,
-                !canAfford && "opacity-50"
-              )}
-            >
-              {/* Glow effect */}
-              <div className={cn("absolute inset-0 rounded-xl opacity-20 blur-xl", pack.bgColor)} />
+      {/* ===== PAKETLER TAB ===== */}
+      {tab === "packs" && (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            {(Object.keys(PACKS) as PackType[]).map((type) => {
+              const pack = PACKS[type];
+              const Icon = pack.icon;
+              const canAfford = credits >= pack.price;
+              return (
+                <button
+                  key={type}
+                  onClick={() => handleBuy(type)}
+                  disabled={!canAfford}
+                  className={cn(
+                    "tm-tap relative rounded-xl p-4 flex flex-col items-center gap-2 border-2 transition-all active:scale-[0.97]",
+                    pack.bgColor,
+                    pack.borderColor,
+                    !canAfford && "opacity-50"
+                  )}
+                >
+                  <div className={cn("absolute inset-0 rounded-xl opacity-20 blur-xl", pack.bgColor)} />
+                  <div className={cn("relative w-16 h-16 rounded-2xl flex items-center justify-center", pack.bgColor, "border", pack.borderColor)}>
+                    <Icon size={32} className={pack.color} />
+                  </div>
+                  <div className={cn("text-sm font-bold", pack.color)}>{pack.name}</div>
+                  <div className="text-[10px] text-muted-foreground font-semibold">{pack.ovrRange}</div>
+                  <div className="text-[11px] text-muted-foreground text-center leading-tight">{pack.desc}</div>
+                  <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 mt-1">
+                    <Coins size={12} className="text-amber-300" />
+                    <span className="text-xs font-bold text-amber-100 tabular-nums">{pack.price}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
 
-              {/* Pack icon */}
-              <div className={cn("relative w-16 h-16 rounded-2xl flex items-center justify-center", pack.bgColor, "border", pack.borderColor)}>
-                <Icon size={32} className={pack.color} />
-              </div>
+          <div className="tm-card p-3 border-sky-500/20 bg-sky-500/5">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Zap size={13} className="text-sky-400" />
+              <span className="text-[11px] font-bold text-sky-300 uppercase">Nasıl Çalışır?</span>
+            </div>
+            <ul className="text-[10px] text-muted-foreground space-y-1 leading-relaxed">
+              <li>• Her paketten 3 oyuncu çıkar (17 yaşında genç yetenekler)</li>
+              <li>• Çıkan oyuncular doğrudan kadroya eklenir</li>
+              <li>• Kredi kazanma: Sezon sonu bonusları, günlük görevler</li>
+            </ul>
+          </div>
+        </>
+      )}
 
-              {/* Pack name */}
-              <div className={cn("text-sm font-bold", pack.color)}>{pack.name}</div>
+      {/* ===== KARTLAR TAB ===== */}
+      {tab === "cards" && (
+        <CardsTab onBuyCard={handleBuyCard} onApplyCard={(card) => setApplyCard(card)} />
+      )}
 
-              {/* OVR range */}
-              <div className="text-[10px] text-muted-foreground font-semibold">{pack.ovrRange}</div>
-
-              {/* Description */}
-              <div className="text-[11px] text-muted-foreground text-center leading-tight">{pack.desc}</div>
-
-              {/* Price */}
-              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 mt-1">
-                <Coins size={12} className="text-amber-300" />
-                <span className="text-xs font-bold text-amber-100 tabular-nums">{pack.price}</span>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Info kartı */}
-      <div className="tm-card p-3 border-sky-500/20 bg-sky-500/5">
-        <div className="flex items-center gap-2 mb-1.5">
-          <Zap size={13} className="text-sky-400" />
-          <span className="text-[11px] font-bold text-sky-300 uppercase">Nasıl Çalışır?</span>
-        </div>
-        <ul className="text-[10px] text-muted-foreground space-y-1 leading-relaxed">
-          <li>• Her paketten 3 oyuncu çıkar</li>
-          <li>• Çıkan oyuncular Serbest Ajan listesine eklenir (%20 indirimli)</li>
-          <li>• Oyuncuyu kadroya almak için normal bütçeyle imzalaman gerekir</li>
-          <li>• Kredi kazanma: Sezon sonu bonusları, günlük görevler (yakında)</li>
-        </ul>
-      </div>
-
-      {/* Yakında: Market */}
-      <div className="tm-card p-3 border-purple-500/20 bg-purple-500/5">
-        <div className="flex items-center gap-2 mb-1">
-          <Crown size={13} className="text-purple-400" />
-          <span className="text-[11px] font-bold text-purple-300 uppercase">Yakında: Market</span>
-        </div>
-        <p className="text-[10px] text-muted-foreground leading-relaxed">
-          Formalar, kulüp rozetleri ve tema renkleri yakında mağazada. Tamamen kozmetik — oyunu etkilemez.
-        </p>
-      </div>
+      {/* ===== ENVANTERİM TAB ===== */}
+      {tab === "inventory" && (
+        <CardInventoryView onApplyCard={(card) => setApplyCard(card)} />
+      )}
 
       {/* Paket açılış animasyonu */}
       {opening && phase !== "idle" && (
@@ -230,6 +299,152 @@ export function ShopScreen() {
           onNext={handleNextReveal}
         />
       )}
+
+      {/* v2.9.28 GÖREV 4: Kart basma modal'ı */}
+      {applyCard && (
+        <CardApplyModal
+          card={applyCard}
+          onClose={() => setApplyCard(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// GÖREV 1: Kartlar Tab — pozitif trait / negatif giderme / arketip kartları
+// ============================================================================
+
+function CardsTab({
+  onBuyCard,
+  onApplyCard,
+}: {
+  onBuyCard: (card: ShopCard) => void;
+  onApplyCard: (card: ShopCard) => void;
+}) {
+  const [cardFilter, setCardFilter] = useState<CardType | "all">("all");
+  const credits = useAppStore((s) => s.credits);
+  const cardInventory = useAppStore((s) => s.cardInventory);
+
+  const allCards = useMemo(() => getAllShopCards(), []);
+  const filteredCards = useMemo(() => {
+    if (cardFilter === "all") return allCards;
+    return allCards.filter(c => c.cardType === cardFilter);
+  }, [allCards, cardFilter]);
+
+  const filterLabels: Record<string, { label: string; icon: typeof Layers }> = {
+    all: { label: "Tümü", icon: Layers },
+    trait_positive: { label: "Pozitif Trait", icon: Wand2 },
+    trait_negative_removal: { label: "Giderme", icon: X },
+    arketip: { label: "Arketip", icon: Crown },
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Filtre */}
+      <div className="flex gap-1.5 overflow-x-auto tm-no-scrollbar">
+        {(Object.keys(filterLabels) as (CardType | "all")[]).map((key) => {
+          const item = filterLabels[key];
+          const Icon = item.icon;
+          return (
+            <button
+              key={key}
+              onClick={() => { haptic("light"); setCardFilter(key); }}
+              className={cn(
+                "tm-tap px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap border flex items-center gap-1",
+                cardFilter === key
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card border-border text-muted-foreground"
+              )}
+            >
+              <Icon size={11} />
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Kart listesi */}
+      <div className="grid grid-cols-2 gap-2">
+        {filteredCards.map((card) => {
+          const owned = cardInventory.find(c => c.cardId === card.cardId)?.quantity ?? 0;
+          const canAfford = credits >= card.price;
+          return (
+            <div
+              key={card.cardId}
+              className={cn(
+                "tm-tap relative rounded-xl p-3 flex flex-col gap-1.5 border-2 transition-all",
+                getRarityColor(card.rarity)
+              )}
+            >
+              {/* Owned badge */}
+              {owned > 0 && (
+                <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-emerald-500/30 text-emerald-300 text-[9px] font-bold">
+                  ×{owned}
+                </div>
+              )}
+
+              {/* Card type icon */}
+              <div className="flex items-center gap-1.5">
+                {card.cardType === "trait_positive" && <Wand2 size={12} className="text-emerald-400" />}
+                {card.cardType === "trait_negative_removal" && <X size={12} className="text-red-400" />}
+                {card.cardType === "arketip" && <Crown size={12} className="text-amber-400" />}
+                <span className="text-[9px] text-muted-foreground uppercase font-bold">
+                  {getRarityLabel(card.rarity)}
+                </span>
+              </div>
+
+              {/* Card name */}
+              <div className="text-xs font-bold leading-tight">{card.cardName}</div>
+
+              {/* Level (pozitif traitler için) */}
+              {card.level && (
+                <div className={cn("text-[9px] font-bold", getLevelColor(card.level))}>
+                  {getLevelLabel(card.level)}
+                </div>
+              )}
+
+              {/* Group */}
+              <div className="text-[9px] text-muted-foreground">{getGroupLabel(card.groupName)}</div>
+
+              {/* Description */}
+              <div className="text-[9px] text-muted-foreground leading-tight line-clamp-2 flex-1">
+                {card.description}
+              </div>
+
+              {/* Price + Buy */}
+              <button
+                onClick={() => onBuyCard(card)}
+                disabled={!canAfford}
+                className={cn(
+                  "tm-tap w-full flex items-center justify-center gap-1 py-1.5 rounded-md text-[10px] font-bold transition-colors",
+                  canAfford
+                    ? "bg-amber-500/20 text-amber-300 border border-amber-400/40"
+                    : "bg-muted/30 text-muted-foreground/50"
+                )}
+              >
+                <Coins size={10} />
+                {card.price}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Bilgi notu */}
+      <div className="tm-card p-3 border-purple-500/20 bg-purple-500/5">
+        <div className="flex items-center gap-2 mb-1.5">
+          <Sparkles size={13} className="text-purple-400" />
+          <span className="text-[11px] font-bold text-purple-300 uppercase">Kart Nasıl Çalışır?</span>
+        </div>
+        <ul className="text-[10px] text-muted-foreground space-y-1 leading-relaxed">
+          <li>• <strong className="text-foreground">Pozitif Trait:</strong> Oyuncuya yeni özellik ekler (maç motorunu etkiler)</li>
+          <li>• <strong className="text-foreground">Giderme Kartı:</strong> Negatif trait'i kaldırır, penaltıyı geri alır</li>
+          <li>• <strong className="text-foreground">Arketip Kartı:</strong> Oyuncunun arketipini değiştirir</li>
+          <li>• Satın aldığın kartlar <strong className="text-foreground">Envanterim</strong>'de birikir</li>
+          <li>• Kartı oyuncuya uygulamak için oyuncu profilinde <strong className="text-foreground">"Kart Bas"</strong> butonunu kullan</li>
+        </ul>
+      </div>
     </div>
   );
 }
@@ -255,193 +470,82 @@ function PackOpeningAnimation({
   const currentPlayer = pulledPlayers[revealIndex];
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/90 backdrop-blur-sm">
-      {/* Background particles */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
       {phase === "shaking" && (
-        <div className="absolute inset-0 overflow-hidden">
-          {[...Array(20)].map((_, i) => (
-            <div
-              key={i}
-              className={cn("absolute w-1 h-1 rounded-full", pack.color)}
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animation: `ping ${1 + Math.random()}s ease-out infinite`,
-                animationDelay: `${Math.random() * 0.5}s`,
-              }}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Shaking phase */}
-      {phase === "shaking" && (
-        <div className="relative flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-4">
           <div
             className={cn("w-32 h-32 rounded-3xl flex items-center justify-center border-4", pack.bgColor, pack.borderColor)}
-            style={{
-              animation: "shake 0.3s ease-in-out infinite",
-            }}
+            style={{ animation: "shake 0.3s ease-in-out infinite" }}
           >
-            <Icon size={56} className={pack.color} />
+            <Icon size={64} className={pack.color} />
           </div>
-          <div className="text-lg font-bold text-white animate-pulse">Paket açılıyor...</div>
-          <style jsx>{`
+          <div className="text-white text-sm font-bold">Paket açılıyor...</div>
+          <style>{`
             @keyframes shake {
-              0%, 100% { transform: translateX(0) rotate(0deg) scale(1); }
-              25% { transform: translateX(-8px) rotate(-3deg) scale(1.02); }
-              75% { transform: translateX(8px) rotate(3deg) scale(1.02); }
+              0%, 100% { transform: translateX(0) rotate(0deg); }
+              25% { transform: translateX(-8px) rotate(-3deg); }
+              75% { transform: translateX(8px) rotate(3deg); }
             }
           `}</style>
         </div>
       )}
 
-      {/* Revealing phase — flash effect */}
-      {phase === "revealing" && (
-        <div className="relative flex flex-col items-center gap-4">
+      {phase === "revealing" && currentPlayer && (
+        <div className="flex flex-col items-center gap-4 max-w-[320px] w-full">
+          <div className="text-white/60 text-xs">Oyuncu {revealIndex + 1} / {pulledPlayers.length}</div>
           <div
-            className="absolute inset-0 bg-white"
-            style={{ animation: "flash 0.5s ease-out forwards" }}
-          />
-          <style jsx>{`
-            @keyframes flash {
-              0% { opacity: 0; }
-              50% { opacity: 1; }
-              100% { opacity: 0; }
-            }
-          `}</style>
-        </div>
-      )}
-
-      {/* Done phase — show pulled players */}
-      {phase === "done" && currentPlayer && (
-        <div className="relative flex flex-col items-center gap-4 px-6 w-full max-w-sm">
-          {/* Glow background */}
-          <div className={cn("absolute inset-0 opacity-30 blur-3xl", pack.bgColor)} />
-
-          {/* "Kazandın!" text */}
-          <div className="relative text-center mb-2">
-            <div className={cn("text-xs font-bold uppercase tracking-wider", pack.color)}>
-              {pack.name} — Oyuncu {revealIndex + 1}/{pulledPlayers.length}
-            </div>
-          </div>
-
-          {/* Player card — flip animation */}
-          <div
-            className="relative w-full max-w-[280px]"
-            style={{ animation: "cardFlip 0.6s ease-out" }}
+            className="w-full tm-card p-6 flex flex-col items-center gap-3"
+            style={{ animation: "scaleIn 0.5s ease-out" }}
           >
-            <div className={cn("tm-card p-5 border-2", pack.borderColor, pack.bgColor)}>
-              {/* Player avatar */}
-              <div className="flex flex-col items-center gap-3">
-                <div className={cn("w-20 h-20 rounded-2xl flex items-center justify-center border-2", pack.borderColor)}>
-                  <PlayerAvatar initials={currentPlayer.specificPosition} size={48} />
-                </div>
-
-                {/* Name */}
-                <div className="text-center">
-                  <div className="text-base font-bold text-white">
-                    {currentPlayer.firstName} {currentPlayer.lastName}
-                  </div>
-                  <div className="flex items-center justify-center gap-1.5 mt-1">
-                    <PositionPill label={currentPlayer.specificPosition} group={POSITION_GROUP[currentPlayer.specificPosition]} />
-                    <span className="text-[10px] text-muted-foreground">{currentPlayer.age} yaş</span>
-                  </div>
-                </div>
-
-                {/* OVR */}
-                <div className={cn("px-4 py-2 rounded-xl border-2", pack.borderColor)}>
-                  <div className="text-[11px] text-muted-foreground uppercase font-bold text-center">OVR</div>
-                  <div className={cn("text-2xl font-bold tabular-nums text-center", pack.color)}>
-                    {currentPlayer.rating}
-                  </div>
-                </div>
-
-                {/* Key stats */}
-                <div className="grid grid-cols-3 gap-2 w-full mt-2">
-                  {currentPlayer.specificPosition === "GK" ? (
-                    <>
-                      <StatBox label="REF" value={currentPlayer.stats?.reflexes ?? currentPlayer.reflexes ?? 50} />
-                      <StatBox label="TUT" value={currentPlayer.stats?.handling ?? currentPlayer.goalkeeping ?? 50} />
-                      <StatBox label="BIR" value={currentPlayer.stats?.oneOnOnes ?? 50} />
-                    </>
-                  ) : (
-                    <>
-                      <StatBox label="HIZ" value={currentPlayer.stats?.pace ?? currentPlayer.speed ?? 50} />
-                      <StatBox label="ŞUT" value={currentPlayer.stats?.shooting ?? currentPlayer.shooting ?? 50} />
-                      <StatBox label="PAS" value={currentPlayer.stats?.passing ?? currentPlayer.passing ?? 50} />
-                    </>
-                  )}
-                </div>
-
-                {/* Market value */}
-                <div className="text-[10px] text-muted-foreground mt-2">
-                  Piyasa Değeri: €{(currentPlayer.marketValue ?? currentPlayer.market_value ?? 500000).toLocaleString("tr-TR")}
-                </div>
-              </div>
+            <PlayerAvatar initials={currentPlayer.specificPosition} color="#1a3a2a" size={64} />
+            <div className="text-center">
+              <div className="text-base font-bold">{currentPlayer.firstName} {currentPlayer.lastName}</div>
+              <div className="text-xs text-muted-foreground">{currentPlayer.specificPosition} · {currentPlayer.age} yaş</div>
             </div>
+            <RatingBadge value={currentPlayer.rating} />
+            <div className="flex gap-2">
+              <PositionPill label={currentPlayer.specificPosition} group={POSITION_GROUP[currentPlayer.specificPosition]} />
+            </div>
+            {currentPlayer.archetype && (
+              <div className="text-[10px] text-purple-400 font-bold">{currentPlayer.archetype}</div>
+            )}
           </div>
-
-          {/* Butonlar — Sonraki + Kapat */}
-          <div className="flex items-center gap-2 w-full max-w-[280px]">
-            <button
-              onClick={onNext}
-              className="tm-tap flex-1 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-bold active:scale-[0.98] transition-transform"
-            >
-              {revealIndex < pulledPlayers.length - 1 ? "Sonraki →" : "Tamamla ✓"}
-            </button>
-            <button
-              onClick={onClose}
-              className="tm-tap px-3 py-2.5 rounded-lg border border-border bg-card text-muted-foreground text-xs font-bold active:scale-[0.98] transition-transform"
-              aria-label="Kapat"
-            >
-              <X size={16} />
-            </button>
-          </div>
-
-          <style jsx>{`
-            @keyframes cardFlip {
-              0% { transform: rotateY(90deg) scale(0.5); opacity: 0; }
-              100% { transform: rotateY(0deg) scale(1); opacity: 1; }
-            }
-          `}</style>
         </div>
       )}
 
-      {/* Done phase ama oyuncu yoksa (fallback) — sadece Kapat butonu */}
-      {phase === "done" && !currentPlayer && (
-        <div className="relative flex flex-col items-center gap-4 px-6">
-          <div className="text-base font-bold text-white">Paket açıldı</div>
-          <div className="text-[11px] text-muted-foreground text-center max-w-[260px]">
-            Oyuncular serbest ajan listesine eklendi. Transfer ekranından inceleyebilirsin.
+      {phase === "done" && (
+        <div className="flex flex-col items-center gap-4 max-w-[320px] w-full">
+          <Crown size={48} className="text-amber-400" />
+          <div className="text-white text-sm font-bold">Paket Açıldı!</div>
+          <div className="text-white/60 text-xs text-center">
+            {pulledPlayers.length} oyuncu kadroya eklendi
           </div>
           <button
             onClick={onClose}
-            className="tm-tap px-6 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-bold active:scale-[0.98] transition-transform"
+            className="tm-tap px-6 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-bold"
           >
-            Kapat
+            Tamam
           </button>
         </div>
       )}
 
-      {/* Kapat butonu — her phase'te görünür (sağ üstte) */}
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 tm-tap p-2 text-white/60 hover:text-white z-10"
-        aria-label="Kapat"
-      >
-        <X size={20} />
-      </button>
-    </div>
-  );
-}
+      {phase === "revealing" && (
+        <button
+          onClick={onNext}
+          className="absolute bottom-8 tm-tap px-6 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-bold"
+        >
+          {revealIndex < pulledPlayers.length - 1 ? "Sonraki" : "Tamam"}
+        </button>
+      )}
 
-function StatBox({ label, value }: { label: string; value: number }) {
-  const color = value >= 80 ? "text-emerald-400" : value >= 65 ? "text-yellow-400" : "text-orange-400";
-  return (
-    <div className="bg-muted/30 rounded p-1.5 text-center">
-      <div className="text-[11px] text-muted-foreground uppercase font-bold">{label}</div>
-      <div className={cn("text-sm font-bold tabular-nums", color)}>{Math.round(value)}</div>
+      {(phase === "shaking" || phase === "revealing") && (
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 tm-tap p-2 text-white/50 hover:text-white"
+        >
+          <X size={20} />
+        </button>
+      )}
     </div>
   );
 }
