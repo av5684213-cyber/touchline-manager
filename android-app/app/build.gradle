@@ -8,8 +8,8 @@ android {
         applicationId "com.touchline.manager"
         minSdk 24
         targetSdk 34
-        versionCode 941
-        versionName "2.9.41"
+        versionCode 942
+        versionName "2.9.42"
     }
     sourceSets {
         main {

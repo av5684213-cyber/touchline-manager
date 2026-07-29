@@ -2019,6 +2019,7 @@ export const useAppStore = create<AppState>()(
       playChampionsLeagueRound: () => {
         const cl = get().championsLeague;
         if (!cl.active || cl.champion) return { success: false };
+        const { clubs, myTeamId } = get();
 
         const currentRound = cl.currentRound;
         const roundMatches = cl.matches.filter(m => m.round === currentRound && !m.played);
@@ -2076,27 +2077,99 @@ export const useAppStore = create<AppState>()(
           return { success: true };
         }
 
-        // Bu turdaki maçları simüle et
+        // Bu turdaki maçları oyna — resmi maç motoru ile
+        const userTactic = get().tactics.active ?? DEFAULT_TACTIC;
+        const pickXI = (players: any[]) =>
+          [...players].filter((p) => isPlayerAvailable(p)).sort((a, b) => b.rating - a.rating).slice(0, 11);
+
         const updatedMatches = cl.matches.map(m => {
           if (m.round !== currentRound || m.played) return m;
 
-          // Takım güçlerini hesapla
           const homeParticipant = cl.participants.find(p => p.teamId === m.homeId);
           const awayParticipant = cl.participants.find(p => p.teamId === m.awayId);
 
-          // Bot takım güçleri — tier bazlı
-          const homeStrength = homeParticipant
-            ? (homeParticipant.isUser ? 70 : 50 + (5 - homeParticipant.tier) * 8 + Math.random() * 20)
-            : 50;
-          const awayStrength = awayParticipant
-            ? (awayParticipant.isUser ? 70 : 50 + (5 - awayParticipant.tier) * 8 + Math.random() * 20)
-            : 50;
+          let hs: number;
+          let as: number;
 
-          // Skor üret
-          const homeAdv = homeStrength > awayStrength ? 0.3 : 0;
-          const hs = Math.max(0, Math.floor(Math.random() * 4 + homeAdv * 2));
-          const as = Math.max(0, Math.floor(Math.random() * 3 - homeAdv * 2));
-          const winnerId = hs >= as ? m.homeId : m.awayId;
+          if (m.homeId === myTeamId || m.awayId === myTeamId) {
+            // v2.9.42: Kullanıcın maçı — enhanced motor + taktikler
+            const myTeam = clubs.find(c => c.id === myTeamId);
+            if (myTeam) {
+              const isHome = m.homeId === myTeamId;
+              const homeTactic = isHome ? userTactic : { ...DEFAULT_TACTIC, formation: "4-4-2" };
+              const awayTactic = isHome ? { ...DEFAULT_TACTIC, formation: "4-4-2" } : userTactic;
+
+              // Bot rakip için takım üret (kullanıcın clubs'unda yok)
+              const botParticipant = isHome ? awayParticipant : homeParticipant;
+              let botPlayers: any[] = [];
+              if (botParticipant && !botParticipant.isUser) {
+                const botClubs = generateClubsForLeague(
+                  botParticipant.tier as any,
+                  1 as any,
+                  botParticipant.country
+                );
+                const botClub = botClubs[0];
+                if (botClub) botPlayers = botClub.players;
+              }
+
+              const homePlayers = isHome ? pickXI(myTeam.players) : pickXI(botPlayers);
+              const awayPlayers = isHome ? pickXI(botPlayers) : pickXI(myTeam.players);
+
+              try {
+                const result = simulateEnhancedMatch(
+                  homePlayers,
+                  awayPlayers,
+                  homeTactic,
+                  awayTactic,
+                  { homeTeamName: m.homeName, awayTeamName: m.awayName }
+                );
+                hs = result.homeScore;
+                as = result.awayScore;
+              } catch (e) {
+                console.warn("[CL] enhanced match error, fallback:", e);
+                hs = Math.floor(Math.random() * 3);
+                as = Math.floor(Math.random() * 3);
+              }
+            } else {
+              hs = Math.floor(Math.random() * 3);
+              as = Math.floor(Math.random() * 3);
+            }
+          } else {
+            // Bot vs Bot — enhanced motor (basit takım üret)
+            try {
+              const homeClubs = generateClubsForLeague(
+                homeParticipant!.tier as any, 1 as any, homeParticipant!.country
+              );
+              const awayClubs = generateClubsForLeague(
+                awayParticipant!.tier as any, 1 as any, awayParticipant!.country
+              );
+              const homeTeam = homeClubs[0];
+              const awayTeam = awayClubs[0];
+              if (homeTeam && awayTeam) {
+                const result = simulateEnhancedMatch(
+                  pickXI(homeTeam.players),
+                  pickXI(awayTeam.players),
+                  { ...DEFAULT_TACTIC, formation: "4-4-2" },
+                  { ...DEFAULT_TACTIC, formation: "4-4-2" },
+                  { homeTeamName: m.homeName, awayTeamName: m.awayName }
+                );
+                hs = result.homeScore;
+                as = result.awayScore;
+              } else {
+                hs = Math.floor(Math.random() * 3);
+                as = Math.floor(Math.random() * 3);
+              }
+            } catch (e) {
+              hs = Math.floor(Math.random() * 3);
+              as = Math.floor(Math.random() * 3);
+            }
+          }
+
+          // v2.9.42: Eleme — beraberlik olamaz, penaltı (rastgele)
+          if (hs === as) {
+            if (Math.random() < 0.5) hs += 1; else as += 1;
+          }
+          const winnerId = hs > as ? m.homeId : m.awayId;
 
           return {
             ...m,
