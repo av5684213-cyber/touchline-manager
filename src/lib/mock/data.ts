@@ -613,9 +613,9 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
   const appearancesVal = rand(8, 28);
   const nation = isForeign ? "Yabancı" : "Türkiye";
   const foot: Foot = Math.random() < 0.7 ? "Right" : Math.random() < 0.5 ? "Left" : "Both";
-  // v2.9.21 GÖREV 4: Piyasa değeri — TEK KANONİK FORMÜL (valuation.ts calculatePlayerValue ile birebir aynı)
-  // Eski tutarsız formüller kaldırıldı (data.ts'te ayrı, valuation.ts'te ayrı hesap).
-  // Şimdi her yerde aynı: base = rating² × 8000
+  // v2.9.30 T-05: Piyasa değeri — TEK KANONİK FORMÜL (valuation.ts calculatePlayerValue ile birebir aynı)
+  // NOT: Circular dependency nedeniyle data.ts → valuation.ts import edemez (valuation.ts Player'ı data.ts'ten import eder).
+  // Bu formül valuation.ts:calculatePlayerValue ile BİREBİR AYNI olmalı — değişiklik yaparken her ikisini güncelle.
   const ageMultValue =
     age <= 23 ? 1.30 :
     age <= 27 ? 1.15 :

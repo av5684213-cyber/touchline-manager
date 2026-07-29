@@ -179,6 +179,8 @@ const POSITIONS_BY_GROUP: Record<string, Position[]> = {
 // isimler vardı — bu oyunculara motor sıfır arketip bonusu veriyordu.
 // Şimdi data.ts'teki ARKETIPLER tablosunu kullanıyoruz.
 import { ARKETIPLER as DATA_ARKETIPLER, pickArketipByStats } from "./data";
+// v2.9.30 T-05: Piyasa değeri tek kaynak — valuation.ts calculatePlayerValue
+import { calculatePlayerValue } from "@/lib/valuation";
 const ARCHETYPES: Record<Position, string[]> = DATA_ARKETIPLER as any;
 
 const NATIONALITIES = [
@@ -339,8 +341,8 @@ export function generateFreeAgentListings(count = 15): FreeAgentListing[] {
       nationality: isForeign ? "foreign" : "TR",
       nation: isForeign ? "Yabancı" : "Türkiye",
       foot: Math.random() < 0.7 ? "Right" : Math.random() < 0.5 ? "Left" : "Both",
-      market_value: ovr * 80_000,
-      marketValue: ovr * 80_000,
+      market_value: 0, // v2.9.30 T-05: calculatePlayerValue ile hesaplanacak
+      marketValue: 0,
       salary: ovr * 1500,
       weeklyWage: ovr * 1500,
       defending: stats.defending,
@@ -408,6 +410,11 @@ export function generateFreeAgentListings(count = 15): FreeAgentListing[] {
       } as any),
       is_free_agent: true,
     };
+
+    // v2.9.30 T-05: Piyasa değerini calculatePlayerValue ile hesapla (tek kaynak)
+    const calculatedValue = calculatePlayerValue(player);
+    player.market_value = calculatedValue;
+    player.marketValue = calculatedValue;
 
     listings.push({
       player,
