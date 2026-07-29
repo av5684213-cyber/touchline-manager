@@ -162,7 +162,8 @@ BEGIN
   -- 4) Tier fallback: 4 → 3 → 2 → 1
   v_target_tier := LEAST(GREATEST(p_preferred_tier, 1), 4);
 
-  FOR v_target_tier IN v_target_tier, v_target_tier - 1, v_target_tier - 2, v_target_tier - 3 LOOP
+  v_tiers := ARRAY[v_target_tier, v_target_tier - 1, v_target_tier - 2, v_target_tier - 3];
+  FOREACH v_tier IN ARRAY v_tiers LOOP
     IF v_target_tier < 1 THEN
       v_target_tier := 1;
     END IF;
