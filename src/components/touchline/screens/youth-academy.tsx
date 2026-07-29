@@ -27,10 +27,15 @@ export function YouthAcademyScreen() {
   useEffect(() => {
     if (storedSeason !== seasonNumber || youthPlayers.length === 0) {
       const count = 3 + academyLevel;
+      // v2.9.30 T-11: Akademi seviyesi kaliteyi de etkilesin
+      // Eskiden sadece count etkileniyordu — kalite her zaman 40-60
+      // Şimdi: academyLevel 0 → 40-55, 5 → 45-65, 10 → 50-75
+      const qualityMin = 40 + Math.floor(academyLevel * 1.0);
+      const qualityMax = 55 + Math.floor(academyLevel * 2.0);
       const positions: string[] = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LW", "RW", "ST"];
       const newPlayers = Array.from({ length: Math.min(count, 8) }, () => {
         const pos = positions[Math.floor(Math.random() * positions.length)] as any;
-        const p = generatePlayer(pos, { min: 40, max: 60 });
+        const p = generatePlayer(pos, { min: qualityMin, max: qualityMax });
         p.age = 15 + Math.floor(Math.random() * 4);
         p.potential = p.rating + 10 + Math.floor(Math.random() * 25);
         p.hidden_potential = p.potential;
