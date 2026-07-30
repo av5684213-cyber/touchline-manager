@@ -9,6 +9,8 @@ import { TIER_TEAM_NAMES, TEAM_NAME_BANK } from "@/lib/match/engine/constants";
 import { getArketipEtkiOzet, getOvrFactorPercent } from "@/lib/match/engine/arketipEffects";
 import { SEASON_INFO, isTransferWindowOpen } from "@/lib/mock/season";
 import { useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline";
+// v2.9.48: Takım detay modal'ı için
+import { TeamDetailModal } from "./team-detail-modal";
 // v2.9.28 GÖREV 4: Kart basma
 import { getCardById, getRarityColor, type ShopCard } from "@/lib/card-system";
 
@@ -41,6 +43,15 @@ export function PlayerProfileModal({
   const fileRef = useRef<HTMLInputElement>(null);
   const [arkModal, setArkModal] = useState<string | null>(null);
   const [photoFeedback, setPhotoFeedback] = useState<string | null>(null);
+  // v2.9.48: Takım detay modal'ı için state
+  const [showTeamDetail, setShowTeamDetail] = useState(false);
+
+  // v2.9.48: Reaktif takım bul — oyuncunun hangi takımda olduğunu
+  const clubs = useAppStore((s) => s.clubs);
+  const playerTeam = useMemo(
+    () => clubs.find(c => c.players.some(p => p.id === player.id)) ?? null,
+    [clubs, player.id]
+  );
 
   // P0 FIX: Escape tuşu + body scroll lock
   useEscapeToClose(onClose);
@@ -159,14 +170,17 @@ export function PlayerProfileModal({
                 🟥 CEZALI {Number(player.suspended_until) - seasonMatchday}m
               </span>
             )}
-            {/* TALİMAT: Takım adı ismin yanına */}
-            {(() => {
-              const allClubs = useAppStore.getState().clubs;
-              const playerTeam = allClubs.find(c => c.players.some(p => p.id === player.id));
-              return playerTeam ? (
-                <span className="text-[10px] text-white/70 truncate">· {playerTeam.name}</span>
-              ) : null;
-            })()}
+            {/* TALİMAT: Takım adı ismin yanına — tıklanabilir */}
+            {playerTeam && (
+              <button
+                onClick={() => { haptic("light"); setShowTeamDetail(true); }}
+                className="tm-tap flex items-center gap-1 text-[10px] text-white/70 hover:text-white truncate shrink-0 max-w-[100px]"
+                title={playerTeam.name}
+              >
+                <span className="w-3 h-3 rounded-sm shrink-0" style={{ background: playerTeam.primaryColor }} />
+                <span className="truncate">{playerTeam.shortName}</span>
+              </button>
+            )}
           </div>
           <button onClick={onClose} className="tm-tap p-1 text-white/80 shrink-0" aria-label={t("common.close")}>
             <X size={16} />
@@ -248,6 +262,16 @@ export function PlayerProfileModal({
           arketip={arkModal}
           position={player.specificPosition}
           onClose={() => setArkModal(null)}
+        />
+      )}
+
+      {/* v2.9.48: Takım detay modal — oyuncunun takımına tıklayınca açılır */}
+      {showTeamDetail && playerTeam && (
+        <TeamDetailModal
+          team={playerTeam}
+          isMyTeam={playerTeam.id === useAppStore.getState().myTeamId}
+          onClose={() => setShowTeamDetail(false)}
+          onMessage={() => {}}
         />
       )}
     </div>

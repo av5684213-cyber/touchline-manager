@@ -2862,6 +2862,16 @@ export const useAppStore = create<AppState>()(
             console.warn("[advanceMatchday] playCupRound hatası:", e);
           }
         }
+
+        // v2.9.48: Otomatik sponsor teklifleri — her 5 turda bir
+        // "Teklif Getir" butonu kaldırıldı, artık otomatik geliyor
+        if (currentMd % 5 === 0) {
+          try {
+            get().generateSponsorOffers();
+          } catch (e) {
+            console.warn("[advanceMatchday] auto sponsor offers hatası:", e);
+          }
+        }
       },
 
       endSeason: () => {
@@ -3587,10 +3597,14 @@ export const useAppStore = create<AppState>()(
         // P2 FIX: Zaten aktif sponsor varsa veya teklifler varsa yeni üretme
         if (sponsors.active?.some((s: any) => s.isActive)) return;
         if (sponsors.offers && sponsors.offers.length > 0) return;
-        const avgOvr = myTeam.players.reduce((s, p) => s + p.rating, 0) / myTeam.players.length;
+        const avgOvr = myTeam.players.length > 0
+          ? myTeam.players.reduce((s, p) => s + p.rating, 0) / myTeam.players.length
+          : 50;
+        // v2.9.48: Takım değerini de hesapla — sponsor tutarı kalite + değer bazlı
+        const teamValue = myTeam.players.reduce((s, p) => s + (p.marketValue ?? p.market_value ?? 0), 0);
         try {
-          
-          const offers = generateSponsorOffers(myTeam.leagueTier ?? 2, avgOvr);
+
+          const offers = generateSponsorOffers(myTeam.leagueTier ?? 2, avgOvr, teamValue);
           set({ sponsors: { ...sponsors, offers } });
         } catch (e) {
           console.warn("[generateSponsorOffers] hata:", e);

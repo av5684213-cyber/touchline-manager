@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Globe, Filter, Loader2, Search, X, ChevronRight } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { useSupabaseAuth } from "@/lib/auth/auth-context";
@@ -9,6 +9,10 @@ import { cn } from "@/lib/utils";
 import { formatEuro } from "@/lib/format";
 import { haptic } from "@/hooks/touchline";
 import { PositionPill, RatingBadge } from "./ui-bits";
+// v2.9.48: Oyuncu profili açmak için
+import { PlayerProfileModal } from "./player-profile-modal";
+import { TransferNegotiationModal } from "./transfer-negotiation-modal";
+import type { Player, Team } from "@/lib/mock/data";
 
 /**
  * v2.9.20 GÖREV 9 — Global Transfer Pazarı.
@@ -83,6 +87,15 @@ export function GlobalMarketToolbox() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  // v2.9.48: Oyuncu profili + pazarlık modal state
+  const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
+  const [profileTeam, setProfileTeam] = useState<Team | null>(null);
+  const [negotiationPlayer, setNegotiationPlayer] = useState<{ player: Player; askingPrice: number } | null>(null);
+  // v2.9.48: Pagination — 50 yerine 100'er yükle
+  const [displayCount, setDisplayCount] = useState(100);
+
+  // Orijinal Player objelerini sakla — profil açmak için
+  const [playerObjects, setPlayerObjects] = useState<Map<string, { player: Player; team: Team }>>(new Map());
 
   // Departman listesi (country + tier'a göre dinamik)
   const [departments, setDepartments] = useState<DeptInfo[]>([]);
@@ -132,6 +145,7 @@ export function GlobalMarketToolbox() {
       const { COUNTRIES } = await import("@/lib/countries/countries");
 
       const allPlayers: GlobalPlayer[] = [];
+      const objMap = new Map<string, { player: Player; team: Team }>();
 
       // Hangi ülkeleri tara?
       const countriesToSearch = countryCode
@@ -162,6 +176,9 @@ export function GlobalMarketToolbox() {
                 if (minRating !== "" && p.rating < Number(minRating)) continue;
                 const askingPrice = p.marketValue ?? p.market_value ?? 500000;
                 if (maxPrice !== "" && askingPrice > Number(maxPrice)) continue;
+
+                // v2.9.48: Orijinal Player + Team objesini sakla (profil açmak için)
+                objMap.set(p.id, { player: p, team: club });
 
                 allPlayers.push({
                   player_id: p.id,
@@ -194,9 +211,11 @@ export function GlobalMarketToolbox() {
         }
       }
 
-      // Rating'e göre sırala, en iyi 50'yi al
+      // Rating'e göre sırala, tüm sonuçları al (50 sınırı kaldırıldı)
       allPlayers.sort((a, b) => b.rating - a.rating);
-      setPlayers(allPlayers.slice(0, 50));
+      setPlayers(allPlayers);
+      setPlayerObjects(objMap);
+      setDisplayCount(100); // ilk 100 göster, geri kalan için 'daha fazla'
     } catch (e: any) {
       setError(e?.message ?? "Arama hatası");
       setPlayers([]);
@@ -391,6 +410,24 @@ export function GlobalMarketToolbox() {
         </div>
       )}
 
+      {/* v2.9.48: Oyuncu profili modal */}
+      {profilePlayer && (
+        <PlayerProfileModal
+          player={profilePlayer}
+          teamColor={profileTeam?.primaryColor ?? "#1a3a2a"}
+          onClose={() => { setProfilePlayer(null); setProfileTeam(null); }}
+        />
+      )}
+
+      {/* v2.9.48: Pazarlık modal */}
+      {negotiationPlayer && (
+        <TransferNegotiationModal
+          player={negotiationPlayer.player}
+          askingPrice={negotiationPlayer.askingPrice}
+          onClose={() => setNegotiationPlayer(null)}
+        />
+      )}
+
       {/* Results */}
       {!showFilters && (
         <div className="flex items-center justify-between text-[10px] text-muted-foreground">
@@ -422,26 +459,68 @@ export function GlobalMarketToolbox() {
         </div>
       ) : (
         <div className="space-y-1.5">
-          {players.slice(0, 50).map((p) => (
-            <GlobalPlayerRow key={p.player_id} player={p} myTeamCountryCode={myTeam?.leagueTier ? "TR" : "TR"} />
+          {players.slice(0, displayCount).map((p) => (
+            <GlobalPlayerRow
+              key={p.player_id}
+              player={p}
+              myTeamCountryCode={myTeam?.leagueTier ? "TR" : "TR"}
+              playerObjects={playerObjects}
+              onOpenProfile={(player, team) => { setProfilePlayer(player); setProfileTeam(team); }}
+              onMakeOffer={(player, price) => setNegotiationPlayer({ player, askingPrice: price })}
+            />
           ))}
-          {players.length > 50 && (
-            <p className="text-center text-[10px] text-muted-foreground py-2">
-              İlk 50 oyuncu gösteriliyor (toplam {players.length})
-            </p>
+          {players.length > displayCount && (
+            <button
+              onClick={() => { haptic("light"); setDisplayCount(displayCount + 100); }}
+              className="tm-tap w-full py-2.5 rounded-lg text-xs font-bold bg-card border border-border text-primary"
+            >
+              Daha Fazla Yükle ({players.length - displayCount} oyuncu daha)
+            </button>
           )}
+          <p className="text-center text-[10px] text-muted-foreground py-1">
+            {Math.min(displayCount, players.length)} / {players.length} oyuncu gösteriliyor
+          </p>
         </div>
       )}
     </div>
   );
 }
 
-function GlobalPlayerRow({ player, myTeamCountryCode }: { player: GlobalPlayer; myTeamCountryCode: string }) {
+function GlobalPlayerRow({
+  player,
+  myTeamCountryCode,
+  playerObjects,
+  onOpenProfile,
+  onMakeOffer,
+}: {
+  player: GlobalPlayer;
+  myTeamCountryCode: string;
+  playerObjects: Map<string, { player: Player; team: Team }>;
+  onOpenProfile: (player: Player, team: Team) => void;
+  onMakeOffer: (player: Player, askingPrice: number) => void;
+}) {
   const isSameCountry = player.team_country_code === myTeamCountryCode;
   const askingPrice = player.sale_price ?? player.market_value ?? 0;
+  const obj = playerObjects.get(player.player_id);
+
+  const handleClick = () => {
+    if (!obj) return;
+    haptic("light");
+    onOpenProfile(obj.player, obj.team);
+  };
+
+  const handleOffer = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!obj) return;
+    haptic("light");
+    onMakeOffer(obj.player, askingPrice);
+  };
 
   return (
-    <div className="tm-card p-2.5 flex items-center gap-2.5">
+    <div
+      onClick={handleClick}
+      className="tm-tap tm-card p-2.5 flex items-center gap-2.5 cursor-pointer hover:bg-accent/30 transition-colors"
+    >
       {/* Rating + position */}
       <div className="flex flex-col items-center gap-0.5 shrink-0">
         <RatingBadge value={player.rating} />
@@ -473,7 +552,7 @@ function GlobalPlayerRow({ player, myTeamCountryCode }: { player: GlobalPlayer; 
       <div className="flex flex-col items-end gap-1 shrink-0">
         <p className="text-xs font-bold text-amber-300">{formatEuro(askingPrice)}</p>
         <button
-          onClick={() => haptic("light")}
+          onClick={handleOffer}
           className="tm-tap flex items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-bold text-white"
           style={{ background: "var(--primary)" }}
         >

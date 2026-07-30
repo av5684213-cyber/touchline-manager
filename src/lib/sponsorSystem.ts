@@ -1,5 +1,6 @@
 // ADDED: sponsorSystem.ts — Dinamik sponsor sistemi
-// Lig tier + takım OVR ortalamasına göre sponsor teklifleri üretir
+// v2.9.48: Lig tier + takım OVR + takım değeri bazlı, otomatik sponsor teklifleri
+// Kalitesi düşük takımdan yüksek takıma doğru sponsorluk ücretleri yükselir
 
 export type SponsorTier = "BRONZE" | "SILVER" | "GOLD" | "PLATINUM";
 
@@ -54,23 +55,57 @@ export function determineSponsorTier(leagueTier: number, avgOvr: number): Sponso
 }
 
 /**
- * Sponsor tier'ına göre haftalık gelir (Euro)
+ * v2.9.48: Sponsor tier'ına göre haftalık gelir — takım kalitesi ve değerine göre ölçeklenir
+ *
+ * Formül:
+ *   baseAmount (tier'a göre) × qualityMultiplier × valueMultiplier
+ *
+ *   qualityMultiplier: avgOvr 50 → 0.7, 60 → 0.85, 70 → 1.0, 80 → 1.15, 90+ → 1.3
+ *   valueMultiplier: takım değeri 10M → 0.8, 50M → 1.0, 100M → 1.2, 200M+ → 1.4
+ *
+ * Düşük kaliteli takım: BRONZE × 0.7 × 0.8 = 22.4K/hafta
+ * Yüksek kaliteli takım: PLATINUM × 1.3 × 1.4 = 910K/hafta
  */
-export function getSponsorAmount(tier: SponsorTier): number {
-  switch (tier) {
-    case "PLATINUM": return 500_000; // 500K/hafta
-    case "GOLD": return 250_000;
-    case "SILVER": return 100_000;
-    case "BRONZE": return 40_000;
-    default: return 40_000;
+export function getSponsorAmount(tier: SponsorTier, avgOvr?: number, teamValue?: number): number {
+  // Base amounts per tier
+  const baseAmounts: Record<SponsorTier, number> = {
+    PLATINUM: 500_000,
+    GOLD: 250_000,
+    SILVER: 100_000,
+    BRONZE: 40_000,
+  };
+  const base = baseAmounts[tier] ?? 40_000;
+
+  // v2.9.48: Quality multiplier — avgOvr bazlı
+  let qualityMult = 1.0;
+  if (avgOvr !== undefined) {
+    if (avgOvr >= 90) qualityMult = 1.30;
+    else if (avgOvr >= 80) qualityMult = 1.15;
+    else if (avgOvr >= 70) qualityMult = 1.00;
+    else if (avgOvr >= 60) qualityMult = 0.85;
+    else qualityMult = 0.70;
   }
+
+  // v2.9.48: Value multiplier — takım piyasa değeri bazlı
+  let valueMult = 1.0;
+  if (teamValue !== undefined) {
+    const valueM = teamValue / 1_000_000; // milyon Euro
+    if (valueM >= 200) valueMult = 1.40;
+    else if (valueM >= 100) valueMult = 1.20;
+    else if (valueM >= 50) valueMult = 1.00;
+    else if (valueM >= 20) valueMult = 0.90;
+    else valueMult = 0.80;
+  }
+
+  return Math.round(base * qualityMult * valueMult);
 }
 
 /**
- * Takım için sponsor teklifleri üret
+ * v2.9.48: Takım için sponsor teklifleri üret — lig tier + OVR + takım değeri bazlı
  * 3 teklif: 1 ana tier + 2 alt tier
+ * Otomatik: advanceMatchday her 5 turda bir çağrılır (Teklif Getir butonu kaldırıldı)
  */
-export function generateSponsorOffers(leagueTier: number, avgOvr: number): Sponsor[] {
+export function generateSponsorOffers(leagueTier: number, avgOvr: number, teamValue?: number): Sponsor[] {
   const mainTier = determineSponsorTier(leagueTier, avgOvr);
   const tierOrder: SponsorTier[] = ["BRONZE", "SILVER", "GOLD", "PLATINUM"];
   const mainIdx = tierOrder.indexOf(mainTier);
@@ -90,7 +125,7 @@ export function generateSponsorOffers(leagueTier: number, avgOvr: number): Spons
     offers.push({
       id: `sponsor_${now}_1`,
       name: picked.name,
-      amount: getSponsorAmount(mainTier),
+      amount: getSponsorAmount(mainTier, avgOvr, teamValue),
       tier: mainTier,
       durationWeeks: seasonWeeks,
       startDate: now,
@@ -105,7 +140,7 @@ export function generateSponsorOffers(leagueTier: number, avgOvr: number): Spons
     offers.push({
       id: `sponsor_${now}_${i + 2}`,
       name: picked.name,
-      amount: getSponsorAmount(lowerTier),
+      amount: getSponsorAmount(lowerTier, avgOvr, teamValue),
       tier: lowerTier,
       durationWeeks: seasonWeeks,
       startDate: now,

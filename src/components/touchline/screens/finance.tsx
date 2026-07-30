@@ -246,12 +246,8 @@ export function FinanceScreen() {
       <div className="tm-card p-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-bold">🤝 {t("finance.sponsor_system")}</span>
-          <button
-            onClick={() => { haptic("light"); useAppStore.getState().generateSponsorOffers(); }}
-            className="tm-tap text-[10px] px-2 py-1 rounded-md bg-primary text-primary-foreground font-bold"
-          >
-            Teklif Getir
-          </button>
+          {/* v2.9.48: "Teklif Getir" butonu kaldırıldı — artık otomatik her 5 turda geliyor */}
+          <span className="text-[9px] text-muted-foreground">Otomatik (her 5 tur)</span>
         </div>
 
         {/* Aktif sponsor */}
@@ -308,7 +304,7 @@ export function FinanceScreen() {
 
         {!activeSponsor && (sponsors?.offers ?? []).length === 0 && (
           <div className="text-[10px] text-muted-foreground text-center py-2">
-            Henüz sponsor yok. "Teklif Getir" butonuna bas.
+            Henüz sponsor yok. Sponsor teklifleri her 5 turda bir otomatik gelir.
           </div>
         )}
       </div>

@@ -86,6 +86,73 @@ function facilityEffectValue(key: FacilityKey, level: number): string {
   }
 }
 
+// v2.9.48: Tesis yükseltme süreleri ve maç motoru etkileri — kapsamlı bilgi paneli
+const FACILITY_DETAIL_INFO: Record<FacilityKey, {
+  upgradeDays: number[]; // her seviye için gün sayısı (0→1, 1→2, ..., 9→10)
+  matchEngineEffects: { level: number; effect: string }[];
+}> = {
+  stadium: {
+    upgradeDays: [2, 2, 2, 3, 4, 6, 10, 15, 22, 34],
+    matchEngineEffects: [
+      { level: 1, effect: "Kapasite 15K — Bilet geliri +%5" },
+      { level: 3, effect: "Kapasite 35K — Bilet +%15, Atmosfer +2 (rakip baskı)" },
+      { level: 5, effect: "Kapasite 55K — Bilet +%25, Atmosfer +4" },
+      { level: 7, effect: "Kapasite 75K — Atmosfer +6 (deplasman cezası artar)" },
+      { level: 10, effect: "Kapasite 105K — Rakip Karar -5, Atmosfer +10" },
+    ],
+  },
+  pitch: {
+    upgradeDays: [2, 2, 2, 3, 4, 6, 10, 15, 22, 34],
+    matchEngineEffects: [
+      { level: 1, effect: "Pas isabeti +%2" },
+      { level: 3, effect: "Pas +%5, Tempo +2" },
+      { level: 5, effect: "Pas +%8, Tempo +4" },
+      { level: 7, effect: "Pas +%10, Tempo +6" },
+      { level: 10, effect: "Takım Pas statı +%15 isabet (maç motoru pas isabeti çarpanı)" },
+    ],
+  },
+  academy: {
+    upgradeDays: [2, 2, 2, 3, 4, 6, 10, 15, 22, 34],
+    matchEngineEffects: [
+      { level: 1, effect: "Genç yetenek ihtimali +%5" },
+      { level: 3, effect: "Genç +%12, Akademi kapasitesi +1" },
+      { level: 5, effect: "Genç +%18, Kapasite +2" },
+      { level: 7, effect: "Genç +%22, Kapasite +3" },
+      { level: 10, effect: "Her sezon 1 Elit Wonderkid garantisi" },
+    ],
+  },
+  gym: {
+    upgradeDays: [2, 2, 2, 3, 4, 6, 10, 15, 22, 34],
+    matchEngineEffects: [
+      { level: 1, effect: "Fizik gelişimi +%8 (stamina/strength kazanımı)" },
+      { level: 3, effect: "Fizik +%24 — oyuncular yorgunluğa dayanıklı" },
+      { level: 5, effect: "Fizik +%40 — kondisyon tüketimi yavaşlar" },
+      { level: 7, effect: "Fizik +%56 — ikinci yarı performans düşüşü azalır" },
+      { level: 10, effect: "Fizik +%80 — oyuncular maç sonuna kadar tam performans" },
+    ],
+  },
+  medical: {
+    upgradeDays: [2, 2, 2, 3, 4, 6, 10, 15, 22, 34],
+    matchEngineEffects: [
+      { level: 1, effect: "Sakatlık iyileşme hızı +%5" },
+      { level: 3, effect: "İyileşme +%15" },
+      { level: 5, effect: "İyileşme +%25 — sakatlık süresi kısalır" },
+      { level: 7, effect: "İyileşme +%35" },
+      { level: 10, effect: "Sakatlık ihtimali -%50 azalır (INJURY_RISK.base 0.001 → 0.0005)" },
+    ],
+  },
+  analysis: {
+    upgradeDays: [2, 2, 2, 3, 4, 6, 10, 15, 22, 34],
+    matchEngineEffects: [
+      { level: 1, effect: "Analiz bonusu +%5 (rakip zayıf nokta tespiti)" },
+      { level: 3, effect: "Analiz +%15 — taktik skoru bonusu" },
+      { level: 5, effect: "Analiz +%25 — rakip formasyon önceden görülür" },
+      { level: 7, effect: "Analiz +%35" },
+      { level: 10, effect: "Analiz +%50 — maç öncesi rakip raporu tam" },
+    ],
+  },
+};
+
 export function FacilitiesScreen() {
   const { t } = useI18n();
   const team = useMyTeam();
@@ -578,6 +645,103 @@ function StaffHireModal({
           </button>
         </div>
       </div>
+
+      {/* v2.9.48: Tesis yükseltme süreleri + maç motoru etkileri — açılır bilgi paneli */}
+      <FacilityInfoPanel />
+    </div>
+  );
+}
+
+// v2.9.48: Kapsamlı tesis bilgi paneli — tüm seviye süreleri + maç motoru etkileri
+function FacilityInfoPanel() {
+  const [expanded, setExpanded] = useState(false);
+  const [selectedFacility, setSelectedFacility] = useState<FacilityKey | null>(null);
+
+  const facilityLabels: Record<FacilityKey, string> = {
+    stadium: "🏟️ Stadyum",
+    pitch: "grass Pitch (Saha)",
+    academy: "🎓 Altyapı",
+    gym: "🏋️ Spor Salonu",
+    medical: "🏥 Medikal",
+    analysis: "📊 Analiz",
+  };
+
+  return (
+    <div className="tm-card overflow-hidden">
+      <button
+        onClick={() => { haptic("light"); setExpanded(!expanded); }}
+        className="tm-tap w-full flex items-center justify-between px-3 py-2.5 hover:bg-accent/30 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm">📋</span>
+          <span className="text-xs font-bold">Yükseltme Süreleri & Maç Motoru Etkileri</span>
+        </div>
+        <span className="text-[10px] text-muted-foreground">{expanded ? "▲" : "▼"}</span>
+      </button>
+
+      {expanded && (
+        <div className="p-3 pt-0 space-y-3 border-t border-border">
+          {/* Facility seçici */}
+          <div className="flex gap-1.5 flex-wrap pt-2">
+            {(Object.keys(FACILITY_DETAIL_INFO) as FacilityKey[]).map(key => (
+              <button
+                key={key}
+                onClick={() => { haptic("light"); setSelectedFacility(key); }}
+                className={cn(
+                  "tm-tap px-2.5 py-1 rounded-full text-[10px] font-bold border",
+                  selectedFacility === key
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-card border-border text-muted-foreground"
+                )}
+              >
+                {facilityLabels[key]}
+              </button>
+            ))}
+          </div>
+
+          {selectedFacility && (
+            <div className="space-y-2">
+              {/* Yükseltme süreleri tablosu */}
+              <div>
+                <div className="text-[10px] text-muted-foreground uppercase font-bold mb-1">
+                  Yükseltme Süreleri (gün)
+                </div>
+                <div className="grid grid-cols-5 gap-1">
+                  {FACILITY_DETAIL_INFO[selectedFacility].upgradeDays.map((days, i) => (
+                    <div key={i} className="text-center bg-muted/30 rounded p-1">
+                      <div className="text-[9px] text-muted-foreground">Lv {i}→{i + 1}</div>
+                      <div className="text-[11px] font-bold tabular-nums">{days}g</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Maç motoru etkileri */}
+              <div>
+                <div className="text-[10px] text-muted-foreground uppercase font-bold mb-1">
+                  Maç Motoru Etkileri
+                </div>
+                <div className="space-y-1">
+                  {FACILITY_DETAIL_INFO[selectedFacility].matchEngineEffects.map((eff, i) => (
+                    <div key={i} className="flex items-start gap-2 text-[10px] p-1.5 rounded bg-muted/20">
+                      <span className="px-1.5 py-0.5 rounded bg-primary/20 text-primary font-bold shrink-0">
+                        Lv {eff.level}
+                      </span>
+                      <span className="flex-1">{eff.effect}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!selectedFacility && (
+            <div className="text-center text-[10px] text-muted-foreground py-3">
+              Detayları görmek için bir tesis seç
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
