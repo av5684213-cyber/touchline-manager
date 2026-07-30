@@ -187,11 +187,11 @@ export function MatchScreen() {
         onStart={() => {
           setShowPreMatch(false);
           engine.start();
-          // İzlendi olarak işaretle — test modunda currentMatchId yoksa manuel id ver
           const matchId = currentMatchId ?? `manual-${Date.now()}`;
           markMatchWatched(matchId);
         }}
         onBack={() => setShowPreMatch(false)}
+        onPlayerClick={(p) => { haptic("light"); setPitchProfilePlayer(p); }}
       />
     );
   }

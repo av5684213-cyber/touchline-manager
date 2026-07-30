@@ -45,6 +45,8 @@ const CATEGORIES = [
 export function ForumScreen() {
   const { user } = useSupabaseAuth();
   const myTeam = useMyTeam();
+  // v2.9.48: Forum'da takım logosu göstermek için clubs
+  const clubs = useAppStore((s) => s.clubs);
   const [topics, setTopics] = useState<ForumTopic[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTopic, setSelectedTopic] = useState<ForumTopic | null>(null);
@@ -218,6 +220,8 @@ export function ForumScreen() {
         <div className="space-y-2">
           {topics.map((topic) => {
             const cat = CATEGORIES.find(c => c.id === topic.category);
+            // v2.9.48: Forum'da takım logosu göster — clubs'tan bul
+            const authorTeam = clubs.find(c => c.id === topic.author_id || c.name === topic.author_team_name);
             return (
               <button
                 key={topic.id}
@@ -226,10 +230,14 @@ export function ForumScreen() {
               >
                 <div className="flex items-start gap-2">
                   <div
-                    className="w-8 h-8 rounded-md flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                    className="w-8 h-8 rounded-md flex items-center justify-center text-[10px] font-bold text-white shrink-0 overflow-hidden"
                     style={{ background: topic.author_team_color || "#1a3a2a" }}
                   >
-                    {topic.author_team_short?.slice(0, 3) ?? "???"}
+                    {authorTeam?.logoUrl ? (
+                      <img src={authorTeam.logoUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      topic.author_team_short?.slice(0, 3) ?? "???"
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">

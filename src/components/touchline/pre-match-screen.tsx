@@ -9,6 +9,7 @@ import { FORMATION_SLOTS } from "@/lib/tactics/types";
 import { isPlayerAvailableAt } from "@/lib/player-availability";
 import { ClubBadge, PositionPill, RatingBadge } from "./ui-bits";
 import { cn } from "@/lib/utils";
+import { haptic } from "@/hooks/touchline";
 
 // Formasyon bazlı ilk 11 seç — her slot için doğru pozisyondan oyuncu al
 // Bu sayede maksimum 1 kaleci olur (rating'e göre sıralama yapılmaz)
@@ -58,6 +59,7 @@ export function PreMatchScreen({
   awayForm,
   onStart,
   onBack,
+  onPlayerClick,
 }: {
   homeTeam: Team;
   awayTeam: Team;
@@ -68,6 +70,8 @@ export function PreMatchScreen({
   awayForm: ("W" | "D" | "L")[];
   onStart: () => void;
   onBack: () => void;
+  // v2.9.48: Oyuncuya tıklayınca profil aç
+  onPlayerClick?: (player: Player) => void;
 }) {
   const { t, locale } = useI18n();
   const myTeam = useMyTeam();
@@ -266,11 +270,15 @@ export function PreMatchScreen({
           {homeXI.map((p, i) => {
             const group = POSITION_GROUP[p.specificPosition] ?? "MID";
             return (
-              <div key={p.id} className={cn("flex items-center gap-2 py-1 px-1.5 rounded", POSITION_ROW_BG[group])}>
+              <button
+                key={p.id}
+                onClick={() => { haptic("light"); onPlayerClick?.(p); }}
+                className={cn("tm-tap w-full flex items-center gap-2 py-1 px-1.5 rounded hover:bg-accent/30 transition-colors", POSITION_ROW_BG[group])}
+              >
                 <PositionPill label={p.specificPosition} group={group} />
-                <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
+                <span className="text-[10px] font-semibold flex-1 truncate text-left">{p.firstName} {p.lastName}</span>
                 <span className="text-[11px] font-bold tabular-nums w-6 text-right">{p.rating}</span>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -286,11 +294,15 @@ export function PreMatchScreen({
           {awayXI.map((p, i) => {
             const group = POSITION_GROUP[p.specificPosition] ?? "MID";
             return (
-              <div key={p.id} className={cn("flex items-center gap-2 py-1 px-1.5 rounded", POSITION_ROW_BG[group])}>
+              <button
+                key={p.id}
+                onClick={() => { haptic("light"); onPlayerClick?.(p); }}
+                className={cn("tm-tap w-full flex items-center gap-2 py-1 px-1.5 rounded hover:bg-accent/30 transition-colors", POSITION_ROW_BG[group])}
+              >
                 <PositionPill label={p.specificPosition} group={group} />
-                <span className="text-[10px] font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
+                <span className="text-[10px] font-semibold flex-1 truncate text-left">{p.firstName} {p.lastName}</span>
                 <span className="text-[11px] font-bold tabular-nums w-6 text-right">{p.rating}</span>
-              </div>
+              </button>
             );
           })}
         </div>

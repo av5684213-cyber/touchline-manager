@@ -317,6 +317,7 @@ export type Team = {
   stadiumName: string;
   is_bot?: boolean;
   facilities?: any; // P0 FIX: Bot takımları için facility levels
+  logoUrl?: string | null; // v2.9.48: Kullanıcı yüklenen takım logosu (base64)
 };
 
 export const LEAGUE_NAMES: Record<LeagueTier, { tr: string; en: string }> = {

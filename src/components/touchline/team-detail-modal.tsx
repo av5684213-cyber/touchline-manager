@@ -65,19 +65,23 @@ export function TeamDetailModal({
   const [replayMatch, setReplayMatch] = useState<{ homeId: string; awayId: string; homeScore: number; awayScore: number; matchday: number } | null>(null);
   const clubs = useAppStore((s) => s.clubs);
   const fixtures = useAppStore((s) => s.fixtures);
-  // v2.9.48: Takım logosu state
-  const [teamLogo, setTeamLogo] = useState<string | null>(null);
+  // v2.9.48: Takım logosu — store'dan oku (kalıcı)
   const logoRef = useRef<HTMLInputElement>(null);
   const myTeamId = useAppStore((s) => s.myTeamId);
 
-  // v2.9.48: Logo yükleme — sadece kendi takımı için
+  // v2.9.48: Logo yükleme — sadece kendi takımı için, store'a yaz (kalıcı)
   const canUploadLogo = isMyTeam;
   const onLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      setTeamLogo(reader.result as string);
+      const logoData = reader.result as string;
+      // Store'a yaz — clubs'taki takımın logoUrl alanını güncelle
+      const updatedClubs = clubs.map(c =>
+        c.id === team.id ? { ...c, logoUrl: logoData } : c
+      );
+      useAppStore.setState({ clubs: updatedClubs });
       haptic("success");
     };
     reader.readAsDataURL(file);
@@ -180,8 +184,8 @@ export function TeamDetailModal({
             )}
             style={{ background: team.secondaryColor || "#fff" }}
           >
-            {teamLogo ? (
-              <img src={teamLogo} alt="logo" className="w-full h-full object-cover" />
+            {team.logoUrl ? (
+              <img src={team.logoUrl} alt="logo" className="w-full h-full object-cover" />
             ) : (
               <ClubBadge short={team.shortName} primaryColor={team.primaryColor} size={36} />
             )}

@@ -2,11 +2,13 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { Coins, Package, Sparkles, X, Zap, Crown, Award, ShoppingBag, Layers, Wand2, Archive } from "lucide-react";
-import { useAppStore } from "@/lib/store";
+import { useAppStore, useMyTeam } from "@/lib/store";
 import { PlayerAvatar, PositionPill, RatingBadge } from "../ui-bits";
 import { POSITION_GROUP } from "@/lib/mock/data";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
+// v2.9.48: Paketten çıkan oyuncu profili için
+import { PlayerProfileModal } from "../player-profile-modal";
 // v2.9.28 GÖREV 1: Kart sistemi
 import {
   getAllShopCards,
@@ -100,6 +102,7 @@ export function ShopScreen() {
   const credits = useAppStore((s) => s.credits);
   const buyPlayerPack = useAppStore((s) => s.buyPlayerPack);
   const buyCard = useAppStore((s) => s.buyCard);
+  const myTeam = useMyTeam();
   const [tab, setTab] = useState<ShopTab>("packs");
   const [opening, setOpening] = useState<PackType | null>(null);
   const [phase, setPhase] = useState<"idle" | "shaking" | "revealing" | "done">("idle");
@@ -108,6 +111,8 @@ export function ShopScreen() {
   const [feedback, setFeedback] = useState<string | null>(null);
   // v2.9.28 GÖREV 4: Kart basma modal'ı
   const [applyCard, setApplyCard] = useState<ShopCard | null>(null);
+  // v2.9.48: Paketten çıkan oyuncu profili
+  const [packProfilePlayer, setPackProfilePlayer] = useState<any | null>(null);
 
   const handleBuy = (packType: PackType) => {
     const pack = PACKS[packType];
@@ -353,6 +358,16 @@ export function ShopScreen() {
           revealIndex={revealIndex}
           onClose={handleClose}
           onNext={handleNextReveal}
+          onPlayerClick={(p) => { haptic("light"); setPackProfilePlayer(p); }}
+        />
+      )}
+
+      {/* v2.9.48: Paketten çıkan oyuncunun profili */}
+      {packProfilePlayer && (
+        <PlayerProfileModal
+          player={packProfilePlayer}
+          teamColor={myTeam?.primaryColor ?? "#1a3a2a"}
+          onClose={() => setPackProfilePlayer(null)}
         />
       )}
 
@@ -513,6 +528,7 @@ function PackOpeningAnimation({
   revealIndex,
   onClose,
   onNext,
+  onPlayerClick,
 }: {
   packType: PackType;
   phase: "shaking" | "revealing" | "done";
@@ -520,6 +536,8 @@ function PackOpeningAnimation({
   revealIndex: number;
   onClose: () => void;
   onNext: () => void;
+  // v2.9.48: Oyuncuya tıklayınca profil aç
+  onPlayerClick?: (player: any) => void;
 }) {
   const pack = PACKS[packType];
   const Icon = pack.icon;
@@ -570,15 +588,38 @@ function PackOpeningAnimation({
       )}
 
       {phase === "done" && (
-        <div className="flex flex-col items-center gap-4 max-w-[320px] w-full">
-          <Crown size={48} className="text-amber-400" />
+        <div className="flex flex-col items-center gap-4 max-w-[360px] w-full max-h-[80vh] overflow-y-auto tm-thin-scrollbar">
+          <Crown size={48} className="text-amber-400 shrink-0" />
           <div className="text-white text-sm font-bold">Paket Açıldı!</div>
           <div className="text-white/60 text-xs text-center">
-            {pulledPlayers.length} oyuncu kadroya eklendi
+            {pulledPlayers.length} oyuncu kadroya eklendi — detay için tıkla
           </div>
+
+          {/* v2.9.48: Tüm oyuncuları liste halinde göster */}
+          <div className="w-full space-y-2">
+            {pulledPlayers.map((p, i) => (
+              <button
+                key={i}
+                onClick={() => { haptic("light"); onPlayerClick?.(p); }}
+                className="tm-tap w-full tm-card p-3 flex items-center gap-3 hover:bg-accent/30 transition-colors text-left"
+              >
+                <PlayerAvatar initials={p.specificPosition} color="#1a3a2a" size={40} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold truncate">{p.firstName} {p.lastName}</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {p.specificPosition} · {p.age} yaş
+                    {p.archetype && ` · ${p.archetype}`}
+                  </div>
+                </div>
+                <RatingBadge value={p.rating} />
+                <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
+              </button>
+            ))}
+          </div>
+
           <button
             onClick={onClose}
-            className="tm-tap px-6 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-bold"
+            className="tm-tap px-6 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-bold shrink-0"
           >
             Tamam
           </button>
