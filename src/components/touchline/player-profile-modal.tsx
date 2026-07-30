@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { type Locale } from "@/lib/i18n/types";
 import { X, User, Upload, ArrowLeftRight, Banknote, Wand2, Crown, Check } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
-import { POSITION_GROUP, ARKETIPLER, type Player, type SeasonStat } from "@/lib/mock/data";
+import { POSITION_GROUP, ARKETIPLER, type Player, type SeasonStat, type SeasonAward } from "@/lib/mock/data";
 import { TIER_TEAM_NAMES, TEAM_NAME_BANK } from "@/lib/match/engine/constants";
 import { getArketipEtkiOzet, getOvrFactorPercent } from "@/lib/match/engine/arketipEffects";
 import { SEASON_INFO, isTransferWindowOpen } from "@/lib/mock/season";
@@ -2716,6 +2716,63 @@ function AchievementsTab({
           </div>
         </div>
       )}
+
+      {/* v2.9.46 GÖREV 3: Kariyer Ödülleri — sezon bazlı geçmiş */}
+      {(() => {
+        const awards = (player as any).seasonAwards as SeasonAward[] | undefined;
+        if (!awards || awards.length === 0) return null;
+
+        // Ödül ikonları + etiketleri
+        const AWARD_META: Record<string, { icon: string; label: string; color: string }> = {
+          top_scorer: { icon: "⚽", label: "Gol Kralı", color: "text-emerald-400" },
+          top_assist: { icon: "🅰", label: "Asist Kralı", color: "text-sky-400" },
+          mvp: { icon: "⭐", label: "Sezonun Oyuncusu", color: "text-purple-400" },
+          best_goalkeeper: { icon: "🧤", label: "En İyi Kaleci", color: "text-cyan-400" },
+          most_motm: { icon: "🏆", label: "En Çok Maç Adamı", color: "text-amber-400" },
+          most_appearances: { icon: "📋", label: "En Çok Maç Oynayan", color: "text-indigo-400" },
+          league_champion: { icon: "👑", label: "Lig Şampiyonu", color: "text-amber-300" },
+          cup_champion: { icon: "🏆", label: "Kupa Şampiyonu", color: "text-amber-300" },
+          champions_league_winner: { icon: "🌍", label: "Şampiyonlar Ligi", color: "text-blue-300" },
+        };
+
+        // Sıralama: en yeni sezon en üstte
+        const sorted = [...awards].sort((a, b) => b.seasonNumber - a.seasonNumber);
+
+        return (
+          <div>
+            <div className="text-[11px] text-muted-foreground uppercase font-bold mb-2">
+              Kariyer Ödülleri ({awards.length})
+            </div>
+            <div className="space-y-1">
+              {sorted.map((a, i) => {
+                const meta = AWARD_META[a.awardType] ?? { icon: "🏅", label: a.awardType, color: "text-muted-foreground" };
+                const rankBadge = a.rank === 1 ? "🥇" : a.rank === 2 ? "🥈" : a.rank === 3 ? "🥉" : "";
+                return (
+                  <div key={i} className="tm-card p-2 flex items-center gap-2 text-[10px]">
+                    <span className="text-base shrink-0">{meta.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className={cn("font-bold truncate", meta.color)}>
+                        {meta.label}
+                      </div>
+                      <div className="text-[9px] text-muted-foreground">
+                        {a.seasonLabel} · {a.clubName ?? "—"}
+                        {a.country !== "TR" && a.country !== "INT" && ` · ${a.country}`}
+                        {a.leagueTier && ` · T${a.leagueTier}`}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {rankBadge && <span className="text-sm">{rankBadge}</span>}
+                      <span className="text-muted-foreground font-bold tabular-nums">
+                        {a.statValue}{a.awardType === "top_scorer" ? "G" : a.awardType === "top_assist" ? "A" : ""}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

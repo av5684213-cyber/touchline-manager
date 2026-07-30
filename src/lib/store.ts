@@ -14,6 +14,8 @@ import {
   type Player,
   type Position,
   type Team,
+  // v2.9.46 GÖREV 3: Sezon ödül tipi
+  type SeasonAward,
 } from "@/lib/mock/data";
 // v2.9.41: Şampiyonlar Ligi için ülke listesi
 import { COUNTRIES } from "@/lib/countries/countries";
@@ -2874,6 +2876,163 @@ export const useAppStore = create<AppState>()(
           }
         }
 
+        // v2.9.46 GÖREV 3: Sezon ödüllerini hesapla ve oyuncu.seasonAwards'a kalıcı yaz
+        // Ödüller sıralanırken en yüksekten en düşüğe ilk 3 oyuncu seçilir.
+        // Bu blok updatedClubs map'inden ÖNCE çalışmalı — gol/asist değerleri hala mevcut.
+        const oldSeasonNumber = get().seasonNumber ?? 1;
+        const seasonLabel = `${new Date().getFullYear() - 1}/${String(new Date().getFullYear()).slice(-2)}`;
+        const seasonAwardsForPlayers: Map<string, SeasonAward[]> = new Map();
+        try {
+          // Tüm oyuncuları topla — kulüp + lig bilgisi ile
+          const allPlayersWithClub: Array<{ player: Player; club: Team; country: string }> = [];
+          for (const club of clubs) {
+            const country = (club as any).country_code ?? "TR";
+            for (const p of club.players) {
+              allPlayersWithClub.push({ player: p, club, country });
+            }
+          }
+
+          // Yardımcı: ilk 3 oyuncuya ödül yaz
+          const awardTop3 = (
+            sortedPlayers: Array<{ player: Player; club: Team; country: string; statValue: number }>,
+            awardType: SeasonAward["awardType"]
+          ) => {
+            sortedPlayers.slice(0, 3).forEach((entry, idx) => {
+              const rank = idx + 1;
+              const award: SeasonAward = {
+                seasonNumber: oldSeasonNumber,
+                seasonLabel,
+                awardType,
+                rank,
+                statValue: entry.statValue,
+                country: entry.country,
+                leagueTier: entry.club.leagueTier ?? 2,
+                clubName: entry.club.name,
+              };
+              const existing = seasonAwardsForPlayers.get(entry.player.id) ?? [];
+              existing.push(award);
+              seasonAwardsForPlayers.set(entry.player.id, existing);
+            });
+          };
+
+          // Gol kralı
+          const byGoals = [...allPlayersWithClub]
+            .map(e => ({ ...e, statValue: e.player.goals ?? 0 }))
+            .sort((a, b) => b.statValue - a.statValue);
+          awardTop3(byGoals, "top_scorer");
+
+          // Asist kralı
+          const byAssists = [...allPlayersWithClub]
+            .map(e => ({ ...e, statValue: e.player.assists ?? 0 }))
+            .sort((a, b) => b.statValue - a.statValue);
+          awardTop3(byAssists, "top_assist");
+
+          // MVP — formRating bazlı
+          const byForm = [...allPlayersWithClub]
+            .map(e => ({ ...e, statValue: e.player.formRating ?? 0 }))
+            .sort((a, b) => b.statValue - a.statValue);
+          awardTop3(byForm, "mvp");
+
+          // En iyi kaleci — saves bazlı
+          const goalkeepers = allPlayersWithClub.filter(e => e.player.specificPosition === "GK");
+          const bySaves = goalkeepers
+            .map(e => ({ ...e, statValue: e.player.saves ?? 0 }))
+            .sort((a, b) => b.statValue - a.statValue);
+          awardTop3(bySaves, "best_goalkeeper");
+
+          // En çok MOTM
+          const byMotm = [...allPlayersWithClub]
+            .map(e => ({ ...e, statValue: e.player.motmAwards ?? 0 }))
+            .sort((a, b) => b.statValue - a.statValue);
+          awardTop3(byMotm, "most_motm");
+
+          // En çok maç oynayan
+          const byApps = [...allPlayersWithClub]
+            .map(e => ({ ...e, statValue: e.player.appearances ?? 0 }))
+            .sort((a, b) => b.statValue - a.statValue);
+          awardTop3(byApps, "most_appearances");
+
+          // Lig şampiyonu — standings[0] takımının tüm oyuncularına
+          const champion = standings[0];
+          if (champion) {
+            const champClub = clubs.find(c => c.id === champion.teamId);
+            if (champClub) {
+              const country = (champClub as any).country_code ?? "TR";
+              for (const p of champClub.players) {
+                if ((p.appearances ?? 0) > 0) {
+                  const award: SeasonAward = {
+                    seasonNumber: oldSeasonNumber,
+                    seasonLabel,
+                    awardType: "league_champion",
+                    rank: 1,
+                    statValue: champion.points,
+                    country,
+                    leagueTier: champClub.leagueTier ?? 2,
+                    clubName: champClub.name,
+                  };
+                  const existing = seasonAwardsForPlayers.get(p.id) ?? [];
+                  existing.push(award);
+                  seasonAwardsForPlayers.set(p.id, existing);
+                }
+              }
+            }
+          }
+
+          // Kupa şampiyonu
+          const cupChampionId = get().cup.champion;
+          if (cupChampionId) {
+            const cupChampClub = clubs.find(c => c.id === cupChampionId);
+            if (cupChampClub) {
+              const country = (cupChampClub as any).country_code ?? "TR";
+              for (const p of cupChampClub.players) {
+                if ((p.appearances ?? 0) > 0) {
+                  const award: SeasonAward = {
+                    seasonNumber: oldSeasonNumber,
+                    seasonLabel,
+                    awardType: "cup_champion",
+                    rank: 1,
+                    statValue: 1,
+                    country,
+                    leagueTier: cupChampClub.leagueTier ?? 2,
+                    clubName: cupChampClub.name,
+                  };
+                  const existing = seasonAwardsForPlayers.get(p.id) ?? [];
+                  existing.push(award);
+                  seasonAwardsForPlayers.set(p.id, existing);
+                }
+              }
+            }
+          }
+
+          // Şampiyonlar Ligi şampiyonu
+          const clChampionId = get().championsLeague?.champion;
+          if (clChampionId) {
+            // CL şampiyonu kullanıcının takımı olabilir (gerçek club) veya bot takım
+            const clChampClub = clubs.find(c => c.id === clChampionId);
+            if (clChampClub) {
+              for (const p of clChampClub.players) {
+                if ((p.appearances ?? 0) > 0) {
+                  const award: SeasonAward = {
+                    seasonNumber: oldSeasonNumber,
+                    seasonLabel,
+                    awardType: "champions_league_winner",
+                    rank: 1,
+                    statValue: 1,
+                    country: "INT", // uluslararası turnuva
+                    leagueTier: 1,
+                    clubName: clChampClub.name,
+                  };
+                  const existing = seasonAwardsForPlayers.get(p.id) ?? [];
+                  existing.push(award);
+                  seasonAwardsForPlayers.set(p.id, existing);
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("[endSeason] season awards hesaplama hatası:", e);
+        }
+
         // 40+ yaş oyuncuları emekli et, regen üret
         const retiredNames: string[] = [];
         const updatedClubs = clubs.map((c) => {
@@ -2905,6 +3064,12 @@ export const useAppStore = create<AppState>()(
           const agedPlayers = [...remainingPlayers, ...regens].map((p) => {
             const isRegen = (p as any)._isRegen === true;
             const oldStats = p.seasonStats ?? {};
+            // v2.9.46 GÖREV 3: Bu oyuncuya bu sezonda verilen ödülleri kalıcı seasonAwards'a ekle
+            const newAwards = seasonAwardsForPlayers.get(p.id) ?? [];
+            const existingAwards = p.seasonAwards ?? [];
+            const mergedAwards = newAwards.length > 0
+              ? [...existingAwards, ...newAwards]
+              : existingAwards;
             return {
               ...p,
               age: isRegen ? p.age : p.age + 1,
@@ -2936,6 +3101,8 @@ export const useAppStore = create<AppState>()(
               form_streak: "neutral" as const,
               form_streak_count: 0,
               motmAwards: (p as any).motmAwards ?? 0, // MotM ödülleri korunsun (kariyerlik)
+              // v2.9.46 GÖREV 3: Sezon ödüllerini kalıcı olarak sakla (kariyerlik)
+              seasonAwards: mergedAwards,
             };
           });
 
@@ -2992,7 +3159,7 @@ export const useAppStore = create<AppState>()(
         const newFixtures = generateFixtures(updatedClubs);
 
         // Sezon numarasını artır
-        const oldSeasonNumber = get().seasonNumber ?? 1;
+        // v2.9.46 GÖREV 3: oldSeasonNumber yukarıda tanımlandı (sezon ödülleri için)
         const newSeasonNumber = oldSeasonNumber + 1;
         SEASON_INFO.matchday = 1;
 
