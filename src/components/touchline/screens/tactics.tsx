@@ -191,16 +191,16 @@ export function TacticsScreen() {
     // Güçlü/zayıf yönler
     const st: string[] = [];
     const wk: string[] = [];
-    if (slotMatch > 0.8) st.push("Pozisyon uyumu yüksek");
-    else if (slotMatch < 0.5) wk.push("Pozisyon uyumu düşük");
-    if (avgMorale > 75) st.push("Yüksek takım morali");
-    else if (avgMorale < 50) wk.push("Düşük takım morali");
-    if (active.pressing) st.push("Pres aktif");
-    if (active.offsideTrap) st.push("Ofsayt tuzağı aktif");
-    if (roleCompat > 70) st.push("Rol uyumu iyi");
-    else if (roleCompat < 40 && assignedRoles.length > 0) wk.push("Rol-pozisyon uyumsuzluğu");
-    if (avgOvr > 72) st.push("Kadro kalitesi iyi");
-    else if (avgOvr < 65) wk.push("Kadro kalitesi düşük");
+    if (slotMatch > 0.8) st.push(t("tactics.strength.pos_high"));
+    else if (slotMatch < 0.5) wk.push(t("tactics.strength.pos_low"));
+    if (avgMorale > 75) st.push(t("tactics.strength.high_morale"));
+    else if (avgMorale < 50) wk.push(t("tactics.strength.low_morale"));
+    if (active.pressing) st.push(t("tactics.strength.pressing"));
+    if (active.offsideTrap) st.push(t("tactics.strength.offside_trap"));
+    if (roleCompat > 70) st.push(t("tactics.strength.role_good"));
+    else if (roleCompat < 40 && assignedRoles.length > 0) wk.push(t("tactics.strength.role_mismatch"));
+    if (avgOvr > 72) st.push(t("tactics.strength.squad_good"));
+    else if (avgOvr < 65) wk.push(t("tactics.strength.squad_low"));
 
     return {
       score: total,
@@ -243,10 +243,10 @@ export function TacticsScreen() {
       {/* ===== Üst sekme nav — Diziliş / Oyuncularım / Karşılaştır / Antrenman ===== */}
       <div className="flex border-b border-border bg-card rounded-t-lg">
         {([
-          { key: "lineup", label: "Diziliş" },
-          { key: "squad", label: `Oyuncularım (${team.players.length})` },
-          { key: "compare", label: `Karşılaştır${compareIds.length > 0 ? ` (${compareIds.length}/2)` : ""}` },
-          { key: "training", label: "Antrenman" },
+          { key: "lineup", label: t("tactics.tab.lineup") },
+          { key: "squad", label: `${t("tactics.tab.squad")} (${team.players.length})` },
+          { key: "compare", label: `${t("tactics.tab.compare")}${compareIds.length > 0 ? ` (${compareIds.length}/2)` : ""}` },
+          { key: "training", label: t("tactics.tab.training") },
         ] as const).map((tab) => (
           <button
             key={tab.key}
@@ -325,9 +325,9 @@ export function TacticsScreen() {
       {/* Taktik skoru detayları — 3 alt skor + güçlü/zayıf yönler */}
       <div className="tm-card p-3">
         <div className="grid grid-cols-3 gap-2 mb-2">
-          <SubScore label="Rol Uyumu" value={roleScore} />
-          <SubScore label="Talimat" value={instructionScore} />
-          <SubScore label="Özellik" value={attributeScore} />
+          <SubScore label={t("tactics.subscore.role")} value={roleScore} />
+          <SubScore label={t("tactics.subscore.instruction")} value={instructionScore} />
+          <SubScore label={t("tactics.subscore.attribute")} value={attributeScore} />
         </div>
         {/* v2.9.11: Oyun stili uyum bonusu */}
         {styleSynergy && styleSynergy.dominantCount >= 4 && (

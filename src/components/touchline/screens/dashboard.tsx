@@ -477,7 +477,7 @@ export function DashboardScreen() {
           }}
           className="tm-tap w-full py-3 rounded-lg bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center gap-2"
         >
-          <ChevronRight size={16} /> Turu İlerlet
+          <ChevronRight size={16} /> {t("dash.advance_round")}
         </button>
       )}
 
@@ -492,7 +492,7 @@ export function DashboardScreen() {
           }}
           className="tm-tap w-full py-3 rounded-lg bg-amber-600 text-white text-sm font-bold flex items-center justify-center gap-2"
         >
-          <Trophy size={16} /> Sezonu Bitir
+          <Trophy size={16} /> {t("dash.end_season")}
         </button>
       )}
 
@@ -631,6 +631,7 @@ function InflationIndicator() {
 
 // ===== Sezon Hedefleri =====
 function SeasonGoals({ team, myStat, standings }: { team: any; myStat: any; standings: any[] }) {
+  const { t } = useI18n();
   const pos = standings.findIndex((s) => s.teamId === team?.id);
   const tier = team?.leagueTier ?? 2;
   const matchday = SEASON_INFO.matchday;
@@ -640,28 +641,28 @@ function SeasonGoals({ team, myStat, standings }: { team: any; myStat: any; stan
   const goals = [
     {
       icon: "🏆",
-      label: "Lig Sıralaması",
+      label: t("dash.league_rank"),
       target: tier === 1 ? "İlk 4" : tier === 2 ? "İlk 2 (Yükselme)" : "İlk 2 (Yükselme)",
       current: pos >= 0 ? `${pos + 1}. sırada` : "—",
       status: pos >= 0 && pos < 2 ? "done" : pos >= 0 && pos < 4 ? "close" : "far",
     },
     {
       icon: "⚽",
-      label: "Gol Krallığı",
+      label: t("dash.top_scorer"),
       target: "Ligde en çok gol",
       current: `${myStat?.goalsFor ?? 0} gol`,
       status: "progress",
     },
     {
       icon: "💰",
-      label: "Bütçe Yönetimi",
+      label: t("dash.budget_mgmt"),
       target: `${formatEuro(team?.budget ?? 0, "tr")} bütçe`,
       current: formatEuro(team?.budget ?? 0, "tr"),
       status: (team?.budget ?? 0) > 0 ? "done" : "far",
     },
     {
       icon: "📊",
-      label: "Sezon İlerlemesi",
+      label: t("dash.season_progress"),
       target: `${totalMatchdays} hafta`,
       current: `${matchday}/${totalMatchdays} hafta`,
       status: matchday >= totalMatchdays ? "done" : "progress",
@@ -683,7 +684,7 @@ function SeasonGoals({ team, myStat, standings }: { team: any; myStat: any; stan
 
   return (
     <div className="tm-card p-3">
-      <div className="text-[10px] text-muted-foreground uppercase tracking-wide font-bold mb-2">Sezon Hedefleri</div>
+      <div className="text-[10px] text-muted-foreground uppercase tracking-wide font-bold mb-2">{t("dash.season_goals")}</div>
       <div className="space-y-1.5">
         {goals.map((g, i) => (
           <div key={i} className="flex items-center gap-2 text-[11px]">
@@ -706,6 +707,7 @@ function SeasonGoals({ team, myStat, standings }: { team: any; myStat: any; stan
 
 // ===== Günlük Görevler =====
 function DailyTasks() {
+  const { t } = useI18n();
   const today = new Date().toISOString().slice(0, 10);
   const store = useAppStore();
   const team = useMyTeam();
@@ -778,7 +780,7 @@ function DailyTasks() {
   return (
     <div className="tm-card p-3">
       <div className="flex items-center justify-between mb-2">
-        <div className="text-[10px] text-muted-foreground uppercase tracking-wide font-bold">Günlük Görevler</div>
+        <div className="text-[10px] text-muted-foreground uppercase tracking-wide font-bold">{t("dash.daily_tasks")}</div>
         <div className={cn(
           "text-[10px] font-bold px-1.5 py-0.5 rounded",
           allDone ? "bg-emerald-500/20 text-emerald-300" : "bg-muted text-muted-foreground"
@@ -906,6 +908,7 @@ function InfoBadge({ text }: { text: string }) {
 
 // ===== Tanıtıcı hoşgeldin kartı =====
 function WelcomeBanner({ teamName }: { teamName: string }) {
+  const { t } = useI18n();
   const [dismissed, setDismissed] = useState(false);
   if (dismissed) return null;
   return (
@@ -913,10 +916,9 @@ function WelcomeBanner({ teamName }: { teamName: string }) {
       <div className="flex items-start gap-2">
         <span className="text-2xl">⚽</span>
         <div className="flex-1">
-          <div className="text-xs font-bold mb-1">Hoş geldin, {teamName} menajeri!</div>
+          <div className="text-xs font-bold mb-1">{t("dash.welcome.title", { name: teamName })}</div>
           <div className="text-[10px] text-muted-foreground leading-relaxed">
-            Hafta içi 12:00 ve 18:00'de maçlar oynanır. Taktik kur, antrenman yap, transfer gerçekleştir ve lige hükmet!
-            Skorlara tıklayarak maçları tekrar izleyebilirsin.
+            {t("dash.welcome.body")}
           </div>
         </div>
         <button onClick={() => setDismissed(true)} className="tm-tap text-muted-foreground text-xs">✕</button>
