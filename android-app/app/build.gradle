@@ -103,3 +103,12 @@ task verifyProductionApk {
 afterEvaluate {
     assembleRelease.finalizedBy verifyProductionApk
 }
+
+// =============================================================================
+// v2.9.46 Görev 2: Google Play Billing dependency
+// =============================================================================
+// BillingClient — kredi paketi satın alma için
+// https://developer.android.com/google/play/billing/integrate
+dependencies {
+    implementation 'com.android.billingclient:billing-ktx:6.1.0'
+}

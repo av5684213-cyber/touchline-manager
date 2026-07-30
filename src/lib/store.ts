@@ -402,6 +402,12 @@ type AppState = {
   // v2.9.34 F2: Maç sonrası stat artışı ekle + sezon sonu kalıcı uygula
   addPendingGain: (playerId: string, statName: string, amount: number) => void;
   applyPendingGains: () => void; // Sezon sonu — pendingGains'i kalıcı stata ekle, sonra temizle
+  // v2.9.46 Görev 1: Kozmetik Market action'ları
+  buyCosmetic: (cosmeticId: string, creditPrice: number) => { success: boolean; reason?: string };
+  equipCosmetic: (category: string, cosmeticId: string) => void;
+  unequipCosmetic: (category: string) => void;
+  getCosmeticsOwned: () => string[];
+  getCosmeticsEquipped: () => Record<string, string>;
 };
 
 export type SeasonSummary = {
@@ -4312,6 +4318,62 @@ export const useAppStore = create<AppState>()(
       // saveTacticsToCloud — saveToCloud'a yönlendir (geri uyumluluk)
       saveTacticsToCloud: async (userId) => {
         return get().saveToCloud(userId);
+      },
+
+      // v2.9.46 Görev 1: Kozmetik Market action'ları
+      buyCosmetic: (cosmeticId, creditPrice) => {
+        const { credits, cosmetics } = get();
+        if (credits < creditPrice) {
+          return { success: false, reason: "Yetersiz kredi" };
+        }
+        // Zaten sahip mi kontrol et
+        if (cosmetics.owned.includes(cosmeticId)) {
+          return { success: false, reason: "Zaten sahipsin" };
+        }
+        // Kredi düşür + sahipliğe ekle
+        set({
+          credits: credits - creditPrice,
+          cosmetics: {
+            ...cosmetics,
+            owned: [...cosmetics.owned, cosmeticId],
+          },
+        });
+        triggerTacticsSave();
+        return { success: true };
+      },
+
+      equipCosmetic: (category, cosmeticId) => {
+        const { cosmetics } = get();
+        // Sahip mi kontrol et
+        if (!cosmetics.owned.includes(cosmeticId)) {
+          console.warn("[equipCosmetic] Sahip olmadığın kozmetiği giyemezsin:", cosmeticId);
+          return;
+        }
+        set({
+          cosmetics: {
+            ...cosmetics,
+            equipped: { ...cosmetics.equipped, [category]: cosmeticId },
+          },
+        });
+        triggerTacticsSave();
+      },
+
+      unequipCosmetic: (category) => {
+        const { cosmetics } = get();
+        const newEquipped = { ...cosmetics.equipped };
+        delete newEquipped[category];
+        set({
+          cosmetics: { ...cosmetics, equipped: newEquipped },
+        });
+        triggerTacticsSave();
+      },
+
+      getCosmeticsOwned: () => {
+        return get().cosmetics.owned;
+      },
+
+      getCosmeticsEquipped: () => {
+        return get().cosmetics.equipped;
       },
     })
 );

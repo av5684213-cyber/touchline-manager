@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Coins, Package, Sparkles, X, Zap, Crown, Award, ShoppingBag, Layers, Wand2, Archive } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { PlayerAvatar, PositionPill, RatingBadge } from "../ui-bits";
@@ -21,9 +21,28 @@ import {
 } from "@/lib/card-system";
 import { CardInventoryView } from "../card-inventory-view";
 import { CardApplyModal } from "../card-apply-modal";
+// v2.9.46 Görev 1: Kozmetik Market
+import {
+  fetchCosmeticsCatalog,
+  COSMETIC_CATEGORY_META,
+  RARITY_COLORS,
+  RARITY_LABELS,
+  SEED_COSMETICS,
+  type CosmeticItem,
+  type CosmeticCategory,
+} from "@/lib/cosmetics";
+// v2.9.46 Görev 2: Google Play Billing
+import {
+  CREDIT_PACKS,
+  isBillingAvailable,
+  launchPurchaseFlow,
+  acknowledgePurchase,
+  type CreditPack,
+} from "@/lib/billing/bridge";
+import { useI18n } from "@/lib/i18n/locale-provider";
 
 type PackType = "bronze" | "silver" | "gold" | "platinum";
-type ShopTab = "packs" | "cards" | "inventory";
+type ShopTab = "packs" | "cards" | "market" | "credits" | "inventory";
 
 const PACKS: Record<PackType, {
   name: string;
@@ -188,11 +207,11 @@ export function ShopScreen() {
       </div>
 
       {/* Tab selector */}
-      <div className="flex gap-1.5">
+      <div className="flex gap-1.5 overflow-x-auto tm-no-scrollbar">
         <button
           onClick={() => { haptic("light"); setTab("packs"); }}
           className={cn(
-            "tm-tap flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-colors",
+            "tm-tap flex-1 min-w-[80px] flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-colors",
             tab === "packs" ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground"
           )}
         >
@@ -202,7 +221,7 @@ export function ShopScreen() {
         <button
           onClick={() => { haptic("light"); setTab("cards"); }}
           className={cn(
-            "tm-tap flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-colors",
+            "tm-tap flex-1 min-w-[80px] flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-colors",
             tab === "cards" ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground"
           )}
         >
@@ -210,9 +229,29 @@ export function ShopScreen() {
           Kartlar
         </button>
         <button
+          onClick={() => { haptic("light"); setTab("market"); }}
+          className={cn(
+            "tm-tap flex-1 min-w-[80px] flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-colors",
+            tab === "market" ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground"
+          )}
+        >
+          <ShoppingBag size={14} />
+          Market
+        </button>
+        <button
+          onClick={() => { haptic("light"); setTab("credits"); }}
+          className={cn(
+            "tm-tap flex-1 min-w-[80px] flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-colors",
+            tab === "credits" ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground"
+          )}
+        >
+          <Coins size={14} />
+          Kredi
+        </button>
+        <button
           onClick={() => { haptic("light"); setTab("inventory"); }}
           className={cn(
-            "tm-tap flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-colors",
+            "tm-tap flex-1 min-w-[80px] flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-colors",
             tab === "inventory" ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground"
           )}
         >
@@ -283,9 +322,26 @@ export function ShopScreen() {
         <CardsTab onBuyCard={handleBuyCard} onApplyCard={(card) => setApplyCard(card)} />
       )}
 
+      {/* ===== KOZMETİK MARKET TAB (v2.9.46 Görev 1) ===== */}
+      {tab === "market" && (
+        <CosmeticMarketTab
+          onFeedback={(msg) => { setFeedback(msg); setTimeout(() => setFeedback(null), 3000); }}
+        />
+      )}
+
+      {/* ===== KREDİ SATIN AL TAB (v2.9.46 Görev 2) ===== */}
+      {tab === "credits" && (
+        <CreditsPurchaseTab
+          onFeedback={(msg) => { setFeedback(msg); setTimeout(() => setFeedback(null), 3000); }}
+        />
+      )}
+
       {/* ===== ENVANTERİM TAB ===== */}
       {tab === "inventory" && (
-        <CardInventoryView onApplyCard={(card) => setApplyCard(card)} />
+        <>
+          <CardInventoryView onApplyCard={(card) => setApplyCard(card)} />
+          <CosmeticInventoryView />
+        </>
       )}
 
       {/* Paket açılış animasyonu */}
@@ -546,6 +602,418 @@ function PackOpeningAnimation({
           <X size={20} />
         </button>
       )}
+    </div>
+  );
+}
+
+// ============================================================================
+// v2.9.46 Görev 1: Kozmetik Market Tab — forma, rozet, tema, stadyum, top
+// ============================================================================
+
+function CosmeticMarketTab({ onFeedback }: { onFeedback: (msg: string) => void }) {
+  const { locale } = useI18n();
+  const credits = useAppStore((s) => s.credits);
+  const buyCosmetic = useAppStore((s) => s.buyCosmetic);
+  const equipCosmetic = useAppStore((s) => s.equipCosmetic);
+  const cosmeticsOwned = useAppStore((s) => s.cosmetics.owned);
+  const cosmeticsEquipped = useAppStore((s) => s.cosmetics.equipped);
+
+  const [catalog, setCatalog] = useState<CosmeticItem[]>(SEED_COSMETICS);
+  const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<CosmeticCategory | "all">("all");
+
+  // Kataloğu yükle (Supabase bağlıysa oradan, değilse seed)
+  useEffect(() => {
+    let mounted = true;
+    fetchCosmeticsCatalog().then(items => {
+      if (mounted) {
+        setCatalog(items);
+        setLoading(false);
+      }
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  const filteredCatalog = selectedCategory === "all"
+    ? catalog
+    : catalog.filter(c => c.category === selectedCategory);
+
+  const handleBuy = (item: CosmeticItem) => {
+    haptic("medium");
+    const result = buyCosmetic(item.id, item.creditPrice);
+    if (result.success) {
+      haptic("success");
+      onFeedback(`✓ ${locale === "tr" ? item.nameTr : item.nameEn} satın alındı!`);
+      // Satın alınınca otomatik giy
+      equipCosmetic(item.category, item.id);
+    } else {
+      haptic("error");
+      onFeedback(`✗ ${result.reason ?? "Satın alma başarısız"}`);
+    }
+  };
+
+  const handleEquip = (item: CosmeticItem) => {
+    haptic("light");
+    equipCosmetic(item.category, item.id);
+    onFeedback(`✓ ${locale === "tr" ? item.nameTr : item.nameEn} giyildi`);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  const categories: Array<CosmeticCategory | "all"> = ["all", "kit", "badge", "theme", "stadium", "ball"];
+
+  return (
+    <div className="space-y-3">
+      {/* Bilgi kartı */}
+      <div className="tm-card p-3 border-purple-500/20 bg-purple-500/5">
+        <div className="flex items-center gap-2 mb-1.5">
+          <ShoppingBag size={13} className="text-purple-400" />
+          <span className="text-[11px] font-bold text-purple-300 uppercase">Kozmetik Market</span>
+        </div>
+        <p className="text-[10px] text-muted-foreground leading-relaxed">
+          Forma, rozet, tema, stadyum ve top kozmetiklerini kredi ile satın al. Satın aldığın kozmetikler kalıcıdır ve envanterinde birikir.
+        </p>
+      </div>
+
+      {/* Kategori filtre */}
+      <div className="flex gap-1.5 overflow-x-auto tm-no-scrollbar">
+        {categories.map(cat => {
+          const meta = cat === "all" ? null : COSMETIC_CATEGORY_META[cat];
+          const label = cat === "all"
+            ? (locale === "tr" ? "Tümü" : "All")
+            : (locale === "tr" ? meta!.labelTr : meta!.labelEn);
+          return (
+            <button
+              key={cat}
+              onClick={() => { haptic("light"); setSelectedCategory(cat); }}
+              className={cn(
+                "tm-tap px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap border flex items-center gap-1",
+                selectedCategory === cat
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card border-border text-muted-foreground"
+              )}
+            >
+              {meta && <span>{meta.icon}</span>}
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Katalog grid */}
+      <div className="grid grid-cols-2 gap-2">
+        {filteredCatalog.map(item => {
+          const meta = COSMETIC_CATEGORY_META[item.category];
+          const owned = cosmeticsOwned.includes(item.id);
+          const equipped = cosmeticsEquipped[item.category] === item.id;
+          const canAfford = credits >= item.creditPrice;
+          const name = locale === "tr" ? item.nameTr : item.nameEn;
+          const rarityLabel = locale === "tr"
+            ? RARITY_LABELS[item.rarity].tr
+            : RARITY_LABELS[item.rarity].en;
+
+          return (
+            <div
+              key={item.id}
+              className={cn(
+                "tm-tap relative rounded-xl p-3 flex flex-col gap-1.5 border-2 transition-all",
+                RARITY_COLORS[item.rarity],
+                equipped && "ring-2 ring-emerald-400"
+              )}
+            >
+              {/* Owned/Equipped badge */}
+              {equipped && (
+                <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-emerald-500/30 text-emerald-300 text-[9px] font-bold">
+                  ✓ Giyili
+                </div>
+              )}
+              {!equipped && owned && (
+                <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-sky-500/30 text-sky-300 text-[9px] font-bold">
+                  Sahip
+                </div>
+              )}
+
+              {/* İkon */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-2xl">{meta.icon}</span>
+                <span className={cn("text-[9px] uppercase font-bold", `text-${item.rarity === "legendary" ? "amber" : item.rarity === "epic" ? "purple" : item.rarity === "rare" ? "sky" : "slate"}-400`)}>
+                  {rarityLabel}
+                </span>
+              </div>
+
+              {/* İsim */}
+              <div className="text-xs font-bold leading-tight">{name}</div>
+
+              {/* Açıklama */}
+              <div className="text-[9px] text-muted-foreground leading-tight line-clamp-2 flex-1">
+                {locale === "tr" ? (item.descTr ?? meta.descTr) : (item.descEn ?? meta.descEn)}
+              </div>
+
+              {/* Fiyat + Aksiyon */}
+              {owned ? (
+                <button
+                  onClick={() => handleEquip(item)}
+                  disabled={equipped}
+                  className={cn(
+                    "tm-tap w-full flex items-center justify-center gap-1 py-1.5 rounded-md text-[10px] font-bold transition-colors",
+                    equipped
+                      ? "bg-emerald-500/20 text-emerald-300 cursor-default"
+                      : "bg-sky-500/20 text-sky-300 border border-sky-400/40"
+                  )}
+                >
+                  {equipped ? "✓ Giyili" : "Giy"}
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleBuy(item)}
+                  disabled={!canAfford}
+                  className={cn(
+                    "tm-tap w-full flex items-center justify-center gap-1 py-1.5 rounded-md text-[10px] font-bold transition-colors",
+                    canAfford
+                      ? "bg-amber-500/20 text-amber-300 border border-amber-400/40"
+                      : "bg-muted/30 text-muted-foreground/50 cursor-not-allowed"
+                  )}
+                >
+                  <Coins size={10} />
+                  {item.creditPrice}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {filteredCatalog.length === 0 && (
+        <div className="tm-card p-6 text-center text-xs text-muted-foreground">
+          Bu kategoride kozmetik yok.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// Kozmetik Envanter Görünümü — sahip olunan + giyili kozmetikler
+// ============================================================================
+
+function CosmeticInventoryView() {
+  const { locale } = useI18n();
+  const cosmeticsOwned = useAppStore((s) => s.cosmetics.owned);
+  const cosmeticsEquipped = useAppStore((s) => s.cosmetics.equipped);
+  const equipCosmetic = useAppStore((s) => s.equipCosmetic);
+  const unequipCosmetic = useAppStore((s) => s.unequipCosmetic);
+
+  // Sahip olunan kozmetikleri katalogdan bul
+  const ownedItems = SEED_COSMETICS.filter(c => cosmeticsOwned.includes(c.id));
+
+  if (ownedItems.length === 0) {
+    return null; // kozmetik yoksa bölümü gizle
+  }
+
+  return (
+    <div className="mt-4 pt-4 border-t border-border">
+      <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-2">
+        🎨 Kozmetiklerim ({ownedItems.length})
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {ownedItems.map(item => {
+          const meta = COSMETIC_CATEGORY_META[item.category];
+          const equipped = cosmeticsEquipped[item.category] === item.id;
+          const name = locale === "tr" ? item.nameTr : item.nameEn;
+          return (
+            <div
+              key={item.id}
+              className={cn(
+                "tm-card p-2 flex items-center gap-2",
+                equipped && "ring-2 ring-emerald-400"
+              )}
+            >
+              <span className="text-xl shrink-0">{meta.icon}</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] font-bold truncate">{name}</div>
+                <div className="text-[9px] text-muted-foreground">{meta.labelTr}</div>
+              </div>
+              <button
+                onClick={() => {
+                  haptic("light");
+                  if (equipped) {
+                    unequipCosmetic(item.category);
+                  } else {
+                    equipCosmetic(item.category, item.id);
+                  }
+                }}
+                className={cn(
+                  "tm-tap px-2 py-1 rounded text-[9px] font-bold",
+                  equipped
+                    ? "bg-red-500/20 text-red-400 border border-red-400/40"
+                    : "bg-emerald-500/20 text-emerald-300 border border-emerald-400/40"
+                )}
+              >
+                {equipped ? "Çıkar" : "Giy"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// v2.9.46 Görev 2: Kredi Satın Al Tab — Google Play Billing
+// ============================================================================
+
+function CreditsPurchaseTab({ onFeedback }: { onFeedback: (msg: string) => void }) {
+  const credits = useAppStore((s) => s.credits);
+  const addCredits = useAppStore((s) => s.addCredits);
+  const [purchasing, setPurchasing] = useState<string | null>(null);
+  const billingAvailable = isBillingAvailable();
+
+  const formatPrice = (cents: number): string => {
+    // sent → TL (basit dönüşüm, gerçek fiyat Google Play'den gelir)
+    const tryAmount = (cents / 100) * 33; // ~$1 = 33 TL
+    return `${tryAmount.toFixed(2)} ₺`;
+  };
+
+  const handlePurchase = async (pack: CreditPack) => {
+    haptic("medium");
+    setPurchasing(pack.sku);
+    try {
+      // 1. Google Play Billing ile satın alma akışı başlat
+      const result = await launchPurchaseFlow(pack.sku);
+      if (!result.success) {
+        haptic("error");
+        onFeedback(`✗ ${result.reason ?? "Satın alma başarısız"}`);
+        return;
+      }
+
+      // 2. Satın almayı onayla (Google Play gereği)
+      if (result.purchase?.purchaseToken) {
+        await acknowledgePurchase(result.purchase.purchaseToken);
+      }
+
+      // 3. Kredileri kullanıcıya ekle
+      const totalCredits = pack.credits + pack.bonusCredits;
+      addCredits(totalCredits);
+      haptic("success");
+      onFeedback(`✓ ${totalCredits} kredi eklendi!${pack.bonusCredits > 0 ? ` (${pack.bonusCredits} bonus)` : ""}`);
+
+      // TODO: Server-side receipt verification (Supabase Edge Function)
+      // — result.purchase.purchaseToken'ı server'a gönder, Google Play API ile doğrula
+      // — Bu, sahte satın almaları önler (root'lu cihazlarda)
+    } catch (e: any) {
+      haptic("error");
+      onFeedback(`✗ Satın alma hatası: ${e?.message ?? "bilinmeyen"}`);
+    } finally {
+      setPurchasing(null);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Bilgi kartı */}
+      <div className="tm-card p-3 bg-gradient-to-br from-amber-900/20 to-yellow-900/10 border-amber-500/30">
+        <div className="flex items-center gap-2 mb-1.5">
+          <Coins size={13} className="text-amber-400" />
+          <span className="text-[11px] font-bold text-amber-300 uppercase">Kredi Satın Al</span>
+        </div>
+        <p className="text-[10px] text-muted-foreground leading-relaxed">
+          Kredilerle futbolcu paketi aç, kart satın al, kozmetik marketten eşya al. Bonus kredili paketler daha avantajlı!
+        </p>
+      </div>
+
+      {/* Billing durumu uyarısı */}
+      {!billingAvailable && (
+        <div className="tm-card p-3 text-center text-[10px] text-amber-400 bg-amber-500/10 border-amber-500/30">
+          ⚠️ Geliştirici Modu — gerçek para ile satın alma devre dışı. Android APK'da Google Play Billing aktif olur. Test için "satın alma" simülasyonu çalışır.
+        </div>
+      )}
+
+      {/* Kredi paketleri grid */}
+      <div className="grid grid-cols-2 gap-2">
+        {CREDIT_PACKS.map(pack => {
+          const totalCredits = pack.credits + pack.bonusCredits;
+          const isPurchasing = purchasing === pack.sku;
+          return (
+            <button
+              key={pack.sku}
+              onClick={() => handlePurchase(pack)}
+              disabled={isPurchasing}
+              className={cn(
+                "tm-tap relative rounded-xl p-3 flex flex-col items-center gap-1.5 border-2 transition-all active:scale-[0.97]",
+                pack.bestValue
+                  ? "border-amber-400 bg-amber-900/30"
+                  : pack.popular
+                    ? "border-sky-400 bg-sky-900/30"
+                    : "border-border bg-card"
+              )}
+            >
+              {/* Rozetler */}
+              {pack.popular && (
+                <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-sky-500 text-white text-[9px] font-bold">
+                  Popüler
+                </div>
+              )}
+              {pack.bestValue && (
+                <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-amber-500 text-amber-900 text-[9px] font-bold">
+                  En Avantajlı
+                </div>
+              )}
+
+              {/* Kredi miktarı */}
+              <Coins size={24} className={cn(
+                "mt-1",
+                pack.bestValue ? "text-amber-400" : pack.popular ? "text-sky-400" : "text-muted-foreground"
+              )} />
+              <div className="text-lg font-bold tabular-nums">
+                {totalCredits.toLocaleString("tr-TR")}
+              </div>
+              <div className="text-[9px] text-muted-foreground">kredi</div>
+
+              {/* Bonus rozet */}
+              {pack.bonusCredits > 0 && (
+                <div className="text-[9px] font-bold text-emerald-400">
+                  +{pack.bonusCredits} bonus
+                </div>
+              )}
+
+              {/* Fiyat */}
+              <div className={cn(
+                "mt-1 px-3 py-1 rounded-full text-xs font-bold",
+                pack.bestValue
+                  ? "bg-amber-500 text-amber-900"
+                  : pack.popular
+                    ? "bg-sky-500 text-white"
+                    : "bg-muted text-foreground"
+              )}>
+                {isPurchasing ? "..." : formatPrice(pack.priceCents)}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Güvenlik notu */}
+      <div className="tm-card p-3 border-sky-500/20 bg-sky-500/5">
+        <div className="text-[10px] text-muted-foreground leading-relaxed text-center">
+          🔒 Satın almalar Google Play Billing üzerinden güvenli şekilde işlenir. Krediler anında hesabına eklenir.
+        </div>
+      </div>
+
+      {/* Mevcut kredi */}
+      <div className="tm-card p-3 flex items-center justify-between">
+        <span className="text-[11px] text-muted-foreground uppercase font-bold">Mevcut Kredi</span>
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/40">
+          <Coins size={14} className="text-amber-300" />
+          <span className="text-sm font-bold text-amber-100 tabular-nums">{credits}</span>
+        </div>
+      </div>
     </div>
   );
 }

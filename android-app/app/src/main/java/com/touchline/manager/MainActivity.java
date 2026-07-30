@@ -375,6 +375,11 @@ public class MainActivity extends Activity {
             }
         }, "AndroidNative");
 
+        // ═══ v2.9.46 Görev 2: Google Play Billing köprüsü ═══
+        // JS tarafı window.TouchlineBilling global'ini kullanır
+        // (src/lib/billing/bridge.ts)
+        webView.addJavascriptInterface(new TouchlineBillingBridge(this), "TouchlineBilling");
+
         // WebChromeClient — progress tracking + JS console message yakalama
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -704,5 +709,13 @@ public class MainActivity extends Activity {
             webView = null;
         }
         super.onDestroy();
+    }
+
+    // ═══ v2.9.46 Görev 2: Billing bridge tarafından çağrılır ═══
+    // TouchlineBillingBridge.notifyJsPurchaseResult → MainActivity.evaluateJavascript
+    public void evaluateJavascript(String js) {
+        if (webView != null) {
+            runOnUiThread(() -> webView.evaluateJavascript(js, null));
+        }
     }
 }
