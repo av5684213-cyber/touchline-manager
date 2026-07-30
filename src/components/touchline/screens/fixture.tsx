@@ -194,7 +194,7 @@ export function FixtureScreen() {
                 "w-8 text-center shrink-0",
                 isCurrent ? "text-primary" : "text-muted-foreground"
               )}>
-                <div className="text-[11px] uppercase">Hafta</div>
+                <div className="text-[11px] uppercase">{t("fixture.week")}</div>
                 <div className="text-sm font-bold tabular-nums">{f.matchday}</div>
               </div>
 

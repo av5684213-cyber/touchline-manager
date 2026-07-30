@@ -159,7 +159,7 @@ export function StandingsScreen() {
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="text-[10px] text-muted-foreground">Değiştir</span>
+            <span className="text-[10px] text-muted-foreground">{t("standings.change")}</span>
             <ChevronDown
               size={14}
               className={cn("text-muted-foreground transition-transform", toolboxOpen && "rotate-180")}
@@ -173,7 +173,7 @@ export function StandingsScreen() {
             {/* v2.9.33: Ülke dropdown */}
             <div className="pt-2">
               <label className="text-[9px] text-muted-foreground block mb-1 flex items-center gap-1">
-                <Globe size={10} /> Ülke
+                <Globe size={10} /> {t("standings.country")}
               </label>
               <select
                 value={selCountry}

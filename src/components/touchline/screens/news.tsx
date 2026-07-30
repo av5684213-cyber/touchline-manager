@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Newspaper, RefreshCw } from "lucide-react";
 import { useAppStore, useMyTeam } from "@/lib/store";
+import { useI18n } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 import { PlayerProfileModal } from "../player-profile-modal";
@@ -26,6 +27,7 @@ function relativeTime(ts: number): string {
 }
 
 export function NewsScreen() {
+  const { t } = useI18n();
   const team = useMyTeam();
   const news = useAppStore((s) => s.news) ?? [];
   const clubs = useAppStore((s) => s.clubs);
@@ -102,9 +104,9 @@ export function NewsScreen() {
       {filteredNews.length === 0 ? (
         <div className="tm-card p-8 text-center">
           <Newspaper size={32} className="text-muted-foreground/30 mx-auto mb-2" />
-          <p className="text-xs font-bold mb-1">Henüz haber yok</p>
+          <p className="text-xs font-bold mb-1">{t("news.empty")}</p>
           <p className="text-[10px] text-muted-foreground">
-            Maç oynadıkça haberler otomatik gelir.
+            {t("news.empty_hint")}
           </p>
         </div>
       ) : (

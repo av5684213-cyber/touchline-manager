@@ -88,7 +88,7 @@ export function CupScreen() {
 
       {/* Şampiyon ödülü + tur ödülleri */}
       <div className="tm-card p-3 border-amber-500/30 bg-amber-500/5">
-        <div className="text-[10px] text-amber-400 font-bold uppercase mb-2">🏆 Kupa Ödülleri</div>
+        <div className="text-[10px] text-amber-400 font-bold uppercase mb-2">🏆 {t("cup.awards")}</div>
         <div className="grid grid-cols-2 gap-2 text-[10px]">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Çeyrek:</span>
@@ -120,7 +120,7 @@ export function CupScreen() {
       {cup.champion && (
         <div className="tm-card p-3 text-center bg-amber-500/15 border-amber-500/40">
           <div className="text-2xl mb-1">🏆</div>
-          <div className="text-sm font-bold text-amber-300">Şampiyon: {getTeam(cup.champion)?.name}</div>
+          <div className="text-sm font-bold text-amber-300">{t("cup.champion_label")} {getTeam(cup.champion)?.name}</div>
           {cup.champion === team.id && (
             <div className="text-[10px] text-emerald-400 mt-1">+{formatEuro(CHAMPION_REWARD)} ödül kazandınız!</div>
           )}
@@ -170,7 +170,7 @@ export function CupScreen() {
         <div className="tm-card p-3 border-blue-500/30 bg-blue-500/5">
           <div className="flex items-center gap-2 mb-2">
             <Eye size={14} className="text-blue-400" />
-            <span className="text-[10px] text-blue-400 uppercase font-bold">İzleyici Modu</span>
+            <span className="text-[10px] text-blue-400 uppercase font-bold">{t("cup.spectator_mode")}</span>
           </div>
           <p className="text-[11px] text-muted-foreground mb-2">
             Bu turda maçı yok. Diğer takımların maçlarını izleyebilirsin.
@@ -255,7 +255,7 @@ export function CupScreen() {
       {/* Önceki turlar */}
       {cupMatches.filter(m => m.round < currentRound).length > 0 && (
         <div>
-          <div className="text-xs font-bold mb-2 text-muted-foreground">Önceki Turlar</div>
+          <div className="text-xs font-bold mb-2 text-muted-foreground">{t("cup.previous_rounds")}</div>
           <div className="space-y-1">
             {cupMatches.filter(m => m.round < currentRound).sort((a,b) => b.round - a.round).map((m, i) => {
               const home = getTeam(m.homeId);

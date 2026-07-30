@@ -219,7 +219,7 @@ export function FinanceScreen() {
       {team && (
         <div className="tm-card p-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold">🎟️ Bilet Fiyatı</span>
+            <span className="text-xs font-bold">🎟️ {t("finance.ticket_price")}</span>
             <span className="text-sm font-bold tabular-nums text-primary">€{facilities.ticketPrice}</span>
           </div>
           <input
@@ -245,7 +245,7 @@ export function FinanceScreen() {
       {/* ADDED: Sponsor Sistemi — teklifler + aktif sponsor */}
       <div className="tm-card p-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-bold">🤝 Sponsor Sistemi</span>
+          <span className="text-xs font-bold">🤝 {t("finance.sponsor_system")}</span>
           <button
             onClick={() => { haptic("light"); useAppStore.getState().generateSponsorOffers(); }}
             className="tm-tap text-[10px] px-2 py-1 rounded-md bg-primary text-primary-foreground font-bold"
@@ -259,7 +259,7 @@ export function FinanceScreen() {
           <div className="mb-2 p-2 rounded-md bg-emerald-500/10 border border-emerald-500/30">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-[10px] text-muted-foreground">Aktif Sponsor</div>
+                <div className="text-[10px] text-muted-foreground">{t("finance.sponsor.active")}</div>
                 <div className="text-xs font-bold">{activeSponsor.name}</div>
                 <div className="text-[11px] text-muted-foreground">
                   {activeSponsor.tier} · {activeSponsor.durationWeeks} hafta
@@ -278,7 +278,7 @@ export function FinanceScreen() {
         {/* Bekleyen teklifler */}
         {(sponsors?.offers ?? []).length > 0 && (
           <div className="space-y-1.5">
-            <div className="text-[10px] text-muted-foreground uppercase font-bold">Teklifler ({sponsors.offers.length})</div>
+            <div className="text-[10px] text-muted-foreground uppercase font-bold">{t("finance.sponsor.offers")} ({sponsors.offers.length})</div>
             {sponsors.offers.map((offer: any) => (
               <div key={offer.id} className="flex items-center justify-between p-2 rounded-md bg-card border border-border">
                 <div>

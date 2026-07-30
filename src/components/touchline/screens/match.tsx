@@ -383,7 +383,7 @@ export function MatchScreen() {
           <div className="tm-card p-4 text-center space-y-3">
             <div className="flex items-center justify-center gap-2 text-amber-400">
               <Clock size={20} />
-              <span className="text-lg font-bold">DEVRE ARASI</span>
+              <span className="text-lg font-bold">{t("match.halftime")}</span>
             </div>
             <div className="text-4xl font-bold tabular-nums text-amber-300">
               00:{String(engine.state.halftimeSecondsLeft ?? 30).padStart(2, "0")}
@@ -491,7 +491,7 @@ export function MatchScreen() {
                 Bu, gerçek oyun akışıdır. Maç bitince kullanıcı sonraki hazırlık maçına geçebilir. */}
             <div className="tm-card p-4 bg-emerald-50/40 border-emerald-200 text-center space-y-3">
               <Trophy size={28} className="text-emerald-600 mx-auto" />
-              <div className="text-sm font-bold text-emerald-700">Maç tamamlandı</div>
+              <div className="text-sm font-bold text-emerald-700">{t("match.completed")}</div>
               <div className="text-[10px] text-muted-foreground">
                 {homeTeam.name} {engine.state.homeScore} - {engine.state.awayScore} {awayTeam.name}
               </div>

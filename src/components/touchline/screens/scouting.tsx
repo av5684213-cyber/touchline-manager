@@ -184,7 +184,7 @@ export function ScoutingScreen() {
         >
           <div className="flex items-center gap-2">
             <Filter size={14} className="text-muted-foreground" />
-            <span className="text-xs font-bold">Filtreler</span>
+            <span className="text-xs font-bold">{t("scouting.filters")}</span>
           </div>
           <span className="text-[10px] text-muted-foreground">{showFilters ? "▲" : "▼"}</span>
         </button>
@@ -198,14 +198,14 @@ export function ScoutingScreen() {
                 type="text"
                 value={nameFilter}
                 onChange={(e) => setNameFilter(e.target.value)}
-                placeholder="Oyuncu ara..."
+                placeholder={t("scouting.search_placeholder")}
                 className="w-full bg-card border border-border rounded-md px-2 py-1.5 text-[11px]"
               />
             </div>
 
             {/* Pozisyon — seviye 1 */}
             <div>
-              <div className="text-[11px] text-muted-foreground mb-0.5">Pozisyon</div>
+              <div className="text-[11px] text-muted-foreground mb-0.5">{t("scouting.position")}</div>
               <div className="flex gap-1 overflow-x-auto tm-no-scrollbar">
                 {(["ALL", "GK", "DEF", "MID", "FWD"] as const).map((g) => (
                   <button
@@ -225,7 +225,7 @@ export function ScoutingScreen() {
             {/* Yaş aralığı — seviye 1 */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <div className="text-[11px] text-muted-foreground mb-0.5">Min. Yaş</div>
+                <div className="text-[11px] text-muted-foreground mb-0.5">{t("scouting.age_min")}</div>
                 <input
                   type="number"
                   value={ageMin || ""}
@@ -235,7 +235,7 @@ export function ScoutingScreen() {
                 />
               </div>
               <div>
-                <div className="text-[11px] text-muted-foreground mb-0.5">Maks. Yaş</div>
+                <div className="text-[11px] text-muted-foreground mb-0.5">{t("scouting.age_max")}</div>
                 <input
                   type="number"
                   value={ageMax || ""}
@@ -250,7 +250,7 @@ export function ScoutingScreen() {
             {scoutLevel >= 2 && (
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <div className="text-[11px] text-muted-foreground mb-0.5">Min. OVR</div>
+                  <div className="text-[11px] text-muted-foreground mb-0.5">{t("scouting.ovr_min")}</div>
                   <input
                     type="number"
                     value={ovrMin || ""}
@@ -260,7 +260,7 @@ export function ScoutingScreen() {
                   />
                 </div>
                 <div>
-                  <div className="text-[11px] text-muted-foreground mb-0.5">Maks. OVR</div>
+                  <div className="text-[11px] text-muted-foreground mb-0.5">{t("scouting.ovr_max")}</div>
                   <input
                     type="number"
                     value={ovrMax || ""}
@@ -275,13 +275,13 @@ export function ScoutingScreen() {
             {/* Arketip — seviye 3 */}
             {scoutLevel >= 3 && (
               <div>
-                <div className="text-[11px] text-muted-foreground mb-0.5">Arketip</div>
+                <div className="text-[11px] text-muted-foreground mb-0.5">{t("scouting.archetype")}</div>
                 <select
                   value={archetypeFilter}
                   onChange={(e) => setArchetypeFilter(e.target.value)}
                   className="w-full bg-card border border-border rounded-md px-2 py-1.5 text-[11px]"
                 >
-                  <option value="">Tümü</option>
+                  <option value="">{t("scouting.all")}</option>
                   {ARCHETYPE_OPTIONS.map((a) => (
                     <option key={a} value={a}>{a}</option>
                   ))}
@@ -302,7 +302,7 @@ export function ScoutingScreen() {
         )}
       >
         <Search size={14} />
-        {searching ? "Aranıyor…" : t("scouting.search")}
+        {searching ? t("scouting.searching") : t("scouting.search")}
       </button>
 
       {/* Sonuçlar */}

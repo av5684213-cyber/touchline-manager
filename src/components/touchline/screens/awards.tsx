@@ -96,7 +96,7 @@ export function AwardsScreen() {
 
   return (
     <div className="px-4 py-4 pb-24 space-y-3">
-      <h1 className="text-base font-bold">Ödüller</h1>
+      <h1 className="text-base font-bold">{t("awards.title")}</h1>
 
       {/* Lig Durumu */}
       <div className="tm-card p-3 text-center">
@@ -110,17 +110,17 @@ export function AwardsScreen() {
         <div className="mt-2 flex justify-center gap-1.5">
           {awards.isChampion && (
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
-              👑 ŞAMPİYON
+              👑 {t("awards.badge.champion")}
             </span>
           )}
           {awards.isPromotion && !awards.isChampion && (
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
-              ⬆ ÜST LİGE ÇIKTI
+              ⬆ {t("awards.badge.promotion")}
             </span>
           )}
           {awards.isRelegation && (
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 font-bold border border-red-500/30">
-              ⬇ KÜME DÜŞTÜ
+              ⬇ {t("awards.badge.relegation")}
             </span>
           )}
         </div>
@@ -130,33 +130,33 @@ export function AwardsScreen() {
       <div className="tm-card p-3">
         <div className="flex items-center gap-2 mb-3">
           <Trophy size={14} className="text-amber-400" />
-          <span className="text-xs font-bold">Sezon {seasonNumber} Ödülleri</span>
+          <span className="text-xs font-bold">{t("awards.season_awards", { n: seasonNumber })}</span>
         </div>
         <div className="space-y-1.5">
           <AwardRow
             icon={<Crown size={16} className="text-amber-400" />}
-            label="Lig Şampiyonu"
+            label={t("awards.category.league_champion")}
             name={awards.champion?.teamName ?? "—"}
             sub={`${awards.champion?.points ?? 0} puan`}
             highlight={awards.isChampion}
           />
           <AwardRow
             icon={<Goal size={16} className="text-emerald-400" />}
-            label="Gol Kralı"
+            label={t("awards.category.top_scorer")}
             name={awards.topScorer ? `${awards.topScorer.player.firstName} ${awards.topScorer.player.lastName}` : "—"}
             sub={`${awards.topScorer?.player.goals ?? 0} gol · ${awards.topScorer?.club.shortName ?? ""}`}
             onClickPlayer={awards.topScorer ? () => setProfilePlayer(awards.topScorer!.player) : undefined}
           />
           <AwardRow
             icon={<Star size={16} className="text-sky-400" />}
-            label="Asist Kralı"
+            label={t("awards.category.top_assist")}
             name={awards.topAssist ? `${awards.topAssist.player.firstName} ${awards.topAssist.player.lastName}` : "—"}
             sub={`${awards.topAssist?.player.assists ?? 0} asist · ${awards.topAssist?.club.shortName ?? ""}`}
             onClickPlayer={awards.topAssist ? () => setProfilePlayer(awards.topAssist!.player) : undefined}
           />
           <AwardRow
             icon={<Award size={16} className="text-purple-400" />}
-            label="Sezonun Oyuncusu"
+            label={t("awards.category.mvp")}
             name={awards.mvp ? `${awards.mvp.player.firstName} ${awards.mvp.player.lastName}` : "—"}
             sub={`${(awards.mvp?.player.formRating ?? 0).toFixed(1)} form · ${awards.mvp?.club.shortName ?? ""}`}
             onClickPlayer={awards.mvp ? () => setProfilePlayer(awards.mvp!.player) : undefined}
@@ -164,7 +164,7 @@ export function AwardsScreen() {
           {awards.topGK && (
             <AwardRow
               icon={<Shield size={16} className="text-cyan-400" />}
-              label="En İyi Kaleci"
+              label={t("awards.category.best_gk")}
               name={`${awards.topGK.player.firstName} ${awards.topGK.player.lastName}`}
               sub={`${awards.topGK.player.saves ?? 0} kurtarış · ${awards.topGK.club.shortName}`}
               onClickPlayer={() => setProfilePlayer(awards.topGK!.player)}
@@ -172,7 +172,7 @@ export function AwardsScreen() {
           )}
           <AwardRow
             icon={<Trophy size={16} className="text-amber-300" />}
-            label="En Çok Maç Adamı"
+            label={t("awards.category.most_motm")}
             name={awards.topMotm ? `${awards.topMotm.player.firstName} ${awards.topMotm.player.lastName}` : "—"}
             sub={
               awards.topMotm
@@ -185,7 +185,7 @@ export function AwardsScreen() {
           />
           <AwardRow
             icon={<TrendingUp size={16} className="text-indigo-400" />}
-            label="En Çok Maç Oynayan"
+            label={t("awards.category.most_apps")}
             name={awards.topApps ? `${awards.topApps.player.firstName} ${awards.topApps.player.lastName}` : "—"}
             sub={`${awards.topApps?.player.appearances ?? 0} maç · ${awards.topApps?.club.shortName ?? ""}`}
             onClickPlayer={awards.topApps ? () => setProfilePlayer(awards.topApps!.player) : undefined}
@@ -197,7 +197,7 @@ export function AwardsScreen() {
       <div className="tm-card p-3">
         <div className="flex items-center gap-2 mb-2">
           <Trophy size={14} className="text-amber-400" />
-          <span className="text-xs font-bold">Kupa</span>
+          <span className="text-xs font-bold">{t("awards.cup_champion")}</span>
         </div>
         {awards.cupChampion ? (
           <div className={cn(
@@ -225,7 +225,7 @@ export function AwardsScreen() {
         <div className="tm-card p-3">
           <div className="flex items-center gap-2 mb-2">
             <Star size={14} className="text-amber-400" />
-            <span className="text-xs font-bold">Son Maçın Oyuncusu</span>
+            <span className="text-xs font-bold">{t("awards.last_motm")}</span>
           </div>
           <div className="flex items-center gap-2.5 p-2 rounded-md bg-amber-500/10 border border-amber-500/30">
             <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"

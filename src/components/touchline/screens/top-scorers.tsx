@@ -128,11 +128,11 @@ export function TopScorersScreen() {
         <div className="flex items-center gap-2 mb-2">
           <Crown size={16} className="text-amber-400" />
           <span className="text-sm font-bold">
-            {sortKey === "goals" ? "Gol Kralı Yarışı" :
-             sortKey === "assists" ? "Asist Kralı Yarışı" :
-             sortKey === "rating" ? "Form Sıralaması" :
-             sortKey === "motm" ? "Maçın Adamı Sıralaması" :
-             "Oynama Süresi Sıralaması"}
+            {sortKey === "goals" ? t("topscorers.title.goals") :
+             sortKey === "assists" ? t("topscorers.title.assists") :
+             sortKey === "rating" ? t("topscorers.title.rating") :
+             sortKey === "motm" ? t("topscorers.title.motm") :
+             t("topscorers.title.apps")}
           </span>
         </div>
         {ranked.length >= 3 && (
@@ -144,15 +144,15 @@ export function TopScorersScreen() {
         )}
         <div className="grid grid-cols-3 gap-1.5">
           <div className="bg-emerald-500/10 border border-emerald-500/20 rounded p-1.5 text-center">
-            <div className="text-[10px] text-muted-foreground uppercase">Toplam Gol</div>
+            <div className="text-[10px] text-muted-foreground uppercase">{t("topscorers.total_goals")}</div>
             <div className="text-sm font-bold text-emerald-400 tabular-nums">{totalGoals}</div>
           </div>
           <div className="bg-amber-500/10 border border-amber-500/20 rounded p-1.5 text-center">
-            <div className="text-[10px] text-muted-foreground uppercase">En İyi Benim</div>
+            <div className="text-[10px] text-muted-foreground uppercase">{t("topscorers.best_mine")}</div>
             <div className="text-sm font-bold text-amber-400 tabular-nums">{myRank ? `#${myRank}` : "—"}</div>
           </div>
           <div className="bg-sky-500/10 border border-sky-500/20 rounded p-1.5 text-center">
-            <div className="text-[10px] text-muted-foreground uppercase">Oyuncu</div>
+            <div className="text-[10px] text-muted-foreground uppercase">{t("topscorers.players")}</div>
             <div className="text-sm font-bold text-sky-400 tabular-nums">{allPlayers.length}</div>
           </div>
         </div>
@@ -174,12 +174,12 @@ export function TopScorersScreen() {
         <button onClick={() => { haptic("light"); setTier("all"); }}
           className={cn("tm-tap flex-1 py-1.5 rounded text-[10px] font-bold border",
             tier === "all" ? "bg-primary text-primary-foreground border-primary" : "border-border bg-card text-muted-foreground")}>
-          Tüm Lig
+          {t("topscorers.filter.all")}
         </button>
         <button onClick={() => { haptic("light"); setTier("mine"); }}
           className={cn("tm-tap flex-1 py-1.5 rounded text-[10px] font-bold border",
             tier === "mine" ? "bg-primary text-primary-foreground border-primary" : "border-border bg-card text-muted-foreground")}>
-          Benim Takımım
+          {t("topscorers.filter.mine")}
         </button>
       </div>
 
@@ -187,11 +187,11 @@ export function TopScorersScreen() {
       {tier === "all" && (
         <div className="tm-card p-2.5 space-y-2">
           <div className="text-[10px] text-muted-foreground uppercase font-bold flex items-center gap-1">
-            <ChevronDown size={11} /> Lig Seç
+            <ChevronDown size={11} /> {t("topscorers.select_league")}
           </div>
           {/* Ülke dropdown */}
           <div>
-            <label className="text-[9px] text-muted-foreground block mb-0.5">Ülke</label>
+            <label className="text-[9px] text-muted-foreground block mb-0.5">{t("topscorers.country")}</label>
             <select
               value={selCountry}
               onChange={(e) => {
@@ -210,7 +210,7 @@ export function TopScorersScreen() {
           </div>
           {/* Lig (tier) dropdown */}
           <div>
-            <label className="text-[9px] text-muted-foreground block mb-0.5">Lig</label>
+            <label className="text-[9px] text-muted-foreground block mb-0.5">{t("topscorers.league")}</label>
             <select
               value={selTier}
               onChange={(e) => {
@@ -231,7 +231,7 @@ export function TopScorersScreen() {
           {/* Departman dropdown — sadece tier 4'te (5 departman) */}
           {TIER_DEPTS[selTier] > 1 && (
             <div>
-              <label className="text-[9px] text-muted-foreground block mb-0.5">Departman</label>
+              <label className="text-[9px] text-muted-foreground block mb-0.5">{t("topscorers.department")}</label>
               <div className="flex gap-1">
                 {Array.from({ length: TIER_DEPTS[selTier] }, (_, i) => (i + 1) as Department).map((dept) => (
                   <button
@@ -253,7 +253,7 @@ export function TopScorersScreen() {
           {/* Seçili lig bilgisi */}
           <div className="text-[10px] text-muted-foreground text-center pt-1 border-t border-border/40">
             {isMyLeague ? (
-              <span className="text-emerald-400 font-semibold">⭐ Senin Ligin</span>
+              <span className="text-emerald-400 font-semibold">⭐ {t("topscorers.my_league")}</span>
             ) : (
               <span>📍 {LEAGUE_NAMES[selTier][locale]}{TIER_DEPTS[selTier] > 1 ? ` · D${selDept}` : ""} (simülasyon)</span>
             )}
@@ -284,7 +284,7 @@ export function TopScorersScreen() {
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-bold truncate flex items-center gap-1.5">
                   {p.firstName} {p.lastName}
-                  {isMyPlayer && <span className="text-[10px] px-1 py-0.5 rounded bg-primary text-primary-foreground font-bold">SENİN</span>}
+                  {isMyPlayer && <span className="text-[10px] px-1 py-0.5 rounded bg-primary text-primary-foreground font-bold">{t("topscorers.yours")}</span>}
                   {p.form_streak === "hot" && <span className="text-[10px] px-1 py-0.5 rounded bg-orange-500/20 text-orange-300 font-bold">🔥</span>}
                   {p.form_streak === "cold" && <span className="text-[10px] px-1 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">❄️</span>}
                 </div>
