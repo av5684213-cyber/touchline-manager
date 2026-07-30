@@ -39,6 +39,8 @@ import { PositionPill, RatingBadge, GrowthBadge, StatGrowth } from "../ui-bits";
 import { PlayerProfileModal } from "../player-profile-modal";
 import { TrainingScreen } from "./training";
 import { formatEuro } from "@/lib/format";
+// v2.9.47 Faz 4: computeTacticScore TEK KAYNAK (season.ts)
+import { computeTacticScore } from "@/lib/mock/season";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 // v2.9.11: Oyun stili uyum sistemi
@@ -168,9 +170,23 @@ export function TacticsScreen() {
     // Özellik uyumu — oyuncu OVR ile taktik mentalite uyumu
     const attrScore = Math.min(100, avgOvr * 0.7 + (active.mentality >= 3 ? 10 : 0) + avgMorale * 0.2);
 
-    const total = Math.round(
-      Math.max(0, Math.min(100, avgOvr * 0.55 + slotMatch * 100 * 0.25 + sliderBalance * 0.1 + avgMorale * 0.1))
-    );
+    // v2.9.47 Faz 4: Toplam taktik skoru TEK KAYNAK'tan al (computeTacticScore)
+    // Eski kod: duplicate hesap (avgOvr × 0.55 + slotMatch × 100 × 0.25 + ...)
+    // Yeni: season.ts'teki computeTacticScore ile birebir aynı sonuç
+    const formationObj = getFormation(formation);
+    const total = formationObj
+      ? computeTacticScore(
+          team,
+          formationObj,
+          tactics.lineup,
+          {
+            attackingPressure: active.aggression,
+            defensiveLine: active.lineHeight,
+            tempo: active.passingIntensity,
+            wingPlay: active.width,
+          }
+        )
+      : 0;
 
     // Güçlü/zayıf yönler
     const st: string[] = [];

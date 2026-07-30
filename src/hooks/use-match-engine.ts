@@ -729,8 +729,23 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
           if (gt === "header") s.goalsHead += 1;
           else if (gt === "penalty") s.goalsPenalty += 1;
           else if (gt === "freekick") s.goalsFreekick += 1;
-          else if (gt === "long_shot" || gt === "sprint_finish" || gt === "postup_turn") s.goalsRight += 1;
-          else s.goalsRight += 1; // varsayılan: sağ ayak
+          else {
+            // v2.9.47 Faz 4: Gol ayak dağıtımı — oyuncunun foot alanına göre
+            // Eski kod: her zaman s.goalsRight += 1 (sol ayak goller sayılmıyordu!)
+            // Yeni: oyuncuyu bul, foot alanına göre dağıt
+            const goalPlayer = team.players.find((p) => p.id === pid);
+            const foot = goalPlayer?.foot ?? goalPlayer?.preferred_foot ?? "Right";
+            if (foot === "Left") {
+              s.goalsLeft += 1;
+            } else if (foot === "Both") {
+              // Her iki ayak — rastgele dağıt (gerçekçi)
+              if (Math.random() < 0.5) s.goalsLeft += 1;
+              else s.goalsRight += 1;
+            } else {
+              // Right (varsayılan)
+              s.goalsRight += 1;
+            }
+          }
           const assistPid = (ev as any).assistPlayerId || (ev as any).assist_player_id;
           if (assistPid) {
             if (!matchStatsMap.has(assistPid)) {
