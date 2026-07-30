@@ -3305,3 +3305,119 @@ Kullanıcı için sonraki adım:
 3. Diğer drawer'da yeni "Haberler" ve "Mesajlar" sekmelerini test et
 4. Transfer ekranında yeni "İzleme" ve "Kiralık" sekmelerini test et
 5. Finans ve Raporlar sekmelerindeki gelir rakamlarının artık aynı olduğunu doğrula
+
+---
+Task ID: v2.9.46
+Agent: main (Z.AI)
+Task: 6 bağımsız görev — sezon takvimi, CL bracket, kariyer ödülleri, istatistik kalıcılığı, piyasa değeri modifier, kart limiti
+
+Work Log:
+6 görevin tamamı bağımsız commit olarak tamamlandı:
+
+GÖREV 1 — Sezon/tur takvimi 34 tur (commit 269c655)
+- src/lib/league-rules.ts'e 34-tur takvim sabitleri eklendi
+- TOTAL_MATCHDAYS=34, FULL_WEEKS=3, SHORT_WEEK_MATCHDAYS=4
+- getMatchdayCalendar(matchday) fonksiyonu
+- isSeasonEndMatchday, isGapWednesdayMatchday fonksiyonları
+- Mevcut advanceMatchday→endSeason akışı zaten 34-tur'a uygun
+- Test: scripts/test-season-calendar.ts (22 assertion)
+
+GÖREV 2 — Şampiyonlar Ligi bracket üretici (commit 905dafc)
+- Yeni dosya: src/lib/cl-bracket.ts
+- nextPowerOfTwo, log2int, getTotalRounds, getRoundName
+- generateFirstRoundMatches: bye'lı ilk tur (standart seeding)
+- generateNextRoundMatches: sonraki tur eşleşmeleri
+- endSeason güncellendi: SADECE her ülkenin 1. Ligi (tier 1) ilk 3'ü
+  (eski kod tüm tier'lardan alıyordu)
+- CL state'e isBye alanı eklendi
+- CL panelinde bye maçları 'BAY' rozeti ile gösteriliyor
+- Test: scripts/test-cl-bracket.ts (45 assertion)
+- Senaryolar: 8/24/45 katılımcı, bye mantığı, standart seeding
+
+GÖREV 3 — season_awards tablosu + kariyer ödülleri (commit c131874)
+- Yeni tip: SeasonAward (data.ts)
+- Player.seasonAwards?: SeasonAward[] alanı eklendi
+- endSeason'da 9 ödül kategorisi hesaplanır:
+  top_scorer, top_assist, mvp, best_goalkeeper, most_motm,
+  most_appearances, league_champion, cup_champion, champions_league_winner
+- awardTop3() yardımcı fonksiyonu: ilk 3 oyuncuya rank 1/2/3
+- Player profile modal'da 'Kariyer Ödülleri' bölümü
+- Test: scripts/test-season-awards.ts (16 assertion)
+
+GÖREV 4 — 34 turluk istatistik işleme + sezon-bazlı ayrım (commit 2da08d0)
+- endSeason agedPlayers map'inde her oyuncu için seasonHistory'e
+  SeasonStat kaydı eklenir (statlar sıfırlanmadan ÖNCE)
+- Sadece en az 1 maç oynamış oyuncular için (regen dahil değil)
+- Yaşlandırma sonrası seasonHistory carry edilir (kalıcı)
+- Test: scripts/test-season-stats-persistence.ts (20 assertion)
+- 3 sezonluk kariyer simülasyonu: 20+15+18=53 gol doğru toplandığı
+
+GÖREV 5 — calculateMarketValue'a seasonPerformanceModifier (commit 7a1caa4)
+- Yeni fonksiyon: calculateSeasonPerformanceModifier(player)
+  * Gol/maç oranı: forvet 0.5 beklenen, üstünde +%8-15
+  * Asist/maç oranı: orta saha 0.4 beklenen, üstünde +%5-10
+  * Maç reytingi: 8.0+ → +%5, 6.5 altı → -%5
+  * Kaleci saves/maç: 5+ → +%10
+  * Sakatlık sıklığı: 5+ → -%20, 3+ → -%10
+  * Clamp: 0.80 - 1.25
+- calculatePlayerValue ikinci opsiyonel parametre aldı (geriye dönük uyumlu)
+- endSeason'da her oyuncu için piyasa değeri modifier ile yeniden hesaplanır
+- marketValue ve market_value alanları güncellenir
+- Test: scripts/test-season-performance-modifier.ts (14 assertion)
+- Yıldız forvet +%13, sık sakat oyuncu -%20
+
+GÖREV 6 — Kalıcı kartlar + max 2 kart limiti (commit cede054)
+- Doğrulandı: mevcut applyCardToPlayer zaten kalıcı (geri alma yok)
+- Player.cardsAppliedCount?: number alanı eklendi
+- applyCardToPlayer'a limit kontrolü: >= 2 → reject
+- reason: 'Bu oyuncu maksimum kart sayısına ulaştı — 2/2'
+- CardApplyButton: disabled + 'Maksimum karta ulaştı (2/2)'
+- PlayerCardPickerModal: 'X/2 kart' rozeti + limit dolu uyarısı
+- Test: scripts/test-card-limit.ts (20 assertion)
+- 3 kart denemesi: 1. ve 2. success, 3. FAIL
+
+Toplam test: 137 başarılı assertion (6 test dosyası)
+Build: npx next build BAŞARILI
+TypeScript: npx tsc --noEmit temiz
+
+Git:
+- 7 commit (6 görev + version bump)
+- Tag: v2.9.46 (push edildi)
+- GitHub: https://github.com/av5684213-cyber/touchline-manager/releases/tag/v2.9.46
+- GitHub Actions otomatik APK build başlattı (5-10 dk içinde hazır)
+
+Yeni dosyalar:
+- src/lib/cl-bracket.ts (CL bracket üretici)
+- scripts/test-season-calendar.ts
+- scripts/test-cl-bracket.ts
+- scripts/test-season-awards.ts
+- scripts/test-season-stats-persistence.ts
+- scripts/test-season-performance-modifier.ts
+- scripts/test-card-limit.ts
+
+Değiştirilen dosyalar:
+- src/lib/league-rules.ts (34-tur takvim sabitleri + fonksiyonlar)
+- src/lib/valuation.ts (calculateSeasonPerformanceModifier + opsiyonel parametre)
+- src/lib/mock/data.ts (Player.seasonAwards, Player.cardsAppliedCount, SeasonAward tipi)
+- src/lib/store.ts (endSeason: CL tier-1 only + bracket + awards + seasonHistory + valueModifier;
+  applyCardToPlayer: max 2 limit; CL state: isBye alanı)
+- src/components/touchline/player-profile-modal.tsx (Kariyer Ödülleri + kart limit UI)
+- src/components/touchline/champions-league-panel.tsx (bye maç göstergesi)
+- package.json (v2.9.46)
+
+Stage Summary:
+6 görevin tamamı bağımsız commit'lerle tamamlandı. Her görev için
+ayrı test script yazıldı ve 137 toplam assertion geçti. Hiçbir mevcut
+sisteme (league-rules sabitleri, card-system, calculatePlayerValue tek
+parametre çağrıları, cron/Edge Function altyapısı) dokunulmadı.
+Geriye dönük uyumluluk korundu — mevcut tüm calculatePlayerValue çağrıları
+(modifier olmadan) çalışmaya devam ediyor.
+
+Kullanıcı için sonraki adım:
+1. GitHub Actions'ın APK build'i tamamlamasını bekle (5-10 dk)
+2. https://github.com/av5684213-cyber/touchline-manager/releases/tag/v2.9.46
+3. Test senaryoları:
+   - Diğer drawer → bir oyuncu profili aç → 'Kariyer Ödülleri' bölümü
+   - Mağaza → kart satın al → oyuncuya 3 kart basmayı dene (3. engellenmeli)
+   - Sezon bitir → oyuncu piyasa değerinin performans ile değiştiğini gör
+   - Kupa sekmesi → Şampiyonlar Ligi bracket'ini izle (bye'lar dahil)
