@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Trophy, Crown, Medal, Users, Globe } from "lucide-react";
 import { useAppStore, useMyTeam } from "@/lib/store";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+// v2.9.47 Faz 2: dead supabase import kaldırıldı — leaderboard lokal veri kullanıyor
 // v2.9.27 G3: Global sıralama — tüm liglerin bot takımlarını üret
 import { generateClubsForLeague, LEAGUE_NAMES, type LeagueTier, type Department } from "@/lib/mock/data";
 import { cn } from "@/lib/utils";

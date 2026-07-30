@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { MessageSquare, Plus, ArrowLeft, Send, Loader2, Trash2 } from "lucide-react";
+import { MessageSquare, Plus, ArrowLeft, Send, Loader2, Trash2, WifiOff } from "lucide-react";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { useSupabaseAuth } from "@/lib/auth/auth-context";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 import { formatEuro } from "@/lib/format";
@@ -51,7 +51,16 @@ export function ForumScreen() {
   const [showNewTopic, setShowNewTopic] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>("all");
 
+  // v2.9.47 Faz 2: Geliştirici Modu kontrolü — Supabase bağlı mı?
+  const supabaseReady = isSupabaseConfigured();
+
   const loadTopics = useCallback(async () => {
+    // Geliştirici Modu: Supabase yoksa boş liste dön, loading'i kapat
+    if (!supabaseReady) {
+      setTopics([]);
+      setLoading(false);
+      return;
+    }
     try {
       let query = supabase
         .from("forum_topics")
@@ -82,8 +91,9 @@ export function ForumScreen() {
     loadTopics();
   }, [loadTopics]);
 
-  // Realtime: yeni başlık gelirse yenile
+  // Realtime: yeni başlık gelirse yenile (sadece Supabase bağlıysa)
   useEffect(() => {
+    if (!supabaseReady) return; // Geliştirici Modu: realtime'i atla
     const channel = supabase
       .channel("forum_topics_changes")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "forum_topics" }, () => {
@@ -95,7 +105,7 @@ export function ForumScreen() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [loadTopics]);
+  }, [loadTopics, supabaseReady]);
 
   if (selectedTopic) {
     return (
@@ -135,16 +145,36 @@ export function ForumScreen() {
         </p>
       </div>
 
-      {/* Yeni başlık butonu */}
-      <button
-        onClick={() => { haptic("light"); setShowNewTopic(true); }}
-        disabled={!user || !myTeam}
-        className="tm-tap w-full py-2.5 rounded-lg bg-indigo-600 text-white text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-50"
-      >
-        <Plus size={14} /> Yeni Başlık Aç
-      </button>
+      {/* v2.9.47 Faz 2: Geliştirici Modu uyarısı */}
+      {!supabaseReady && (
+        <div className="tm-card p-3 bg-amber-500/10 border-amber-500/30">
+          <div className="flex items-start gap-2">
+            <WifiOff size={14} className="text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <div className="text-[11px] font-bold text-amber-400 mb-0.5">
+                Forum Geliştirici Modu'nda devre dışı
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Supabase bağlanmadığı için forum kullanılamaz. .env dosyasına NEXT_PUBLIC_SUPABASE_URL ve ANON_KEY ekleyince aktif olur.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* Kategori filtre */}
+      {/* Yeni başlık butonu — sadece Supabase bağlı + kullanıcı giriş yapmışsa */}
+      {supabaseReady && (
+        <button
+          onClick={() => { haptic("light"); setShowNewTopic(true); }}
+          disabled={!user || !myTeam}
+          className="tm-tap w-full py-2.5 rounded-lg bg-indigo-600 text-white text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-50"
+        >
+          <Plus size={14} /> Yeni Başlık Aç
+        </button>
+      )}
+
+      {/* Kategori filtre — sadece Supabase bağlıysa göster */}
+      {supabaseReady && (
       <div className="flex gap-1.5 overflow-x-auto tm-no-scrollbar">
         <button
           onClick={() => { haptic("light"); setFilterCategory("all"); }}
@@ -168,8 +198,12 @@ export function ForumScreen() {
           </button>
         ))}
       </div>
+      )}
 
-      {/* Başlık listesi */}
+      {/* Başlık listesi — sadece Supabase bağlıysa göster */}
+      {supabaseReady && (
+      <>
+      {/* Loading state */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 size={24} className="animate-spin text-muted-foreground" />
@@ -220,10 +254,12 @@ export function ForumScreen() {
         </div>
       )}
 
-      {!user && (
+      {!user && supabaseReady && (
         <div className="tm-card p-3 text-center text-[10px] text-amber-400 bg-amber-500/10 border-amber-500/30">
-          Forum kullanmak için giriş yapmalısın (Geliştirici Modu'nda forum devre dışı).
+          Forum kullanmak için giriş yapmalısın.
         </div>
+      )}
+      </>
       )}
     </div>
   );

@@ -328,6 +328,12 @@ export function MatchChatPanel({
           <span className="text-[11px] font-bold">
             {connected ? "Sohbet bağlı" : "Sohbet bağlanıyor..."}
           </span>
+          {/* v2.9.47 Faz 2: Geliştirici Modu rozeti */}
+          {!isSupabaseConfigured() && (
+            <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold">
+              DEV
+            </span>
+          )}
         </div>
         {onClose && (
           <button
@@ -339,6 +345,13 @@ export function MatchChatPanel({
           </button>
         )}
       </div>
+
+      {/* v2.9.47 Faz 2: Geliştirici Modu uyarısı — sohbet devre dışı */}
+      {!isSupabaseConfigured() && (
+        <div className="text-[9px] text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5">
+          ⚠️ Sohbet Geliştirici Modu'nda devre dışı. Supabase bağlanınca aktif olur.
+        </div>
+      )}
 
       {/* P0 FIX BUG #14: Topluluk kuralları kısa hatırlatma */}
       <div className="text-[9px] text-muted-foreground leading-tight bg-muted/30 rounded px-1.5 py-1">

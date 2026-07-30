@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Trophy, Plus, Lock, Unlock, Users, Coins, Share2, Search, Loader2, X, Copy, Check } from "lucide-react";
+import { Trophy, Plus, Lock, Unlock, Users, Coins, Share2, Search, Loader2, X, Copy, Check, WifiOff } from "lucide-react";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { useSupabaseAuth } from "@/lib/auth/auth-context";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { haptic, useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline";
 
@@ -61,7 +61,16 @@ export function SpecialCupPanel() {
   const [selectedCup, setSelectedCup] = useState<SpecialCup | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
 
+  // v2.9.47 Faz 2: Geliştirici Modu kontrolü
+  const supabaseReady = isSupabaseConfigured();
+
   const loadCups = useCallback(async () => {
+    // Geliştirici Modu: Supabase yoksa boş liste dön, loading'i kapat
+    if (!supabaseReady) {
+      setCups([]);
+      setLoading(false);
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from("special_cups")
@@ -78,18 +87,38 @@ export function SpecialCupPanel() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [supabaseReady]);
 
   useEffect(() => {
     loadCups();
-    // Realtime
+    // Realtime — sadece Supabase bağlıysa
+    if (!supabaseReady) return;
     const channel = supabase
       .channel("special_cups_changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "special_cups" }, () => loadCups())
       .on("postgres_changes", { event: "*", schema: "public", table: "special_cup_participants" }, () => loadCups())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [loadCups]);
+  }, [loadCups, supabaseReady]);
+
+  // v2.9.47 Faz 2: Geliştirici Modu uyarısı
+  if (!supabaseReady) {
+    return (
+      <div className="tm-card p-3 bg-amber-500/10 border-amber-500/30">
+        <div className="flex items-start gap-2">
+          <WifiOff size={14} className="text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <div className="text-[11px] font-bold text-amber-400 mb-0.5">
+              Özel Kupa Geliştirici Modu'nda devre dışı
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              Özel kupalar online çok oyunculu özelliktir. Supabase bağlanınca aktif olur.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (showCreate) {
     return (
