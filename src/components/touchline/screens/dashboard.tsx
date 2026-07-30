@@ -216,7 +216,9 @@ export function DashboardScreen() {
     0
   );
   const moraleAvg = Math.round(
-    team.players.reduce((s, p) => s + p.morale, 0) / team.players.length
+    team.players.length > 0
+      ? team.players.reduce((s, p) => s + p.morale, 0) / team.players.length
+      : 70 // v2.9.47 Faz 3: boş kadro için default moral
   );
   const moraleLabel =
     moraleAvg >= 80 ? t("dash.morale.great")

@@ -89,9 +89,13 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
     [clubs, selectedOppId]
   );
 
+  // v2.9.47 Faz 3: clubs boşsa useMatchEngine'e undefined gitmesin
+  const safeHomeTeam = team ?? (clubs.length > 0 ? clubs[0] : null) ?? null;
+  const safeAwayTeam = opponent ?? (clubs.length > 1 ? clubs[1] : null) ?? null;
+
   const engine = useMatchEngine(
-    team ?? (clubs[0] as any),
-    opponent ?? (clubs[1] as any),
+    safeHomeTeam as any,
+    safeAwayTeam as any,
     locale,
     true // P0#2 FIX: Hazırlık maçı — fikstüre yazma
   );
