@@ -17,6 +17,13 @@ import type { Player } from "@/lib/mock/data";
  *  - Kondisyon cezası: <50 → -%15
  *  - Moral bonusu: >80 → +%5
  *
+ * v2.9.46 GÖREV 5: Sezon performans modifier'ı (opsiyonel 2. parametre)
+ *  - Sadece sezon sonunda endSeason tarafından kullanılır
+ *  - Sezon ortasında piyasa değeri bu faktörden etkilenmez
+ *  - Gol/asist beklenenin üstündeyse değer artar
+ *  - Sık sakatlanmışsa değer düşer
+ *  - 0.80 - 1.25 arası çarpan (varsayılan 1.0 = etkisiz)
+ *
  * Min 50K, max 200M
  */
 
@@ -46,7 +53,79 @@ const POSITION_VALUE_WEIGHT: Record<string, number> = {
   ST: 1.25, CF: 1.15,
 };
 
-export function calculatePlayerValue(player: Player): number {
+/**
+ * v2.9.46 GÖREV 5: Sezon performans modifier'ını hesapla.
+ *
+ * Oyuncunun sezon sonundaki gerçek performansına göre 0.80 - 1.25 arası
+ * bir çarpan üretir. Sadece sezon sonunda çağrılır.
+ *
+ * Faktörler:
+ *  - Gol/maç oranı: forvet için 0.5 gol/maç beklenir, üstünde +%10-25
+ *  - Asist/maç oranı: orta saha için 0.4 asist/maç beklenir, üstünde +%5-15
+ *  - Maç reytingi: 7.5+ ise +%5, 6.5 altı ise -%5
+ *  - Sakatlık sıklığı: sezon boyunca 3+ sakatlık → -%10-20
+ *
+ * @param player sezon sonundaki oyuncu (goals/assists/appearances dolu)
+ * @returns 0.80 - 1.25 arası çarpan (1.0 = etkisiz)
+ */
+export function calculateSeasonPerformanceModifier(player: Player): number {
+  const apps = player.appearances ?? 0;
+  const goals = player.goals ?? 0;
+  const assists = player.assists ?? 0;
+  const pos = player.specificPosition ?? "CM";
+  const lastRating = player.last_match_rating ?? 0;
+  // Sakatlık geçmişi — injury_history varsa ondan, yoksa sezonda is_injured sayısı tahmin
+  const injuryHistory = (player as any).injury_history ?? [];
+  const injuryCount = Array.isArray(injuryHistory) ? injuryHistory.length : 0;
+
+  // Maç oynamamışsa modifier uygulanmaz (yeni transfer, genç oyuncu)
+  if (apps === 0) return 1.0;
+
+  let modifier = 1.0;
+  const isForward = pos === "ST" || pos === "CF" || pos.startsWith("W") || pos.startsWith("LW") || pos.startsWith("RW");
+  const isMid = pos.startsWith("CM") || pos.startsWith("AM") || pos.startsWith("DM") || pos.startsWith("LM") || pos.startsWith("RM");
+  const isGK = pos === "GK";
+
+  // Gol/maç oranı (forvet ve ofansif orta saha için)
+  if (isForward || isMid) {
+    const goalsPerGame = goals / apps;
+    const expected = isForward ? 0.5 : 0.2; // forvet için 0.5, orta saha için 0.2 beklenen
+    if (goalsPerGame > expected * 1.5) modifier += 0.15; // %50 üstünde → +15%
+    else if (goalsPerGame > expected * 1.2) modifier += 0.08; // %20 üstünde → +8%
+    else if (goalsPerGame < expected * 0.3) modifier -= 0.05; // %70 altında → -5%
+  }
+
+  // Asist/maç oranı (orta saha ve forvet için)
+  if (isMid || isForward) {
+    const assistsPerGame = assists / apps;
+    const expected = isMid ? 0.4 : 0.25;
+    if (assistsPerGame > expected * 1.5) modifier += 0.10;
+    else if (assistsPerGame > expected * 1.2) modifier += 0.05;
+  }
+
+  // Maç reytingi (tüm pozisyonlar)
+  if (lastRating >= 8.0) modifier += 0.05;
+  else if (lastRating >= 7.5) modifier += 0.03;
+  else if (lastRating < 6.5 && lastRating > 0) modifier -= 0.05;
+
+  // Kaleci için saves/maç oranı
+  if (isGK) {
+    const saves = player.saves ?? 0;
+    const savesPerGame = saves / apps;
+    if (savesPerGame >= 5) modifier += 0.10; // yüksek kurtarış → +10%
+    else if (savesPerGame >= 3.5) modifier += 0.05;
+  }
+
+  // Sakatlık sıklığı — sezon boyunca 3+ sakatlık değeri düşürür
+  if (injuryCount >= 5) modifier -= 0.20; // kronik sakat → -20%
+  else if (injuryCount >= 3) modifier -= 0.10; // sık sakat → -10%
+  else if (injuryCount >= 1) modifier -= 0.03; // 1-2 sakat → -3%
+
+  // Clamp: 0.80 - 1.25 arası
+  return Math.max(0.80, Math.min(1.25, modifier));
+}
+
+export function calculatePlayerValue(player: Player, seasonPerformanceModifier?: number): number {
   const rating = player.rating ?? 50;
   const potential = player.potential ?? rating;
   const age = player.age ?? 25;
@@ -69,9 +148,13 @@ export function calculatePlayerValue(player: Player): number {
   const posMult = POSITION_VALUE_WEIGHT[pos] ?? 1.00;
   const condMult = cond < 50 ? 0.85 : 1.00;
   const moraleMult = morale > 80 ? 1.05 : 1.00;
+  // v2.9.46 GÖREV 5: Sezon performans modifier'ı (opsiyonel)
+  // — Sadece sezon sonunda endSeason tarafından verilir
+  // — Varsayılan 1.0 (etkisiz) — sezon ortasında değer bu faktörden etkilenmez
+  const perfMult = seasonPerformanceModifier ?? 1.0;
 
   const value = Math.round(
-    (base + potentialBonus) * ageMult * archMult * posMult * condMult * moraleMult
+    (base + potentialBonus) * ageMult * archMult * posMult * condMult * moraleMult * perfMult
   );
 
   return Math.max(50_000, Math.min(200_000_000, value));

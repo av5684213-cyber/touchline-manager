@@ -62,6 +62,8 @@ import { generateFirstRoundMatches, generateNextRoundMatches, getRoundName as ge
 import { calculateUpgradeCost } from "@/lib/stadiumMatrix";
 import { simulateEnhancedMatch, simulatePenaltyShootout } from "@/lib/match/engine/enhancedMatchEngine";
 import { getInflationMultiplier } from "@/lib/fm/inflation";
+// v2.9.46 GÖREV 5: calculatePlayerValue + calculateSeasonPerformanceModifier
+import { calculatePlayerValue, calculateSeasonPerformanceModifier } from "@/lib/valuation";
 import { applyCoachTrainingBoost } from "@/lib/staffBonus";
 import { generateSponsorOffers, getTotalSponsorIncome } from "@/lib/sponsorSystem";
 import { checkAndAwardBadges, checkAchievements } from "@/components/touchline/achievements";
@@ -3091,6 +3093,13 @@ export const useAppStore = create<AppState>()(
               };
               newSeasonHistory = [...newSeasonHistory, seasonStat];
             }
+            // v2.9.46 GÖREV 5: Sezon sonu piyasa değeri yeniden hesaplama
+            // — calculatePlayerValue'a seasonPerformanceModifier verilir
+            // — Modifier: gol/asist/sakatlık bazlı 0.80-1.25 çarpan
+            // — Sıfırlama ÖNCESİ hesaplanmalı (goals/assists hala bu sezonun değeri)
+            // — Regenler için modifier uygulanmaz (yeni başladılar)
+            const perfModifier = isRegen ? 1.0 : calculateSeasonPerformanceModifier(p);
+            const newMarketValue = calculatePlayerValue(p, perfModifier);
             return {
               ...p,
               age: isRegen ? p.age : p.age + 1,
@@ -3126,6 +3135,9 @@ export const useAppStore = create<AppState>()(
               seasonAwards: mergedAwards,
               // v2.9.46 GÖREV 4: Sezon istatistiklerini kalıcı seasonHistory'e ekle
               seasonHistory: newSeasonHistory,
+              // v2.9.46 GÖREV 5: Sezon sonu piyasa değeri (performans modifier ile)
+              marketValue: newMarketValue,
+              market_value: newMarketValue,
             };
           });
 
