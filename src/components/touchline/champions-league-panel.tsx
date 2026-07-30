@@ -114,12 +114,14 @@ export function ChampionsLeaguePanel() {
         <div className="space-y-1">
           {currentRoundMatches.map((m, i) => {
             const isMyMatch = m.homeId === myTeamId || m.awayId === myTeamId;
+            const isByeMatch = (m as any).isBye === true;
             return (
               <div
                 key={i}
                 className={cn(
                   "tm-card p-2 flex items-center gap-2",
-                  isMyMatch && "border-primary/50 bg-primary/5"
+                  isMyMatch && "border-primary/50 bg-primary/5",
+                  isByeMatch && "opacity-60"
                 )}
               >
                 {/* Home */}
@@ -131,7 +133,9 @@ export function ChampionsLeaguePanel() {
                 </div>
                 {/* Score */}
                 <div className="text-[11px] font-bold tabular-nums px-2">
-                  {m.played ? `${m.homeScore} - ${m.awayScore}` : "- : -"}
+                  {isByeMatch ? (
+                    <span className="text-[9px] text-muted-foreground">BAY</span>
+                  ) : m.played ? `${m.homeScore} - ${m.awayScore}` : "- : -"}
                 </div>
                 {/* Away */}
                 <div className="flex-1 flex items-center gap-1.5">

@@ -52,6 +52,8 @@ import { DEFAULT_TACTIC, FORMATION_SLOTS, type ActiveTactic } from "@/lib/tactic
 import { TIER_BASE_BUDGETS } from "@/lib/match/engine/constants";
 // v2.9.21 GÖREV 1: Küme düşme/terfi kuralları — TEK KANONİK KAYNAK
 import { TEAMS_PER_LEAGUE, PROMOTION_COUNT, RELEGATION_COUNT, getLeagueZone, isPromotionZone, isRelegationZone } from "@/lib/league-rules";
+// v2.9.46 GÖREV 2: CL bracket üretici
+import { generateFirstRoundMatches, generateNextRoundMatches, getRoundName as getCLRoundName, getTotalRounds as getCLTotalRounds } from "@/lib/cl-bracket";
 // v2.9.30 T-10: Tesis yükseltme maliyeti tek kaynak
 import { calculateUpgradeCost } from "@/lib/stadiumMatrix";
 import { simulateEnhancedMatch, simulatePenaltyShootout } from "@/lib/match/engine/enhancedMatchEngine";
@@ -245,6 +247,8 @@ type ChampionsLeagueState = {
     awayScore?: number;
     winnerId?: string;
     played: boolean;
+    /** v2.9.46 GÖREV 2: Bye maçı (karşı taraf yok, otomatik tur atlatır) */
+    isBye?: boolean;
   }>;
   currentRound: number;
   champion?: string;
@@ -2064,27 +2068,9 @@ export const useAppStore = create<AppState>()(
             return { success: true, champion: champTeam?.teamName };
           }
 
-          // Sonraki tur eşleşmelerini oluştur
+          // v2.9.46 GÖREV 2: Sonraki tur eşleşmelerini CL bracket üretici ile oluştur
           const nextRound = currentRound + 1;
-          const newMatches: typeof cl.matches = [];
-          for (let i = 0; i < winners.length - 1; i += 2) {
-            const home = cl.participants.find(p => p.teamId === winners[i]);
-            const away = cl.participants.find(p => p.teamId === winners[i + 1]);
-            if (home && away) {
-              newMatches.push({
-                round: nextRound,
-                homeId: home.teamId,
-                awayId: away.teamId,
-                homeName: home.teamName,
-                awayName: away.teamName,
-                homeShort: home.teamShort,
-                awayShort: away.teamShort,
-                homeColor: home.teamColor,
-                awayColor: away.teamColor,
-                played: false,
-              });
-            }
-          }
+          const newMatches = generateNextRoundMatches(winners, cl.participants, nextRound);
 
           set({
             championsLeague: {
@@ -3080,39 +3066,37 @@ export const useAppStore = create<AppState>()(
         // v2.9.34 F3: Sezon sonu — pendingGains'i kalıcı stata ekle
         get().applyPendingGains();
 
-        // v2.9.41: Şampiyonlar Ligi — sezon sonu ilk 3 takımı topla
-        // Tüm ülkelerin tüm tier'larından ilk 3'er takım üret
+        // v2.9.41/v2.9.46 GÖREV 2: Şampiyonlar Ligi — sezon sonu ilk 3 takımı topla
+        // v2.9.46 DÜZELTME: Sadece her ülkenin 1. Liginden (tier 1) ilk 3 takım katılır.
+        // Eski kod tüm tier'lardan (1-4) ilk 3 alıyordu — Görev 2 kuralı: sadece en üst lig.
+        // Kullanıcın takımı tier 1'de ve ilk 3'teyse gerçek takım olarak eklenir.
         const clParticipants: ChampionsLeagueState["participants"] = [];
         try {
-          // v2.9.41: Tüm ülkelerin tüm tier'larından ilk 3'er takım üret
+          // v2.9.46: Sadece tier 1 (Süper Lig / en üst lig) ilk 3'ü
           for (const country of COUNTRIES) {
-            for (let t = 1; t <= 4; t++) {
-              const deptCount = t === 4 ? 5 : 1;
-              for (let d = 1; d <= deptCount; d++) {
-                const clClubs = generateClubsForLeague(t as any, d as any, country.code);
-                // Her ligden ilk 3'ü al (rating bazlı)
-                const top3 = [...clClubs].sort((a, b) =>
-                  b.players.reduce((s: number, p: any) => s + p.rating, 0) / b.players.length -
-                  a.players.reduce((s: number, p: any) => s + p.rating, 0) / a.players.length
-                ).slice(0, 3);
-                top3.forEach((club: any, idx: number) => {
-                  clParticipants.push({
-                    teamId: `${country.code}_T${t}_D${d}_${idx}`,
-                    teamName: club.name,
-                    teamShort: club.shortName,
-                    teamColor: club.primaryColor,
-                    country: country.code,
-                    tier: t,
-                    finalPosition: idx + 1,
-                    isUser: false,
-                  });
-                });
-              }
-            }
+            const clClubs = generateClubsForLeague(1 as any, 1 as any, country.code);
+            // Bu ligin ilk 3'ünü al (rating bazlı)
+            const top3 = [...clClubs].sort((a, b) =>
+              b.players.reduce((s: number, p: any) => s + p.rating, 0) / b.players.length -
+              a.players.reduce((s: number, p: any) => s + p.rating, 0) / a.players.length
+            ).slice(0, 3);
+            top3.forEach((club: any, idx: number) => {
+              clParticipants.push({
+                teamId: `${country.code}_T1_D1_${idx}`,
+                teamName: club.name,
+                teamShort: club.shortName,
+                teamColor: club.primaryColor,
+                country: country.code,
+                tier: 1,
+                finalPosition: idx + 1,
+                isUser: false,
+              });
+            });
           }
-          // Kullanıcın takımını eğer ilk 3'teyse dahil et
+          // Kullanıcın takımını eğer 1. Lig'de ve ilk 3'teyse dahil et
           const userFinalIdx = standings.findIndex(s => s.teamId === myTeamId);
-          if (userFinalIdx < 3) {
+          const userTier = team.leagueTier ?? 2;
+          if (userFinalIdx < 3 && userTier === 1) {
             // Kullanıcın gerçek takımını ekle (bot yerine)
             const userTeamData = clubs.find(c => c.id === myTeamId);
             if (userTeamData) {
@@ -3122,7 +3106,7 @@ export const useAppStore = create<AppState>()(
                 teamShort: userTeamData.shortName,
                 teamColor: userTeamData.primaryColor,
                 country: "TR", // kullanıcının ülkesi
-                tier: team.leagueTier ?? 2,
+                tier: 1,
                 finalPosition: userFinalIdx + 1,
                 isUser: true,
               });
@@ -3132,23 +3116,11 @@ export const useAppStore = create<AppState>()(
           console.warn("[endSeason] CL participants error:", e);
         }
 
-        // CL bracket oluştur — rastgele eşleştirme
-        const clShuffled = [...clParticipants].sort(() => Math.random() - 0.5);
-        const clMatches: ChampionsLeagueState["matches"] = [];
-        for (let i = 0; i < clShuffled.length - 1; i += 2) {
-          clMatches.push({
-            round: 1,
-            homeId: clShuffled[i].teamId,
-            awayId: clShuffled[i + 1].teamId,
-            homeName: clShuffled[i].teamName,
-            awayName: clShuffled[i + 1].teamName,
-            homeShort: clShuffled[i].teamShort,
-            awayShort: clShuffled[i + 1].teamShort,
-            homeColor: clShuffled[i].teamColor,
-            awayColor: clShuffled[i + 1].teamColor,
-            played: false,
-          });
-        }
+        // v2.9.46 GÖREV 2: CL bracket üretici ile tek maç eleme eşleşmeleri üret
+        // Bye'lar dahil — en yakın 2'nin kuvvetine tamamlanır
+        // Çok sezon sürebilir (her boşluk Çarşambası 1 tur oynanır)
+        const clFirstRound = generateFirstRoundMatches(clParticipants);
+        const clMatches: ChampionsLeagueState["matches"] = clFirstRound.matches;
 
         set({
           clubs: updatedClubs,
