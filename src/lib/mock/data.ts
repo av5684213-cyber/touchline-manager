@@ -183,6 +183,9 @@ export type Player = {
   playStyle?: string;
   archetype?: string;
   special_role?: string | null;
+  // v2.9.46 GÖREV 6: Oyuncuya basılmış toplam kart sayısı (pozitif trait + arketip + negatif giderme)
+  // Maksimum 2 kart limiti uygulanır. Sayaç sadece artar — kartlar kalıcı.
+  cardsAppliedCount?: number;
 
   // ── Maç istatistikleri ─────────────────────────────────
   goals: number;

@@ -2309,30 +2309,47 @@ function CardApplyButton({ player, teamColor }: { player: Player; teamColor: str
 
   const totalCards = cardInventory.reduce((s, c) => s + c.quantity, 0);
 
+  // v2.9.46 GÖREV 6: Oyuncu başına maksimum 2 kart limiti
+  const MAX_CARDS = 2;
+  const currentCount = (player as any).cardsAppliedCount ?? 0;
+  const atMax = currentCount >= MAX_CARDS;
+
   return (
     <>
       <button
         onClick={() => {
           haptic("light");
-          if (totalCards === 0) {
-            // Envanter boş — mağazaya yönlendir mesajı
+          if (totalCards === 0 || atMax) {
+            // Envanter boş veya limit dolu — mesaj
             return;
           }
           setShowModal(true);
         }}
-        disabled={totalCards === 0}
+        disabled={totalCards === 0 || atMax}
         className={cn(
           "tm-tap w-full py-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors",
-          totalCards > 0
-            ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white"
-            : "bg-muted/30 text-muted-foreground/50"
+          atMax
+            ? "bg-muted/30 text-muted-foreground/50 cursor-not-allowed"
+            : totalCards > 0
+              ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white"
+              : "bg-muted/30 text-muted-foreground/50"
         )}
       >
         <Wand2 size={14} />
-        {totalCards > 0 ? `Kart Bas (${totalCards} kart)` : "Kart Bas (envanter boş)"}
+        {atMax
+          ? `Maksimum karta ulaştı (${currentCount}/${MAX_CARDS})`
+          : totalCards > 0
+            ? `Kart Bas (${currentCount}/${MAX_CARDS} · ${totalCards} kart)`
+            : "Kart Bas (envanter boş)"}
       </button>
 
-      {totalCards === 0 && (
+      {atMax && (
+        <div className="text-[9px] text-amber-400 text-center -mt-1.5">
+          Bu oyuncu maksimum kart sayısına ulaştı — 2/2
+        </div>
+      )}
+
+      {totalCards === 0 && !atMax && (
         <div className="text-[9px] text-muted-foreground text-center -mt-1.5">
           Mağazadan kart satın al
         </div>
@@ -2411,7 +2428,20 @@ function PlayerCardPickerModal({ player, onClose }: { player: Player; onClose: (
             <Wand2 size={16} className="text-purple-400" />
             <div>
               <div className="text-sm font-bold">Kart Bas</div>
-              <div className="text-[10px] text-muted-foreground">{player.firstName} {player.lastName}</div>
+              <div className="text-[10px] text-muted-foreground">
+                {player.firstName} {player.lastName}
+                {/* v2.9.46 GÖREV 6: Kart limiti göstergesi */}
+                <span className={cn(
+                  "ml-1 px-1 py-0.5 rounded font-bold",
+                  (player.cardsAppliedCount ?? 0) >= 2
+                    ? "bg-amber-500/20 text-amber-400"
+                    : (player.cardsAppliedCount ?? 0) >= 1
+                      ? "bg-sky-500/20 text-sky-400"
+                      : "bg-muted text-muted-foreground"
+                )}>
+                  {player.cardsAppliedCount ?? 0}/2 kart
+                </span>
+              </div>
             </div>
           </div>
           <button onClick={onClose} className="tm-tap p-1 text-muted-foreground hover:text-foreground">
@@ -2438,6 +2468,12 @@ function PlayerCardPickerModal({ player, onClose }: { player: Player; onClose: (
               </span>
             )}
           </div>
+          {/* v2.9.46 GÖREV 6: Limit dolu uyarısı */}
+          {(player.cardsAppliedCount ?? 0) >= 2 && (
+            <div className="mt-1.5 text-[10px] text-amber-400 font-bold text-center">
+              ⚠️ Bu oyuncu maksimum kart sayısına ulaştı (2/2). Yeni kart basılamaz.
+            </div>
+          )}
         </div>
 
         {/* Kart listesi */}

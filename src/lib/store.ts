@@ -4119,6 +4119,18 @@ export const useAppStore = create<AppState>()(
         const player = myTeam.players.find(p => p.id === playerId);
         if (!player) return { success: false, reason: "Oyuncu bulunamadı" };
 
+        // v2.9.46 GÖREV 6: Oyuncu başına maksimum 2 kart limiti
+        // — Mevcut kart sayısı (pozitif trait + arketip + negatif giderme toplamı)
+        // — 2'ye ulaşılmışsa yeni kart uygulama engellenir
+        const currentCount = (player as any).cardsAppliedCount ?? 0;
+        const MAX_CARDS_PER_PLAYER = 2;
+        if (currentCount >= MAX_CARDS_PER_PLAYER) {
+          return {
+            success: false,
+            reason: `Bu oyuncu maksimum kart sayısına ulaştı — ${currentCount}/${MAX_CARDS_PER_PLAYER}`,
+          };
+        }
+
         // v2.9.29 P2-7: Kart uygulanabilirlik kontrolü (map öncesi — israfı önle)
         if (card.cardType === "trait_positive") {
           if ((player.traits ?? []).includes(card.cardName)) {
@@ -4163,6 +4175,8 @@ export const useAppStore = create<AppState>()(
             // Arketip değiştir
             updated.archetype = card.cardName;
           }
+          // v2.9.46 GÖREV 6: Kart sayacını artır (kalıcı — sadece artar, azalmaz)
+          updated.cardsAppliedCount = (updated.cardsAppliedCount ?? 0) + 1;
           return updated;
         });
 
