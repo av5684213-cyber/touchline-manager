@@ -227,19 +227,19 @@ export function MatchScreen() {
                 onClick={() => { haptic("light"); setMatchTab("pitch"); }}
                 className={cn("flex-1 py-1.5 rounded text-[10px] font-bold", matchTab === "pitch" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
               >
-                🏟️ Saha
+                🏟️ {t("match.tab.pitch")}
               </button>
               <button
                 onClick={() => { haptic("light"); setMatchTab("feed"); }}
                 className={cn("flex-1 py-1.5 rounded text-[10px] font-bold", matchTab === "feed" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
               >
-                📋 Akış
+                📋 {t("match.tab.feed")}
               </button>
               <button
                 onClick={() => { haptic("light"); setMatchTab("stats"); }}
                 className={cn("flex-1 py-1.5 rounded text-[10px] font-bold", matchTab === "stats" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
               >
-                📊 İstatistik
+                📊 {t("match.tab.stats")}
               </button>
             </div>
 

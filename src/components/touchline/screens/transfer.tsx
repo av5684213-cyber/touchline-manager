@@ -270,12 +270,12 @@ export function TransferScreen() {
           {/* v2.9.22 Y4: "Pazar" tek sekmede — Tüm Ligler + Takımsız birleşik */}
           <div className="mt-4 pt-4 border-t border-border">
             <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-2">
-              🏟️ Tüm Liglerden ({allClubPlayers.length})
+              🏟️ {t("transfer.all_leagues")} ({allClubPlayers.length})
             </div>
             <div className="tm-card divide-y divide-border max-h-72 overflow-y-auto tm-thin-scrollbar">
               {allClubPlayers.length === 0 && (
                 <div className="p-4 text-center text-xs text-muted-foreground">
-                  Diğer liglerden oyuncu yok.
+                  {t("transfer.no_other_league_players")}
                 </div>
               )}
               {allClubPlayers.slice(0, 20).map((entry) => (
@@ -298,7 +298,7 @@ export function TransferScreen() {
           {/* Takımsız oyuncular bölümü */}
           <div className="mt-4 pt-4 border-t border-border">
             <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-2">
-              🆓 Takımsız Oyuncular ({transfer.freeAgentListings?.length ?? 0})
+              🆓 {t("transfer.free_agents")} ({transfer.freeAgentListings?.length ?? 0})
             </div>
             <div className="tm-card divide-y divide-border max-h-72 overflow-y-auto tm-thin-scrollbar">
               {(transfer.freeAgentListings ?? []).length === 0 && (
@@ -319,7 +319,7 @@ export function TransferScreen() {
                       {p.firstName} {p.lastName}
                     </span>
                     <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
-                    <span className="text-[10px] text-emerald-400 font-bold">Bedelsiz</span>
+                    <span className="text-[10px] text-emerald-400 font-bold">{t("transfer.free")}</span>
                   </button>
                 );
               })}
@@ -364,7 +364,7 @@ export function TransferScreen() {
                     <span>{p.age}{t("common.year")}</span>
                     {p.archetype && <><span>·</span><span className="truncate max-w-[100px]">{p.archetype}</span></>}
                     <span>·</span>
-                    <span className="text-emerald-400 font-bold">Bedelsiz</span>
+                    <span className="text-emerald-400 font-bold">{t("transfer.free")}</span>
                   </div>
                   {/* Stats — güvenli fallback */}
                   <div className="flex items-center gap-1.5 mt-0.5 text-[11px]">

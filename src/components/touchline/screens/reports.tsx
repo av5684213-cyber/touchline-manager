@@ -53,11 +53,11 @@ export function ReportsScreen() {
   if (!team) return null;
 
   const tabs: { key: ReportTab; icon: typeof FileText; label: string }[] = [
-    { key: "match", icon: FileText, label: "Maç Raporu" },
-    { key: "financial", icon: Wallet, label: "Finansal" },
-    { key: "performance", icon: TrendingUp, label: "Performans" },
-    { key: "scout", icon: Search, label: "Scout" },
-    { key: "season", icon: Calendar, label: "Sezon" },
+    { key: "match", icon: FileText, label: t("reports.tab.match") },
+    { key: "financial", icon: Wallet, label: t("reports.tab.financial") },
+    { key: "performance", icon: TrendingUp, label: t("reports.tab.performance") },
+    { key: "scout", icon: Search, label: t("reports.tab.scout") },
+    { key: "season", icon: Calendar, label: t("reports.tab.season") },
   ];
 
   return (
@@ -65,7 +65,7 @@ export function ReportsScreen() {
       {/* Başlık kartı */}
       <div className="tm-card p-3 flex items-center justify-between">
         <div>
-          <h1 className="text-base font-bold">Raporlar</h1>
+          <h1 className="text-base font-bold">{t("reports.title")}</h1>
           <p className="text-[11px] text-muted-foreground">
             Sezon {seasonNumber} · Hafta {SEASON_INFO.matchday}/{SEASON_INFO.totalMatchdays}
           </p>
@@ -354,6 +354,8 @@ function FinancialReport({
   clubs: Team[];
   fixtures: FixtureRow[];
 }) {
+  // v2.9.47 Faz 5: t() kullanımı için useI18n
+  const { t } = useI18n();
   // P1 FIX: Reaktif okuma — getState() yerine hook kullan
   const transfer = useAppStore((s) => s.transfer);
 
@@ -393,7 +395,7 @@ function FinancialReport({
       <div className={cn("tm-card p-3",
         net >= 0 ? "bg-emerald-500/5 border-emerald-500/30" : "bg-red-500/5 border-red-500/30")}>
         <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] text-muted-foreground uppercase">Mevcut Bütçe</span>
+          <span className="text-[10px] text-muted-foreground uppercase">{t("reports.current_budget")}</span>
           <DollarSign size={12} className="text-muted-foreground" />
         </div>
         <div className="text-2xl font-bold tabular-nums">{formatEuro(team.budget, locale)}</div>
@@ -405,14 +407,14 @@ function FinancialReport({
       {/* Haftalık net */}
       <div className={cn("tm-card p-3 text-center",
         net >= 0 ? "bg-emerald-500/10 border-emerald-500/30" : "bg-red-500/10 border-red-500/30")}>
-        <div className="text-[10px] text-muted-foreground uppercase">Haftalık Net</div>
+        <div className="text-[10px] text-muted-foreground uppercase">{t("reports.weekly_net")}</div>
         <div className={cn("text-xl font-bold tabular-nums flex items-center justify-center gap-1",
           net >= 0 ? "text-emerald-400" : "text-red-400")}>
           {net >= 0 ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
           {net >= 0 ? "+" : ""}{formatEuro(net, locale)}
         </div>
         <div className="text-[11px] text-muted-foreground mt-0.5">
-          Sezonluk projeksiyon: {net >= 0 ? "+" : ""}{formatEuro(seasonalNet, locale)}
+          {t("reports.season_projection")}: {net >= 0 ? "+" : ""}{formatEuro(seasonalNet, locale)}
         </div>
       </div>
 
@@ -426,7 +428,7 @@ function FinancialReport({
           <FinRow label="Bilet Geliri" value={ticketRev} color="emerald" locale={locale} />
           <FinRow label="Sponsor" value={sponsor} color="emerald" locale={locale} />
           <FinRow label="TV Geliri" value={tv} color="emerald" locale={locale} />
-          <FinRow label="Lisanslı Ürün" value={merch} color="emerald" locale={locale} />
+          <FinRow label={t("reports.licensed_products")} value={merch} color="emerald" locale={locale} />
           <div className="border-t border-border pt-1">
             <FinRow label="Toplam Gelir" value={totalIncome} color="emerald" bold locale={locale} />
           </div>

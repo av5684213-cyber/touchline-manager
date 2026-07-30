@@ -293,7 +293,7 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
       <div className="tm-card p-3 bg-amber-50/40 border-amber-200">
         <div className="flex items-center gap-2 mb-1">
           <Calendar size={16} className="text-amber-600" />
-          <h1 className="text-base font-bold">Hazırlık Maçı</h1>
+          <h1 className="text-base font-bold">{t("friendly.title")}</h1>
         </div>
         <p className="text-[10px] text-muted-foreground leading-relaxed">
           Bot takımlarla dostluk maçı oyna. Sonuçlar <strong className="text-foreground">lig puanını etkilemez</strong> ama oyuncuların formu ve morali <strong className="text-emerald-400">her zaman pozitif</strong> yönde etkilenir (antrenman niteliğinde).
@@ -371,7 +371,7 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
       {/* Rakip listesi */}
       <div>
         <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-2">
-          Rakip Seç ({opponents.length})
+          {t("friendly.select_opponent")} ({opponents.length})
         </div>
         <div className="tm-card divide-y divide-border">
           {opponents.slice(0, 30).map((opp) => {
@@ -604,7 +604,7 @@ function FriendlyLiveView({
             onClick={() => { haptic("light"); setShowChat(!showChat); }}
             className="pointer-events-auto tm-tap w-full py-2.5 rounded-md bg-sky-600 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg"
           >
-            {showChat ? "▼ Sohbeti Kapat" : "💬 Rakip ile Sohbet"}
+            {showChat ? t("friendly.chat_close") : t("friendly.chat_with_opponent")}
           </button>
         </div>
       )}
