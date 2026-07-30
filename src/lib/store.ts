@@ -16,6 +16,8 @@ import {
   type Team,
   // v2.9.46 GÖREV 3: Sezon ödül tipi
   type SeasonAward,
+  // v2.9.46 GÖREV 4: Sezon istatistik tipi (seasonHistory için)
+  type SeasonStat,
 } from "@/lib/mock/data";
 // v2.9.41: Şampiyonlar Ligi için ülke listesi
 import { COUNTRIES } from "@/lib/countries/countries";
@@ -3070,6 +3072,25 @@ export const useAppStore = create<AppState>()(
             const mergedAwards = newAwards.length > 0
               ? [...existingAwards, ...newAwards]
               : existingAwards;
+            // v2.9.46 GÖREV 4: Bu sezonun istatistiklerini seasonHistory'e kaydet (kalıcı, kariyerlik)
+            // — Sadece en az 1 maç oynamış oyuncular için (regen dahil değil — onlar yeni başladı)
+            // — Statlar henüz sıfırlanMADI (goals/assists hala bu sezonun değeri)
+            let newSeasonHistory = p.seasonHistory ?? [];
+            if (!isRegen && (p.appearances ?? 0) > 0) {
+              const seasonStat: SeasonStat = {
+                season: seasonLabel,
+                club: c.name,
+                leagueTier: c.leagueTier ?? 2,
+                appearances: p.appearances ?? 0,
+                goals: p.goals ?? 0,
+                assists: p.assists ?? 0,
+                yellowCards: (oldStats as any).yellowCards ?? 0,
+                redCards: (oldStats as any).redCards ?? 0,
+                avgRating: p.last_match_rating ?? 0,
+                minutesPlayed: (oldStats as any).minutesPlayed ?? (p.appearances ?? 0) * 80,
+              };
+              newSeasonHistory = [...newSeasonHistory, seasonStat];
+            }
             return {
               ...p,
               age: isRegen ? p.age : p.age + 1,
@@ -3103,6 +3124,8 @@ export const useAppStore = create<AppState>()(
               motmAwards: (p as any).motmAwards ?? 0, // MotM ödülleri korunsun (kariyerlik)
               // v2.9.46 GÖREV 3: Sezon ödüllerini kalıcı olarak sakla (kariyerlik)
               seasonAwards: mergedAwards,
+              // v2.9.46 GÖREV 4: Sezon istatistiklerini kalıcı seasonHistory'e ekle
+              seasonHistory: newSeasonHistory,
             };
           });
 
