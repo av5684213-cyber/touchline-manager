@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import {
   ArrowLeft,
   Calendar,
   ChevronRight,
-  MessageSquare,
+  Send,
   TrendingDown,
   TrendingUp,
   Trophy,
   Users,
+  Camera,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore } from "@/lib/store";
@@ -29,11 +30,12 @@ const POSITION_ORDER: Record<string, number> = {
   LW: 11, RW: 12, CF: 13, ST: 14,
 };
 
+// v2.9.48: Mevki renkleri — ana renge çevrildi (açık ton değil)
 const POSITION_ROW_BG: Record<PositionGroup, string> = {
-  GK: "bg-amber-50/30 dark:bg-amber-950/15",
-  DEF: "bg-sky-50/30 dark:bg-sky-950/15",
-  MID: "bg-emerald-50/30 dark:bg-emerald-950/15",
-  FWD: "bg-rose-50/30 dark:bg-rose-950/15",
+  GK: "bg-amber-500/15",
+  DEF: "bg-sky-500/15",
+  MID: "bg-emerald-500/15",
+  FWD: "bg-rose-500/15",
 };
 
 const LEAGUE_NAMES: Record<number, string> = {
@@ -63,6 +65,23 @@ export function TeamDetailModal({
   const [replayMatch, setReplayMatch] = useState<{ homeId: string; awayId: string; homeScore: number; awayScore: number; matchday: number } | null>(null);
   const clubs = useAppStore((s) => s.clubs);
   const fixtures = useAppStore((s) => s.fixtures);
+  // v2.9.48: Takım logosu state
+  const [teamLogo, setTeamLogo] = useState<string | null>(null);
+  const logoRef = useRef<HTMLInputElement>(null);
+  const myTeamId = useAppStore((s) => s.myTeamId);
+
+  // v2.9.48: Logo yükleme — sadece kendi takımı için
+  const canUploadLogo = isMyTeam;
+  const onLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setTeamLogo(reader.result as string);
+      haptic("success");
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Takım fikstürü
   const teamFixtures = useMemo(() => {
@@ -139,7 +158,7 @@ export function TeamDetailModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
-      {/* ===== Header — takım renkleri ===== */}
+      {/* ===== Header — takım renkleri + logo yükleme ===== */}
       <div
         className="px-3 py-3 flex items-center gap-3 shrink-0"
         style={{ background: `linear-gradient(135deg, ${team.primaryColor} 0%, ${team.primaryColor}cc 100%)` }}
@@ -150,19 +169,53 @@ export function TeamDetailModal({
         >
           <ArrowLeft size={18} />
         </button>
-        <ClubBadge short={team.shortName} primaryColor={team.primaryColor} size={40} />
+
+        {/* v2.9.48: Logo alanı — tıklanabilir, yüklenebilir */}
+        <div className="relative shrink-0">
+          <button
+            onClick={() => { if (canUploadLogo) { haptic("light"); logoRef.current?.click(); } }}
+            className={cn(
+              "w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center border-2 border-white/30 transition-all",
+              canUploadLogo ? "tm-tap cursor-pointer hover:border-white/60" : "cursor-default"
+            )}
+            style={{ background: team.secondaryColor || "#fff" }}
+          >
+            {teamLogo ? (
+              <img src={teamLogo} alt="logo" className="w-full h-full object-cover" />
+            ) : (
+              <ClubBadge short={team.shortName} primaryColor={team.primaryColor} size={36} />
+            )}
+          </button>
+          {/* Logo yükleme ikonu — sadece kendi takımı için */}
+          {canUploadLogo && (
+            <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary border-2 border-white flex items-center justify-center">
+              <Camera size={10} className="text-white" />
+            </div>
+          )}
+          <input
+            ref={logoRef}
+            type="file"
+            accept="image/*"
+            onChange={onLogoUpload}
+            className="hidden"
+          />
+        </div>
+
         <div className="flex-1 min-w-0">
           <div className="text-sm font-bold text-white truncate">{team.name}</div>
           <div className="text-[10px] text-white/70">
             {LEAGUE_NAMES[team.leagueTier] ?? "1. Lig"} · {myPosition}. sırada
           </div>
         </div>
+
+        {/* v2.9.48: Mesaj butonu — daha şık ve büyük */}
         {!isMyTeam && (
           <button
             onClick={() => { haptic("light"); onMessage(team); }}
-            className="tm-tap p-1.5 rounded-full bg-black/20 text-white shrink-0"
+            className="tm-tap w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 text-white shrink-0 flex items-center justify-center transition-all active:scale-95"
+            title="Mesaj Gönder"
           >
-            <MessageSquare size={16} />
+            <Send size={18} className="fill-white" />
           </button>
         )}
       </div>
