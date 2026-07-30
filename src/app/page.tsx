@@ -37,6 +37,8 @@ import { NewsScreen } from "@/components/touchline/screens/news";
 import { MessagesScreen } from "@/components/touchline/screens/messages";
 import { OtherDrawer } from "@/components/touchline/other-drawer";
 import { WelcomeModal } from "@/components/touchline/welcome-modal";
+// v2.9.47: Kozmetik görünümlerini uygula (tema renkleri, forma)
+import { CosmeticsApplier } from "@/components/touchline/cosmetics-applier";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useBodyScrollLock } from "@/hooks/touchline";
 import { useKeyboardScrollLock } from "@/hooks/use-keyboard-scroll-lock";
@@ -102,6 +104,7 @@ export default function Home() {
 
   return (
     <AuthGate>
+      <CosmeticsApplier />
       <div className="tm-app-shell flex flex-col">
         {isMatch && <TopBar compact />}
         {!isMatch && <StickyQuickBar activeTab={tab} onChange={setTab} />}
