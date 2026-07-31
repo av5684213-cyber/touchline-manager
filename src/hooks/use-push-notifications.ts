@@ -7,23 +7,20 @@ import { useSupabaseAuth } from "@/lib/auth/auth-context";
 /**
  * v2.9.20 GÖREV 8 — FCM Push Notification Hook.
  *
- * Bu hook kullanıcı giriş yaptığında:
- *   1. (Web) Firebase Messaging'den FCM token alır
- *   2. rpc_register_push_token çağırır → Supabase push_tokens tablosuna kaydeder
- *   3. Çıkış yapınca rpc_unregister_push_token ile token siler
+ * v2.9.52: PUSH_NOTIFICATIONS_ENABLED = false
+ * Seçenek B uygulandı — sahte ANDROID_ID token gönderimi devre dışı.
+ * Gerçek Firebase entegrasyonu yapılana kadar push'lar kapalı.
  *
- * ANDROID:
- *   WebView'de Firebase Messaging doğrudan çalışmaz. Bunun yerine:
- *   - Native Android Activity Firebase Messaging service kurar
- *   - Token'ı JavascriptInterface ile JS'e paslar
- *   - JS bu token'ı rpc_register_push_token'a gönderir
- *
- * Bu hook'un web tarafı şu an için no-op (Firebase config yok).
- * Android tarafı MainActivity.java'da implement edilecek (Firebase SDK eklenecek).
- *
- * Server-side: rpc_send_push_notification RPC'si Edge Function tarafından çağrılır
- * (örneğin maç sonucu, transfer teklifi, kupa turu bildirimleri).
+ * İleride Seçenek A'ya geçiş:
+ *   1. google-services.json ekle
+ *   2. firebase-messaging SDK bağımlılığa ekle
+ *   3. FirebaseMessagingService oluştur
+ *   4. PUSH_NOTIFICATIONS_ENABLED = true yap
+ *   5. getFCMToken() içinde gerçek FCM token al
  */
+
+// v2.9.52: Feature flag — false iken backend'e hiç token gönderilmez
+const PUSH_NOTIFICATIONS_ENABLED = false;
 
 const FCM_TOKEN_STORAGE_KEY = "tm_fcm_token";
 
@@ -78,6 +75,8 @@ export function usePushNotifications() {
   const registeredRef = useRef<string | null>(null);
 
   useEffect(() => {
+    // v2.9.52: Push notifications devre dışı — sahte token gönderme
+    if (!PUSH_NOTIFICATIONS_ENABLED) return;
     if (!user) return;
 
     let active = true;
