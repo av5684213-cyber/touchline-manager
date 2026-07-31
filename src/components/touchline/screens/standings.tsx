@@ -51,6 +51,9 @@ export function StandingsScreen() {
   // v2.9.21 EK4: Toolbox açılır-kapanır (varsayılan: kapalı)
   const [toolboxOpen, setToolboxOpen] = useState(false);
 
+  // v2.9.55: Null guard
+  if (!team) return null;
+
   // Seçili lig ve departman — varsayılan kullanıcının ligi
   const userTier = (team?.leagueTier ?? 2) as LeagueTier;
   const userDept = (team?.department ?? 1) as Department;

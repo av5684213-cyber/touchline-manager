@@ -359,8 +359,7 @@ function FinancialReport({
   // P1 FIX: Reaktif okuma — getState() yerine hook kullan
   const transfer = useAppStore((s) => s.transfer);
 
-  // v2.9.45 FIX: Gelir hesapları — store.ts advanceMatchday ve finance.tsx ile BİREBİR AYNI
-  // Eski kod 5-10x şişirilmiş değerler gösteriyordu → kullanıcı yanıltıcıydı
+  // v2.9.55: Gelir hesapları — store.ts advanceMatchday ve finance.tsx ile BİREBİR AYNI
   const stadiumCap = 5000 + facilities.levels.stadium * 5000;
   const stadiumMult = 1 + facilities.levels.stadium * 0.05;
   const myTier = team.leagueTier ?? 2;
@@ -371,15 +370,17 @@ function FinancialReport({
     (s: number, sp: any) => s + (sp.amount ?? 0), 0
   );
   const sponsor = 50_000 + facilities.levels.stadium * 10_000 + dynamicSponsorIncome;
-  const tv = 50_000;
+  // v2.9.55: TV geliri tier'a göre — store ve finance ile BİREBİR AYNI
+  const tvByTier: Record<number, number> = { 1: 5_000_000, 2: 3_000_000, 3: 2_500_000, 4: 2_000_000 };
+  const tv = tvByTier[myTier] ?? 50_000;
   const merch = Math.round(stadiumCap * 0.2 + facilities.levels.academy * 5000);
   const totalIncome = ticketRev + sponsor + tv + merch;
 
-  // Gider hesapları — store.ts ile BİREBİR AYNI: seviye başına 20K/hafta
-  // Eski kod 5K kullanıyordu → gider düşük görünüyordu
+  // v2.9.55: OYUNCU MAAŞLARI artık gider olarak hesaplanıyor — store ve finance ile aynı
+  const playerWages = team.players.reduce((s: number, p: any) => s + (p.weeklyWage ?? p.salary ?? 0), 0);
   const staffWages = facilities.staff.reduce((s: number, st: any) => s + st.weeklyWage, 0);
   const facilityCost = Object.values(facilities.levels).reduce((s: number, l: any) => s + l * 20000, 0);
-  const totalExpense = staffWages + facilityCost;
+  const totalExpense = playerWages + staffWages + facilityCost;
   const net = totalIncome - totalExpense;
 
   // Sezonluk projeksiyon (34 hafta)
@@ -442,6 +443,8 @@ function FinancialReport({
           <span className="text-xs font-bold">Haftalık Giderler</span>
         </div>
         <div className="space-y-1">
+          {/* v2.9.55: Oyuncu maaşları — en büyük gider */}
+          <FinRow label="⚽ Oyuncu Maaşları" value={playerWages} color="red" locale={locale} />
           <FinRow label="Personel Maaşları" value={staffWages} color="red" locale={locale} />
           <FinRow label="Tesis Bakım" value={facilityCost} color="red" locale={locale} />
           <div className="border-t border-border pt-1">

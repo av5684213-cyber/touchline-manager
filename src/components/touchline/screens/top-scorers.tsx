@@ -27,6 +27,9 @@ export function TopScorersScreen() {
   const [tier, setTier] = useState<TierFilter>("all");
   const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
 
+  // v2.9.55: Null guard
+  if (!myTeam) return null;
+
   // v2.9.24: "Tüm Lig" sekmesinde lig + departman dropdown
   // v2.9.39: Ülke dropdown eklendi
   const userTier = (myTeam?.leagueTier ?? 2) as LeagueTier;
