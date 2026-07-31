@@ -103,6 +103,16 @@ export async function loadGameState(userId: string): Promise<boolean> {
           freshLeagues[userKey].fixtures = currentState.fixtures ?? [];
           freshLeagues[userKey].seasonMatchday = currentState.seasonMatchday ?? 1;
         }
+
+        // v2.9.63 FIX: Catch-up — kullanıcının mevcut matchday'ine kadar diğer liglerin maçlarını oynat
+        // Eski kod: diğer ligler matchday 1'de kalıyordu → CL katılımcıları rastgele, global gol kralı boş
+        // Yeni: kullanıcı hangi matchday'deyse, diğer ligleri de oraya kadar simüle et
+        const targetMatchday = currentState.seasonMatchday ?? 1;
+        if (targetMatchday > 1) {
+          console.log(`[cloud-save] Catch-up: diğer ligleri matchday ${targetMatchday}'e kadar oynat`);
+          catchUpAllLeagues(freshLeagues, targetMatchday);
+        }
+
         useAppStore.setState({ allLeagues: freshLeagues });
         console.log("[cloud-save] allLeagues regenerated (was missing from cloud)");
       }
@@ -497,4 +507,98 @@ export async function flushGameState(userId: string): Promise<void> {
     saveTacticsState(userId, true);
     setTimeout(resolve, 800); // RPC'lerin tamamlanması için kısa bekle
   });
+}
+
+// ============================================================================
+// v2.9.63: Catch-up — eski kayıtlar için allLeagues maçlarını oynat
+// ============================================================================
+
+/**
+ * Eski kayıttan yüklenen kullanıcının allLeagues'ini targetMatchday'e kadar oynat.
+ *
+ * Senaryo: Kullanıcı cloud'dan matchday 15'i yükledi. allLeagues yeniden üretildi (matchday 1).
+ * Bu fonksiyon matchday 1'den 14'e kadar tüm diğer liglerin maçlarını simüle eder.
+ *
+ * Performans: ~14 matchday × 135 maç = ~1890 maç × 1ms = ~1.9 sn
+ * Kullanıcı login sırasında bekler, ama sadece bir kerelik.
+ */
+function catchUpAllLeagues(allLeagues: any, targetMatchday: number): void {
+  if (targetMatchday <= 1) return;
+  if (!allLeagues) return;
+
+  // store.ts'teki simulateBotMatch'i dinamik import et (circular dependency önle)
+  const { simulateBotMatch } = require("@/lib/botAI");
+
+  for (const key of Object.keys(allLeagues)) {
+    const league = allLeagues[key];
+    if (league.hasUser) continue; // Kullanıcının ligi zaten oynanmış
+
+    // Matchday 1'den targetMatchday-1'e kadar oyna
+    for (let md = 1; md < targetMatchday; md++) {
+      const weekMatches = league.fixtures.filter(
+        (f: any) => f.matchday === md && !f.played
+      );
+      if (weekMatches.length === 0) continue;
+
+      for (const match of weekMatches) {
+        const homeTeam = league.clubs.find((c: any) => c.id === match.homeId);
+        const awayTeam = league.clubs.find((c: any) => c.id === match.awayId);
+        if (!homeTeam || !awayTeam) continue;
+
+        const result = simulateBotMatch(homeTeam, awayTeam, md);
+
+        // Fixture'ı güncelle
+        const idx = league.fixtures.findIndex((f: any) => f.id === match.id);
+        if (idx >= 0) {
+          league.fixtures[idx] = {
+            ...league.fixtures[idx],
+            homeScore: result.homeScore,
+            awayScore: result.awayScore,
+            played: true,
+          };
+        }
+
+        // Oyuncu stats'larını güncelle (gol/asist/appearances)
+        const homeXI = homeTeam.players
+          .filter((p: any) => !p.is_injured)
+          .sort((a: any, b: any) => b.rating - a.rating)
+          .slice(0, 11);
+        const awayXI = awayTeam.players
+          .filter((p: any) => !p.is_injured)
+          .sort((a: any, b: any) => b.rating - a.rating)
+          .slice(0, 11);
+
+        // Appearances
+        for (const p of homeXI) {
+          p.appearances = (p.appearances ?? 0) + 1;
+        }
+        for (const p of awayXI) {
+          p.appearances = (p.appearances ?? 0) + 1;
+        }
+
+        // Gol dağıt
+        for (let g = 0; g < result.homeScore; g++) {
+          const scorer = pickScorerSimple(homeXI);
+          if (scorer) scorer.goals = (scorer.goals ?? 0) + 1;
+        }
+        for (let g = 0; g < result.awayScore; g++) {
+          const scorer = pickScorerSimple(awayXI);
+          if (scorer) scorer.goals = (scorer.goals ?? 0) + 1;
+        }
+      }
+
+      league.seasonMatchday = md + 1;
+    }
+  }
+
+  console.log(`[cloud-save] Catch-up tamamlandı — matchday ${targetMatchday}`);
+}
+
+function pickScorerSimple(squad: any[]): any | null {
+  if (squad.length === 0) return null;
+  const attackers = squad.filter((p) =>
+    ["ST", "CF", "LW", "RW", "LM", "RM", "CAM", "CM"].includes(p.specificPosition)
+  );
+  const pool = attackers.length > 0 ? attackers : squad;
+  return pool[Math.floor(Math.random() * pool.length)] ?? null;
 }

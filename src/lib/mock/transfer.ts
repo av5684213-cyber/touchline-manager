@@ -239,7 +239,19 @@ export function generateFreeAgents(count = 30): TransferListing[] {
 }
 
 // ===== Gelen teklifler (kullanıcının oyuncularına botlardan) =====
-export function generateIncomingOffers(myPlayers: Player[]): IncomingOffer[] {
+// v2.9.63: myListedPlayers parametresi eklendi — satışa çıkarılan oyunculara ÖNCELİKLİ teklif
+const buyerNames = [
+  { name: "Boğazspor", short: "BGZ", color: "#134e4a" },
+  { name: "Hisarspor", short: "HIS", color: "#4c1d95" },
+  { name: "Yeditepespor", short: "YTP", color: "#14532d" },
+  { name: "Efespor", short: "EFS", color: "#854d0e" },
+  { name: "Çınarspor", short: "CNR", color: "#7f1d1d" },
+];
+
+export function generateIncomingOffers(
+  myPlayers: Player[],
+  myListedPlayers: Array<{ playerId: string; askingPrice: number }> = []
+): IncomingOffer[] {
   // P1 FIX: rating eşiği düşürüldü — alt liglerde de teklif gelsin
   const maxRating = myPlayers.length > 0 ? Math.max(...myPlayers.map(p => p.rating)) : 60;
   const minRating = Math.max(40, Math.floor(maxRating - 15));
@@ -247,18 +259,41 @@ export function generateIncomingOffers(myPlayers: Player[]): IncomingOffer[] {
     .filter((p) => !p.is_injured && p.rating >= minRating)
     .sort((a, b) => (b.rating * 0.6 + b.marketValue * 0.000001) - (a.rating * 0.6 + a.marketValue * 0.000001))
     .slice(0, 8);
-  const target = top.slice(0, rand(2, 4));
-  console.log(`[generateIncomingOffers] players=${myPlayers.length} maxRating=${maxRating} minRating=${minRating} top=${top.length} target=${target.length}`);
 
-  const buyerNames = [
-    { name: "Boğazspor", short: "BGZ", color: "#134e4a" },
-    { name: "Hisarspor", short: "HIS", color: "#4c1d95" },
-    { name: "Yeditepespor", short: "YTP", color: "#14532d" },
-    { name: "Efespor", short: "EFS", color: "#854d0e" },
-    { name: "Çınarspor", short: "CNR", color: "#7f1d1d" },
-  ];
+  // v2.9.63: myListedPlayers'taki oyunculara ÖNCELİKLİ teklif üret
+  // Kullanıcı satışa çıkardığı oyunculara teklif almalı — dead feature fix
+  const listedOffers: IncomingOffer[] = [];
+  for (const listing of myListedPlayers) {
+    const player = myPlayers.find((p) => p.id === listing.playerId);
+    if (!player || player.is_injured) continue;
+    // Satışa çıkarılan oyuncuya askingPrice civarı teklif üret
+    const baseOffer = listing.askingPrice;
+    const variance = rand(-5, 15) / 100; // -%5'ten +%15'e (satışa çıkarılanlara daha cömert)
+    const offerAmount = Math.round(baseOffer * (1 + variance));
+    const buyer = pick(buyerNames);
+    const recommended: IncomingOffer["recommended"] =
+      variance >= 0.10 ? "accept" : variance < 0 ? "negotiate" : "accept";
+    listedOffers.push({
+      id: nextId("io"),
+      myPlayerId: player.id,
+      buyerTeamId: `bot_${buyer.short.toLowerCase()}_${Math.random().toString(36).slice(2, 6)}`,
+      buyerTeamName: buyer.name,
+      buyerTeamShort: buyer.short,
+      buyerTeamColor: buyer.color,
+      offerAmount,
+      wageOffer: Math.round(player.weeklyWage * 1.1),
+      contractYears: rand(2, 4),
+      recommended,
+      expiresHours: rand(12, 48),
+    });
+  }
 
-  return target.map((p) => {
+  // Standart rastgele teklifler (listedOffers hariç oyunculara)
+  const listedIds = new Set(listedOffers.map((o) => o.myPlayerId));
+  const availableForRandom = top.filter((p) => !listedIds.has(p.id));
+  const target = availableForRandom.slice(0, rand(2, 4));
+
+  const randomOffers = target.map((p) => {
     const buyer = pick(buyerNames);
     const baseOffer = p.marketValue;
     const variance = rand(-15, 25) / 100; // -%15'ten +%25'e
@@ -268,7 +303,6 @@ export function generateIncomingOffers(myPlayers: Player[]): IncomingOffer[] {
     return {
       id: nextId("io"),
       myPlayerId: p.id,
-      // P0 FIX: buyerTeamId ekle — acceptOffer alıcı takıma oyuncuyu ekleyebilsin
       buyerTeamId: `bot_${buyer.short.toLowerCase()}_${Math.random().toString(36).slice(2, 6)}`,
       buyerTeamName: buyer.name,
       buyerTeamShort: buyer.short,
@@ -280,6 +314,9 @@ export function generateIncomingOffers(myPlayers: Player[]): IncomingOffer[] {
       expiresHours: rand(12, 72),
     };
   });
+
+  // Liste teklifleri + rastgele teklifler, max 6
+  return [...listedOffers, ...randomOffers].slice(0, 6);
 }
 
 // ===== Vergi hesaplama =====

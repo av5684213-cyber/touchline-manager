@@ -3737,3 +3737,70 @@ Test senaryoları:
 8. Bot alım/satım → kullanıcıyla aynı vergi uygulanır
 9. 5. sezon → bot bütçeleri enflasyonla artmış
 10. Transfer pazarı → diğer liglerden de yıldız oyuncular görünür
+
+---
+Task ID: v2.9.63
+Agent: main (Super Z)
+Task: Ertelenen 4 sorun çözüldü — listPlayerForSale, TransferNegotiationModal, catch-up, multiplayer transfer
+
+Work Log:
+
+1. listPlayerForSale DEAD FEATURE FIX:
+   - mock/transfer.ts: generateIncomingOffers artık myListedPlayers parametresi kabul ediyor
+     * Satışa çıkarılan oyunculara ÖNCELİKLİ teklif üretir (askingPrice civarı)
+     * Daha cömert varyans (-%5'ten +%15'e)
+   - store.ts: listPlayerForSale action'ı güncellendi
+     * Satışa çıkarma sonrası HEMEN bot teklif üretir (generateIncomingOffers tetiklenir)
+     * Bu oyuncu için gelen teklifleri öne çıkar
+   - store.ts: Tüm generateIncomingOffers çağrıları myListedPlayers parametresi geçiyor
+     * loginDemo, advanceMatchday (2 yer), endSeason
+
+2. TransferNegotiationModal SILENT FAILURE FIX:
+   - transfer-negotiation-modal.tsx: handleSubmit düzeltildi
+     * Eski: önce "KABUL EDİLDİ" göster, 1.5 sn sonra buyPlayer çağır
+       buyPlayer "not-found" return etse bile kullanıcı "KABUL EDİLDİ" görüyordu
+     * Yeni: önce makeTransferOffer çağır, SONRA feedback göster
+       Hata reason'ına göre açık mesaj (not-found, budget, squad-full, gk-limit, window-closed, too-low)
+   - buyPlayer YERINE makeTransferOffer kullanılıyor
+     * buyPlayer sadece transfer.freeAgents'ta arıyordu (allLeagues'teki oyuncular için "not-found")
+     * makeTransferOffer hem clubs'ta hem allLeagues'te hem freeAgents'ta arar
+
+3. ESKİ KAYITLAR CATCH-UP FIX:
+   - cloud-save.ts: loadGameState'te allLeagues üretildikten sonra catch-up yap
+     * Eski: allLeagues matchday 1'de kalıyordu → CL katılımcıları rastgele, global gol kralı boş
+     * Yeni: catchUpAllLeagues fonksiyonu — kullanıcının mevcut matchday'ine kadar
+       tüm diğer liglerin maçlarını simüle eder
+     * Performans: ~14 matchday × 135 maç = ~1890 maç × 1ms = ~1.9 sn (login sırasında, bir kerelik)
+   - catchUpAllLeagues: simulateBotMatch ile tüm geçmiş maçları oynar
+     * Oyuncu stats'larını günceller (gol/asist/appearances)
+     * Fixture'ları played=true yapar
+
+4. MULTIPLAYER TRANSFER SİSTEMİ:
+   - Yeni dosya: src/lib/multiplayer-transfer.ts
+     * makeMultiplayerOffer: Supabase transfer_offers_mp tablosuna teklif yaz
+     * fetchIncomingMultiplayerOffers: Satıcıya gelen pending teklifleri getir
+     * respondToMultiplayerOffer: Teklifi kabul/reddet
+       - Kabul: oyuncunun team_id'sini güncelle, bütçeleri güncelle (%2.5 vergi)
+       - Reddet: status='rejected'
+     * checkOfferStatuses: Buyer'ın kabul edilen tekliflerini kontrol et
+   - Altyapı hazır (Supabase tabloları + RLS 017'de var)
+   - Bot oyuncuları: lokal simülasyon (mevcut makeTransferOffer)
+   - Gerçek kullanıcı oyuncuları: Supabase üzerinden (multiplayer-transfer.ts)
+
+EK DÜZELTMELER:
+   - src/lib/db.ts silindi (kullanılmayan Prisma dosyası, build hatası)
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- 4 ertelenen sorun tamamı çözüldü
+- listPlayerForSale artık çalışıyor — satışa çıkarılan oyunculara teklif geliyor
+- TransferNegotiationModal artık silent failure değil — hata mesajları açık
+- Eski kayıtlar catch-up yapıyor — tüm ligler kullanıcının matchday'inde
+- Multiplayer transfer altyapısı hazır — Supabase üzerinden gerçek kullanıcı transferleri
+
+Test senaryoları:
+1. Oyuncu sat → "Satışa Çıkar" → bot teklif gelir (dead feature fix)
+2. Gelişmiş Pazarlık → hata durumunda açık mesaj (silent failure fix)
+3. Eski kayıt yükle → allLeagues catch-up yapar (matchday 15'e kadar oynar)
+4. Multiplayer: başka kullanıcının oyuncusuna teklif → Supabase'e yazılır
+5. Multiplayer: gelen teklifleri yanıtla → oyuncu transfer olur

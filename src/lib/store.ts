@@ -779,7 +779,7 @@ export const useAppStore = create<AppState>()(
             freeAgentListings: (transfer.freeAgentListings && transfer.freeAgentListings.length > 0) ? transfer.freeAgentListings : generateFreeAgentListings(15),
             loanListings: (transfer.loanListings && transfer.loanListings.length > 0) ? transfer.loanListings : generateLoanListings(clubs, 10),
             watchlist: transfer.watchlist ?? [],
-            incomingOffers: transfer.incomingOffers.length > 0 ? transfer.incomingOffers : generateIncomingOffers(team.players),
+            incomingOffers: transfer.incomingOffers.length > 0 ? transfer.incomingOffers : generateIncomingOffers(team.players, transfer.myListedPlayers ?? []),
             myListedPlayers: transfer.myListedPlayers ?? [],
             messages: transfer.messages ?? [],
           };
@@ -1698,16 +1698,37 @@ export const useAppStore = create<AppState>()(
       },
 
       listPlayerForSale: (playerId, askingPrice) => {
-        const { transfer } = get();
+        const { transfer, clubs, myTeamId } = get();
         // Aynı oyuncu zaten listede mi?
         if (transfer.myListedPlayers.some((l) => l.playerId === playerId)) return;
+
+        const updatedList = [
+          ...transfer.myListedPlayers,
+          { playerId, askingPrice },
+        ];
+
+        // v2.9.63: Satışa çıkarma sonrası HEMEN bot teklif üret — dead feature fix
+        // Eski kod: sadece myListedPlayers array'ine ekliyordu, hiçbir bot teklif üretmiyordu
+        // Yeni: listPlayerForSale çağrılınca generateIncomingOffers tetiklenir
+        const myTeam = clubs.find((c) => c.id === myTeamId);
+        let updatedOffers = transfer.incomingOffers;
+        if (myTeam) {
+          try {
+            const freshOffers = generateIncomingOffers(myTeam.players, updatedList);
+            // Bu oyuncu için gelen teklifleri öne çıkar
+            const playerOffers = freshOffers.filter((o) => o.myPlayerId === playerId);
+            const otherOffers = transfer.incomingOffers.filter((o) => o.myPlayerId !== playerId);
+            updatedOffers = [...playerOffers, ...otherOffers].slice(0, 6);
+          } catch (e) {
+            console.warn("[listPlayerForSale] teklif üretme hatası:", e);
+          }
+        }
+
         set({
           transfer: {
             ...transfer,
-            myListedPlayers: [
-              ...transfer.myListedPlayers,
-              { playerId, askingPrice },
-            ],
+            myListedPlayers: updatedList,
+            incomingOffers: updatedOffers,
           },
         });
       },
@@ -2958,7 +2979,7 @@ export const useAppStore = create<AppState>()(
           if (myCurrentTeamPre && validOffersPre.length < 2) {
             try {
               
-              const freshOffers = generateIncomingOffers(myCurrentTeamPre.players);
+              const freshOffers = generateIncomingOffers(myCurrentTeamPre.players, get().transfer.myListedPlayers ?? []);
               const existingIds = new Set(validOffersPre.map((o) => o.id));
               const newOffers = freshOffers.filter((o) => !existingIds.has(o.id));
               finalOffersPre = [...validOffersPre, ...newOffers].slice(0, 5);
@@ -3091,7 +3112,7 @@ export const useAppStore = create<AppState>()(
             // P1 FIX: get().clubs'tan taze players al — updatedClubs'tan değil
             const freshTeam = get().clubs.find(c => c.id === myTeamId);
             const freshPlayers = freshTeam?.players ?? myCurrentTeam.players;
-            const freshOffers = generateIncomingOffers(freshPlayers);
+            const freshOffers = generateIncomingOffers(freshPlayers, get().transfer.myListedPlayers ?? []);
             if (freshOffers && freshOffers.length > 0) {
               const existingIds = new Set(validOffers.map((o) => o.id));
               const newOffers = freshOffers.filter((o) => !existingIds.has(o.id));
@@ -3831,7 +3852,7 @@ export const useAppStore = create<AppState>()(
           
           const myNewTeam = get().clubs.find(c => c.id === myTeamId);
           if (myNewTeam) {
-            const newOffers = generateIncomingOffers(myNewTeam.players);
+            const newOffers = generateIncomingOffers(myNewTeam.players, get().transfer.myListedPlayers ?? []);
             if (newOffers && newOffers.length > 0) {
               set({
                 transfer: { ...get().transfer, incomingOffers: newOffers },

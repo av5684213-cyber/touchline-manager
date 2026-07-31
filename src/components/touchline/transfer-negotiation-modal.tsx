@@ -71,18 +71,41 @@ export function TransferNegotiationModal({
     // (kullanıcı tekrar deneyince daha iyi şans beklememeli)
 
     if (aiScore >= 60) {
-      haptic("success");
-      setFeedback(`✓ Teklif KABUL EDİLDİ! ${player.firstName} ${player.lastName} takımına katılıyor.`);
-      // Transfer'i uygula
-      setTimeout(() => {
-        const result = useAppStore.getState().buyPlayer(player.id, askingPrice, player.weeklyWage, 3);
-        if (result.success) {
-          try {
-            incrementTransferCount();
-          } catch (e) { /* achievements yüklenemezse devam */ }
-        }
-        onClose();
-      }, 1500);
+      haptic("medium");
+      // v2.9.63 FIX: Önce buyPlayer çağır, SONRA feedback göster
+      // Eski kod: önce "KABUL EDİLDİ" gösteriyor, 1.5 sn sonra buyPlayer çağırıyordu
+      // buyPlayer "not-found" return etse bile kullanıcı "KABUL EDİLDİ" görüyordu (silent failure)
+      const result = useAppStore.getState().makeTransferOffer(player.id, askingPrice, player.weeklyWage, 3);
+      if (result.success) {
+        haptic("success");
+        const msg = result.response === "accepted"
+          ? `✓ Teklif KABUL EDİLDİ! ${player.firstName} ${player.lastName} takımına katılıyor.`
+          : result.response === "countered"
+          ? `↩ Karşı teklif geldi — mesajları kontrol et`
+          : `✓ Transfer tamamlandı`;
+        setFeedback(msg);
+        try {
+          incrementTransferCount();
+        } catch (e) { /* achievements yüklenemezse devam */ }
+        setTimeout(() => onClose(), 1500);
+      } else {
+        haptic("error");
+        // v2.9.63: Hata reason'ına göre açık mesaj göster
+        const reasonMsg = result.reason === "not-found"
+          ? "Oyuncu bulunamadı (başka takıma ait veya transfer edilmiş)"
+          : result.reason === "budget"
+          ? "Bütçe yetersiz"
+          : result.reason === "squad-full"
+          ? "Kadro dolu (25 oyuncu limiti)"
+          : result.reason === "gk-limit"
+          ? "3 kaleci limiti doldu"
+          : result.reason === "window-closed"
+          ? "Transfer penceresi kapalı (son 5 hafta)"
+          : result.reason === "too-low"
+          ? "Teklif çok düşük (minimum %85)"
+          : `Transfer başarısız: ${result.reason}`;
+        setFeedback(`✗ ${reasonMsg}`);
+      }
     } else if (aiScore >= 40) {
       haptic("medium");
       setFeedback(`↩ Karşı teklif: ${formatEuro(Math.round(askingPrice * 1.1), locale)}. Şartları yumuşat.`);
