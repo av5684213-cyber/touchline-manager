@@ -54,9 +54,13 @@ export function TransferScreen() {
   const [negotiationModal, setNegotiationModal] = useState<{ player: Player; askingPrice: number } | null>(null);
 
   // v2.9.17: Tüm liglerden bot takımların oyuncularını topla
+  // v2.9.62: allLeagues'teki diğer liglerden de oyuncuları dahil et — global transfer pazarı
+  const allLeagues = useAppStore((s) => s.allLeagues); // v2.9.62: Global ligler
   const allClubPlayers = useMemo(() => {
     if (!team) return [];
     const players: { player: Player; teamName: string; teamShort: string; teamColor: string; askingPrice: number }[] = [];
+
+    // Kullanıcının ligindeki bot takımlar
     for (const c of clubs) {
       if (c.id === team.id) continue; // kendi takımını atla
       for (const p of c.players) {
@@ -72,9 +76,33 @@ export function TransferScreen() {
         }
       }
     }
+
+    // v2.9.62: Diğer tüm liglerden (allLeagues) de oyuncuları ekle
+    // Kullanıcı diğer liglerden de oyuncu alabilir — global transfer pazarı
+    if (allLeagues && Object.keys(allLeagues).length > 0) {
+      for (const key of Object.keys(allLeagues)) {
+        const league = allLeagues[key];
+        if (league.hasUser) continue; // Kullanıcının ligi zaten yukarıda eklendi
+        for (const c of league.clubs) {
+          for (const p of c.players) {
+            // Sadece yüksek OVR'li oyuncular (diğer liglerden yıldızlar)
+            if (p.rating >= 70) {
+              players.push({
+                player: p,
+                teamName: `${c.name} (${league.country})`,
+                teamShort: c.shortName,
+                teamColor: c.primaryColor,
+                askingPrice: p.sale_price ?? Math.round((p.marketValue ?? 500000) * 1.3), // %30 prim (yabancı lig)
+              });
+            }
+          }
+        }
+      }
+    }
+
     // OVR'ye göre sırala
-    return players.sort((a, b) => b.player.rating - a.player.rating).slice(0, 50);
-  }, [clubs, team]);
+    return players.sort((a, b) => b.player.rating - a.player.rating).slice(0, 80);
+  }, [clubs, team, allLeagues]);
 
   const filteredListings = useMemo(() => {
     if (filter === "ALL") return transfer.freeAgents;

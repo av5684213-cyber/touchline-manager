@@ -26,6 +26,10 @@ const CLOUD_SAVE_BLACKLIST = new Set<string>([
   "isAuthed",      // session-only, kalıcı olmamalı
   "_persist",      // zustand persist middleware (kullanılmıyor ama güvenlik)
   "__internal__",  // internal flag'ler
+  // v2.9.62: allLeagues cloud-save'e YAZILMAZ — ~25-33MB payload çok büyük
+  // localStorage limitini (5-10MB) aşar, Supabase RPC timeout riski
+  // allLeagues her login'de generateAllLeagues ile yeniden üretilir (deterministic)
+  "allLeagues",
 ]);
 
 /**
@@ -83,6 +87,25 @@ export async function loadGameState(userId: string): Promise<boolean> {
         ...cloudState,
         isAuthed: true,
       }));
+
+      // v2.9.62: allLeagues cloud'dan gelmez (blacklist) — eksikse yeniden üret
+      // Kullanıcının ligindeki clubs array'i ile senkronize et
+      if (!useAppStore.getState().allLeagues || Object.keys(useAppStore.getState().allLeagues).length === 0) {
+        const currentState = useAppStore.getState() as any;
+        const userCountry = currentState.userCountryCode || "TR";
+        const userTier = (currentState.clubs?.[0]?.leagueTier ?? 2) as any;
+        const { generateAllLeagues, makeLeagueKey } = await import("@/lib/global-leagues");
+        const freshLeagues = generateAllLeagues(userCountry, userTier);
+        const userKey = makeLeagueKey(userCountry, userTier);
+        if (freshLeagues[userKey] && currentState.clubs) {
+          freshLeagues[userKey].hasUser = true;
+          freshLeagues[userKey].clubs = currentState.clubs;
+          freshLeagues[userKey].fixtures = currentState.fixtures ?? [];
+          freshLeagues[userKey].seasonMatchday = currentState.seasonMatchday ?? 1;
+        }
+        useAppStore.setState({ allLeagues: freshLeagues });
+        console.log("[cloud-save] allLeagues regenerated (was missing from cloud)");
+      }
 
       saveToLocalStorage(cloudState);
 

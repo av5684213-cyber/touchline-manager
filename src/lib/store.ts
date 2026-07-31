@@ -284,6 +284,8 @@ type AppState = {
   // v2.9.61: Global persistent leagues — TÜM ligler (4 ülke × 4 tier = 16 lig)
   // Kullanıcının liginin dışındaki tüm ligler burada tutulur ve advanceMatchday'de oynatılır
   allLeagues: AllLeaguesState;
+  // v2.9.62: Kullanıcının ülke kodu — terfi/küme düşme sırasında allLeagues güncellemesi için
+  userCountryCode: string;
   // P5: Sezon başı oyuncu stats'ları — gelişim rozeti için (playerId → { rating, finishing, ... })
   seasonStartStats: Record<string, Record<string, number>>;
   // v2.9.34 F2: Sezon boyunca maç sonrası kazandırılan stat artışları
@@ -621,6 +623,8 @@ export const useAppStore = create<AppState>()(
       helpModalOpen: false,
       // v2.9.61: Global persistent leagues — başlangıçta boş, init sırasında doldurulur
       allLeagues: {},
+      // v2.9.62: Kullanıcının ülke kodu — default TR
+      userCountryCode: "TR",
       seasonNumber: 1,
       clubs: [],
       fixtures: [],
@@ -746,8 +750,8 @@ export const useAppStore = create<AppState>()(
         // v2.9.61: Global persistent leagues — kullanıcının ligi hariç TÜM ligleri üret
         // Bu ligler advanceMatchday'de paralel olarak oynanır
         let allLeagues = get().allLeagues;
+        const userCountry = countryCode ?? "TR";
         if (Object.keys(allLeagues).length === 0) {
-          const userCountry = countryCode ?? "TR";
           const userTier = tier;
           allLeagues = generateAllLeagues(userCountry, userTier);
           // Kullanıcının ligini işaretle — clubs array'i ile aynı veriyi paylaşır
@@ -792,6 +796,7 @@ export const useAppStore = create<AppState>()(
           clubs,
           fixtures,
           allLeagues, // v2.9.61: Global persistent leagues
+          userCountryCode: userCountry, // v2.9.62: Terfi/küme düşme için
           tactics,
           transfer,
           cup: {
@@ -1192,10 +1197,33 @@ export const useAppStore = create<AppState>()(
         // Oyuncunun sahibi olan takımı bul (kullanıcının takımı hariç)
         let sellerTeam: Team | undefined;
         let player: any;
+        let sellerFromAllLeagues = false; // v2.9.62: allLeagues'ten mi bulduk?
         for (const c of clubs) {
           if (c.id === myTeamId) continue;
           const p = c.players.find((p) => p.id === playerId);
           if (p) { sellerTeam = c; player = p; break; }
+        }
+
+        // v2.9.62: Kullanıcının liginde bulunamadıysa — allLeagues'teki diğer liglerde ara
+        // Bu sayede kullanıcı diğer liglerden de oyuncu alabilir (global transfer pazarı)
+        if (!sellerTeam || !player) {
+          const allLeagues = get().allLeagues;
+          if (allLeagues && Object.keys(allLeagues).length > 0) {
+            for (const key of Object.keys(allLeagues)) {
+              const league = allLeagues[key];
+              if (league.hasUser) continue; // Kullanıcının ligi zaten yukarıda arandı
+              for (const c of league.clubs) {
+                const p = c.players.find((pp) => pp.id === playerId);
+                if (p) {
+                  sellerTeam = c;
+                  player = p;
+                  sellerFromAllLeagues = true;
+                  break;
+                }
+              }
+              if (sellerFromAllLeagues) break;
+            }
+          }
         }
 
         // Bulunamadıysa — serbest ajan listelerinde ara (BOTH lists)
@@ -1205,7 +1233,22 @@ export const useAppStore = create<AppState>()(
           if (faListing) {
             if (myTeam.budget < fee) return { success: false, reason: "budget" };
             myTeam.budget -= fee;
-            const newPlayer = { ...faListing.player, weeklyWage: wage, salary: wage };
+            // v2.9.62 FIX: Transfer sonrası oyuncu stats'leri sıfırla
+            // Eski kod: oyuncu eski kulübündeki goals/assists/appearances değerleriyle geliyordu
+            // → top scorer sıralaması bozulurdu (eski kulübün golleri yeni kulübe taşınırdı)
+            const newPlayer = {
+              ...faListing.player,
+              weeklyWage: wage,
+              salary: wage,
+              goals: 0,
+              assists: 0,
+              saves: 0,
+              appearances: 0,
+              motmAwards: 0,
+              match_ratings: [],
+              last_match_rating: 0,
+              is_for_sale: false,
+            };
             myTeam.players = [...myTeam.players, newPlayer];
             // ADDED: Transfer bildirimi — haber + mesaj
             const newMsg: MessageItem = {
@@ -1299,15 +1342,52 @@ export const useAppStore = create<AppState>()(
           // v2.9.22 Y8: Immutable update — myTeam/sellerTeam mutation yapma
           // Eski: myTeam.budget -= total (mutation, React state güncellenmiyor)
           // Yeni: clubs.map ile yeni nesne oluştur
+          // v2.9.62 FIX: Transfer sonrası oyuncu stats'leri sıfırla
           const updatedClubs = clubs.map((c) => {
             if (c.id === myTeam.id) {
-              return { ...c, budget: c.budget - total, players: [...c.players, { ...player, weeklyWage: wage, salary: wage }] };
+              return {
+                ...c,
+                budget: c.budget - total,
+                players: [...c.players, {
+                  ...player,
+                  weeklyWage: wage,
+                  salary: wage,
+                  goals: 0,
+                  assists: 0,
+                  saves: 0,
+                  appearances: 0,
+                  motmAwards: 0,
+                  match_ratings: [],
+                  last_match_rating: 0,
+                  is_for_sale: false,
+                }],
+              };
             }
             if (sellerTeam && c.id === sellerTeam.id) {
               return { ...c, budget: c.budget + fee, players: c.players.filter((p) => p.id !== playerId) };
             }
             return c;
           });
+
+          // v2.9.62: Eğer oyuncu allLeagues'ten geldiyse, oradan da çıkar
+          let updatedAllLeagues = get().allLeagues;
+          if (sellerFromAllLeagues && updatedAllLeagues && sellerTeam) {
+            updatedAllLeagues = { ...updatedAllLeagues };
+            for (const key of Object.keys(updatedAllLeagues)) {
+              const league = updatedAllLeagues[key];
+              if (league.clubs.some((c) => c.id === sellerTeam!.id)) {
+                updatedAllLeagues[key] = {
+                  ...league,
+                  clubs: league.clubs.map((c) =>
+                    c.id === sellerTeam!.id
+                      ? { ...c, budget: c.budget + fee, players: c.players.filter((p) => p.id !== playerId) }
+                      : c
+                  ),
+                };
+                break;
+              }
+            }
+          }
 
           // Haber ekle
           const newNews: NewsItem = {
@@ -1336,6 +1416,7 @@ export const useAppStore = create<AppState>()(
 
           set({
             clubs: updatedClubs,
+            allLeagues: updatedAllLeagues, // v2.9.62: allLeagues'i de güncelle
             news: [newNews, ...news],
             transfer: { ...transfer, messages: [newMsg, ...transfer.messages] },
           });
@@ -1451,8 +1532,12 @@ export const useAppStore = create<AppState>()(
         }
 
         const marketValue = player.marketValue ?? player.market_value ?? 0;
-        // Bot kiralama kararı: min ücret = marketValue * 0.02 * hafta
-        const minLoanFee = Math.round(marketValue * 0.02 * weeks);
+        // v2.9.62 FIX: Bot kiralama kararı — min ücret hesabı düzeltildi
+        // Eski kod: marketValue * 0.02 * weeks — ama dailyFee = marketValue * 0.0003 → weeklyFee = 0.0021
+        // Yani bot 0.02 isterken kullanıcı 0.0021 ödüyordu → HER ZAMAN reddedilirdi (kiralama çalışmıyordu)
+        // Yeni: min ücret = weeklyFee * weeks * 0.9 (kullanıcının teklifinin %90'ı yeterli)
+        const weeklyFee = marketValue * 0.0003 * 7; // dailyFee * 7
+        const minLoanFee = Math.round(weeklyFee * weeks * 0.9);
 
         if (loanFee >= minLoanFee) {
           // Kabul edildi — oyuncuyu kiralık ver
@@ -1544,6 +1629,16 @@ export const useAppStore = create<AppState>()(
           ...player,
           weeklyWage: offer.wageOffer ?? player.weeklyWage,
           salary: offer.wageOffer ?? player.salary,
+          // v2.9.62 FIX: Transfer sonrası oyuncu stats'leri sıfırla
+          // Eski kulüpteki goals/assists yeni kulübe taşınmasın — top scorer bozulmasın
+          goals: 0,
+          assists: 0,
+          saves: 0,
+          appearances: 0,
+          motmAwards: 0,
+          match_ratings: [],
+          last_match_rating: 0,
+          is_for_sale: false,
         };
 
         const updatedClubs = clubs.map((c) => {
@@ -2637,13 +2732,29 @@ export const useAppStore = create<AppState>()(
             if (candidates.length > 0) {
               const listing = candidates[Math.floor(Math.random() * Math.min(3, candidates.length))];
               if (shouldBotBuy(currentBot, listing.askingPrice, listing.player.specificPosition)) {
-                const botIdx = updatedClubs.findIndex((c) => c.id === bot.id);
-                updatedClubs[botIdx] = {
-                  ...currentBot,
-                  budget: currentBot.budget - listing.askingPrice,
-                  players: [...currentBot.players, listing.player],
-                };
-              updatedTransfer.freeAgents = updatedTransfer.freeAgents.filter(l => l.player.id !== listing.player.id);
+                // v2.9.62 FIX: Bot da agent fee + signing bonus ödesin (kullanıcıyla aynı)
+                // Eski kod: sadece askingPrice düşülüyordu → bot %8 ucuz alıyordu (asimetri)
+                const botBuyerCost = calculateBuyerCost(listing.askingPrice).total;
+                if (botBuyerCost <= currentBot.budget) {
+                  const botIdx = updatedClubs.findIndex((c) => c.id === bot.id);
+                  updatedClubs[botIdx] = {
+                    ...currentBot,
+                    budget: currentBot.budget - botBuyerCost,
+                    // v2.9.62: Stats sıfırla — transfer sonrası eski kulüp golleri yeni kulübe taşınmasın
+                    players: [...currentBot.players, {
+                      ...listing.player,
+                      goals: 0,
+                      assists: 0,
+                      saves: 0,
+                      appearances: 0,
+                      motmAwards: 0,
+                      match_ratings: [],
+                      last_match_rating: 0,
+                      is_for_sale: false,
+                    }],
+                  };
+                  updatedTransfer.freeAgents = updatedTransfer.freeAgents.filter(l => l.player.id !== listing.player.id);
+                }
               }
             }
           }
@@ -2657,9 +2768,13 @@ export const useAppStore = create<AppState>()(
             if (toSell && shouldBotSell(currentBot2, toSell)) {
               const botIdx = updatedClubs.findIndex((c) => c.id === bot.id);
               const salePrice = toSell.marketValue;
+              // v2.9.62 FIX: Bot satışında da satıcı vergisi %2.5 düş (kullanıcıyla aynı)
+              // Eski kod: tam salePrice ekleniyordu → bot %2.5 daha çok kazanıyordu (asimetri)
+              const sellerTax = Math.round(salePrice * 0.025);
+              const sellerNet = salePrice - sellerTax;
               updatedClubs[botIdx] = {
                 ...updatedClubs[botIdx],
-                budget: updatedClubs[botIdx].budget + salePrice,
+                budget: updatedClubs[botIdx].budget + sellerNet,
                 players: updatedClubs[botIdx].players.filter((p) => p.id !== toSell.id),
               };
               // Serbest oyuncu havuzuna ekle
@@ -2683,12 +2798,26 @@ export const useAppStore = create<AppState>()(
               if (replacement.length > 0 && botAfterSell.players.length < 25) {
                 const rep = replacement[Math.floor(Math.random() * Math.min(3, replacement.length))];
                 if (shouldBotBuy(botAfterSell, rep.askingPrice, rep.player.specificPosition)) {
-                  updatedClubs[botIdx] = {
-                    ...botAfterSell,
-                    budget: botAfterSell.budget - rep.askingPrice,
-                    players: [...botAfterSell.players, rep.player],
-                  };
-                  updatedTransfer.freeAgents = updatedTransfer.freeAgents.filter(l => l.player.id !== rep.player.id);
+                  // v2.9.62 FIX: Replacement alımında da vergi + stats sıfırlama uygula
+                  const repBuyerCost = calculateBuyerCost(rep.askingPrice).total;
+                  if (repBuyerCost <= botAfterSell.budget) {
+                    updatedClubs[botIdx] = {
+                      ...botAfterSell,
+                      budget: botAfterSell.budget - repBuyerCost,
+                      players: [...botAfterSell.players, {
+                        ...rep.player,
+                        goals: 0,
+                        assists: 0,
+                        saves: 0,
+                        appearances: 0,
+                        motmAwards: 0,
+                        match_ratings: [],
+                        last_match_rating: 0,
+                        is_for_sale: false,
+                      }],
+                    };
+                    updatedTransfer.freeAgents = updatedTransfer.freeAgents.filter(l => l.player.id !== rep.player.id);
+                  }
                 }
               }
             }
@@ -3315,7 +3444,9 @@ export const useAppStore = create<AppState>()(
 
         // Yeni lig/departman için takımları üret (kullanıcının takımı hariç)
         if (newTier !== currentTier || newDept !== currentDept) {
-          const newLeagueClubs: Team[] = generateClubsForLeague(newTier, newDept);
+          // v2.9.62 FIX: countryCode geç — TR dışı ülkelerde yanlış takım isimleri önle
+          const userCountryForGen = get().userCountryCode || "TR";
+          const newLeagueClubs: Team[] = generateClubsForLeague(newTier, newDept, userCountryForGen);
           // Kullanıcının takımını yeni lige taşı
           const myUpdatedTeam = updatedClubs.find((c) => c.id === myTeamId);
           if (myUpdatedTeam) {
@@ -3341,12 +3472,11 @@ export const useAppStore = create<AppState>()(
           updatedClubs.length = 0;
           (updatedClubs as Team[]).push(...newLeagueClubs);
 
-          // v2.9.61: Global leagues güncelle — kullanıcı yeni lige taşındı
-          // Eski lig: hasUser = false (kullanıcı artık orada değil)
-          // Yeni lig: hasUser = true (kullanıcı artık burada)
-          // Not: Yeni fixture aşağıda generateFixtures ile üretilecek, sonra allLeagues senkronize edilecek
-          const oldKey = makeLeagueKey("TR", currentTier);
-          const newKey = makeLeagueKey("TR", newTier);
+          // v2.9.62 FIX: Hardcoded "TR" yerine kullanıcının ülkesini kullan
+          // Eski kod (v2.9.61): makeLeagueKey("TR", currentTier) — TR dışı kullanıcılar için lig bozulurdu
+          const userCountry = get().userCountryCode || "TR";
+          const oldKey = makeLeagueKey(userCountry, currentTier);
+          const newKey = makeLeagueKey(userCountry, newTier);
           if (get().allLeagues && Object.keys(get().allLeagues).length > 0) {
             const updatedAllLeagues = { ...get().allLeagues };
             // Eski lig: kullanıcı çıktı
@@ -3376,7 +3506,8 @@ export const useAppStore = create<AppState>()(
 
         // v2.9.61: Terfi/küme düşme olduysa, yeni ligde fixtures senkronize et
         if (newTier !== currentTier || newDept !== currentDept) {
-          const newKey = makeLeagueKey("TR", newTier);
+          const userCountryForSync = get().userCountryCode || "TR";
+          const newKey = makeLeagueKey(userCountryForSync, newTier);
           if (get().allLeagues?.[newKey]) {
             const updatedAllLeagues = { ...get().allLeagues };
             updatedAllLeagues[newKey] = {
@@ -3394,22 +3525,23 @@ export const useAppStore = create<AppState>()(
         const newSeasonNumber = oldSeasonNumber + 1;
         SEASON_INFO.matchday = 1;
 
-        // v2.9.49: Enflasyon SADECE fiyatları artırır — bütçeleri artırmaz
-        // Eski kod: bütçe × enflasyon çarpanı → net etkisi sıfır (fiyatlar ve bütçe aynı oranda artar)
-        // Yeni: bütçe sabit kalır, fiyatlar artar → ekonomik baskı oluşur
-        // Sadece minimum baz bütçe garanti edilir (takım iflas etmesin)
+        // v2.9.62 FIX: Enflasyon bütçeleri DE artırır — bot'lar ileri sezonlarda alım yapabilsin
+        // Eski kod (v2.9.49): bütçe sabit, fiyatlar artar → bot'lar 5. sezonda iflas ederdi
+        // Yeni: bütçe de enflasyonla artar (gerçek kulüp bütçeleri gibi)
+        // Ama %50 daha yavaş artar (ekonomik baskı korunsun)
         const newBudgetMultiplier = getInflationMultiplier(newSeasonNumber);
+        const budgetInflationFactor = 1 + (newBudgetMultiplier - 1) * 0.5; // %50 oranında uygula
         updatedClubs.forEach((c) => {
           const tier = c.leagueTier ?? 2;
           const baseBudget = TIER_BASE_BUDGETS[tier] ?? TIER_BASE_BUDGETS[2];
-          // v2.9.49: Bütçe enflasyon ile artılmaz — sadece minimum garanti
+          const inflationAdjustedBase = Math.round(baseBudget * budgetInflationFactor);
           if (c.id === myTeamId) {
-            // Kullanıcının bütçesi korunur, sadece minimum garanti
-            const minBudget = baseBudget;
+            // Kullanıcının bütçesi korunur, minimum garanti enflasyonla artar
+            const minBudget = inflationAdjustedBase;
             c.budget = Math.max(minBudget, c.budget);
           } else {
-            // Bot bütçeleri sabit baz bütçe (enflasyon yok)
-            c.budget = baseBudget;
+            // Bot bütçeleri enflasyonla artar (ileri sezonlarda alım yapabilsinler)
+            c.budget = inflationAdjustedBase;
           }
         });
 
@@ -3497,6 +3629,10 @@ export const useAppStore = create<AppState>()(
             }
 
             top3Clubs.forEach((club: any, idx: number) => {
+              // v2.9.62 FIX: Kullanıcının takımını atla — aşağıda explicit eklenecek
+              // Eski kod (v2.9.61): kullanıcı T1'de ve ilk 3'teyse HEM burada HEM aşağıda ekleniyordu → çift
+              if (club.id === myTeamId) return;
+
               clParticipants.push({
                 teamId: `${country.code}_T1_${idx}`,
                 teamName: club.name,
@@ -4693,9 +4829,11 @@ function simulateAllOtherLeagues(
   for (const key of Object.keys(updated)) {
     const league = updated[key];
 
-    // Kullanıcının ligi — zaten yukarıda simüle edildi, atla
-    // clubs array'i ile aynı referansı paylaşır (loginDemo'da set edilmişti)
-    if (league.hasUser && league.clubs === userClubs) {
+    // v2.9.62 FIX: Kullanıcının ligi — hasUser flag'ine bak, referans kontrolü YAPMA
+    // Eski kod (v2.9.61): `league.clubs === userClubs` referans kontrolü yapıyordu
+    // ama updatedClubs her zaman YENİ array (spread), bu yüzden referans HER ZAMAN false
+    // olurdu → kullanıcının ligi çift simüle edilir, oyuncu stats 2x yazılırdı
+    if (league.hasUser) {
       // Senkronize et — clubs array'i güncellendi, fixtures da güncellendi
       updated[key] = {
         ...league,

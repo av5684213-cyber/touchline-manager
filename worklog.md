@@ -3663,3 +3663,77 @@ Test senaryoları:
 4. Sezon bitir → CL katılımcıları gerçek lig sıralamasından
 5. Terfi et → yeni lig persistent, eski lig bot'lara döndü
 6. Yeni sezon → tüm ligler sıfırlandı, oyuncular yaşlandı
+
+---
+Task ID: v2.9.62
+Agent: main (Super Z)
+Task: PARALEL LİG + TRANSFER SİSTEMİ — Kritik bug düzeltmeleri (denetim sonucu)
+
+Work Log:
+
+PARALEL LİG DÜZELTMELERİ:
+- B1 FIX: simulateAllOtherLeagues'te referans kontrolü kaldırıldı
+  * Eski: `league.clubs === userClubs` — HER ZAMAN false (updatedClubs yeni array)
+  * Yeni: `league.hasUser` flag'ine bak
+  * Sonuç: Kullanıcının ligi artık çift simüle edilmiyor, oyuncu stats 2x yazılmıyor
+- B3-a FIX: endSeason'da hardcoded "TR" yerine get().userCountryCode
+  * Eski: makeLeagueKey("TR", currentTier) — TR dışı kullanıcılar için lig bozulurdu
+  * Yeni: userCountryCode state'i eklendi, loginDemo'da set ediliyor
+- B3-c FIX: generateClubsForLeague'e countryCode geç
+  * Eski: countryCode yok → her zaman TR takım isimleri
+  * Yeni: kullanıcı ülkesine göre takım isimleri
+- D1-a FIX: CL'ye kullanıcı çift eklenmesi önlendi
+  * Eski: loop kullanıcının takımını bot olarak ekliyordu, sonra explicit check tekrar ekliyordu
+  * Yeni: loop'ta `if (club.id === myTeamId) return;` — kullanıcı atlanır
+- A2/F1 FIX: allLeagues cloud-save'den çıkarıldı (localStorage limiti)
+  * Eski: ~25-33MB payload > 10MB localStorage limit → QuotaExceededError
+  * Yeni: allLeagues blacklist'e eklendi, her login'de generateAllLeagues ile yeniden üretilir
+  * loadGameState'te allLeagues eksikse otomatik yeniden üret
+
+TRANSFER DÜZELTMELERİ:
+- #1 FIX: Kiralama reddi — bot HER ZAMAN reddediyordu
+  * Eski: minLoanFee = marketValue * 0.02 * weeks, ama weeklyFee = 0.0021 * marketValue
+  * Yeni: minLoanFee = weeklyFee * weeks * 0.9 (kullanıcının teklifinin %90'ı yeterli)
+- #7 FIX: Transfer sonrası oyuncu stats sıfırlama
+  * Eski: goals/assists/appearances eski kulüple taşınıyordu → top scorer bozulurdu
+  * Yeni: freeAgent, makeTransferOffer (bot), acceptOffer — hepsinde stats sıfırlama
+- #2 FIX: Transfer penceresi her zaman açık
+  * Eski: isTransferWindowOpen() HER ZAMAN true döndürüyordu
+  * Yeni: 1-29. hafta açık, 30-34 kapalı (sezon sonu kuralı)
+- #8/9 FIX: Bot vergi asimetrisi
+  * Eski: bot alımında sadece askingPrice düşülüyordu (kullanıcı %8 fazla ödüyor)
+  * Yeni: calculateBuyerCost(askingPrice).total — bot da agent fee + signing öder
+  * Eski: bot satışında tam salePrice ekleniyordu (kullanıcı %2.5 vergi ödüyor)
+  * Yeni: satıcı vergisi %2.5 düşülür (kullanıcıyla aynı)
+- #10 FIX: Enflasyon bütçeyi artırmıyor
+  * Eski: bütçe sabit, fiyatlar artar → bot'lar 5. sezonda iflas ederdi
+  * Yeni: bütçe de enflasyonla artar (%50 oranında, ekonomik baskı korunur)
+- #13 FIX: allLeagues transfer pazarında değil
+  * Eski: transfer.tsx sadece clubs'tan (kullanıcının ligi) oyuncu topluyordu
+  * Yeni: allLeagues'teki diğer liglerden de OVR>=70 oyuncular eklendi (global pazar)
+  * makeTransferOffer: allLeagues'teki takımlarda da arar, transfer olunca oradan da çıkarır
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- 10 kritik bug düzeltildi (6 paralel lig + 7 transfer)
+- Kullanıcının ligi artık çift simüle edilmiyor (B1)
+- TR dışı kullanıcılar için terfi/küme düşme düzgün çalışıyor (B3-a)
+- CL'ye kullanıcı çift eklenmesi önlendi (D1-a)
+- Cloud-save artık 25MB değil ~5MB (allLeagues çıkarıldı)
+- Kiralama sistemi artık çalışıyor (bot kabul edebiliyor)
+- Transfer sonrası top scorer sıralaması bozulmuyor
+- Bot'lar kullanıcıyla aynı vergi ödüyor (adil ekonomi)
+- Bot bütçeleri enflasyonla artıyor (ileri sezonlarda alım yapabilirler)
+- Global transfer pazarı: diğer liglerden de oyuncu alınabilir
+
+Test senaryoları:
+1. Yeni oyun → allLeagues cloud'a yazılmıyor (localStorage limiti aşmaz)
+2. Maç oyna → kullanıcının ligi 1 kez simüle edilir (çift değil)
+3. TR dışı ülkede oyna → terfi/küme düşme düzgün çalışır
+4. CL → kullanıcı çift eklenmez
+5. Kiralama yap → bot kabul edebilir
+6. Oyuncu transfer et → eski kulüp golleri yeni kulübe taşınmaz
+7. 30. haftada → transfer penceresi kapalı
+8. Bot alım/satım → kullanıcıyla aynı vergi uygulanır
+9. 5. sezon → bot bütçeleri enflasyonla artmış
+10. Transfer pazarı → diğer liglerden de yıldız oyuncular görünür

@@ -15,20 +15,22 @@ export const SEASON_INFO = {
 };
 
 /**
- * Transfer penceresi — sezonun son 5 haftası hariç açık.
- * Hafta = (matchday - 1) / 1 + 1 (her matchday = 1 hafta)
- * Sezon 34 hafta → transfer penceresi 1-29. haftalarda açık, 30-34 kapalı.
+ * v2.9.62 FIX: Transfer penceresi — sezonun son 5 haftası hariç açık.
+ * Eski kod (v2.9.x): HER ZAMAN true döndürüyordu — UI yanlış bilgi gösteriyordu.
+ * Yeni: 1-29. hafta açık, 30-34 kapalı (sezon sonu koruması).
  */
-export function isTransferWindowOpen(_matchday?: number): boolean {
-  // P0 FIX: Transfer penceresi HER ZAMAN açık
-  return true;
+export function isTransferWindowOpen(matchday?: number): boolean {
+  const md = matchday ?? SEASON_INFO.matchday;
+  // v2.9.62: Son 5 hafta (30-34) transfer kapalı — sezon sonu kuralı
+  return md <= 29;
 }
 
-export function transferWindowStatus(_matchday?: number): { isOpen: boolean; label: string; week: number; totalWeeks: number } {
-  const md = SEASON_INFO.matchday;
+export function transferWindowStatus(matchday?: number): { isOpen: boolean; label: string; week: number; totalWeeks: number } {
+  const md = matchday ?? SEASON_INFO.matchday;
+  const isOpen = md <= 29;
   return {
-    isOpen: true,
-    label: "Transfer penceresi açık",
+    isOpen,
+    label: isOpen ? "Transfer penceresi açık" : "Transfer penceresi kapalı (son 5 hafta)",
     week: md,
     totalWeeks: SEASON_INFO.totalMatchdays,
   };
