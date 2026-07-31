@@ -8,13 +8,17 @@ import {
   Flame,
   Heart,
   ListChecks,
+  LogOut,
   MessageSquare,
+  Trash2,
   TrendingUp,
   Trophy,
   Users,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam, getFormation } from "@/lib/store";
+// v2.9.53: Hesap silme için
+import { useSupabaseAuth } from "@/lib/auth/auth-context";
 import { getInflationMultiplier, formatInflationLabel } from "@/lib/fm/inflation";
 import { AchievementsCard, checkAchievements, AchievementToast, type Achievement } from "@/components/touchline/achievements";
 import { WeeklyChallengesCard } from "@/components/touchline/weekly-challenges";
@@ -548,6 +552,9 @@ export function DashboardScreen() {
           />
         );
       })()}
+
+      {/* v2.9.53: Hesap yönetimi — sign out + delete account */}
+      <AccountManagement />
     </div>
   );
 }
@@ -943,6 +950,97 @@ function MessagesBox() {
               </div>
             </div>
           ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+// v2.9.53: Hesap yönetimi — sign out + delete account (Play Store zorunluluğu)
+function AccountManagement() {
+  const { t } = useI18n();
+  const { user, signOut } = useSupabaseAuth();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  // Sadece Supabase auth kullanıcısı için göster (demo mode'da gizle)
+  if (!user) return null;
+
+  const handleDelete = async () => {
+    haptic("medium");
+    setDeleting(true);
+    setFeedback(null);
+    try {
+      const { supabase } = await import("@/lib/supabase/client");
+      const { data, error } = await supabase().functions.invoke("delete-account", {});
+
+      if (error || !data?.success) {
+        haptic("error");
+        setFeedback(data?.reason || error?.message || "Hesap silinemedi — tekrar dene.");
+        setDeleting(false);
+        return;
+      }
+
+      // Başarılı — sign out yap
+      haptic("success");
+      await signOut();
+      // AuthGate giriş ekranına yönlendirecek
+    } catch (e: any) {
+      haptic("error");
+      setFeedback(`Hata: ${e?.message ?? "bilinmeyen"}`);
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <section>
+      <SectionTitle icon={Users} title="Hesap" />
+      <div className="tm-card divide-y divide-border">
+        {/* Sign out */}
+        <button
+          onClick={() => { haptic("light"); signOut(); }}
+          className="tm-tap w-full flex items-center gap-2 p-3 text-left hover:bg-accent/30 transition-colors"
+        >
+          <LogOut size={14} className="text-muted-foreground shrink-0" />
+          <span className="text-xs font-semibold">Çıkış Yap</span>
+        </button>
+
+        {/* Delete account */}
+        {!showDeleteConfirm ? (
+          <button
+            onClick={() => { haptic("light"); setShowDeleteConfirm(true); }}
+            className="tm-tap w-full flex items-center gap-2 p-3 text-left hover:bg-red-500/10 transition-colors"
+          >
+            <Trash2 size={14} className="text-red-400 shrink-0" />
+            <span className="text-xs font-semibold text-red-400">Hesabımı Sil</span>
+          </button>
+        ) : (
+          <div className="p-3 space-y-2">
+            <div className="text-[11px] text-muted-foreground leading-relaxed">
+              ⚠️ Hesabın ve tüm verilerin kalıcı olarak silinecek. Bu işlem geri alınamaz.
+              Forum gönderilerin "Silinmiş kullanıcı" olarak korunacak.
+            </div>
+            {feedback && (
+              <div className="text-[10px] text-red-400 font-semibold">{feedback}</div>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={() => { haptic("light"); setShowDeleteConfirm(false); setFeedback(null); }}
+                disabled={deleting}
+                className="tm-tap flex-1 py-2 rounded-lg border border-border text-xs font-bold text-muted-foreground"
+              >
+                İptal
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="tm-tap flex-[2] py-2 rounded-lg bg-red-600 text-white text-xs font-bold disabled:opacity-50"
+              >
+                {deleting ? "Siliniyor..." : "Evet, kalıcı olarak sil"}
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </section>
