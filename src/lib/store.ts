@@ -69,6 +69,8 @@ import { generateSponsorOffers, getTotalSponsorIncome } from "@/lib/sponsorSyste
 import { checkAndAwardBadges, checkAchievements } from "@/components/touchline/achievements";
 // v2.9.18: Bot AI sistemi
 import { simulateBotMatch, findWeakestPosition, shouldBotBuy, shouldBotSell, getBotFormation } from "@/lib/botAI";
+// v2.9.61: Global persistent leagues — tüm ligler store'da tutulur
+import { generateAllLeagues, makeLeagueKey, getTopNFromLeague, type AllLeaguesState, type PersistentLeague } from "@/lib/global-leagues";
 
 /**
  * v2.9.27 G1: Taktik değişikliklerinde debounce'lu cloud-save tetikleyicisi.
@@ -279,6 +281,9 @@ type AppState = {
   cup: CupState;
   // v2.9.41: Şampiyonlar Ligi
   championsLeague: ChampionsLeagueState;
+  // v2.9.61: Global persistent leagues — TÜM ligler (4 ülke × 4 tier = 16 lig)
+  // Kullanıcının liginin dışındaki tüm ligler burada tutulur ve advanceMatchday'de oynatılır
+  allLeagues: AllLeaguesState;
   // P5: Sezon başı oyuncu stats'ları — gelişim rozeti için (playerId → { rating, finishing, ... })
   seasonStartStats: Record<string, Record<string, number>>;
   // v2.9.34 F2: Sezon boyunca maç sonrası kazandırılan stat artışları
@@ -614,6 +619,8 @@ export const useAppStore = create<AppState>()(
       seasonMatchday: 1,
       // v2.9.58: Yardım modal'ı default kapalı
       helpModalOpen: false,
+      // v2.9.61: Global persistent leagues — başlangıçta boş, init sırasında doldurulur
+      allLeagues: {},
       seasonNumber: 1,
       clubs: [],
       fixtures: [],
@@ -735,6 +742,24 @@ export const useAppStore = create<AppState>()(
         // (test modu kaldırıldı, gerçek menajerlik hissi için)
         const tier = team.leagueTier ?? 2;
         const baseBudget = TIER_BASE_BUDGETS[tier] ?? TIER_BASE_BUDGETS[2];
+
+        // v2.9.61: Global persistent leagues — kullanıcının ligi hariç TÜM ligleri üret
+        // Bu ligler advanceMatchday'de paralel olarak oynanır
+        let allLeagues = get().allLeagues;
+        if (Object.keys(allLeagues).length === 0) {
+          const userCountry = countryCode ?? "TR";
+          const userTier = tier;
+          allLeagues = generateAllLeagues(userCountry, userTier);
+          // Kullanıcının ligini işaretle — clubs array'i ile aynı veriyi paylaşır
+          const userKey = makeLeagueKey(userCountry, userTier);
+          if (allLeagues[userKey]) {
+            allLeagues[userKey].hasUser = true;
+            allLeagues[userKey].clubs = clubs; // Aynı referans — senkronize
+            allLeagues[userKey].fixtures = fixtures;
+            allLeagues[userKey].seasonMatchday = 1;
+          }
+        }
+
         const realisticBudget = Math.round(baseBudget * 1.2); // %20 ekstra başlangıç
         if (team.budget < realisticBudget) {
           team.budget = realisticBudget;
@@ -766,6 +791,7 @@ export const useAppStore = create<AppState>()(
           myTeamId,
           clubs,
           fixtures,
+          allLeagues, // v2.9.61: Global persistent leagues
           tactics,
           transfer,
           cup: {
@@ -2951,7 +2977,14 @@ export const useAppStore = create<AppState>()(
         // P1 FIX: seasonMatchday state alanını da güncelle (cloud-save doğru kaydetsin)
         // P0 KÖK NEDEN: Tek set() ile fixtures + clubs + news + seasonMatchday yazılır
         const finalNews = newNewsItems.length > 0 ? [...newNewsItems, ...news] : news;
-        set({ fixtures: updatedFixtures, clubs: updatedClubs, transfer: updatedTransferFinal, news: finalNews, seasonMatchday: nextMd });
+
+        // v2.9.61: GLOBAL LEAGUES — TÜM diğer liglerin maçlarını simüle et
+        // Kullanıcının ligi yukarıda simüle edildi (updatedFixtures + updatedClubs)
+        // Şimdi diğer 15 lig (4 ülke × 4 tier - 1 kullanıcı ligi) oynanacak
+        // Bu sayede global futbol ekosistemi canlı — tüm ligler paralel oynar
+        const updatedAllLeagues = simulateAllOtherLeagues(get().allLeagues, currentMd, updatedClubs, updatedFixtures);
+
+        set({ fixtures: updatedFixtures, clubs: updatedClubs, transfer: updatedTransferFinal, news: finalNews, seasonMatchday: nextMd, allLeagues: updatedAllLeagues });
 
         // P1 FIX: Kupa turlarını set()'ten SONRA oyna
         if (shouldPlayCup) {
@@ -3307,10 +3340,54 @@ export const useAppStore = create<AppState>()(
           }
           updatedClubs.length = 0;
           (updatedClubs as Team[]).push(...newLeagueClubs);
+
+          // v2.9.61: Global leagues güncelle — kullanıcı yeni lige taşındı
+          // Eski lig: hasUser = false (kullanıcı artık orada değil)
+          // Yeni lig: hasUser = true (kullanıcı artık burada)
+          // Not: Yeni fixture aşağıda generateFixtures ile üretilecek, sonra allLeagues senkronize edilecek
+          const oldKey = makeLeagueKey("TR", currentTier);
+          const newKey = makeLeagueKey("TR", newTier);
+          if (get().allLeagues && Object.keys(get().allLeagues).length > 0) {
+            const updatedAllLeagues = { ...get().allLeagues };
+            // Eski lig: kullanıcı çıktı
+            if (updatedAllLeagues[oldKey]) {
+              updatedAllLeagues[oldKey] = {
+                ...updatedAllLeagues[oldKey],
+                hasUser: false,
+              };
+            }
+            // Yeni lig: kullanıcı girdi — clubs ve fixtures aşağıda set() ile senkronize edilecek
+            // Şimdilik hasUser = true yap, clubs/fixtures yeni sezon set()'inde güncellenecek
+            if (updatedAllLeagues[newKey]) {
+              updatedAllLeagues[newKey] = {
+                ...updatedAllLeagues[newKey],
+                hasUser: true,
+                clubs: updatedClubs, // Aynı referans
+                seasonMatchday: 1,
+              };
+            }
+            // State'i hemen güncelle
+            set({ allLeagues: updatedAllLeagues });
+          }
         }
 
         // Yeni sezon fikstürü üret
         const newFixtures = generateFixtures(updatedClubs);
+
+        // v2.9.61: Terfi/küme düşme olduysa, yeni ligde fixtures senkronize et
+        if (newTier !== currentTier || newDept !== currentDept) {
+          const newKey = makeLeagueKey("TR", newTier);
+          if (get().allLeagues?.[newKey]) {
+            const updatedAllLeagues = { ...get().allLeagues };
+            updatedAllLeagues[newKey] = {
+              ...updatedAllLeagues[newKey],
+              clubs: updatedClubs,
+              fixtures: newFixtures,
+              seasonMatchday: 1,
+            };
+            set({ allLeagues: updatedAllLeagues });
+          }
+        }
 
         // Sezon numarasını artır
         // v2.9.46 GÖREV 3: oldSeasonNumber yukarıda tanımlandı (sezon ödülleri için)
@@ -3394,17 +3471,34 @@ export const useAppStore = create<AppState>()(
         // Kullanıcın takımı tier 1'de ve ilk 3'teyse gerçek takım olarak eklenir.
         const clParticipants: ChampionsLeagueState["participants"] = [];
         try {
-          // v2.9.46: Sadece tier 1 (Süper Lig / en üst lig) ilk 3'ü
+          // v2.9.61: CL katılımcıları — persistent liglerden (allLeagues) GERÇEK ilk 3'ü al
+          // Eski kod: generateClubsForLeague ile anlık üretiyordu (hiç maç oynamamış takımlar)
+          // Yeni: allLeagues'teki "{country}_1" liginden gerçek sıralama bazlı ilk 3
+          const allLeagues = get().allLeagues;
           for (const country of COUNTRIES) {
-            const clClubs = generateClubsForLeague(1 as any, 1 as any, country.code);
-            // Bu ligin ilk 3'ünü al (rating bazlı)
-            const top3 = [...clClubs].sort((a, b) =>
-              b.players.reduce((s: number, p: any) => s + p.rating, 0) / b.players.length -
-              a.players.reduce((s: number, p: any) => s + p.rating, 0) / a.players.length
-            ).slice(0, 3);
-            top3.forEach((club: any, idx: number) => {
+            const leagueKey = makeLeagueKey(country.code, 1 as LeagueTier);
+            const league = allLeagues?.[leagueKey];
+
+            let top3Clubs: Team[];
+            if (league && league.clubs.length > 0) {
+              // v2.9.61: Persistent lig var — gerçek sıralama kullan
+              // computeStandings ile gerçek ilk 3'ü al (maç oynamış, gerçek puan)
+              const leagueStandings = computeStandings(league.clubs, league.fixtures);
+              top3Clubs = leagueStandings.slice(0, 3).map((s: any) =>
+                league.clubs.find((c) => c.id === s.teamId)!
+              ).filter(Boolean);
+            } else {
+              // Fallback: Persistent lig yoksa (eski kayıt) — anlık üret
+              const clClubs = generateClubsForLeague(1 as any, 1 as any, country.code);
+              top3Clubs = [...clClubs].sort((a, b) =>
+                b.players.reduce((s: number, p: any) => s + p.rating, 0) / b.players.length -
+                a.players.reduce((s: number, p: any) => s + p.rating, 0) / a.players.length
+              ).slice(0, 3);
+            }
+
+            top3Clubs.forEach((club: any, idx: number) => {
               clParticipants.push({
-                teamId: `${country.code}_T1_D1_${idx}`,
+                teamId: `${country.code}_T1_${idx}`,
                 teamName: club.name,
                 teamShort: club.shortName,
                 teamColor: club.primaryColor,
@@ -3444,9 +3538,15 @@ export const useAppStore = create<AppState>()(
         const clFirstRound = generateFirstRoundMatches(clParticipants);
         const clMatches: ChampionsLeagueState["matches"] = clFirstRound.matches;
 
+        // v2.9.61: Global leagues — yeni sezon için TÜM ligleri sıfırla
+        // Her lig: fixtures yeniden üret, seasonMatchday=1, oyuncu stats sıfırla
+        // Kullanıcının ligi updatedClubs + newFixtures ile değiştirildi (yukarıda)
+        const newAllLeagues = resetAllLeaguesForNewSeason(get().allLeagues, updatedClubs, newFixtures);
+
         set({
           clubs: updatedClubs,
           fixtures: newFixtures,
+          allLeagues: newAllLeagues, // v2.9.61: Yeni sezon — tüm ligler sıfırlandı
           tactics: newTactics,
           seasonNumber: newSeasonNumber,
           seasonMatchday: 1,
@@ -4559,6 +4659,267 @@ export const useAppStore = create<AppState>()(
       },
     })
 );
+
+// ============================================================================
+// v2.9.61: GLOBAL LEAGUES SIMULATION
+// ============================================================================
+
+/**
+ * Tüm diğer liglerin (kullanıcının liginin dışındaki 15 lig) bu haftaki maçlarını simüle et.
+ *
+ * Her lig için:
+ * 1. Bu haftaki maçları bul (matchday === currentMd, !played)
+ * 2. simulateBotMatch ile her maçı oyna (BotAI kullanır)
+ * 3. Fixture'ları güncelle (played=true, score ekle)
+ * 4. Oyuncuların kondisyon/form/morale'ini güncelle
+ * 5. Gol/asist/appearances stat'larını güncelle
+ *
+ * Performans: 15 lig × 9 maç = 135 maç, her maç ~1ms = ~135ms toplam
+ * Kullanıcı fark etmez (advanceMatchday zaten 200-300ms sürer)
+ */
+function simulateAllOtherLeagues(
+  allLeagues: AllLeaguesState,
+  currentMd: number,
+  userClubs: Team[],
+  userFixtures: FixtureRow[]
+): AllLeaguesState {
+  // allLeagues boşsa (eski kayıt) — hiçbir şey yapma
+  if (!allLeagues || Object.keys(allLeagues).length === 0) {
+    return allLeagues;
+  }
+
+  const updated: AllLeaguesState = { ...allLeagues };
+
+  for (const key of Object.keys(updated)) {
+    const league = updated[key];
+
+    // Kullanıcının ligi — zaten yukarıda simüle edildi, atla
+    // clubs array'i ile aynı referansı paylaşır (loginDemo'da set edilmişti)
+    if (league.hasUser && league.clubs === userClubs) {
+      // Senkronize et — clubs array'i güncellendi, fixtures da güncellendi
+      updated[key] = {
+        ...league,
+        clubs: userClubs,
+        fixtures: userFixtures,
+        seasonMatchday: currentMd + 1,
+      };
+      continue;
+    }
+
+    // Bu ligde bu hafta oynanacak maçları bul
+    const weekMatches = league.fixtures.filter(
+      (f) => f.matchday === currentMd && !f.played
+    );
+
+    if (weekMatches.length === 0) {
+      // Bu hafta maç yok — sadece seasonMatchday'i ilerlet
+      updated[key] = {
+        ...league,
+        seasonMatchday: currentMd + 1,
+      };
+      continue;
+    }
+
+    // Her maçı simüle et
+    const updatedClubs = league.clubs.map((c) => ({ ...c })); // shallow copy
+    const updatedFixtures = league.fixtures.map((f) => ({ ...f })); // shallow copy
+
+    for (const match of weekMatches) {
+      const homeTeam = updatedClubs.find((c) => c.id === match.homeId);
+      const awayTeam = updatedClubs.find((c) => c.id === match.awayId);
+      if (!homeTeam || !awayTeam) continue;
+
+      // BotAI ile simüle et (formasyon + taktik modifier dahil)
+      const result = simulateBotMatch(homeTeam, awayTeam, currentMd);
+
+      // Fixture'ı güncelle
+      const idx = updatedFixtures.findIndex((f) => f.id === match.id);
+      if (idx >= 0) {
+        updatedFixtures[idx] = {
+          ...updatedFixtures[idx],
+          homeScore: result.homeScore,
+          awayScore: result.awayScore,
+          played: true,
+        };
+      }
+
+      // Oyuncu stats'larını güncelle (gol/asist/appearances)
+      const homeXI = pickBotXIForLeague(homeTeam);
+      const awayXI = pickBotXIForLeague(awayTeam);
+
+      // Appearances
+      for (const p of homeXI) {
+        const player = homeTeam.players.find((pp) => pp.id === p.id);
+        if (player) {
+          player.appearances = (player.appearances ?? 0) + 1;
+          // Kondisyon düş
+          player.cond = Math.max(20, (player.cond ?? 100) - Math.floor(8 + Math.random() * 8));
+          player.condition = player.cond;
+        }
+      }
+      for (const p of awayXI) {
+        const player = awayTeam.players.find((pp) => pp.id === p.id);
+        if (player) {
+          player.appearances = (player.appearances ?? 0) + 1;
+          player.cond = Math.max(20, (player.cond ?? 100) - Math.floor(8 + Math.random() * 8));
+          player.condition = player.cond;
+        }
+      }
+
+      // Gol dağıt (kazanana göre)
+      const homeWon = result.homeScore > result.awayScore;
+      const draw = result.homeScore === result.awayScore;
+      for (let g = 0; g < result.homeScore; g++) {
+        const scorer = pickScorerForLeague(homeXI);
+        if (scorer) {
+          scorer.goals = (scorer.goals ?? 0) + 1;
+          // Form/morale güncelle
+          scorer.form = Math.max(30, Math.min(100, (scorer.form ?? 50) + 2));
+          scorer.morale = Math.max(20, Math.min(100, (scorer.morale ?? 50) + 3));
+        }
+        // Asist
+        if (Math.random() > 0.4) {
+          const assister = pickScorerForLeague(homeXI.filter((p) => p.id !== scorer?.id));
+          if (assister) {
+            assister.assists = (assister.assists ?? 0) + 1;
+          }
+        }
+      }
+      for (let g = 0; g < result.awayScore; g++) {
+        const scorer = pickScorerForLeague(awayXI);
+        if (scorer) {
+          scorer.goals = (scorer.goals ?? 0) + 1;
+          scorer.form = Math.max(30, Math.min(100, (scorer.form ?? 50) + 2));
+          scorer.morale = Math.max(20, Math.min(100, (scorer.morale ?? 50) + 3));
+        }
+        if (Math.random() > 0.4) {
+          const assister = pickScorerForLeague(awayXI.filter((p) => p.id !== scorer?.id));
+          if (assister) {
+            assister.assists = (assister.assists ?? 0) + 1;
+          }
+        }
+      }
+
+      // Form/morale güncelle (sonuca göre)
+      const formChange = homeWon ? 2 : draw ? 0 : -3;
+      const moraleChange = homeWon ? 3 : draw ? 0 : -3;
+      for (const p of homeXI) {
+        p.form = Math.max(30, Math.min(100, (p.form ?? 50) + formChange));
+        p.morale = Math.max(20, Math.min(100, (p.morale ?? 50) + moraleChange));
+      }
+      for (const p of awayXI) {
+        p.form = Math.max(30, Math.min(100, (p.form ?? 50) - formChange));
+        p.morale = Math.max(20, Math.min(100, (p.morale ?? 50) - moraleChange));
+      }
+    }
+
+    updated[key] = {
+      ...league,
+      clubs: updatedClubs,
+      fixtures: updatedFixtures,
+      seasonMatchday: currentMd + 1,
+    };
+  }
+
+  return updated;
+}
+
+/**
+ * Lig simülasyonu için ilk 11'i seç (rating bazlı, sakatlar hariç).
+ */
+function pickBotXIForLeague(team: Team): Player[] {
+  const available = team.players.filter((p) => !p.is_injured);
+  return [...available]
+    .sort((a, b) => b.rating - a.rating)
+    .slice(0, 11);
+}
+
+/**
+ * Lig simülasyonu için gol scorersı seç (forvetler öncelikli).
+ */
+function pickScorerForLeague(squad: Player[]): Player | null {
+  if (squad.length === 0) return null;
+  const attackers = squad.filter((p) =>
+    ["ST", "CF", "LW", "RW", "LM", "RM", "CAM", "CM"].includes(p.specificPosition)
+  );
+  const pool = attackers.length > 0 ? attackers : squad;
+  return pool[Math.floor(Math.random() * pool.length)] ?? null;
+}
+
+/**
+ * v2.9.61: Yeni sezon için TÜM ligleri sıfırla.
+ *
+ * Her lig için:
+ * 1. Oyuncu stats'larını sıfırla (goals, assists, appearances, motmAwards)
+ * 2. Yaşlandır (+1)
+ * 3. Form/morale/kondisyon reset
+ * 4. Yeni fixture üret
+ * 5. seasonMatchday = 1
+ *
+ * Kullanıcının ligi (hasUser=true) parametre olarak gelen userClubs + userFixtures ile değiştirilir.
+ */
+function resetAllLeaguesForNewSeason(
+  allLeagues: AllLeaguesState,
+  userClubs: Team[],
+  userFixtures: FixtureRow[]
+): AllLeaguesState {
+  if (!allLeagues || Object.keys(allLeagues).length === 0) {
+    return allLeagues;
+  }
+
+  const updated: AllLeaguesState = {};
+
+  for (const key of Object.keys(allLeagues)) {
+    const league = allLeagues[key];
+
+    // Kullanıcının ligi — parametre olarak gelen veriyi kullan
+    if (league.hasUser) {
+      updated[key] = {
+        ...league,
+        clubs: userClubs, // Aynı referans — store.clubs ile senkronize
+        fixtures: userFixtures,
+        seasonMatchday: 1,
+      };
+      continue;
+    }
+
+    // Diğer ligler — oyuncu stats'larını sıfırla + yaşlandır + yeni fixture
+    const resetClubs = league.clubs.map((c) => ({
+      ...c,
+      players: c.players.map((p) => ({
+        ...p,
+        // Sezon sonu stat sıfırlama
+        goals: 0,
+        assists: 0,
+        saves: 0,
+        appearances: 0,
+        // Yaşlandır
+        age: p.age + 1,
+        // Form/morale/kondisyon reset
+        form: 50,
+        morale: 50,
+        cond: 100,
+        condition: 100,
+        // Sakatlık/ceza temizle
+        is_injured: false,
+        injured_until: undefined,
+        suspended_until: undefined,
+      })),
+    }));
+
+    // Yeni fixture üret
+    const newFixtures = generateFixtures(resetClubs);
+
+    updated[key] = {
+      ...league,
+      clubs: resetClubs,
+      fixtures: newFixtures,
+      seasonMatchday: 1,
+    };
+  }
+
+  return updated;
+}
 
 // Helpers (selectors)
 export function useMyTeam(): Team | null {

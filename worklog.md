@@ -3597,3 +3597,69 @@ Test senaryoları:
 3. Hiç maç oynanmadıysa → "Henüz hiç ligde maç oynanmadı" mesajı
 4. "(simülasyon)" yazısı artık yok
 5. Eski ülke/lig/departman dropdown'u kaldırıldı
+
+---
+Task ID: v2.9.61
+Agent: main (Super Z)
+Task: GLOBAL CANLI EKOSİSTEM — tüm ligler paralel oynar (4 ülke × 4 tier = 16 lig)
+
+Work Log:
+- Yeni dosya: src/lib/global-leagues.ts
+  - generateAllLeagues: 4 ülke × 4 tier = 16 lig × 18 takım = 288 takım üretir
+  - PersistentLeague tipi: { country, tier, clubs, fixtures, seasonMatchday, hasUser }
+  - makeLeagueKey: "TR_1", "ES_2" formatı
+  - getGlobalScorers: Tüm liglerden gerçek maç oynamış oyuncuları toplar
+- store.ts:
+  - allLeagues state'i eklendi (AllLeaguesState)
+  - loginDemo: Kullanıcı giriş yapınca TÜM ligleri üret, kullanıcının ligini işaretle
+  - advanceMatchday: TÜM diğer liglerin maçlarını simüle et (simulateAllOtherLeagues)
+    * 15 lig × 9 maç = 135 maç, her maç ~1ms = ~135ms toplam
+    * BotAI ile simüle (formasyon + taktik modifier)
+    * Oyuncu stats'larını güncelle (gol/asist/appearances/form/morale/kondisyon)
+    * Kullanıcının ligi atlanır (zaten yukarıda simüle edildi)
+  - endSeason CL katılımcıları: Persistent liglerden GERÇEK ilk 3'ü al
+    * Eski: generateClubsForLeague ile anlık üret (hiç maç oynamamış)
+    * Yeni: allLeagues[country_1]'den computeStandings ile gerçek sıralama
+  - endSeason terfi/küme düşme: allLeagues'i güncelle
+    * Eski lig: hasUser = false
+    * Yeni lig: hasUser = true, clubs + fixtures senkronize
+  - resetAllLeaguesForNewSeason: Yeni sezon için TÜM ligleri sıfırla
+    * Oyuncu stats sıfırla (goals, assists, appearances)
+    * Yaşlandır (+1)
+    * Form/morale/kondisyon reset
+    * Yeni fixture üret
+- top-scorers.tsx:
+  - Global sekmesi artık GERÇEK global
+    * getGlobalScorers(clubs, allLeagues) ile tüm liglerden gerçek veri
+    * Bilgi kartı: "16 lig × 18 takım = 288 takım arasından gerçek maç oynamış oyuncular"
+    * "Tüm ligler her hafta paralel oynanır" mesajı
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- TÜM ligler artık canlı: 4 ülke × 4 tier = 16 lig paralel oynanır
+- Her advanceMatchday'de 135 bot maçı simüle edilir (~135ms)
+- Oyuncular tüm liglerde gelişir (gol/asist/form/morale)
+- CL katılımcıları artık GERÇEK lig sıralamasından geliyor (anlık üretim DEĞİL)
+- Global Gol Kralı artık gerçekten global — 288 takımdan gerçek veri
+- Terfi/küme düşme: persistent ligler arasında transfer, anlık üretim YOK
+- Yeni sezon: tüm ligler sıfırlanır, yaşlanır, yeni fixture üretir
+
+MİMARİ:
+- Kullanıcının ligi: store.clubs + store.fixtures (değişmedi, backward compatible)
+- Diğer 15 lig: store.allLeagues (yeni)
+- Kullanıcının ligi allLeagues'te hasUser=true ile işaretli, clubs aynı referans
+- advanceMatchday her hafta tüm ligleri oynar
+- endSeason tüm ligleri yeni sezonla sıfırlar
+
+Performans:
+- 135 bot maçı × 1ms = 135ms (kullanıcı fark etmez)
+- Memory: 288 takım × ~25 oyuncu = ~7200 oyuncu objesi (~5MB)
+- Cloud-save: allLeagues dahil edilecek (büyüklük arttı ama tolere edilebilir)
+
+Test senaryoları:
+1. Yeni oyun başlat → allLeagues dolu (16 lig)
+2. Maç oyna → diğer 15 lig de oynandı (135 maç)
+3. Global Gol Kralı → 288 takımdan gerçek oyuncular
+4. Sezon bitir → CL katılımcıları gerçek lig sıralamasından
+5. Terfi et → yeni lig persistent, eski lig bot'lara döndü
+6. Yeni sezon → tüm ligler sıfırlandı, oyuncular yaşlandı

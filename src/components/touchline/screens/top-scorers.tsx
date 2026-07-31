@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 import { PlayerProfileModal } from "../player-profile-modal";
 import type { Player } from "@/lib/mock/data";
+// v2.9.61: Global gol kralı — tüm liglerden (allLeagues) gerçek veri
+import { getGlobalScorers } from "@/lib/global-leagues";
 
 type SortKey = "goals" | "assists" | "rating" | "motm" | "appearances";
 // v2.9.60: "Global" sekmesi eklendi — tüm liglerin GERÇEK oynanmış oyuncuları
@@ -18,6 +20,7 @@ type TierFilter = "all" | "mine" | "global";
 export function TopScorersScreen() {
   const { t, locale } = useI18n();
   const clubs = useAppStore((s) => s.clubs);
+  const allLeagues = useAppStore((s) => s.allLeagues); // v2.9.61: Global ligler
   const myTeam = useMyTeam();
   const [sortKey, setSortKey] = useState<SortKey>("goals");
   const [tier, setTier] = useState<TierFilter>("all");
@@ -30,16 +33,10 @@ export function TopScorersScreen() {
     const list: Array<{ player: any; team: any; isMyPlayer: boolean }> = [];
 
     if (tier === "global") {
-      // v2.9.60: GLOBAL — tüm liglerdeki GERÇEK oynanmış oyuncular
-      // Sadece appearances > 0 olan oyuncular (gerçek maç oynamış)
+      // v2.9.61: GLOBAL — TÜM liglerdeki GERÇEK oynanmış oyuncular
+      // Kullanıcının ligindeki (clubs) + diğer tüm liglerdeki (allLeagues) oyuncular
       // Sahte veri YOK, simülasyon YOK — sadece gerçek maç verisi
-      for (const club of clubs) {
-        for (const p of club.players) {
-          if ((p.appearances ?? 0) > 0) {
-            list.push({ player: p, team: club, isMyPlayer: club.id === myTeam?.id });
-          }
-        }
-      }
+      return getGlobalScorers(clubs, allLeagues, 1);
     } else if (tier === "all") {
       // "Tüm Lig" — kullanıcının kendi ligindeki GERÇEK takımlar (gerçek maç verisi)
       for (const club of clubs) {
@@ -51,7 +48,7 @@ export function TopScorersScreen() {
       }
     }
     return list;
-  }, [clubs, myTeam, tier]);
+  }, [clubs, myTeam, tier, allLeagues]);
 
   const ranked = useMemo(() => {
     let filtered = allPlayers;
