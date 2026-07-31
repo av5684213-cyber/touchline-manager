@@ -3,11 +3,11 @@ plugins {
 }
 android {
     namespace "com.touchline.manager"
-    compileSdk 34
+    compileSdk 35
     defaultConfig {
         applicationId "com.touchline.manager"
         minSdk 24
-        targetSdk 34
+        targetSdk 35
         versionCode 951
         versionName "2.9.51"
     }
