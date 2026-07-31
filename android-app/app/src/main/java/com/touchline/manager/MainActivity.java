@@ -273,7 +273,10 @@ public class MainActivity extends Activity {
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-        settings.setAllowFileAccess(true);
+        // v2.9.52: Güvenlik — allowFileAccess false
+        // (file:///android_asset/ içeriği allowFileAccess'e bağlı DEĞİL,
+        //  WebViewAssetLoader veya loadUrl("file:///android_asset/...") ile çalışır)
+        settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(true);
         settings.setDatabaseEnabled(true);
         settings.setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
