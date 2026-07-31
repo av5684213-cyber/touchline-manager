@@ -188,6 +188,8 @@ async function saveToMultiplayerTables(userId: string): Promise<void> {
         youthAcademy: s.youthAcademy,
         // v2.9.50: Günlük görevler cloud-save'e dahil
         dailyTasks: s.dailyTasks,
+        // v2.9.54: Dil tercihi cloud-save'e dahil (cihazlar arası senkron)
+        locale: typeof localStorage !== "undefined" ? localStorage.getItem("tm.locale") : null,
         // v2.9.29 P2-5: cardInventory multiplayer save'e ekle
         cardInventory: s.cardInventory,
         // v2.9.20 GÖREV 7: onboarding state — grace period için

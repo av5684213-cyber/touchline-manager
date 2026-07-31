@@ -38,6 +38,11 @@ export type Dict = Record<string, { tr: string; en: string; es?: string; de?: st
  * navigator.language'den Locale tahmin et.
  * Google Play'den indirildiğinde cihaz dilini kullanır.
  *
+ * v2.9.54: Android WebView'de öncelik sırası:
+ *   1. AndroidNative.getLanguage() — native Java'dan cihaz dili
+ *   2. navigator.language — WebView default
+ *   3. navigator.languages[0] — fallback
+ *
  * Örnek:
  *   "tr-TR" → "tr"
  *   "en-US" → "en"
@@ -45,10 +50,29 @@ export type Dict = Record<string, { tr: string; en: string; es?: string; de?: st
  *   "de-DE" → "de"
  *   "fr-FR" → "fr"
  *   "pt-BR" → "pt"
- *   "ja-JP" → "en" (desteklenmiyor)
+ *   "ja-JP" → "en" (desteklenmiyor → İngilizce)
+ *   "it-IT" → "en" (desteklenmiyor → İngilizce)
+ *   "ru-RU" → "en"
+ *   "ar-SA" → "en"
  */
 export function detectLocaleFromBrowser(): Locale {
   if (typeof navigator === "undefined") return DEFAULT_LOCALE;
+
+  // v2.9.54: Android native bridge'den dil al (en güvenilir)
+  if (typeof window !== "undefined") {
+    const androidLang = (window as any).AndroidNative?.getLanguage?.();
+    if (typeof androidLang === "string" && androidLang.length > 0) {
+      const lang = androidLang.toLowerCase();
+      if (lang.startsWith("tr")) return "tr";
+      if (lang.startsWith("en")) return "en";
+      if (lang.startsWith("es")) return "es";
+      if (lang.startsWith("de")) return "de";
+      if (lang.startsWith("fr")) return "fr";
+      if (lang.startsWith("pt")) return "pt";
+    }
+  }
+
+  // WebView / browser dilini kontrol et
   const lang = (navigator.language || navigator.languages?.[0] || "tr").toLowerCase();
   if (lang.startsWith("tr")) return "tr";
   if (lang.startsWith("en")) return "en";
@@ -56,7 +80,10 @@ export function detectLocaleFromBrowser(): Locale {
   if (lang.startsWith("de")) return "de";
   if (lang.startsWith("fr")) return "fr";
   if (lang.startsWith("pt")) return "pt";
-  return "en"; // desteklenmeyen dil
+
+  // v2.9.54: Desteklenmeyen diller için en'ye fallback
+  // (İtalyanca, Rusça, Arapça, Çince, Japonca, vb.)
+  return "en";
 }
 
 /**

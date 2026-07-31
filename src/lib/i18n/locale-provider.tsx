@@ -4,11 +4,13 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
 // v2.9.21 GÖREV 8: Genişletilmiş dil desteği + auto-detect
+// v2.9.54: Android native bridge + cloud-save senkron
 import { DEFAULT_LOCALE, LOCALES, detectLocaleFromBrowser, type Locale } from "./types";
 import { dict } from "./dict";
 
@@ -30,10 +32,11 @@ function interpolate(template: string, params?: Record<string, string | number>)
 }
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  // v2.9.21 GÖREV 8: Auto-detect browser language (Google Play'den indirenler için)
-  // 1. localStorage'da kullanıcı tercihi varsa onu kullan
-  // 2. Yoksa navigator.language'den tahmin et (detectLocaleFromBrowser)
-  // 3. O da yoksa DEFAULT_LOCALE (tr)
+  // v2.9.54: Dil seçimi öncelik sırası:
+  // 1. localStorage'da kullanıcı tercihi varsa onu kullan (manuel seçim)
+  // 2. AndroidNative.getLanguage() — cihaz dili (Google Play ülke dili)
+  // 3. navigator.language — browser dili
+  // 4. DEFAULT_LOCALE (tr)
   const [locale, setLocaleState] = useState<Locale>(() => {
     if (typeof window === "undefined") return DEFAULT_LOCALE;
     try {
@@ -42,9 +45,26 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
-    // v2.9.21 GÖREV 8: Browser dilini otomatik algıla
+    // v2.9.54: Android native + browser dilini otomatik algıla
     return detectLocaleFromBrowser();
   });
+
+  // v2.9.54: Cloud-save'den gelen dili uygula (başka cihazda seçilmişse)
+  // Ama sadece localStorage'da manuel seçim yoksa
+  useEffect(() => {
+    try {
+      const hasManualChoice = localStorage.getItem(STORAGE_KEY) !== null;
+      if (hasManualChoice) return; // kullanıcı manuel seçim yapmış, cloud'u geç
+
+      // Cloud-save'den locale yükle (loadMultiplayerState'ten set edilir)
+      const cloudLocale = localStorage.getItem("tm.cloud_locale") as Locale | null;
+      if (cloudLocale && LOCALES.includes(cloudLocale)) {
+        setLocaleState(cloudLocale);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const setLocale = useCallback((l: Locale) => {
     setLocaleState(l);
@@ -53,15 +73,25 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
+    // v2.9.54: Cloud-save için işaretle (store saveToCloud sırasında okuyacak)
+    try {
+      localStorage.setItem("tm.cloud_locale", l);
+    } catch {
+      /* ignore */
+    }
   }, []);
+
+  // HTML lang attribute güncelle (erişilebilirlik + SEO)
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.lang = locale;
+    }
+  }, [locale]);
 
   const t = useCallback(
     (key: string, params?: Record<string, string | number>) => {
       const entry = dict[key];
       if (!entry) return key;
-      // v2.9.21 GÖREV 8: Çeviri — eksik dil fallback yapar (translate fonksiyonu)
-      // Eski kod: entry[locale] ?? entry.tr
-      // Yeni: locale es/de/fr/pt ise ve Dict'te yoksa en'ye fallback
       let raw: string;
       switch (locale) {
         case "tr": raw = entry.tr; break;

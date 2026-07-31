@@ -4120,6 +4120,14 @@ export const useAppStore = create<AppState>()(
             youthAcademy: savedState?.youthAcademy ?? get().youthAcademy,
             // v2.9.50: Günlük görevler yükle
             dailyTasks: savedState?.dailyTasks ?? null,
+            // v2.9.54: Dil tercihi cloud-save'den yükle
+            ...(savedState?.locale ? (() => {
+              try {
+                localStorage.setItem("tm.cloud_locale", savedState.locale);
+                localStorage.setItem("tm.locale", savedState.locale);
+              } catch { /* ignore */ }
+              return {};
+            })() : {}),
             // v2.9.28 GÖREV 5: Kart envanteri yükle
             cardInventory: savedState?.cardInventory ?? [],
             // v2.9.20 GÖREV 7: Onboarding state — savedState'ten yükle, yoksa default

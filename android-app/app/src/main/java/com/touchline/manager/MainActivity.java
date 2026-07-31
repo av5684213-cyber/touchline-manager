@@ -376,6 +376,16 @@ public class MainActivity extends Activity {
             public String getPlatform() {
                 return "android";
             }
+
+            // v2.9.54: Cihaz dilini JS'e geçir (Google Play ülke diline göre otomatik dil seçimi)
+            @android.webkit.JavascriptInterface
+            public String getLanguage() {
+                java.util.Locale locale = java.util.Locale.getDefault();
+                String lang = locale.getLanguage();
+                // "tr", "en", "es", "de", "fr", "pt" döner
+                // Desteklenmeyen diller JS tarafında "en"'ye fallback yapar
+                return lang != null ? lang : "en";
+            }
         }, "AndroidNative");
 
         // ═══ v2.9.46 Görev 2: Google Play Billing köprüsü ═══

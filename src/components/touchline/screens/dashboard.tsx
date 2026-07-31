@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Bell,
+  ChevronDown,
   ChevronRight,
   Clock,
   Flame,
+  Globe,
   Heart,
   ListChecks,
   LogOut,
@@ -16,6 +18,8 @@ import {
   Users,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
+// v2.9.54: Dil ayarları için
+import { LOCALES, LOCALE_NAMES, type Locale } from "@/lib/i18n/types";
 import { useAppStore, useMyTeam, getFormation } from "@/lib/store";
 // v2.9.53: Hesap silme için
 import { useSupabaseAuth } from "@/lib/auth/auth-context";
@@ -958,14 +962,17 @@ function MessagesBox() {
 
 // v2.9.53: Hesap yönetimi — sign out + delete account (Play Store zorunluluğu)
 function AccountManagement() {
-  const { t } = useI18n();
+  const { t, locale, setLocale } = useI18n();
   const { user, signOut } = useSupabaseAuth();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  // Sadece Supabase auth kullanıcısı için göster (demo mode'da gizle)
-  if (!user) return null;
+  // Dil seçici her zaman göster (demo mode'da da)
+  // Hesap silme sadece Supabase auth kullanıcısı için
+  if (!user) {
+    return <LanguageSettingsSection locale={locale} setLocale={setLocale} />;
+  }
 
   const handleDelete = async () => {
     haptic("medium");
@@ -997,6 +1004,9 @@ function AccountManagement() {
     <section>
       <SectionTitle icon={Users} title="Hesap" />
       <div className="tm-card divide-y divide-border">
+        {/* v2.9.54: Dil ayarı */}
+        <LanguageSettingsRow locale={locale} setLocale={setLocale} />
+
         {/* Sign out */}
         <button
           onClick={() => { haptic("light"); signOut(); }}
@@ -1042,6 +1052,82 @@ function AccountManagement() {
             </div>
           </div>
         )}
+      </div>
+    </section>
+  );
+}
+
+// v2.9.54: Dil ayarı — tek satır (AccountManagement içinde)
+function LanguageSettingsRow({ locale, setLocale }: { locale: Locale; setLocale: (l: Locale) => void }) {
+  const [open, setOpen] = useState(false);
+  const current = LOCALE_NAMES[locale];
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => { haptic("light"); setOpen(!open); }}
+        className="tm-tap w-full flex items-center gap-2 p-3 text-left hover:bg-accent/30 transition-colors"
+      >
+        <Globe size={14} className="text-muted-foreground shrink-0" />
+        <span className="text-xs font-semibold flex-1">Dil / Language</span>
+        <span className="text-sm">{current.flag}</span>
+        <span className="text-[10px] font-bold text-muted-foreground">{locale.toUpperCase()}</span>
+        <ChevronDown size={12} className={cn("text-muted-foreground transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-50 tm-card p-1 mt-1 shadow-lg border border-border max-h-[200px] overflow-y-auto tm-thin-scrollbar">
+          {LOCALES.map((l: Locale) => {
+            const info = LOCALE_NAMES[l];
+            return (
+              <button
+                key={l}
+                onClick={() => { haptic("light"); setLocale(l); setOpen(false); }}
+                className={cn(
+                  "tm-tap w-full flex items-center gap-2 px-2.5 py-1.5 rounded text-xs font-semibold transition-colors",
+                  locale === l ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-accent/50"
+                )}
+              >
+                <span className="text-sm">{info.flag}</span>
+                <span className="flex-1 text-left">{info.native}</span>
+                <span className="text-[10px] opacity-60">{l.toUpperCase()}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// v2.9.54: Dil ayarı — tam bölüm (demo mode'da, kullanıcı giriş yapmamışken)
+function LanguageSettingsSection({ locale, setLocale }: { locale: Locale; setLocale: (l: Locale) => void }) {
+  return (
+    <section>
+      <SectionTitle icon={Users} title="Dil / Language" />
+      <div className="tm-card p-3 space-y-2">
+        <p className="text-[10px] text-muted-foreground mb-1">
+          Oyun dilini seç. Google Play'den indirildiğinde cihaz dilin otomatik algılanır.
+        </p>
+        <div className="grid grid-cols-3 gap-1.5">
+          {LOCALES.map((l: Locale) => {
+            const info = LOCALE_NAMES[l];
+            return (
+              <button
+                key={l}
+                onClick={() => { haptic("light"); setLocale(l); }}
+                className={cn(
+                  "tm-tap flex flex-col items-center gap-0.5 py-2 rounded-lg border transition-colors",
+                  locale === l
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-card border-border text-muted-foreground hover:bg-accent/30"
+                )}
+              >
+                <span className="text-lg">{info.flag}</span>
+                <span className="text-[10px] font-bold">{info.native}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
