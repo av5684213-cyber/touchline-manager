@@ -11,6 +11,8 @@ import { TeamDetailModal } from "../team-detail-modal";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 import type { Team } from "@/lib/mock/data";
+// v2.9.59: Kupa maçları cumartesi 12:00 ve 18:00'da oynanır
+import { getCupMatchSchedule, getTimeUntilCupMatch } from "@/lib/cup-schedule";
 
 type FilterKey = "all" | "played" | "upcoming";
 
@@ -374,6 +376,24 @@ function CupFixturesSection({ onTeamSelect }: { onTeamSelect?: (team: Team) => v
           </span>
         )}
       </div>
+      {/* v2.9.59: Kupa maç saati bilgisi — cumartesi 12:00/18:00 */}
+      {!cup.champion && (() => {
+        const schedule = getCupMatchSchedule(cup.currentRound);
+        const timeUntil = getTimeUntilCupMatch(schedule);
+        return (
+          <div className="tm-card p-2 bg-amber-500/5 border-amber-500/20 flex items-center gap-2">
+            <Clock size={12} className="text-amber-400 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] font-bold text-amber-400">{schedule.fullLabel}</div>
+              <div className="text-[9px] text-muted-foreground">
+                {schedule.isToday
+                  ? `Maçlar ${timeUntil} sonra başlıyor`
+                  : `Maçlara ${timeUntil} kaldı`}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       <div className="space-y-1">
         {myCupMatches.length === 0 && !cup.champion && (
           <div className="tm-card p-3 text-center text-[10px] text-muted-foreground">

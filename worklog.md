@@ -3507,3 +3507,45 @@ Test senaryoları:
 3. Dashboard → "Nasıl Oynanır?" butonu → modal açılır
 4. Yardım modal → "Oyuncular" sekmesi → mor arketip açıklaması
 5. Yardım modal → "Sekmeler" → tüm sekmelerin ne işe yaradığı
+
+---
+Task ID: v2.9.59
+Agent: main (Super Z)
+Task: Kupa maçları cumartesi 12:00/18:00'da oynanır — Oyna butonu kaldır, saat göster
+
+Work Log:
+- Yeni dosya: src/lib/cup-schedule.ts
+  - getCupMatchSchedule(round): Kupa turu için maç zamanı hesaplar
+    * Tur 1 (Son 16) ve Tur 3 (Yarı): Cumartesi 12:00
+    * Tur 2 (Çeyrek) ve Tur 4 (Final): Cumartesi 18:00
+    * Bugün cumartesi ise saat kontrolü yapar (geldiyse bugün, geçtiyse haftaya)
+    * Değilse bir sonraki cumartesiyi bulur
+  - getTimeUntilCupMatch: "3 gün 5 saat" gibi geri sayım
+  - formatDateLabel: "Cmt, 5 Ağu" formatı
+- cup.tsx:
+  - "Oyna" butonu KALDIRILDI (3 yerden: myCupMatch, spectator, eliminated)
+  - Yerine maç saati + geri sayım kartı eklendi
+    * "Bugün 12:00" veya "Cmt, 5 Ağu · 18:00"
+    * "Maça 3 gün 5 saat kaldı"
+    * "Maç saat geldiğinde otomatik oynanır"
+  - Üstte bilgilendirme kartı: "Kupa maçları her cumartesi 12:00 ve 18:00'da oynanır"
+  - Otomatik oynatma: Maç saati geldiyse ve kullanıcı kupa sekmesindeyse 1 sn sonra otomatik oyna
+  - Canlı saat için her dakika tick (setInterval 60s)
+- fixture.tsx CupFixturesSection:
+  - Kupa maç saati bilgisi eklendi (cumartesi 12:00/18:00 + geri sayım)
+  - Clock ikonu ile amber renkli kart
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- Kupa "Oyna" butonu tamamen kaldırıldı
+- Yerine tarih/saat ve geri sayım gösteriliyor
+- Maçlar cumartesi 12:00/18:00'da otomatik oynanır
+- Aynı gün ise "Bugün 12:00", değilse "Cmt, 5 Ağu · 18:00" formatı
+- Kullanıcı kupa sekmesindeyken maç saati geldiyse otomatik oynanır
+
+Test senaryoları:
+1. Kupa sekmesi → "Oyna" butonu yok, tarih/saat kartı var
+2. Bugün cumartesi ve saat 12:00'den önceyse → "Bugün 12:00" + geri sayım
+3. Bugün cumartesi değilse → "Cmt, 5 Ağu · 12:00" formatı
+4. Maç saati geldikten sonra kupa sekmesine gir → otomatik oynanır
+5. Fikstür ekranında kupa bölümünde de saat bilgisi var
