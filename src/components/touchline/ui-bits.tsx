@@ -184,7 +184,7 @@ export function InjuryBadge({ days, size = "sm" }: { days?: number; size?: "sm" 
         "inline-flex items-center gap-0.5 rounded font-bold bg-red-500/20 text-red-300 border border-red-500/30",
         sizeCls
       )}
-      title={days ? `${days} gün sakat` : "Sakat"}
+      title={days ? `${days} tur sakat` : "Sakat"}
     >
       🤕 {days ? `${days}g` : ""}
     </span>

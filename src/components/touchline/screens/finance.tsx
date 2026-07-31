@@ -32,7 +32,8 @@ export function FinanceScreen() {
   const computed = useMemo(() => {
     if (!team) return null;
 
-    // P0 FIX: store.ts advanceMatchday ekonomisi ile BIREBIR senkronize
+    // v2.9.49: OYUNCU MAAŞLARI artık gider olarak hesaplanıyor
+    const playerWages = team.players.reduce((s, p) => s + (p.weeklyWage ?? p.salary ?? 0), 0);
     // Personel maaşları
     const totalStaffWages = facilities.staff.reduce((s, st) => s + st.weeklyWage, 0);
 
@@ -41,30 +42,25 @@ export function FinanceScreen() {
     const facilityMaintenance = totalFacilityLevels * 20000;
 
     // Haftalık gelir — store advanceMatchday ile BIREBIR AYNI formüller (v2.9.45 düzeltme)
-    // Bilet: doluluk × capacity × ticketPrice × stadiumMult
     const stadiumCapacity = 5000 + facilities.levels.stadium * 5000;
     const stadiumMult = 1 + facilities.levels.stadium * 0.05;
-    // v2.9.45 FIX: Doluluk oranı store ile BİREBİR AYNI olmalı — cap 0.85 + tier bonus
-    // Eski kod: Math.max(0.2, Math.min(0.8, ...)) → store 0.85 kullanıyordu, kullanıcı düşük görüyordu
     const myTier = team.leagueTier ?? 2;
-    const tierBonus = (5 - myTier) * 0.04; // tier 1: +0.16, tier 4: +0.04
+    const tierBonus = (5 - myTier) * 0.04;
     const fillRate = Math.max(0.2, Math.min(0.85, 1 - (facilities.ticketPrice / 250) + tierBonus));
     const ticketRevenue = Math.round(
       stadiumCapacity * fillRate * facilities.ticketPrice * stadiumMult
     );
-    // Sponsor: store base + aktif sponsor geliri
     const dynamicSponsorIncome = activeSponsor?.amount ?? 0;
     const baseSponsor = 50_000 + facilities.levels.stadium * 10_000;
     const sponsor = baseSponsor + dynamicSponsorIncome;
-    // TV: store ile aynı
-    const tv = 50_000;
-    // v2.9.45 FIX: Merch — store ile BİREBİR AYNI: stadiumCap * 0.2 + academyLevel * 5000
-    // Eski kod: stadiumCapacity * 0.2 * 1 → academy bonusu yoktu, store daha çok veriyordu
+    // v2.9.49: TV geliri tier'a göre
+    const tvByTier: Record<number, number> = { 1: 500_000, 2: 200_000, 3: 80_000, 4: 25_000 };
+    const tv = tvByTier[myTier] ?? 50_000;
     const merch = Math.round(stadiumCapacity * 0.2 + facilities.levels.academy * 5000);
 
     const totalIncome = ticketRevenue + sponsor + tv + merch;
-    // P0 FIX: Futbolcu maaşları tamamen kaldırıldı — sadece personel + tesis
-    const totalExpense = totalStaffWages + facilityMaintenance;
+    // v2.9.49: Oyuncu maaşları + personel + tesis
+    const totalExpense = playerWages + totalStaffWages + facilityMaintenance;
     const net = totalIncome - totalExpense;
 
     // Mali sağlık
@@ -72,6 +68,7 @@ export function FinanceScreen() {
     const health: "good" | "ok" | "bad" = ratio > 0.2 ? "good" : ratio > -0.1 ? "ok" : "bad";
 
     return {
+      playerWages,
       totalStaffWages,
       facilityMaintenance,
       ticketRevenue,
@@ -200,6 +197,13 @@ export function FinanceScreen() {
             −{formatEuro(computed.totalExpense)}
           </span>
         </div>
+        {/* v2.9.49: Oyuncu maaşları — en büyük gider kalemi */}
+        <FinanceRow
+          icon={Users}
+          label="⚽ Oyuncu Maaşları"
+          value={computed.playerWages}
+          color="red"
+        />
         <FinanceRow
           icon={Users}
           label={t("finance.expense.staff")}

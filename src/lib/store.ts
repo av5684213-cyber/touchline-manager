@@ -2438,11 +2438,14 @@ export const useAppStore = create<AppState>()(
             const isUserHome = f.homeId === myTeamId;
             const myScore = isUserHome ? (f.homeScore ?? 0) : (f.awayScore ?? 0);
             const oppScore = isUserHome ? (f.awayScore ?? 0) : (f.homeScore ?? 0);
-            // v2.9.23 Z3: Her maç sonrası 700K euro sabit maç parası (her takıma)
-            matchBonus += 700_000;
-            if (myScore > oppScore) matchBonus += 200_000;      // Galibiyet bonusu
-            else if (myScore === oppScore) matchBonus += 100_000; // Beraberlik bonusu
-            else matchBonus += 50_000;                            // Yenilgi bonusu
+            // v2.9.49: Maç bonusu tier'a göre ölçeklenmiş — yüksek seviyeler
+            // Tier 1: 2M baz, Tier 2: 1.2M, Tier 3: 700K, Tier 4: 400K
+            const userTier = (clubs.find(c => c.id === myTeamId)?.leagueTier ?? 2);
+            const baseBonusByTier: Record<number, number> = { 1: 2_000_000, 2: 1_200_000, 3: 700_000, 4: 400_000 };
+            matchBonus += baseBonusByTier[userTier] ?? 700_000;
+            if (myScore > oppScore) matchBonus += 500_000;      // Galibiyet bonusu
+            else if (myScore === oppScore) matchBonus += 250_000; // Beraberlik bonusu
+            else matchBonus += 100_000;                          // Yenilgi bonusu
           }
           // P0 FIX: userMatchResult null ise = canlı maçtan gelmiş, applyPostMatchEffects gol dağıttı
           // userMatchResult varsa = Turu İlerlet yolu, gol dağıtımı BURADA yapılmalı
@@ -2527,17 +2530,16 @@ export const useAppStore = create<AppState>()(
           if (Math.random() < 0.2 && updatedTransfer.freeAgents.length > 0 && currentBot.budget > 500000) {
             // En zayıf pozisyonu bul
             const weakestPos = findWeakestPosition(currentBot);
-            // O pozisyona uygun serbest ajan ara
+            // v2.9.49: SADECE o pozisyona uygun serbest ajan ara — rastgele alma
             const candidates = updatedTransfer.freeAgents.filter(l => {
               const pGroup = l.player.specificPosition === "GK" ? "GK" :
                 ["CB","LB","RB","LWB","RWB"].includes(l.player.specificPosition) ? "DEF" :
                 ["CDM","CM","CAM","LM","RM"].includes(l.player.specificPosition) ? "MID" : "FWD";
               return pGroup === weakestPos && l.askingPrice < currentBot.budget;
             });
-            // Uygun aday varsa al, yoksa rastgele al
-            const pool = candidates.length > 0 ? candidates : updatedTransfer.freeAgents.slice(0, 5);
-            if (pool.length > 0) {
-              const listing = pool[Math.floor(Math.random() * Math.min(3, pool.length))];
+            // v2.9.49: Uygun aday yoksa ALMA — forvete kaleci almayı önle
+            if (candidates.length > 0) {
+              const listing = candidates[Math.floor(Math.random() * Math.min(3, candidates.length))];
               if (shouldBotBuy(currentBot, listing.askingPrice, listing.player.specificPosition)) {
                 const botIdx = updatedClubs.findIndex((c) => c.id === bot.id);
                 updatedClubs[botIdx] = {
@@ -2585,25 +2587,23 @@ export const useAppStore = create<AppState>()(
           // P1 FIX: Gelirleri düşür — bütçe kontrolden çıkmıştı
           const stadiumCap = 5000 + facilitiesState.levels.stadium * 5000;
           const stadiumMult = 1 + facilitiesState.levels.stadium * 0.05;
-          // P1 FIX: Doluluk oranı — bilet fiyatına göre azalsın (yüksek fiyat → düşük doluluk)
-          // 60€ = %60 doluluk, 100€ = %40, 150€ = %20
-          // P0 FIX BUG #19: Doluluk oranı lig tier'ını da dikkate al — Süper Lig'de daha çok seyirci
           const myTier = myTeam?.leagueTier ?? 2;
-          const tierBonus = (5 - myTier) * 0.04; // tier 1: +0.16, tier 4: +0.04
+          const tierBonus = (5 - myTier) * 0.04;
           const fillRate = Math.max(0.2, Math.min(0.85, 1 - (facilitiesState.ticketPrice / 250) + tierBonus));
           const ticketRev = Math.round(stadiumCap * fillRate * facilitiesState.ticketPrice * stadiumMult);
           const sponsor = 50_000 + facilitiesState.levels.stadium * 10_000 + activeSponsorIncome;
-          const tv = 50_000;
-          // P0 FIX BUG #23: merch — store/VIP tesis seviyesini hesaba kat
+          // v2.9.49: TV geliri tier'a göre — Süper Lig 500K, 3. Lig 25K
+          const tvByTier: Record<number, number> = { 1: 500_000, 2: 200_000, 3: 80_000, 4: 25_000 };
+          const tv = tvByTier[myTier] ?? 50_000;
           const merch = Math.round(stadiumCap * 0.2 + facilitiesState.levels.academy * 5000);
           const totalIncome = ticketRev + sponsor + tv + merch;
-          // Gider — P0 FIX: Futbolcu maaşları tamamen kaldırıldı, sadece personel + tesis
+          // v2.9.49: OYUNCU MAAŞLARI artık gider olarak hesaplanıyor
+          // — menajerlik oyununun en büyük gider kalemi
+          const playerWages = myTeam.players.reduce((s, p) => s + (p.weeklyWage ?? p.salary ?? 0), 0);
           const staffWages = facilitiesState.staff.reduce((s, st) => s + st.weeklyWage, 0);
-          // P1 FIX: Tesis bakım maliyeti artır — bütçe birikmesini önle
           const facilityCost = Object.values(facilitiesState.levels).reduce((s, l) => s + l * 20000, 0);
-          const totalExpense = staffWages + facilityCost;
+          const totalExpense = playerWages + staffWages + facilityCost;
           const net = totalIncome - totalExpense;
-          // P0 FIX: Maç bonusunu net clamp'ten SONRA ekle (yutulmasını önle)
           myTeam.budget = Math.max(0, myTeam.budget + net) + matchBonus;
 
           // P0 FIX: Kiralık oyuncuların _loanWeeks değerini azalt — 0 olunca kaynak takıma iade et
@@ -2661,7 +2661,8 @@ export const useAppStore = create<AppState>()(
 
           // Oyuncu güncellemesi — kondisyon toparlanma + sakatlık iyileşme + moral
           myTeam.players = myTeam.players.map((p) => {
-            const newCond = Math.min(100, p.cond + 12); // +12 kondisyon
+            // v2.9.49: Kondisyon toparlanma +25 (eskiden +12)
+            const newCond = Math.min(100, p.cond + 25);
             let newMorale = p.morale;
             // Moral: takım sonucuna göre (son maç)
             const lastFx = updatedFixtures
@@ -2674,11 +2675,11 @@ export const useAppStore = create<AppState>()(
               if ((us ?? 0) > (them ?? 0)) newMorale = Math.min(100, newMorale + 2);
               else if ((us ?? 0) < (them ?? 0)) newMorale = Math.max(20, newMorale - 2);
             }
-            // Sakatlık iyileşme
+            // Sakatlık iyileşme — v2.9.49: her tur 1 tur azal (eskiden 7 gün)
             let newInjury = p.injury;
             let isInjured = p.is_injured;
             if (p.injury && p.injury.remaining_days > 0) {
-              const remaining = p.injury.remaining_days - 7;
+              const remaining = p.injury.remaining_days - 1; // v2.9.49: 1 tur azal
               if (remaining <= 0) {
                 newInjury = undefined;
                 isInjured = false;
@@ -2817,9 +2818,9 @@ export const useAppStore = create<AppState>()(
           }
         }
 
-        // P1 FIX: Kupa turlarını ilerlet — her 5 turda bir kupa turu oyna
-        // set()'ten SONRA çağır — yoksa set() tarafından ezilir
-        const shouldPlayCup = currentMd % 5 === 0;
+        // v2.9.49: Kupa turları sabit haftalarda — tur 7, 14, 21, 28
+        // (4 tur: Son 16 → Çeyrek → Yarı → Final)
+        const shouldPlayCup = [7, 14, 21, 28].includes(currentMd);
 
         // P7 FIX: Stale incoming offers temizle — artık kadroda olmayan oyunculara teklifleri kaldır
         const myCurrentTeam = updatedClubs.find((c) => c.id === myTeamId);
@@ -2863,9 +2864,9 @@ export const useAppStore = create<AppState>()(
           }
         }
 
-        // v2.9.48: Otomatik sponsor teklifleri — her 5 turda bir
+        // v2.9.49: Otomatik sponsor teklifleri — kupa haftalarında (7, 14, 21, 28)
         // "Teklif Getir" butonu kaldırıldı, artık otomatik geliyor
-        if (currentMd % 5 === 0) {
+        if ([7, 14, 21, 28].includes(currentMd)) {
           try {
             get().generateSponsorOffers();
           } catch (e) {
@@ -3214,22 +3215,23 @@ export const useAppStore = create<AppState>()(
         const newSeasonNumber = oldSeasonNumber + 1;
         SEASON_INFO.matchday = 1;
 
-        // Enflasyon uygula — bütçeleri yeni sezona göre güncelle
+        // v2.9.49: Enflasyon SADECE fiyatları artırır — bütçeleri artırmaz
+        // Eski kod: bütçe × enflasyon çarpanı → net etkisi sıfır (fiyatlar ve bütçe aynı oranda artar)
+        // Yeni: bütçe sabit kalır, fiyatlar artar → ekonomik baskı oluşur
+        // Sadece minimum baz bütçe garanti edilir (takım iflas etmesin)
         const newBudgetMultiplier = getInflationMultiplier(newSeasonNumber);
         updatedClubs.forEach((c) => {
-          // P1 FIX: Kullanıcının takımının bütçesini SIFIRLAMA — biriktirilen para korunsun
-          if (c.id === myTeamId) {
-            // Sadece enflasyon uygula (minimum lig baz bütçesi garanti)
-            const tier = c.leagueTier ?? 2;
-            const baseBudget = TIER_BASE_BUDGETS[tier] ?? TIER_BASE_BUDGETS[2];
-            const minBudget = Math.round(baseBudget * newBudgetMultiplier);
-            c.budget = Math.max(minBudget, Math.round(c.budget * newBudgetMultiplier));
-            return;
-          }
-          // Yeni lig tier'ına göre baz bütçe × enflasyon
           const tier = c.leagueTier ?? 2;
           const baseBudget = TIER_BASE_BUDGETS[tier] ?? TIER_BASE_BUDGETS[2];
-          c.budget = Math.round(baseBudget * newBudgetMultiplier);
+          // v2.9.49: Bütçe enflasyon ile artılmaz — sadece minimum garanti
+          if (c.id === myTeamId) {
+            // Kullanıcının bütçesi korunur, sadece minimum garanti
+            const minBudget = baseBudget;
+            c.budget = Math.max(minBudget, c.budget);
+          } else {
+            // Bot bütçeleri sabit baz bütçe (enflasyon yok)
+            c.budget = baseBudget;
+          }
         });
 
         // Taktikleri sıfırla
@@ -3698,6 +3700,13 @@ export const useAppStore = create<AppState>()(
           gold: { min: 70, max: 85 },
           platinum: { min: 78, max: 92 },
         };
+        // v2.9.49: Paket türüne göre yaş aralığı
+        const PACK_AGE = {
+          bronze: { min: 17, max: 21 },
+          silver: { min: 18, max: 24 },
+          gold: { min: 20, max: 28 },
+          platinum: { min: 22, max: 32 },
+        };
         const price = PACK_PRICES[packType];
         if (credits < price) {
           return { success: false, reason: "Yetersiz kredi" };
@@ -3720,9 +3729,9 @@ export const useAppStore = create<AppState>()(
         for (let i = 0; i < 3; i++) {
           const pos = positions[Math.floor(Math.random() * positions.length)];
           const player = generatePlayer(pos as any, ovrRange);
-          // v2.9.23 Z5: Mağaza paketlerinden çıkan futbolcular 17 yaşında olmalı
-          // (genç yetenek havuzu mantığı — paket = altyapıdan terfi)
-          player.age = 17;
+          // v2.9.49: Paket türüne göre yaş aralığı (artık sadece 17 değil)
+          const ageRange = PACK_AGE[packType];
+          player.age = ageRange.min + Math.floor(Math.random() * (ageRange.max - ageRange.min + 1));
           // ID zaten generatePlayer tarafından benzersiz atanır
 
           // Kadro limiti kontrolü

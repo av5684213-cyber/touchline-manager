@@ -230,15 +230,77 @@ export function computeStandings(
     row.goal_diff = row.goalsFor - row.goalsAgainst;
   }
 
+  // v2.9.49: Head-to-head hesaplama — eşit puanda ilk kriter
+  // İki takım arasındaki maçların puanı + gol averajı
+  const h2hCache = new Map<string, { points: number; gd: number }>();
+  function getH2H(teamAId: string, teamBId: string): { points: number; gd: number } {
+    const key = teamAId < teamBId ? `${teamAId}_${teamBId}` : `${teamBId}_${teamAId}`;
+    if (h2hCache.has(key)) return h2hCache.get(key)!;
+
+    // Bu iki takım arasındaki maçları bul
+    const h2hMatches = sortedFixtures.filter(f =>
+      (f.homeId === teamAId && f.awayId === teamBId) ||
+      (f.homeId === teamBId && f.awayId === teamAId)
+    );
+
+    let aPoints = 0;
+    let aGd = 0;
+    for (const f of h2hMatches) {
+      const isAHome = f.homeId === teamAId;
+      const aScore = isAHome ? f.homeScore! : f.awayScore!;
+      const bScore = isAHome ? f.awayScore! : f.homeScore!;
+      aGd += aScore - bScore;
+      if (aScore > bScore) aPoints += 3;
+      else if (aScore === bScore) aPoints += 1;
+    }
+
+    const result = { points: aPoints, gd: aGd };
+    h2hCache.set(key, result);
+    return result;
+  }
+
   return Array.from(map.values()).sort((a, b) => {
-    // P0 FIX: Önce puan, sonra averaj, sonra atılan gol, sonra isim
+    // v2.9.49: Sıralama kriterleri:
+    // 1. Puan
+    // 2. Head-to-head puanı (eşit puanda aralarındaki maçlar)
+    // 3. Head-to-head gol averajı
+    // 4. Genel gol averajı
+    // 5. Atılan gol
+    // 6. Galibiyet sayısı
     if (b.points !== a.points) return b.points - a.points;
-    // v2.9.21 GÖREV 2: goal_diff kullan (gd değil)
+
+    // Eşit puan → head-to-head
+    if (a.points === b.points && a.teamId !== b.teamId) {
+      const h2h_a = getH2H(a.teamId, b.teamId);
+      if (h2h_a.points !== 0) {
+        // teamA'nın head-to-head puanı (pozitif = A önde, negatif = B önde)
+        const aH2HPoints = h2h_a.points;
+        const bH2HPoints = 0; // getH2H A'nın perspektifinden hesaplar
+        // Eğer aPoints > 0 ise A önde, < 0 ise B önde
+        // Aslında: toplam h2h puanı = aH2HPoints + bH2HPoints
+        // A'nın puanı = aH2HPoints, B'nin puanı = (toplam maç puanı) - aH2HPoints
+        // Basit: aH2HPoints > (toplam/2) ise A önde
+        const totalH2HPts = h2hMatches_count(a.teamId, b.teamId, sortedFixtures) * 3;
+        const bH2H = totalH2HPts - aH2HPoints;
+        if (aH2HPoints !== bH2H) return bH2H - aH2HPoints;
+        if (h2h_a.gd !== 0) return -h2h_a.gd; // A'nın GD'si pozitifse A önde
+      }
+    }
+
+    // Genel gol averajı
     if (b.goal_diff !== a.goal_diff) return b.goal_diff - a.goal_diff;
     if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
-    if (b.won !== a.won) return b.won - a.won; // galibiyet sayısı tiebreaker
+    if (b.won !== a.won) return b.won - a.won;
     return a.teamName.localeCompare(b.teamName);
   });
+}
+
+// v2.9.49: Helper — iki takım arasındaki maç sayısı
+function h2hMatches_count(teamAId: string, teamBId: string, fixtures: FixtureRow[]): number {
+  return fixtures.filter(f =>
+    (f.homeId === teamAId && f.awayId === teamBId) ||
+    (f.homeId === teamBId && f.awayId === teamAId)
+  ).length;
 }
 
 export function myRecentMatches(

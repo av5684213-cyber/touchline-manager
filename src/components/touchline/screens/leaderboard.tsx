@@ -22,7 +22,7 @@ type LeaderboardEntry = {
   isBot?: boolean;
 };
 
-const TIER_DEPTS: Record<LeagueTier, number> = { 1: 1, 2: 1, 3: 1, 4: 5 };
+const TIER_DEPTS: Record<LeagueTier, number> = { 1: 1, 2: 1, 3: 1, 4: 1 };
 
 /**
  * Liderlik Tablosu — global + lokal sıralama.

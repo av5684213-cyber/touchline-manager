@@ -160,8 +160,8 @@ export function PlayerProfileModal({
             <span className="text-sm font-bold text-white truncate">{player.firstName} {player.lastName}</span>
             {/* P2: Sakatlık rozeti — ismin yanında */}
             {player.is_injured && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-bold bg-red-500 text-white shrink-0" title={player.injury?.remaining_days ? `${player.injury.remaining_days} gün sakat` : "Sakat"}>
-                🤕 {player.injury?.remaining_days ? `${player.injury.remaining_days}g` : "Sakat"}
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-bold bg-red-500 text-white shrink-0" title={player.injury?.remaining_days ? `${player.injury.remaining_days} tur sakat` : "Sakat"}>
+                🤕 {player.injury?.remaining_days ? `${player.injury.remaining_days}t` : "Sakat"}
               </span>
             )}
             {/* P0 FIX BUG #11: Cezalı rozeti — ismin yanında */}
@@ -392,7 +392,7 @@ function OverviewTab({
                   <div className="text-[10px] font-bold text-red-300">Sakat</div>
                   <div className="text-[11px] text-red-300/80">
                     {player.injury?.remaining_days
-                      ? `${player.injury.remaining_days} gün sonra iyileşecek`
+                      ? `${player.injury.remaining_days} tur sonra iyileşecek`
                       : "İyileşme süresi bilinmiyor"}
                     {player.injury?.type && ` · ${player.injury.type}`}
                   </div>
@@ -690,7 +690,7 @@ function StatsTab({
                 <div key={i} className="flex items-center justify-between text-[10px] py-1 border-b border-border/30 last:border-b-0">
                   <span className="text-muted-foreground">{inj.date ?? "—"}</span>
                   <span className="font-medium">{inj.type ?? "Sakatlık"}</span>
-                  <span className="text-muted-foreground tabular-nums">{inj.duration_days ?? inj.remaining_days ?? "?"} gün</span>
+                  <span className="text-muted-foreground tabular-nums">{inj.duration_days ?? inj.remaining_days ?? "?"} tur</span>
                 </div>
               ))}
             </div>

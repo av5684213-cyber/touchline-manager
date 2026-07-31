@@ -1489,7 +1489,7 @@ function SlotPlayerPicker({
                       <StatGrowth playerId={p.id} statKey="rating" currentValue={p.rating} />
                       {/* P2: Sakat rozeti — sağ üstte */}
                       {isInjured && (
-                        <span className="absolute -top-1 -right-1 text-[10px] bg-red-500 rounded-full w-3.5 h-3.5 flex items-center justify-center" title={`Sakat${p.injury?.remaining_days ? ` · ${p.injury.remaining_days}g` : ""}`}>
+                        <span className="absolute -top-1 -right-1 text-[10px] bg-red-500 rounded-full w-3.5 h-3.5 flex items-center justify-center" title={`Sakat${p.injury?.remaining_days ? ` · ${p.injury.remaining_days}t` : ""}`}>
                           🤕
                         </span>
                       )}
@@ -1507,7 +1507,7 @@ function SlotPlayerPicker({
                         </span>
                         {isCurrent && <span className="text-[11px] px-0.5 py-0 rounded bg-primary text-primary-foreground font-bold">SEÇİLİ</span>}
                         {isUsed && <span className="text-[11px] text-muted-foreground">dolu</span>}
-                        {isInjured && <span className="text-[11px] px-0.5 py-0 rounded bg-red-500/20 text-red-400 font-bold">SAKAT{p.injury?.remaining_days ? ` ${p.injury.remaining_days}g` : ""}</span>}
+                        {isInjured && <span className="text-[11px] px-0.5 py-0 rounded bg-red-500/20 text-red-400 font-bold">SAKAT{p.injury?.remaining_days ? ` ${p.injury.remaining_days}t` : ""}</span>}
                         {/* P0 FIX BUG #11: Cezalı rozeti — metin olarak */}
                         {isSuspended && <span className="text-[11px] px-0.5 py-0 rounded bg-amber-500/20 text-amber-400 font-bold">CEZALI {suspendedRemaining}m</span>}
                       </div>

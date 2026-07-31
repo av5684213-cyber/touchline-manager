@@ -775,7 +775,7 @@ function PlayerCard({
             </span>
             <PositionPill label={player.specificPosition} group={POSITION_GROUP[player.specificPosition]} />
             {player.is_injured && (
-              <span className="text-[11px] shrink-0" title={`Sakat${player.injury?.remaining_days ? ` · ${player.injury.remaining_days}g` : ""}`}>🤕</span>
+              <span className="text-[11px] shrink-0" title={`Sakat${player.injury?.remaining_days ? ` · ${player.injury.remaining_days}t` : ""}`}>🤕</span>
             )}
           </div>
           {/* Satır 2: Arketip + yaş */}

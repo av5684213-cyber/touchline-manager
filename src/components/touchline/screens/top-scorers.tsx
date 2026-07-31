@@ -17,7 +17,7 @@ type SortKey = "goals" | "assists" | "rating" | "motm" | "appearances";
 type TierFilter = "all" | "mine";
 
 // Lig başına 18 takım; 3. Lig (tier 4) 5 departman
-const TIER_DEPTS: Record<LeagueTier, number> = { 1: 1, 2: 1, 3: 1, 4: 5 };
+const TIER_DEPTS: Record<LeagueTier, number> = { 1: 1, 2: 1, 3: 1, 4: 1 };
 
 export function TopScorersScreen() {
   const { t, locale } = useI18n();
