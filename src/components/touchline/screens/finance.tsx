@@ -54,7 +54,7 @@ export function FinanceScreen() {
     const baseSponsor = 50_000 + facilities.levels.stadium * 10_000;
     const sponsor = baseSponsor + dynamicSponsorIncome;
     // v2.9.49: TV geliri tier'a göre
-    const tvByTier: Record<number, number> = { 1: 500_000, 2: 200_000, 3: 80_000, 4: 25_000 };
+    const tvByTier: Record<number, number> = { 1: 5_000_000, 2: 3_000_000, 3: 2_500_000, 4: 2_000_000 };
     const tv = tvByTier[myTier] ?? 50_000;
     const merch = Math.round(stadiumCapacity * 0.2 + facilities.levels.academy * 5000);
 

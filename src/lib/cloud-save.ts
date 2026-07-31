@@ -186,6 +186,8 @@ async function saveToMultiplayerTables(userId: string): Promise<void> {
         championsLeague: s.championsLeague, // v2.9.41
         transfer: s.transfer,
         youthAcademy: s.youthAcademy,
+        // v2.9.50: Günlük görevler cloud-save'e dahil
+        dailyTasks: s.dailyTasks,
         // v2.9.29 P2-5: cardInventory multiplayer save'e ekle
         cardInventory: s.cardInventory,
         // v2.9.20 GÖREV 7: onboarding state — grace period için

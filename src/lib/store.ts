@@ -305,6 +305,11 @@ type AppState = {
     seasonNumber: number; // bu oyuncuların üretildiği sezon
     players: Player[]; // altyapıdaki genç oyuncular
   };
+  // v2.9.50: Günlük görevler store'da — cloud-save'e dahil, cihazlar arası senkron
+  dailyTasks: {
+    date: string;
+    tasks: Array<{ id: string; icon: string; label: string; reward: string; done: boolean; credits: number }>;
+  } | null;
   // v2.9.28 GÖREV 5: Kart envanteri — satın alınıp henüz kullanılmayan kartlar
   // Her kart: { cardId, cardType, cardName, quantity, purchasedAt }
   // cardType: "trait_positive" | "trait_negative_removal" | "arketip"
@@ -479,14 +484,10 @@ function buildCupFixtures(clubs: Team[], myTeamId: string | null): CupMatch[] {
 
   const sorted = [...clubs].sort((a, b) => teamStrength(b) - teamStrength(a));
 
-  // P0 FIX: 16 takım al (toplam rating DEĞİL, en iyi 11 ortalaması)
-  let participants = sorted.slice(0, 16);
-  // Kullanıcı 16'da yoksa, en zayıfı çıkar, kullanıcıyı ekle
-  if (myTeamId && !participants.find(c => c.id === myTeamId)) {
-    participants = sorted.slice(0, 15);
-    const myTeam = clubs.find(c => c.id === myTeamId);
-    if (myTeam) participants.push(myTeam);
-  }
+  // v2.9.50: Sadece ilk 12 takım — son sıradaki takım kupada olmamalı
+  let participants = sorted.slice(0, 12);
+  // v2.9.50: Kullanıcı ilk 12'de değilse kupada olmamalı (lig performansına göre)
+  // Eski kod: kullanıcı her zaman kupaya ekleniyordu — bu rekabeti bozuyordu
 
   // Fisher-Yates shuffle
   for (let i = participants.length - 1; i > 0; i--) {
@@ -671,6 +672,9 @@ export const useAppStore = create<AppState>()(
         seasonNumber: 1,
         players: [],
       },
+
+      // v2.9.50: Günlük görevler — store'da (cloud-save'e dahil)
+      dailyTasks: null,
 
       // v2.9.28 GÖREV 5: Kart envanteri — boş başlat
       cardInventory: [],
@@ -2326,7 +2330,7 @@ export const useAppStore = create<AppState>()(
             myClub.players = myClub.players.map(p => {
               // Kullanıcının lineup'ındaki oyunculara kondisyon düş
               const inLineup = lineupHasPlayers ? _tacticsLineupIds.has(p.id) : false;
-              const condDrain = inLineup ? Math.floor(8 + Math.random() * 8) : 0;
+              const condDrain = (inLineup && userMatchResult) ? Math.floor(8 + Math.random() * 8) : 0; // v2.9.50: Sadece Turu İlerlet yoluyla oynandıysa drain (canlı maçta zaten yapıldı)
               const newCond = Math.max(20, Math.min(100, p.cond - condDrain));
               const formChange = won ? 2 : lost ? -3 : 0;
               const moraleChange = won ? 3 : lost ? -3 : 0;
@@ -2573,6 +2577,28 @@ export const useAppStore = create<AppState>()(
                 daysListed: 1,
                 offers: 0,
               });
+
+              // v2.9.50: Bot satıştan hemen sonra yerine YENİ oyuncu al
+              // — bot takım zayıflamasın diye
+              const botAfterSell = updatedClubs[botIdx];
+              const weakestPos2 = findWeakestPosition(botAfterSell);
+              const replacement = updatedTransfer.freeAgents.filter(l => {
+                const pGroup = l.player.specificPosition === "GK" ? "GK" :
+                  ["CB","LB","RB","LWB","RWB"].includes(l.player.specificPosition) ? "DEF" :
+                  ["CDM","CM","CAM","LM","RM"].includes(l.player.specificPosition) ? "MID" : "FWD";
+                return pGroup === weakestPos2 && l.askingPrice < botAfterSell.budget && l.player.id !== toSell.id;
+              });
+              if (replacement.length > 0 && botAfterSell.players.length < 25) {
+                const rep = replacement[Math.floor(Math.random() * Math.min(3, replacement.length))];
+                if (shouldBotBuy(botAfterSell, rep.askingPrice, rep.player.specificPosition)) {
+                  updatedClubs[botIdx] = {
+                    ...botAfterSell,
+                    budget: botAfterSell.budget - rep.askingPrice,
+                    players: [...botAfterSell.players, rep.player],
+                  };
+                  updatedTransfer.freeAgents = updatedTransfer.freeAgents.filter(l => l.player.id !== rep.player.id);
+                }
+              }
             }
           }
         }
@@ -2593,7 +2619,7 @@ export const useAppStore = create<AppState>()(
           const ticketRev = Math.round(stadiumCap * fillRate * facilitiesState.ticketPrice * stadiumMult);
           const sponsor = 50_000 + facilitiesState.levels.stadium * 10_000 + activeSponsorIncome;
           // v2.9.49: TV geliri tier'a göre — Süper Lig 500K, 3. Lig 25K
-          const tvByTier: Record<number, number> = { 1: 500_000, 2: 200_000, 3: 80_000, 4: 25_000 };
+          const tvByTier: Record<number, number> = { 1: 5_000_000, 2: 3_000_000, 3: 2_500_000, 4: 2_000_000 }; // v2.9.50: Min 2M
           const tv = tvByTier[myTier] ?? 50_000;
           const merch = Math.round(stadiumCap * 0.2 + facilitiesState.levels.academy * 5000);
           const totalIncome = ticketRev + sponsor + tv + merch;
@@ -2745,7 +2771,7 @@ export const useAppStore = create<AppState>()(
               if (myClub) {
                 const updatedPlayers = myClub.players.map(p => {
                   const ageMult = p.age < 21 ? 1.3 : p.age > 30 ? 0.5 : 1.0;
-                  const gain = Math.random() * 1.0 * ageMult;
+                  const gain = Math.random() * 0.3 * ageMult; // v2.9.50: 0-0.3 (eskiden 0-1.0 — çok hızlı gelişim)
                   const newStats = { ...p.stats };
                   // P0 FIX: Pozisyona uygun stats seç — rastgele DEĞİL
                   const posStats: Record<string, [keyof typeof newStats, keyof typeof newStats]> = {
@@ -2818,8 +2844,18 @@ export const useAppStore = create<AppState>()(
           }
         }
 
+        // v2.9.50: CL aktifken her tur CL maçı oyna (sezon sonu başlar, bitene kadar her tur)
+        const cl = get().championsLeague;
+        const shouldPlayCL = cl.active && !cl.champion && cl.currentRound > 0;
+        if (shouldPlayCL) {
+          try {
+            get().playChampionsLeagueRound();
+          } catch (e) {
+            console.warn("[advanceMatchday] CL round hatası:", e);
+          }
+        }
+
         // v2.9.49: Kupa turları sabit haftalarda — tur 7, 14, 21, 28
-        // (4 tur: Son 16 → Çeyrek → Yarı → Final)
         const shouldPlayCup = [7, 14, 21, 28].includes(currentMd);
 
         // P7 FIX: Stale incoming offers temizle — artık kadroda olmayan oyunculara teklifleri kaldır
@@ -2866,7 +2902,7 @@ export const useAppStore = create<AppState>()(
 
         // v2.9.49: Otomatik sponsor teklifleri — kupa haftalarında (7, 14, 21, 28)
         // "Teklif Getir" butonu kaldırıldı, artık otomatik geliyor
-        if ([7, 14, 21, 28].includes(currentMd)) {
+        if (currentMd === 1) {
           try {
             get().generateSponsorOffers();
           } catch (e) {
@@ -4082,6 +4118,8 @@ export const useAppStore = create<AppState>()(
             cosmetics: savedState?.cosmetics ?? { owned: [], equipped: {} },
             blockedUsers: savedState?.blockedUsers ?? [],
             youthAcademy: savedState?.youthAcademy ?? get().youthAcademy,
+            // v2.9.50: Günlük görevler yükle
+            dailyTasks: savedState?.dailyTasks ?? null,
             // v2.9.28 GÖREV 5: Kart envanteri yükle
             cardInventory: savedState?.cardInventory ?? [],
             // v2.9.20 GÖREV 7: Onboarding state — savedState'ten yükle, yoksa default

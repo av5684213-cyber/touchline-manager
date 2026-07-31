@@ -712,31 +712,29 @@ function DailyTasks() {
   const store = useAppStore();
   const team = useMyTeam();
 
-  // Görev durumunu localStorage'dan basit takip
-  const [tasks, setTasks] = useState(() => {
-    if (typeof window === "undefined") return [];
-    const key = `tm_tasks_${today}`;
-    const saved = localStorage.getItem(key);
-    if (saved) {
-      try { return JSON.parse(saved); } catch {}
+  // v2.9.50: Günlük görevler artık store'da — cloud-save'e dahil, cihazlar arası senkron
+  const dailyTasks = useAppStore((s) => s.dailyTasks);
+  const setDailyTasks = (tasks: any) => useAppStore.setState({ dailyTasks: { date: today, tasks } });
+
+  const tasks = useMemo(() => {
+    // Tarih değişmişse sıfırla
+    if (dailyTasks?.date !== today) {
+      const fresh = [
+        { id: "train", icon: "🏋️", label: "1 antrenman yap", reward: "+5 moral +2 kredi", done: false, credits: 2 },
+        { id: "tactics", icon: "📋", label: "Taktik düzenle", reward: "+3 kondisyon +2 kredi", done: false, credits: 2 },
+        { id: "transfer", icon: "💰", label: "Transfer/teklif yap", reward: "+10K € +2 kredi", done: false, credits: 2 },
+        { id: "match", icon: "⚽", label: "Maçını izle", reward: "+5 form +2 kredi", done: false, credits: 2 },
+      ];
+      setDailyTasks(fresh);
+      return fresh;
     }
-    // Yeni gün — görevleri sıfırla (P0: kredi ödülü eklendi)
-    const fresh = [
-      { id: "train", icon: "🏋️", label: "1 antrenman yap", reward: "+5 moral +2 kredi", done: false, credits: 2 },
-      { id: "tactics", icon: "📋", label: "Taktik düzenle", reward: "+3 kondisyon +2 kredi", done: false, credits: 2 },
-      { id: "transfer", icon: "💰", label: "Transfer/teklif yap", reward: "+10K € +2 kredi", done: false, credits: 2 },
-      { id: "match", icon: "⚽", label: "Maçını izle", reward: "+5 form +2 kredi", done: false, credits: 2 },
-    ];
-    localStorage.setItem(key, JSON.stringify(fresh));
-    return fresh;
-  });
+    return dailyTasks.tasks ?? [];
+  }, [dailyTasks, today]);
 
   const toggleTask = (id: string) => {
-    const task = tasks.find((t: any) => t.id === id);
-    // P0 FIX: Done görev geri alınamaz — exploit önle (tekrar yapıp ödül tekrar alma)
+    const task = tasks.find((tt: any) => tt.id === id);
     if (!task || task.done) return;
 
-    // Ödül uygula (sadece ilk geçişte)
     haptic("success");
     if (team && store) {
       const state = useAppStore.getState();
@@ -744,37 +742,30 @@ function DailyTasks() {
       const myClub = clubs.find((c) => c.id === team.id);
       if (myClub) {
         if (id === "train") {
-          // +5 moral tüm oyunculara
           myClub.players = myClub.players.map((p) => ({ ...p, morale: Math.min(100, p.morale + 5) }));
         } else if (id === "tactics") {
-          // +3 kondisyon tüm oyunculara
           myClub.players = myClub.players.map((p) => ({ ...p, cond: Math.min(100, p.cond + 3), condition: Math.min(100, (p.condition ?? p.cond) + 3) }));
         } else if (id === "transfer") {
-          // +10K € bütçeye
           myClub.budget += 10_000;
         } else if (id === "match") {
-          // +5 form tüm oyunculara
           myClub.players = myClub.players.map((p) => ({ ...p, form: Math.min(100, p.form + 5) }));
         }
         useAppStore.setState({ clubs });
       }
-      // P0: Kredi ödülü — her görev için +2 kredi
       const taskCredits = (task as any).credits ?? 2;
       useAppStore.getState().addCredits(taskCredits);
     }
 
-    const updated = tasks.map((t: any) => t.id === id ? { ...t, done: true } : t);
-    setTasks(updated);
-    localStorage.setItem(`tm_tasks_${today}`, JSON.stringify(updated));
+    const updated = tasks.map((tt: any) => tt.id === id ? { ...tt, done: true } : tt);
+    setDailyTasks(updated);
 
-    // P0: Tüm görevler tamamlandıysa +5 bonus kredi
-    if (updated.every((t: any) => t.done)) {
+    if (updated.every((tt: any) => tt.done)) {
       haptic("success");
       useAppStore.getState().addCredits(5);
     }
   };
 
-  const completedCount = tasks.filter((t: any) => t.done).length;
+  const completedCount = tasks.filter((tt: any) => tt.done).length;
   const allDone = completedCount === tasks.length;
 
   return (
