@@ -174,11 +174,11 @@ export const RARITY_LABELS: Record<CosmeticRarity, { tr: string; en: string }> =
  * Kataloğu getir — Supabase bağlıysa tablodan, değilse seed'den.
  * Supabase sorgusu başarısız olursa seed'e fallback.
  */
-export async function fetchCosmeticsCatalog(): Promise<CosmeticItem[]> {
+export async function fetchCosmeticsCatalog(): Promise<{ items: CosmeticItem[]; usingSeed: boolean }> {
   try {
     const { supabase, isSupabaseConfigured } = await import("@/lib/supabase");
     if (!isSupabaseConfigured()) {
-      return SEED_COSMETICS;
+      return { items: SEED_COSMETICS, usingSeed: true };
     }
     const { data, error } = await supabase
       .from("cosmetic_items")
@@ -186,10 +186,10 @@ export async function fetchCosmeticsCatalog(): Promise<CosmeticItem[]> {
       .eq("is_active", true)
       .order("sort_order", { ascending: true });
     if (error || !data || data.length === 0) {
-      return SEED_COSMETICS;
+      return { items: SEED_COSMETICS, usingSeed: true };
     }
     // DB satırını CosmeticItem'a map'le
-    return data.map((row: any) => ({
+    const items = data.map((row: any) => ({
       id: row.id,
       sku: row.sku,
       nameTr: row.name_tr,
@@ -206,8 +206,9 @@ export async function fetchCosmeticsCatalog(): Promise<CosmeticItem[]> {
       isActive: row.is_active,
       sortOrder: row.sort_order,
     }));
+    return { items, usingSeed: false };
   } catch (e) {
     console.warn("[cosmetics] fetch error, using seed:", e);
-    return SEED_COSMETICS;
+    return { items: SEED_COSMETICS, usingSeed: true };
   }
 }

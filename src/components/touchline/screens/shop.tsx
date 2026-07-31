@@ -661,14 +661,16 @@ function CosmeticMarketTab({ onFeedback }: { onFeedback: (msg: string) => void }
 
   const [catalog, setCatalog] = useState<CosmeticItem[]>(SEED_COSMETICS);
   const [loading, setLoading] = useState(true);
+  const [usingSeed, setUsingSeed] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<CosmeticCategory | "all">("all");
 
   // Kataloğu yükle (Supabase bağlıysa oradan, değilse seed)
   useEffect(() => {
     let mounted = true;
-    fetchCosmeticsCatalog().then(items => {
+    fetchCosmeticsCatalog().then(result => {
       if (mounted) {
-        setCatalog(items);
+        setCatalog(result.items);
+        setUsingSeed(result.usingSeed);
         setLoading(false);
       }
     });
@@ -721,6 +723,15 @@ function CosmeticMarketTab({ onFeedback }: { onFeedback: (msg: string) => void }
           Forma, rozet, tema, stadyum ve top kozmetiklerini kredi ile satın al. Satın aldığın kozmetikler kalıcıdır ve envanterinde birikir.
         </p>
       </div>
+
+      {/* v2.9.52: Seed veri kullanılıyorsa uyarı */}
+      {usingSeed && (
+        <div className="tm-card p-2 bg-amber-500/10 border-amber-500/30 text-center">
+          <span className="text-[10px] text-amber-400 font-semibold">
+            ⚠️ Çevrimdışı veri — katalog sunucudan yüklenemedi, örnek içerik gösteriliyor
+          </span>
+        </div>
+      )}
 
       {/* Kategori filtre */}
       <div className="flex gap-1.5 overflow-x-auto tm-no-scrollbar">
