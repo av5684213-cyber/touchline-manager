@@ -464,19 +464,33 @@ export function autoFillLineup(
   return lineup;
 }
 
-/** Taktik skoru — formasyon + roller + sliderların basit fonksiyonu. */
+/** v2.9.51: Taktik skoru — formasyon + roller + sliderların OYUNCU UYUMU bazlı fonksiyonu.
+ *
+ * Eski kod: slider 50'den uzaklaştıkça ceza veriyordu → Gegenpressing (90+) ve
+ * Catenaccio (20-) gibi geçerli stratejiler cezalandırılıyordu.
+ *
+ * Yeni sistem: Ekstrem slider'lar cezalandırılmaz, bunun yerine OYUNCU KALİTESİ
+ * ile uyumu kontrol edilir:
+ *   - Yüksek pres (80+) → yüksek kondisyon gerekir (ort. cond > 60)
+ *   - Düşük pres (20-) → yüksek defansif rating gerekir (ort. defending > 65)
+ *   - Yüksek tempo (80+) → yüksek pace gerekir (ort. pace > 65)
+ *   - Düşük tempo (20-) → yüksek passing gerekir (ort. passing > 65)
+ *   - Yüksek kanat (80+) → yüksek pace kanat oyuncuları gerekir
+ *   - Düşük kanat (20-) → yüksek passing orta saha gerekir
+ *
+ * Uyum varsa BONUS, uyum yoksa HAFİF ceza (ağır değil).
+ */
 export function computeTacticScore(
   team: Team,
   formation: Formation,
   lineup: (Player | null)[],
   sliders: { attackingPressure: number; defensiveLine: number; tempo: number; wingPlay: number }
 ): number {
-  // 1) İlk 11 ortalama OVR
   const filled = lineup.filter((p): p is Player => p !== null);
   if (filled.length === 0) return 0;
   const avgOvr = filled.reduce((s, p) => s + p.rating, 0) / filled.length;
 
-  // 2) Slot-pozisyon uyumu
+  // Slot-pozisyon uyumu
   let matchScore = 0;
   for (let i = 0; i < lineup.length; i++) {
     const p = lineup[i];
@@ -488,19 +502,60 @@ export function computeTacticScore(
     else matchScore += 40 / lineup.length;
   }
 
-  // 3) Slider dengesi — uç değerler ceza
-  const sliderBalance =
-    100 -
-    Math.abs(50 - sliders.attackingPressure) * 0.1 -
-    Math.abs(50 - sliders.defensiveLine) * 0.1 -
-    Math.abs(50 - sliders.tempo) * 0.1 -
-    Math.abs(50 - sliders.wingPlay) * 0.1;
+  // v2.9.51: Slider-oyuncu uyumu — ceza yerine bonus/uyum kontrolü
+  const avgCond = filled.reduce((s, p) => s + (p.cond ?? 100), 0) / filled.length;
+  const avgDefending = filled.reduce((s, p) => s + (p.defending ?? 50), 0) / filled.length;
+  const avgPace = filled.reduce((s, p) => s + (p.stats?.pace ?? p.speed ?? 50), 0) / filled.length;
+  const avgPassing = filled.reduce((s, p) => s + (p.passing ?? 50), 0) / filled.length;
 
-  // 4) Moral ortalaması
+  let sliderScore = 50; // başlangıç — ekstrem olmayan taktikler için 50
+
+  // Yüksek pres (80+): kondisyon yüksek mi?
+  if (sliders.attackingPressure >= 80) {
+    sliderScore += avgCond >= 65 ? 20 : -10; // uyum varsa +20, yoksa -10
+  } else if (sliders.attackingPressure <= 20) {
+    // Düşük pres: defansif kalite yüksek mi?
+    sliderScore += avgDefending >= 65 ? 15 : -5;
+  } else {
+    sliderScore += 10; // dengeli pres = +10
+  }
+
+  // Yüksek tempo (80+): pace yüksek mi?
+  if (sliders.tempo >= 80) {
+    sliderScore += avgPace >= 65 ? 15 : -8;
+  } else if (sliders.tempo <= 20) {
+    // Düşük tempo: passing yüksek mi? (possession oyunu)
+    sliderScore += avgPassing >= 65 ? 15 : -5;
+  } else {
+    sliderScore += 10;
+  }
+
+  // Kanat oyunu — orta seviye nötr
+  if (sliders.wingPlay >= 80) {
+    sliderScore += avgPace >= 60 ? 10 : -5;
+  } else if (sliders.wingPlay <= 20) {
+    sliderScore += avgPassing >= 60 ? 10 : -3;
+  } else {
+    sliderScore += 10;
+  }
+
+  // Defansif hat — yüksek hat riskli ama ofansif bonus
+  if (sliders.defensiveLine >= 80) {
+    sliderScore += avgDefending >= 70 ? 10 : -8; // iyi defans varsa yüksek hat çalışır
+  } else if (sliders.defensiveLine <= 20) {
+    sliderScore += 10; // düşük hat her zaman güvenli
+  } else {
+    sliderScore += 10;
+  }
+
+  // Clamp 0-100
+  sliderScore = Math.max(0, Math.min(100, sliderScore));
+
+  // Moral ortalaması
   const avgMorale = filled.reduce((s, p) => s + p.morale, 0) / filled.length;
 
   const score =
-    avgOvr * 0.55 + matchScore * 0.25 + sliderBalance * 0.1 + avgMorale * 0.1;
+    avgOvr * 0.50 + matchScore * 0.25 + sliderScore * 0.15 + avgMorale * 0.10;
   return Math.round(Math.max(0, Math.min(100, score)));
 }
 
