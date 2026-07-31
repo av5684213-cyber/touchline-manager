@@ -1,6 +1,6 @@
 {
   "name": "touchline-manager",
-  "version": "2.9.55",
+  "version": "2.9.57",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",

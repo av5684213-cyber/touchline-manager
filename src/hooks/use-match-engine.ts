@@ -1127,11 +1127,46 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
     // Sadece lig maçıysa fikstüre sonucu yaz — hazırlık maçı yazmasın
     if (!isFriendly) {
       try {
+        // v2.9.57: Maç tekrar izleme için event'leri + MOTM + stats'i sakla
+        // Canlı maç bittikten sonra sonradan "İzle" denildiğinde aynı spiker yorumları
+        // ve olay akışı gösterilecek (re-simülasyon YOK).
+        const replayData = {
+          events: (result.events || []).map((ev: any) => ({
+            minute: ev.minute,
+            type: ev.type,
+            team: ev.team,
+            side: ev.team, // MatchReplayModal uyumluluğu için
+            player: ev.playerName,
+            playerName: ev.playerName,
+            playerId: ev.playerId,
+            assistPlayerId: ev.assistPlayerId,
+            assistPlayerName: ev.assistPlayerName,
+            description: ev.description,
+            goalType: ev.goalType,
+          })),
+          motmId: result.manOfTheMatch,
+          stats: {
+            possession: [result.homePossession ?? 50, result.awayPossession ?? 50] as [number, number],
+            shotsOnTarget: [
+              (result as any).homeStats?.shotsOnTarget ?? 0,
+              (result as any).awayStats?.shotsOnTarget ?? 0,
+            ] as [number, number],
+            corners: [
+              (result as any).homeStats?.corners ?? 0,
+              (result as any).awayStats?.corners ?? 0,
+            ] as [number, number],
+            fouls: [
+              (result as any).homeStats?.fouls ?? 0,
+              (result as any).awayStats?.fouls ?? 0,
+            ] as [number, number],
+          },
+        };
         useAppStore.getState().recordMatchResult(
           home.id,
           away.id,
           result.homeScore,
-          result.awayScore
+          result.awayScore,
+          replayData
         );
         // TEST/SOLO MOD: Maç bitince otomatik haftayı ilerlet
         useAppStore.getState().advanceMatchday();

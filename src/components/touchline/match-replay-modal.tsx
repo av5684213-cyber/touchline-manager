@@ -35,6 +35,11 @@ type MatchResult = {
 /**
  * Maç tekrar izleme modal'ı — herhangi iki takım arasındaki maçı simüle edip gösterir.
  * Puan tablosu, fikstür, takım detayından skorlara tıklanınca açılır.
+ *
+ * v2.9.57: Eğer storedEvents + storedMotmId + storedStats verilirse,
+ * bu kayıtlı verileri kullanır (re-simülasyon YOK). Bu sayede sonradan "İzle"
+ * denildiğinde maçın oynandığı andaki spiker yorumları ve olay akışı birebir
+ * gösterilir. Kayıtlı veri yoksa eski davranışa döner (skordan event üretir).
  */
 export function MatchReplayModal({
   homeTeam,
@@ -43,6 +48,9 @@ export function MatchReplayModal({
   awayScore,
   matchday,
   onClose,
+  storedEvents,
+  storedMotmId,
+  storedStats,
 }: {
   homeTeam: Team;
   awayTeam: Team;
@@ -50,6 +58,15 @@ export function MatchReplayModal({
   awayScore?: number;
   matchday?: number;
   onClose: () => void;
+  // v2.9.57: Kayıtlı maç verisi — verilirse re-simülasyon yapılmaz
+  storedEvents?: any[];
+  storedMotmId?: string;
+  storedStats?: {
+    possession: [number, number];
+    shotsOnTarget: [number, number];
+    corners: [number, number];
+    fouls: [number, number];
+  };
 }) {
   const [watching, setWatching] = useState(false);
   useEscapeToClose(onClose);
@@ -87,10 +104,46 @@ export function MatchReplayModal({
   };
 
   // Maç sonucu — stored score kullan (re-simülasyon YOK)
-  // Sorun: eskiden simulateEnhancedMatch yeniden çağrılıyordu, farklı skor çıkıyordu
-  // Çözüm: homeScore/awayScore prop'ları varsa direkt kullan, event'leri skordan üret
+  // v2.9.57: storedEvents verilirse, kayıtlı event'leri + motm + stats'i direkt kullan
+  // Bu sayede sonradan izlendiğinde aynı spiker yorumları ve olay akışı gösterilir
+  // (eskiden pickScorer + random minute ile her seferinde farklı event üretiyordu)
   const result = useMemo<MatchResult | null>(() => {
     try {
+      // v2.9.57: Kayıtlı event'ler varsa — direkt kullan (re-generate YOK)
+      if (storedEvents && storedEvents.length >= 0 && homeScore != null && awayScore != null) {
+        // Event'leri sırala
+        const events = [...storedEvents].sort((a, b) => (a.minute ?? 0) - (b.minute ?? 0));
+        // playerRatings — event'lerden oyuncu id'lerini topla
+        const playerRatings: Record<string, number> = {};
+        for (const ev of events) {
+          if ((ev as any).playerId && (ev as any).type === "goal") {
+            playerRatings[(ev as any).playerId] = 7 + Math.random() * 2;
+          }
+        }
+        // MOTM — storedMotmId verilirse onu kullan, yoksa en yüksek rated oyuncu
+        const motm = storedMotmId
+          ? [...homeTeam.players, ...awayTeam.players].find((p) => p.id === storedMotmId)
+          : [...homeTeam.players, ...awayTeam.players].sort((a, b) => b.rating - a.rating)[0];
+        // Stats — storedStats verilirse onu kullan, yoksa default
+        const stats = storedStats ?? {
+          possession: [50, 50] as [number, number],
+          shotsOnTarget: [0, 0] as [number, number],
+          corners: [0, 0] as [number, number],
+          fouls: [0, 0] as [number, number],
+        };
+        return {
+          homeScore,
+          awayScore,
+          events,
+          motmPlayerId: motm?.id,
+          playerRatings,
+          homePlayerRatings: [],
+          awayPlayerRatings: [],
+          stats,
+        };
+      }
+
+      // v2.9.57: Kayıtlı event YOK — eski davranış (skordan event üret)
       const homeXI = [...homeTeam.players].sort((a, b) => b.rating - a.rating).slice(0, 11);
       const awayXI = [...awayTeam.players].sort((a, b) => b.rating - a.rating).slice(0, 11);
 
@@ -195,7 +248,7 @@ export function MatchReplayModal({
     } catch (e) {
       return null;
     }
-  }, [homeTeam, awayTeam, homeScore, awayScore]);
+  }, [homeTeam, awayTeam, homeScore, awayScore, storedEvents, storedMotmId, storedStats]);
 
   const displayScore = result ?? { homeScore: homeScore ?? 0, awayScore: awayScore ?? 0, events: [], stats: { possession: [50, 50], shotsOnTarget: [0, 0], corners: [0, 0], fouls: [0, 0] }, playerRatings: {} };
   const sortedEvents = [...displayScore.events].sort((a, b) => a.minute - b.minute);

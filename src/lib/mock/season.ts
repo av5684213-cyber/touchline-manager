@@ -43,6 +43,17 @@ export type FixtureRow = {
   awayScore: number | null;
   date: string; // ISO
   played: boolean;
+  // v2.9.57: Maç tekrar izleme (replay) — kayıtlı event'ler
+  // Maç oynandığında event'ler burada saklanır, böylece sonradan izlendiğinde
+  // aynı spiker yorumları ve olay akışı tekrar üretilebilir (re-simülasyon YOK).
+  events?: any[];
+  motmId?: string;
+  stats?: {
+    possession: [number, number];
+    shotsOnTarget: [number, number];
+    corners: [number, number];
+    fouls: [number, number];
+  };
 };
 
 export type FormResult = "W" | "D" | "L";

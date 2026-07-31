@@ -26,6 +26,8 @@ import { joinFriendlyQueue, type QueueUser, type MatchmakingCallbacks } from "@/
 import { useSupabaseAuth } from "@/lib/auth/auth-context";
 import type { TabKey } from "../bottom-nav";
 import { MatchChatPanel } from "../match-chat";
+// v2.9.57: Maçı İzle — MatchReplayModal stored events ile açılır
+import { MatchReplayModal } from "../match-replay-modal";
 
 /**
  * Hazırlık Maçı sekmesi.
@@ -59,7 +61,12 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
   const stableUserId = user?.id ?? stableGuestUserId ?? `guest_pending`;
   const [selectedOppId, setSelectedOppId] = useState<string | null>(null);
   const [matchStarted, setMatchStarted] = useState(false);
-  const [matchResult, setMatchResult] = useState<{ home: number; away: number } | null>(null);
+  const [matchResult, setMatchResult] = useState<{
+    home: number;
+    away: number;
+    // v2.9.57: Maçı sonradan "İzle" için event'ler + motm + stats
+    replayData?: { events?: any[]; motmId?: string; stats?: any };
+  } | null>(null);
   const [search, setSearch] = useState("");
   const [queueStatus, setQueueStatus] = useState<"idle" | "searching" | "matched">("idle");
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -254,8 +261,8 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
         team={team}
         opponent={opponent}
         engine={engine}
-        onFinish={(home, away) => {
-          setMatchResult({ home, away });
+        onFinish={(home, away, replayData) => {
+          setMatchResult({ home, away, replayData });
           setMatchStarted(false);
         }}
         onCancel={() => {
@@ -274,6 +281,7 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
         opponent={opponent}
         homeScore={matchResult.home}
         awayScore={matchResult.away}
+        replayData={matchResult.replayData}
         onPlayAgain={() => {
           setMatchResult(null);
           engine.reset();
@@ -438,6 +446,9 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
 }
 
 // ===== Canlı maç izleme =====
+// v2.9.57: Friendly maç online olacağı için DURAKLAT butonu YOK
+// Taktik butonu her zaman aktif (modal olarak açılır, pause gerektirmez)
+// Maç bitince events/motm/stats'i onFinish ile taşı — sonradan "İzle" için
 function FriendlyLiveView({
   team,
   opponent,
@@ -448,7 +459,7 @@ function FriendlyLiveView({
   team: any;
   opponent: any;
   engine: ReturnType<typeof useMatchEngine>;
-  onFinish: (home: number, away: number) => void;
+  onFinish: (home: number, away: number, replayData?: { events?: any[]; motmId?: string; stats?: any }) => void;
   onCancel: () => void;
 }) {
   const { t } = useI18n();
@@ -488,9 +499,24 @@ function FriendlyLiveView({
 
   useEffect(() => {
     if (s.status === "finished") {
-      onFinish(s.homeScore, s.awayScore);
+      // v2.9.57: Engine'in tüm event'lerini + MOTM + stats'i topla — sonradan "İzle" için
+      const replayData = {
+        events: (s.events || []).map((ev: any) => ({
+          minute: ev.minute,
+          type: ev.type,
+          team: ev.teamSide ?? ev.team,
+          side: ev.teamSide ?? ev.team,
+          player: ev.playerName ?? ev.player ?? ev.text,
+          playerName: ev.playerName ?? ev.player,
+          playerId: ev.playerId,
+          description: ev.description ?? ev.text,
+        })),
+        motmId: (s as any).motmPlayerId,
+        stats: s.stats,
+      };
+      onFinish(s.homeScore, s.awayScore, replayData);
     }
-  }, [s.status, s.homeScore, s.awayScore, onFinish]);
+  }, [s.status, s.homeScore, s.awayScore, s.events, onFinish]);
 
   return (
     <div className="px-3 py-3 pb-24 space-y-3">
@@ -536,42 +562,27 @@ function FriendlyLiveView({
         </div>
       </div>
 
-      {/* Pause / Resume + Taktik değiştir */}
+      {/* v2.9.57: DURAKLAT BUTONU YOK — online maç olduğu için pause edilemez
+          Sadece Taktik değiştir butonu var, her zaman aktif (modal olarak açılır) */}
       {s.status !== "finished" && (
         <div className="flex gap-2">
-          {s.status === "live" ? (
-            <button
-              onClick={() => { haptic("light"); engine.pause(); }}
-              className="tm-tap flex-1 py-2 rounded-md bg-amber-600 text-white text-xs font-bold"
-            >
-              Duraklat
-            </button>
-          ) : (
-            <button
-              onClick={() => { haptic("medium"); engine.start(); }}
-              className="tm-tap flex-1 py-2 rounded-md bg-emerald-600 text-white text-xs font-bold"
-            >
-              Devam Et
-            </button>
-          )}
-          {/* v2.9.56: Taktik değiştir butonu — pause durumunda aktif */}
           <button
             onClick={() => { haptic("light"); setShowTactics(!showTactics); }}
-            disabled={s.status === "live"}
             className={cn(
-              "tm-tap px-3 py-2 rounded-md text-xs font-bold flex items-center gap-1",
-              s.status === "live"
-                ? "bg-muted text-muted-foreground/50 cursor-not-allowed"
-                : "bg-primary text-primary-foreground"
+              "tm-tap flex-1 py-2 rounded-md text-xs font-bold flex items-center justify-center gap-1.5",
+              showTactics
+                ? "bg-primary text-primary-foreground"
+                : "bg-amber-600 text-white"
             )}
           >
-            <Settings size={12} /> Taktik
+            <Settings size={12} />
+            {showTactics ? "Kapat" : "Taktik Değiştir"}
           </button>
         </div>
       )}
 
-      {/* v2.9.56: Taktik paneli — pause durumunda açılır */}
-      {showTactics && s.status === "paused" && (
+      {/* v2.9.57: Taktik paneli — her zaman açılabilir (pause gerektirmez) */}
+      {showTactics && s.status !== "finished" && (
         <div className="tm-card p-3 space-y-3">
           <div className="text-[10px] font-bold uppercase text-muted-foreground">Taktik Ayarları</div>
           {/* Slider'lar */}
@@ -666,13 +677,97 @@ function FriendlyLiveView({
         </div>
       )}
 
-      {/* İstatistik sekmesi */}
+      {/* İstatistik sekmesi — v2.9.57: Resmi maçlar gibi detaylı (goller, kartlar, MOTM, istatistikler) */}
       {matchTab === "stats" && (
-        <div className="tm-card p-3 space-y-2">
-          <SimpleStatBar label="Topla Oynama %" home={s.stats?.possession?.[0] ?? 50} away={s.stats?.possession?.[1] ?? 50} />
-          <SimpleStatBar label="İsabetli Şut" home={s.stats?.shotsOnTarget?.[0] ?? 0} away={s.stats?.shotsOnTarget?.[1] ?? 0} />
-          <SimpleStatBar label="Korner" home={s.stats?.corners?.[0] ?? 0} away={s.stats?.corners?.[1] ?? 0} />
-          <SimpleStatBar label="Faul" home={s.stats?.fouls?.[0] ?? 0} away={s.stats?.fouls?.[1] ?? 0} />
+        <div className="space-y-2">
+          {/* Maç istatistikleri */}
+          <div className="tm-card p-3 space-y-2">
+            <div className="text-[10px] text-muted-foreground uppercase font-bold mb-1">İstatistikler</div>
+            <SimpleStatBar label="Topla Oynama %" home={s.stats?.possession?.[0] ?? 50} away={s.stats?.possession?.[1] ?? 50} />
+            <SimpleStatBar label="İsabetli Şut" home={s.stats?.shotsOnTarget?.[0] ?? 0} away={s.stats?.shotsOnTarget?.[1] ?? 0} />
+            <SimpleStatBar label="Korner" home={s.stats?.corners?.[0] ?? 0} away={s.stats?.corners?.[1] ?? 0} />
+            <SimpleStatBar label="Faul" home={s.stats?.fouls?.[0] ?? 0} away={s.stats?.fouls?.[1] ?? 0} />
+          </div>
+
+          {/* Goller — resmi maçlar gibi gol scorers listesi */}
+          {(() => {
+            const goals = (s.events || []).filter((ev: any) => ev.type === "goal" || ev.text?.includes("GOL") || ev.text?.includes("GOOOL"));
+            if (goals.length === 0) return null;
+            return (
+              <div className="tm-card p-3">
+                <div className="text-[10px] text-muted-foreground uppercase font-bold mb-2">⚽ Goller</div>
+                <div className="space-y-1.5">
+                  {goals.map((g: any, i: number) => {
+                    const isHome = g.teamSide === "home" || g.team === "home";
+                    const scorerName = g.playerName ?? g.player ?? g.text ?? "Bilinmiyor";
+                    return (
+                      <div key={i} className={cn("flex items-center gap-2 text-[10px]", !isHome && "flex-row-reverse text-right")}>
+                        <span className="font-bold tabular-nums text-muted-foreground w-8">{g.minute}'</span>
+                        <span className="text-base">⚽</span>
+                        <span className="font-semibold flex-1 truncate text-left">{scorerName}</span>
+                        <span className={cn("text-[11px] px-1 py-0.5 rounded font-bold", isHome ? "bg-emerald-500/20 text-emerald-300" : "bg-sky-500/20 text-sky-300")}>
+                          {isHome ? team.shortName : opponent.shortName}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Kartlar */}
+          {(() => {
+            const cards = (s.events || []).filter((ev: any) =>
+              ev.type === "yellow_card" || ev.type === "red_card" ||
+              ev.type === "yellow" || ev.type === "red" ||
+              ev.text?.includes("sarı kart") || ev.text?.includes("kırmızı kart")
+            );
+            if (cards.length === 0) return null;
+            return (
+              <div className="tm-card p-3">
+                <div className="text-[10px] text-muted-foreground uppercase font-bold mb-2">🟨🟥 Kartlar</div>
+                <div className="space-y-1.5">
+                  {cards.map((c: any, i: number) => {
+                    const isHome = c.teamSide === "home" || c.team === "home";
+                    const isRed = c.type === "red_card" || c.type === "red" || c.text?.includes("kırmızı");
+                    const playerName = c.playerName ?? c.player ?? c.text ?? "Bilinmiyor";
+                    return (
+                      <div key={i} className={cn("flex items-center gap-2 text-[10px]", !isHome && "flex-row-reverse text-right")}>
+                        <span className="font-bold tabular-nums text-muted-foreground w-8">{c.minute}'</span>
+                        <span className="text-base">{isRed ? "🟥" : "🟨"}</span>
+                        <span className="font-semibold flex-1 truncate text-left">{playerName}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Maçın Adamı — maç bittikten sonra göster */}
+          {s.status === "finished" && (s as any).motmPlayerId && (() => {
+            const motm = [...team.players, ...opponent.players].find(p => p.id === (s as any).motmPlayerId);
+            if (!motm) return null;
+            const isHome = team.players.some(p => p.id === motm.id);
+            return (
+              <div className="tm-card p-3 bg-amber-500/10 border-amber-500/30">
+                <div className="text-[10px] font-bold text-amber-300 mb-1.5">⭐ Maçın Adamı</div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-full text-[10px] font-bold text-white shrink-0"
+                    style={{ background: isHome ? team.primaryColor : opponent.primaryColor }}
+                  >
+                    {motm.specificPosition}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold truncate">{motm.firstName} {motm.lastName}</div>
+                    <div className="text-[11px] text-muted-foreground">{motm.specificPosition} · {isHome ? team.name : opponent.name}</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -707,11 +802,14 @@ function FriendlyLiveView({
 }
 
 // ===== Maç sonucu =====
+// v2.9.57: "Maçı İzle" butonu eklendi — MatchReplayModal açar
+// Stored events ile açıldığı için spiker yorumları birebir aynı olur
 function FriendlyResultView({
   team,
   opponent,
   homeScore,
   awayScore,
+  replayData,
   onPlayAgain,
   onChangeOpponent,
 }: {
@@ -719,9 +817,12 @@ function FriendlyResultView({
   opponent: any;
   homeScore: number;
   awayScore: number;
+  replayData?: { events?: any[]; motmId?: string; stats?: any };
   onPlayAgain: () => void;
   onChangeOpponent: () => void;
 }) {
+  const { t } = useI18n();
+  const [showReplay, setShowReplay] = useState(false);
   const won = homeScore > awayScore;
   const drew = homeScore === awayScore;
   const resultText = won ? "Kazandın!" : drew ? "Berabere" : "Kaybettin";
@@ -767,6 +868,16 @@ function FriendlyResultView({
 
       {/* Aksiyon butonları */}
       <div className="space-y-2">
+        {/* v2.9.57: Maçı İzle butonu — MatchReplayModal açar */}
+        {replayData?.events && replayData.events.length > 0 && (
+          <button
+            onClick={() => { haptic("medium"); setShowReplay(true); }}
+            className="tm-tap w-full py-2.5 rounded-md bg-emerald-600 text-white text-sm font-bold flex items-center justify-center gap-2"
+          >
+            <Play size={14} />
+            Maçı İzle (Spiker Yorumlarıyla)
+          </button>
+        )}
         <button
           onClick={() => { haptic("medium"); onPlayAgain(); }}
           className="tm-tap w-full py-2.5 rounded-md bg-amber-600 text-white text-sm font-bold flex items-center justify-center gap-2"
@@ -782,6 +893,20 @@ function FriendlyResultView({
           Başka Rakip Seç
         </button>
       </div>
+
+      {/* v2.9.57: Maç tekrar izleme modal'ı — stored events ile */}
+      {showReplay && (
+        <MatchReplayModal
+          homeTeam={team}
+          awayTeam={opponent}
+          homeScore={homeScore}
+          awayScore={awayScore}
+          storedEvents={replayData?.events}
+          storedMotmId={replayData?.motmId}
+          storedStats={replayData?.stats}
+          onClose={() => setShowReplay(false)}
+        />
+      )}
     </div>
   );
 }

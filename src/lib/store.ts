@@ -370,7 +370,23 @@ type AppState = {
   // season actions
   endSeason: () => { success: boolean; summary?: SeasonSummary };
   advanceMatchday: () => void;
-  recordMatchResult: (homeId: string, awayId: string, homeScore: number, awayScore: number) => void;
+  recordMatchResult: (
+    homeId: string,
+    awayId: string,
+    homeScore: number,
+    awayScore: number,
+    // v2.9.57: Maç tekrar izleme için event'leri sakla
+    replayData?: {
+      events?: any[];
+      motmId?: string;
+      stats?: {
+        possession: [number, number];
+        shotsOnTarget: [number, number];
+        corners: [number, number];
+        fouls: [number, number];
+      };
+    }
+  ) => void;
   // ADDED: Sponsor actions
   generateSponsorOffers: () => void;
   acceptSponsor: (sponsorId: string) => void;
@@ -2275,6 +2291,8 @@ export const useAppStore = create<AppState>()(
           (f) => f.matchday === currentMd && !f.played && (f.homeId === myTeamId || f.awayId === myTeamId)
         );
         let userMatchResult: { homeScore: number; awayScore: number } | null = null;
+        // v2.9.57: Maç tekrar izleme (replay) için event'leri sakla
+        let userMatchReplayData: { events?: any[]; motmId?: string; stats?: any } | null = null;
         if (userMatch) {
           const homeTeam = clubs.find((c) => c.id === userMatch.homeId);
           const awayTeam = clubs.find((c) => c.id === userMatch.awayId);
@@ -2297,6 +2315,38 @@ export const useAppStore = create<AppState>()(
                 { homeTeamName: homeTeam.name, awayTeamName: awayTeam.name }
               );
               userMatchResult = { homeScore: result.homeScore, awayScore: result.awayScore };
+              // v2.9.57: Event'leri + MOTM + stats'i sakla — sonradan "İzle" için
+              userMatchReplayData = {
+                events: (result.events || []).map((ev: any) => ({
+                  minute: ev.minute,
+                  type: ev.type,
+                  team: ev.team,
+                  side: ev.team, // uyumluluk için
+                  player: ev.playerName,
+                  playerName: ev.playerName,
+                  playerId: ev.playerId,
+                  assistPlayerId: ev.assistPlayerId,
+                  assistPlayerName: ev.assistPlayerName,
+                  description: ev.description,
+                  goalType: ev.goalType,
+                })),
+                motmId: result.manOfTheMatch,
+                stats: {
+                  possession: [result.homePossession ?? 50, result.awayPossession ?? 50],
+                  shotsOnTarget: [
+                    (result as any).homeStats?.shotsOnTarget ?? 0,
+                    (result as any).awayStats?.shotsOnTarget ?? 0,
+                  ],
+                  corners: [
+                    (result as any).homeStats?.corners ?? 0,
+                    (result as any).awayStats?.corners ?? 0,
+                  ],
+                  fouls: [
+                    (result as any).homeStats?.fouls ?? 0,
+                    (result as any).awayStats?.fouls ?? 0,
+                  ],
+                },
+              };
             } catch (e) {
               console.warn("[advanceMatchday] enhanced sim hatası, basit sim:", e);
               const homeStr = [...homeTeam.players].filter(p => isPlayerAvailable(p)).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
@@ -2354,7 +2404,16 @@ export const useAppStore = create<AppState>()(
           if (f.matchday !== currentMd || f.played) return f;
           // Kullanıcının maçı — yukarıda simüle edilmiş sonucu kullan
           if (userMatch && f.id === userMatch.id && userMatchResult) {
-            return { ...f, homeScore: userMatchResult.homeScore, awayScore: userMatchResult.awayScore, played: true };
+            return {
+              ...f,
+              homeScore: userMatchResult.homeScore,
+              awayScore: userMatchResult.awayScore,
+              played: true,
+              // v2.9.57: Replay için event'leri + motm + stats'i fixture'a kaydet
+              events: userMatchReplayData?.events,
+              motmId: userMatchReplayData?.motmId,
+              stats: userMatchReplayData?.stats,
+            };
           }
           // v2.9.18: Bot vs bot maçı — akıllı simülasyon (BotAI)
           const homeTeam = clubs.find((c) => c.id === f.homeId);
@@ -3568,12 +3627,22 @@ export const useAppStore = create<AppState>()(
         return { success: true, summary };
       },
 
-      recordMatchResult: (homeId, awayId, homeScore, awayScore) => {
+      recordMatchResult: (homeId, awayId, homeScore, awayScore, replayData) => {
         const { fixtures, clubs, myTeamId, news } = get();
         const currentMd = SEASON_INFO.matchday;
         const updatedFixtures = fixtures.map((f) => {
           if (f.matchday === currentMd && f.homeId === homeId && f.awayId === awayId && !f.played) {
-            return { ...f, homeScore, awayScore, played: true };
+            // v2.9.57: replayData varsa event'leri + motm + stats'i fixture'a kaydet
+            // Bu sayede sonradan "İzle" denildiğinde aynı spiker yorumları gösterilir
+            return {
+              ...f,
+              homeScore,
+              awayScore,
+              played: true,
+              events: replayData?.events,
+              motmId: replayData?.motmId,
+              stats: replayData?.stats,
+            };
           }
           return f;
         });

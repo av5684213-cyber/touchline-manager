@@ -1,14 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Calendar, ChevronRight, Clock, Play, RotateCcw } from "lucide-react";
+import { Calendar, ChevronRight, Clock, Eye, RotateCcw } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { SEASON_INFO, myRecentMatches, type FixtureRow } from "@/lib/mock/season";
 import { ClubBadge } from "../ui-bits";
 import { MatchReplayModal } from "../match-replay-modal";
+import { TeamDetailModal } from "../team-detail-modal";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
+import type { Team } from "@/lib/mock/data";
 
 type FilterKey = "all" | "played" | "upcoming";
 
@@ -19,7 +21,18 @@ export function FixtureScreen() {
   const fixtures = useAppStore((s) => s.fixtures);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [expandedMd, setExpandedMd] = useState<number | null>(null);
-  const [replayMatch, setReplayMatch] = useState<{ homeId: string; awayId: string; homeScore: number; awayScore: number; matchday: number } | null>(null);
+  const [replayMatch, setReplayMatch] = useState<{
+    homeId: string;
+    awayId: string;
+    homeScore: number;
+    awayScore: number;
+    matchday: number;
+    events?: any[];
+    motmId?: string;
+    stats?: any;
+  } | null>(null);
+  // v2.9.57: Takım detay modal'ı — fixture'daki takımlara tıklayınca açılır
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
 
   // Kullanıcının takım ID'sine göre tüm fikstürünü bul
   const myFixtures = useMemo(() => {
@@ -206,20 +219,30 @@ export function FixtureScreen() {
                 {isHome ? t("fixture.home") : t("fixture.away")}
               </span>
 
-              {/* Opponent */}
-              <ClubBadge short={opp.shortName} primaryColor={opp.primaryColor} size={24} />
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-semibold truncate">{opp.name}</div>
-                <div className="text-[11px] text-muted-foreground">
-                  {new Intl.DateTimeFormat(locale === "tr" ? "tr-TR" : "en-US", {
-                    day: "2-digit", month: "short",
-                  }).format(new Date(f.date))}
+              {/* v2.9.57: Opponent — tıklanabilir, TeamDetailModal açar */}
+              <button
+                onClick={() => {
+                  haptic("light");
+                  setSelectedTeam(opp);
+                }}
+                className="tm-tap flex items-center gap-2 flex-1 min-w-0 hover:opacity-80 transition-opacity"
+              >
+                <ClubBadge short={opp.shortName} primaryColor={opp.primaryColor} size={24} />
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="text-xs font-semibold truncate hover:text-primary transition-colors">{opp.name}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {new Intl.DateTimeFormat(locale === "tr" ? "tr-TR" : "en-US", {
+                      day: "2-digit", month: "short",
+                    }).format(new Date(f.date))}
+                  </div>
                 </div>
-              </div>
+              </button>
 
-              {/* Score or Play button */}
+              {/* v2.9.57: Geçmiş maçlar için "İzle" butonu + skor
+                  Yaklaşan maçlarda "Oyna" YOK — maçlar otomatik oynanır */}
               {f.played ? (
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex items-center gap-1 shrink-0">
+                  {/* Skor — tıklanabilir, replay açar */}
                   <button
                     onClick={() => {
                       haptic("light");
@@ -229,6 +252,10 @@ export function FixtureScreen() {
                         homeScore: f.homeScore ?? 0,
                         awayScore: f.awayScore ?? 0,
                         matchday: f.matchday,
+                        // v2.9.57: Stored events — aynı maçı izlediğinde aynı spiker yorumları
+                        events: f.events,
+                        motmId: f.motmId,
+                        stats: f.stats,
                       });
                     }}
                     className={cn(
@@ -240,40 +267,42 @@ export function FixtureScreen() {
                   >
                     {us} - {them}
                   </button>
+                  {/* v2.9.57: "İzle" butonu — Eye icon ile, explicit */}
                   <button
-                    onClick={() => { haptic("light"); setExpandedMd(expandedMd === f.matchday ? null : f.matchday); }}
-                    className="tm-tap p-1 text-muted-foreground"
-                    aria-label={t("fixture.replay")}
+                    onClick={() => {
+                      haptic("light");
+                      setReplayMatch({
+                        homeId: f.homeId,
+                        awayId: f.awayId,
+                        homeScore: f.homeScore ?? 0,
+                        awayScore: f.awayScore ?? 0,
+                        matchday: f.matchday,
+                        events: f.events,
+                        motmId: f.motmId,
+                        stats: f.stats,
+                      });
+                    }}
+                    className="tm-tap flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold bg-emerald-600/10 text-emerald-400 border border-emerald-600/30 hover:bg-emerald-600/20 transition-colors"
+                    aria-label={t("fixture.watch")}
                   >
-                    <RotateCcw size={11} />
+                    <Eye size={11} />
+                    {t("fixture.watch")}
                   </button>
                 </div>
               ) : (
-                <button
-                  onClick={() => {
-                    haptic("medium");
-                    // P0 FIX: Play butonu no-op değildi — kullanıcının maçını oynat
-                    // Eğer bu kullanıcının maçıysa ve oynanmamışsa, advanceMatchday ile simüle et
-                    if (isCurrent && team && (f.homeId === team.id || f.awayId === team.id) && !f.played) {
-                      useAppStore.getState().advanceMatchday();
-                    }
-                  }}
-                  disabled={!isCurrent || !team || (team && !(f.homeId === team.id || f.awayId === team.id)) || f.played}
-                  className={cn(
-                    "tm-tap px-2.5 py-1 rounded text-[10px] font-bold shrink-0",
-                    isCurrent ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
-                    "disabled:opacity-40 disabled:cursor-not-allowed"
-                  )}
-                >
-                  {isCurrent ? t("fixture.play") : "—"}
-                </button>
+                /* v2.9.57: Yaklaşan maçlar — "Oyna" butonu YOK
+                   Maçlar otomatik oynanır (advanceMatchday), kullanıcının tercihine bırakılmaz
+                   Sadece tarih/bekleme göstergesi */
+                <div className="shrink-0 text-[10px] text-muted-foreground px-2 py-1 rounded bg-muted/30">
+                  {isCurrent ? "Bugün" : "—"}
+                </div>
               )}
             </div>
           );
         })}
       </div>
 
-      {/* Maç tekrar izleme modal'ı */}
+      {/* Maç tekrar izleme modal'ı — v2.9.57: stored events ile açılır */}
       {replayMatch && (() => {
         const home = clubs.find((c) => c.id === replayMatch.homeId);
         const away = clubs.find((c) => c.id === replayMatch.awayId);
@@ -285,19 +314,39 @@ export function FixtureScreen() {
             homeScore={replayMatch.homeScore}
             awayScore={replayMatch.awayScore}
             matchday={replayMatch.matchday}
+            // v2.9.57: Stored events — maç oynandığı andaki spiker yorumlarını birebir göster
+            // Re-simülasyon YOK, aynı olay akışı ve gol scorers tekrar gösterilir
+            storedEvents={replayMatch.events}
+            storedMotmId={replayMatch.motmId}
+            storedStats={replayMatch.stats}
             onClose={() => setReplayMatch(null)}
           />
         );
       })()}
 
+      {/* v2.9.57: Takım detay modal'ı — fixture'daki takımlara tıklayınca açılır */}
+      {selectedTeam && team && (
+        <TeamDetailModal
+          team={selectedTeam}
+          isMyTeam={selectedTeam.id === team.id}
+          onClose={() => setSelectedTeam(null)}
+          onMessage={(t) => {
+            setSelectedTeam(null);
+            // Mesajlaşma modali opsiyonel — şu an sadece kapat
+            console.log("Team message:", t.name);
+          }}
+        />
+      )}
+
       {/* Kupa maçları bölümü — store.cup'tan gelir */}
-      <CupFixturesSection />
+      <CupFixturesSection onTeamSelect={setSelectedTeam} />
     </div>
   );
 }
 
 // Kupa fikstür bölümü — store.cup.matches'tan okur
-function CupFixturesSection() {
+// v2.9.57: Takımlara tıklanınca TeamDetailModal açar
+function CupFixturesSection({ onTeamSelect }: { onTeamSelect?: (team: Team) => void }) {
   const { t } = useI18n();
   const clubs = useAppStore((s) => s.clubs);
   const cup = useAppStore((s) => s.cup);
@@ -345,21 +394,39 @@ function CupFixturesSection() {
               <span className="text-[10px] text-muted-foreground shrink-0">
                 {isHome ? "EV" : "DEP"}
               </span>
-              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              {/* v2.9.57: Takım 1 — tıklanabilir */}
+              <button
+                onClick={() => {
+                  if (onTeamSelect) {
+                    const t1 = isHome ? team : opp;
+                    if (t1) { haptic("light"); onTeamSelect(t1); }
+                  }
+                }}
+                className="tm-tap flex items-center gap-1.5 flex-1 min-w-0 hover:opacity-80 transition-opacity"
+              >
                 <ClubBadge short={isHome ? team.shortName : opp?.shortName ?? "—"}
                   primaryColor={isHome ? team.primaryColor : opp?.primaryColor ?? "#666"} size={18} />
-                <span className="text-[10px] font-semibold truncate">
+                <span className="text-[10px] font-semibold truncate hover:text-primary transition-colors">
                   {isHome ? team.name : opp?.name ?? "—"}
                 </span>
-              </div>
+              </button>
               <span className="text-[10px] text-muted-foreground font-bold">vs</span>
-              <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
-                <span className="text-[10px] font-semibold truncate text-right">
+              {/* v2.9.57: Takım 2 — tıklanabilir */}
+              <button
+                onClick={() => {
+                  if (onTeamSelect) {
+                    const t2 = isHome ? opp : team;
+                    if (t2) { haptic("light"); onTeamSelect(t2); }
+                  }
+                }}
+                className="tm-tap flex items-center gap-1.5 flex-1 min-w-0 justify-end hover:opacity-80 transition-opacity"
+              >
+                <span className="text-[10px] font-semibold truncate text-right hover:text-primary transition-colors">
                   {isHome ? opp?.name ?? "—" : team.name}
                 </span>
                 <ClubBadge short={isHome ? opp?.shortName ?? "—" : team.shortName}
                   primaryColor={isHome ? opp?.primaryColor ?? "#666" : team.primaryColor} size={18} />
-              </div>
+              </button>
               {m.played ? (
                 <span className={cn("text-[10px] font-bold tabular-nums shrink-0 w-8 text-center",
                   outcome === "G" ? "text-emerald-400" : outcome === "M" ? "text-red-400" : "text-amber-400")}>

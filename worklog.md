@@ -3421,3 +3421,44 @@ Kullanıcı için sonraki adım:
    - Mağaza → kart satın al → oyuncuya 3 kart basmayı dene (3. engellenmeli)
    - Sezon bitir → oyuncu piyasa değerinin performans ile değiştiğini gör
    - Kupa sekmesi → Şampiyonlar Ligi bracket'ini izle (bye'lar dahil)
+
+---
+Task ID: v2.9.57
+Agent: main (Super Z)
+Task: Hazırlık maçı + Fikstür ekranı iyileştirmeleri — pause kaldır, izle butonu, stored events ile replay, team modal
+
+Work Log:
+- FixtureRow tipine events/motmId/stats alanları eklendi (season.ts)
+- store.ts: recordMatchResult opsiyonel replayData parametresi kabul eder
+- store.ts: advanceMatchday kullanıcı maçı için events + motm + stats'i fixture'a kaydeder
+- use-match-engine.ts: canlı maç bittiğinde result.events + manOfTheMatch + stats'i recordMatchResult'a geçirir
+- MatchReplayModal: storedEvents/storedMotmId/storedStats prop'ları eklendi
+  - Kayıtlı event'ler varsa direkt kullanılır (re-simülasyon YOK)
+  - Sonradan izlendiğinde aynı spiker yorumları ve olay akışı birebir gösterilir
+- friendly.tsx (Hazırlık Maçı):
+  - Duraklat/Devam Et butonu kaldırıldı (online maç — pause edilemez)
+  - Taktik Değiştir butonu her zaman aktif (pause gerektirmez, modal olarak açılır)
+  - İstatistik sekmesi genişletildi: Gol scorers, Kartlar, MOTM (resmi maçlar gibi)
+  - Maç sonu "Maçı İzle" butonu eklendi — MatchReplayModal stored events ile açar
+  - Engine state'inden events/motm/stats toplanıp FriendlyResultView'a taşınır
+- fixture.tsx (Fikstür):
+  - Geçmiş maçlarda "Oyna" yerine "İzle" butonu (Eye icon)
+  - Skor butonu hala replay açar (stored events ile)
+  - Yaklaşan maçlarda "Oyna" butonu kaldırıldı (maçlar otomatik oynanır)
+  - Takım isimleri/badges tıklanabilir — TeamDetailModal açar
+  - Kupa maçlarındaki takımlar da tıklanabilir
+- i18n: fixture.watch anahtarı eklendi (tr/en/es/de/fr/pt)
+
+Stage Summary:
+- Build: BAŞARILI (npx next build, npx tsc --noEmit temiz)
+- 6 değişiklik tamamlandı: pause kaldır, taktik aktif, izle butonu, stored events, team modal, i18n
+- Maç tekrar izleme artık deterministic: aynı maçı iki kez izlerseniz AYNI spiker yorumlarını görürsünüz
+- Friendly maç artık resmi maçlar gibi detaylı istatistik gösterir (goller, kartlar, MOTM)
+- Kullanıcı fixture'dan takımlara tıklayıp TeamDetailModal açabilir
+
+Test senaryoları:
+1. Hazırlık maçı başlat → Duraklat butonu yok, Taktik Değiştir her zaman aktif
+2. Maç bitir → "Maçı İzle" butonu → Aynı olay akışı ve gol scorers
+3. Fikstür → geçmiş maç → "İzle" butonu → Aynı spiker yorumları
+4. Fikstür → takım ismine tıkla → TeamDetailModal açılır
+5. Fikstür → yaklaşan maç → "Oyna" butonu yok, "Bugün" veya "—" göster
