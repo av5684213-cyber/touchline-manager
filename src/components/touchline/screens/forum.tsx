@@ -319,7 +319,12 @@ function NewTopicForm({
           category,
         });
       if (insertErr) {
-        setError(insertErr.message);
+        // v2.9.53: Rate-limit hatasını kullanıcı dostu mesaja çevir
+        if (insertErr.message?.includes("Rate limit exceeded")) {
+          setError("Çok hızlı gönderiyorsun, biraz bekle (30 saniye).");
+        } else {
+          setError(insertErr.message);
+        }
         return;
       }
       haptic("success");
@@ -419,6 +424,7 @@ function TopicDetail({
   const [loading, setLoading] = useState(true);
   const [replyText, setReplyText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [replyError, setReplyError] = useState<string | null>(null);
   const cat = CATEGORIES.find(c => c.id === topic.category);
 
   const loadReplies = useCallback(async () => {
@@ -459,6 +465,7 @@ function TopicDetail({
     if (!userId || !myTeam) return;
     if (replyText.trim().length < 2) return;
     setSubmitting(true);
+    setReplyError(null);
     try {
       const { error } = await supabase
         .from("forum_replies")
@@ -471,6 +478,12 @@ function TopicDetail({
           body: replyText.trim().slice(0, 500),
         });
       if (error) {
+        // v2.9.53: Rate-limit hatasını kullanıcı dostu mesaja çevir
+        if (error.message?.includes("Rate limit exceeded")) {
+          setReplyError("Çok hızlı gönderiyorsun, biraz bekle (10 saniye).");
+        } else {
+          setReplyError(error.message);
+        }
         console.warn("[forum] reply error:", error.message);
         return;
       }
@@ -580,6 +593,7 @@ function TopicDetail({
 
       {/* Cevap yazma */}
       {userId && myTeam ? (
+        <>
         <div className="tm-card p-2.5 flex items-center gap-2">
           <input
             type="text"
@@ -598,6 +612,13 @@ function TopicDetail({
             {submitting ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
           </button>
         </div>
+        {/* v2.9.53: Rate-limit / hata mesajı */}
+        {replyError && (
+          <div className="text-[10px] text-amber-400 text-center -mt-1">
+            {replyError}
+          </div>
+        )}
+        </>
       ) : (
         <div className="tm-card p-3 text-center text-[10px] text-amber-400 bg-amber-500/10">
           Cevap yazmak için giriş yapmalısın.
