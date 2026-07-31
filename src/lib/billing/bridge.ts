@@ -84,27 +84,41 @@ export async function querySkuDetails(skus: string[]): Promise<BillingSku[]> {
 }
 
 /**
+ * v2.9.52: Dev mode flag — sadece local dev/staging'de true.
+ * Production build'inde (Play Store APK) bu flag tanımsız/false olmalı.
+ * .env.production'da NEXT_PUBLIC_BILLING_DEV_MODE tanımlı OLMAMALI.
+ */
+const BILLING_DEV_MODE = process.env.NEXT_PUBLIC_BILLING_DEV_MODE === "true";
+
+/**
  * Satın alma akışını başlat.
- * Native yoksa (Geliştirici Modu) fake success döndürür.
  *
- * Başarılı satın almadan sonra:
- *   1. `acknowledgePurchase(purchaseToken)` çağrılır
- *   2. Server-side receipt verification (Supabase Edge Function) — opsiyonel
- *   3. Kredi/reward kullanıcıya eklenir
+ * v2.9.52: Dev mode bypass artık env flag ile korunuyor.
+ * - BILLING_DEV_MODE === true AND native yok → simülasyon (sadece dev/staging)
+ * - BILLING_DEV_MODE === false/undefined AND native yok → success:false, billing_unavailable
+ * - Native var → gerçek billing akışı (değişmedi)
  */
 export async function launchPurchaseFlow(sku: string): Promise<BillingResult> {
   if (!isBillingAvailable()) {
-    // Geliştirici Modu — fake başarılı satın alma
-    console.log("[billing] Dev mode — simulating purchase for", sku);
+    // v2.9.52: Production'da sahte satın alma YASAK
+    if (BILLING_DEV_MODE) {
+      console.log("[billing] Dev mode — simulating purchase for", sku);
+      return {
+        success: true,
+        purchase: {
+          sku,
+          purchaseToken: `dev_token_${Date.now()}`,
+          purchaseTime: Date.now(),
+          purchaseState: "purchased",
+          acknowledged: true,
+        },
+      };
+    }
+    // Production: native billing yok → satın alma başarısız
+    console.warn("[billing] Native billing unavailable — purchase rejected");
     return {
-      success: true,
-      purchase: {
-        sku,
-        purchaseToken: `dev_token_${Date.now()}`,
-        purchaseTime: Date.now(),
-        purchaseState: "purchased",
-        acknowledged: true,
-      },
+      success: false,
+      reason: "billing_unavailable",
     };
   }
 
