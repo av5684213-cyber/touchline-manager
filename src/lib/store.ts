@@ -429,6 +429,11 @@ type AppState = {
   unequipCosmetic: (category: string) => void;
   getCosmeticsOwned: () => string[];
   getCosmeticsEquipped: () => Record<string, string>;
+  // v2.9.58: Arketip migration — mevcut oyuncuların arketiplerini azalt
+  migrateArchetypes: () => void;
+  // v2.9.58: Yardım modal'ı görüntüleme flag'i
+  helpModalOpen: boolean;
+  setHelpModalOpen: (open: boolean) => void;
 };
 
 export type SeasonSummary = {
@@ -607,6 +612,8 @@ export const useAppStore = create<AppState>()(
       managerName: "",
       myTeamId: null,
       seasonMatchday: 1,
+      // v2.9.58: Yardım modal'ı default kapalı
+      helpModalOpen: false,
       seasonNumber: 1,
       clubs: [],
       fixtures: [],
@@ -4512,6 +4519,43 @@ export const useAppStore = create<AppState>()(
 
       getCosmeticsEquipped: () => {
         return get().cosmetics.equipped;
+      },
+
+      // v2.9.58: Arketip migration — mevcut oyuncuların ~%65'inin arketipini kaldır
+      // Yeni sistem: sadece yüksek OVR'lı + %35 ihtimalle arketip verilir
+      // Eski kayıtlı oyuncular "her oyuncuda arketip var" kuralıyla üretildiği için
+      // bu migration bir kerelik çalışır ve eski oyuncuları yeni kuralla uyumlu hale getirir
+      migrateArchetypes: () => {
+        const { clubs, _archetypeMigrationDone } = get() as any;
+        if (_archetypeMigrationDone) return; // Bir kerelik
+
+        const updatedClubs = clubs.map((c) => ({
+          ...c,
+          players: c.players.map((p) => {
+            // Arketipi yoksa dokunma
+            if (!p.archetype) return p;
+            // OVR < 70 ve %65 ihtimalle arketipi kaldır
+            if (p.rating < 70 && Math.random() < 0.65) {
+              return { ...p, archetype: "" };
+            }
+            // OVR >= 70 ve %30 ihtimalle arketipi kaldır (yıldızlarda bile bazıları sıradan)
+            if (p.rating >= 70 && Math.random() < 0.30) {
+              return { ...p, archetype: "" };
+            }
+            return p;
+          }),
+        }));
+
+        set({
+          clubs: updatedClubs,
+          _archetypeMigrationDone: true,
+        } as any);
+        console.log("[v2.9.58] Arketip migration tamamlandı — oyuncuların ~%65'i arketipsiz");
+      },
+
+      // v2.9.58: Yardım modal'ı açma/kapama
+      setHelpModalOpen: (open) => {
+        set({ helpModalOpen: open });
       },
     })
 );

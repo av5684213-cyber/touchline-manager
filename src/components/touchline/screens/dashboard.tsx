@@ -9,6 +9,7 @@ import {
   Flame,
   Globe,
   Heart,
+  HelpCircle,
   ListChecks,
   LogOut,
   MessageSquare,
@@ -238,8 +239,20 @@ export function DashboardScreen() {
     ? clubs.find((c) => c.id === (next.homeId === team.id ? next.awayId : next.homeId))
     : null;
 
+  // v2.9.58: Yardım modal'ı açma
+  const setHelpModalOpen = useAppStore((s) => s.setHelpModalOpen);
+
   return (
     <div className="px-4 py-4 space-y-4 pb-24">
+      {/* v2.9.58: Yardım butonu — oyunun amacı + sekmeler + arketip açıklaması */}
+      <button
+        onClick={() => { haptic("light"); setHelpModalOpen(true); }}
+        className="tm-tap w-full p-2.5 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-600 dark:text-sky-300 text-xs font-bold flex items-center justify-center gap-2 hover:bg-sky-500/20 transition-colors"
+      >
+        <HelpCircle size={14} />
+        Nasıl Oynanır? — Oyun Rehberi
+      </button>
+
       {/* Team summary compact row */}
       <div className="tm-card p-3 grid grid-cols-3 gap-2 text-center">
         <div>

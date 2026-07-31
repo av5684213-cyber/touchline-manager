@@ -3462,3 +3462,48 @@ Test senaryoları:
 3. Fikstür → geçmiş maç → "İzle" butonu → Aynı spiker yorumları
 4. Fikstür → takım ismine tıkla → TeamDetailModal açılır
 5. Fikstür → yaklaşan maç → "Oyna" butonu yok, "Bugün" veya "—" göster
+
+---
+Task ID: v2.9.58
+Agent: main (Super Z)
+Task: Arketip azalt + Oyun rehberi (Yardım modal)
+
+Work Log:
+- data.ts: generatePlayer'da arketip ataması %35'e düşürüldü
+  - Eski: pickArketipByStats her oyuncu için çağrılıyordu → her oyuncuda mor etiket
+  - Yeni: OVR >= 70 ve %55 ihtimal, veya OVR < 70 ve %15 ihtimal
+  - Düşük OVR'lı oyuncular "sıradan", yıldızlar arketipli
+- store.ts: migrateArchetypes action eklendi (bir kerelik migration)
+  - Mevcut kayıtlı oyuncuların ~%65'inin arketipini kaldırır
+  - _archetypeMigrationDone flag ile tek seferlik çalışır
+- store.ts: helpModalOpen state + setHelpModalOpen action
+- page.tsx: useEffect ile migration çağrısı (giriş yapmışsa)
+- page.tsx: HelpModal component'i render ediliyor
+- dashboard.tsx: "Nasıl Oynanır?" butonu eklendi (HelpCircle ikonu)
+- Yeni dosya: src/components/touchline/help-modal.tsx
+  - 4 sekme: Amaç, Sekmeler, Oyuncular, SSS
+  - "Amaç": Oyunun hedefi (lig şampiyonu, kupa, CL, altyapı)
+  - "Sekmeler": 14 sekmenin açıklaması (Panel, Taktik, Maç, Transfer, vb.)
+  - "Oyuncular": Renkli etiketlerin anlamları
+    - Yeşil: Form
+    - Mavi: Kondisyon
+    - Kırmızı: Moral
+    - Mor: Arketip (KULLANICININ SORDUĞU — her oyuncuda yok!)
+    - Turuncu: Trait
+    - Sarı: Pozisyon
+  - "SSS": 10 sıkça sorulan soru (maç kazanma, para, küme düşme, vb.)
+
+Stage Summary:
+- Build: BAŞARILI (npx next build + tsc --noEmit temiz)
+- Arketip dağılımı: Eskiden %100 → Yeni ~%35 (sadece yıldızlarda)
+- Migration: Eski kayıtlı oyuncular otomatik düzeltilir (bir kerelik)
+- Yardım modal: Dashboard'tan "Nasıl Oynanır?" butonu ile açılır
+- 4 sekme ile oyunun tüm mantığını açıklar
+- Mor arketip etiketi açıklaması: "Sadece yüksek OVR'lı oyuncularda bulunur"
+
+Test senaryoları:
+1. Yeni oyun başlat → oyuncuların ~%35'inde arketip olacak (eski: %100)
+2. Mevcut kayıt → aç → migration çalışır → arketipli oyuncu sayısı azalır
+3. Dashboard → "Nasıl Oynanır?" butonu → modal açılır
+4. Yardım modal → "Oyuncular" sekmesi → mor arketip açıklaması
+5. Yardım modal → "Sekmeler" → tüm sekmelerin ne işe yaradığı

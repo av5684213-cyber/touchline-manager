@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AuthGate } from "@/components/touchline/auth-gate";
 import { TopBar } from "@/components/touchline/top-bar";
 import { StickyQuickBar } from "@/components/touchline/sticky-quick-bar";
@@ -37,12 +37,15 @@ import { NewsScreen } from "@/components/touchline/screens/news";
 import { MessagesScreen } from "@/components/touchline/screens/messages";
 import { OtherDrawer } from "@/components/touchline/other-drawer";
 import { WelcomeModal } from "@/components/touchline/welcome-modal";
+// v2.9.58: Yardım modal'ı — oyunun amacı + sekmeler + arketip açıklaması
+import { HelpModal } from "@/components/touchline/help-modal";
 // v2.9.47: Kozmetik görünümlerini uygula (tema renkleri, forma)
 import { CosmeticsApplier } from "@/components/touchline/cosmetics-applier";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useBodyScrollLock } from "@/hooks/touchline";
 import { useKeyboardScrollLock } from "@/hooks/use-keyboard-scroll-lock";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { useAppStore } from "@/lib/store";
 
 const TAB_ORDER: TabKey[] = [
   "dashboard",
@@ -60,6 +63,18 @@ export default function Home() {
   useKeyboardScrollLock();
   // v2.9.20 GÖREV 8: FCM push notification token kaydı (kullanıcı giriş yapınca)
   usePushNotifications();
+
+  // v2.9.58: Bir kerelik arketip migration — mevcut oyuncuların ~%65'i arketipsiz
+  // Yeni oyuncu üretiminde zaten %35 kuralı var, bu migration eski kayıtları düzeltir
+  useEffect(() => {
+    const store = useAppStore.getState() as any;
+    if (!store._archetypeMigrationDone && store.clubs && store.clubs.length > 0) {
+      // Kullanıcı giriş yapmışsa ve migration henüz yapılmadıysa
+      if (store.isAuthed) {
+        store.migrateArchetypes();
+      }
+    }
+  }, []);
 
   // Yatay swipe ile sekme geçişi iptal edildi — kullanıcı yanlışlıkla sekme değiştirmesin
 
@@ -127,6 +142,8 @@ export default function Home() {
         />
         {/* v2.9.20 GÖREV 7: Yeni kullanıcı hoş geldin modal'ı */}
         <WelcomeModal />
+        {/* v2.9.58: Yardım modal'ı — oyunun amacı + sekmeler + arketip açıklaması */}
+        <HelpModal />
       </div>
     </AuthGate>
   );

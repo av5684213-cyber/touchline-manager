@@ -776,7 +776,13 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
     handling: pos === "GK" ? boost(base, 5, 15) : spread(base, 20, 30),
     pace: stats.pace,
   };
-  const archetypeVal = pickArketipByStats(pos, allStats);
+  // v2.9.58: Arketip her oyuncuda DEĞİL — sadece %35 oyuncuya verilir
+  // Eski: pickArketipByStats her zaman bir arketip döndürüyordu → her oyuncuda mor etiket
+  // Yeni: Sadece OVR >= 70 olan oyunculara ve %35 ihtimalle verilir
+  // Düşük OVR'lı oyuncular "sıradan" olur, yıldızlar arketipli olur
+  const archetypeVal = (ovr >= 70 && Math.random() < 0.55) || (ovr < 70 && Math.random() < 0.15)
+    ? pickArketipByStats(pos, allStats)
+    : "";
 
   // v2.9.19: Trait dağılımı çok yoğundu — daha nadir yap
   // Eski: 0-1 pozitif (%51 oyuncuda trait vardı)
