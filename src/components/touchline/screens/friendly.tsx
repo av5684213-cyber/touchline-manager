@@ -10,6 +10,7 @@ import {
   Play,
   RotateCcw,
   Search,
+  Settings,
   Trophy,
   Users,
   X,
@@ -454,21 +455,13 @@ function FriendlyLiveView({
   const s = engine.state;
   const { user } = useSupabaseAuth();
   const [showChat, setShowChat] = useState(false);
-  // BULGU #3 DÜZELTME (v2.9.1): matchId her render'da yeniden üretiliyordu
-  // (Date.now() her render'da yeni değer döner). Bu, MatchChatPanel useEffect'ini
-  // her engine state update (800ms'de bir) tetikliyordu → chat kanalı sürekli
-  // unsubscribe + re-subscribe döngüsü → "Sohbet bağlanıyor..." döngüsü.
-  // useState initializer ile matchId'yi BİR KEZ oluştur.
-  // BULGU #3 v2.9.3: FriendlyLiveView pure client (matchStarted=true iken mount olur)
-  // ama yine de defensive useRef/useEffect pattern kullan.
+  const [showTactics, setShowTactics] = useState(false);
+  const [matchTab, setMatchTab] = useState<"feed" | "stats">("feed");
   const matchIdRef = useRef<string | null>(null);
   if (matchIdRef.current === null) {
     matchIdRef.current = `friendly_${team.id}_${opponent.id}_${Date.now()}`;
   }
   const matchId = matchIdRef.current;
-  // BULGU #4 DÜZELTME (v2.9.1): guest userId her render'da yeniden üretiliyordu.
-  // Kullanıcının kendi gönderdiği mesajlar "başka kullanıcı" görünüyordu (isMe kontrolü fail).
-  // BULGU #3 v2.9.3: localStorage SSR-safe access — useRef + lazy init.
   const userIdRef = useRef<string | null>(null);
   if (userIdRef.current === null) {
     if (user?.id) {
@@ -488,7 +481,11 @@ function FriendlyLiveView({
   }
   const stableUserId = userIdRef.current;
 
-  // P0 FIX: useMemo içinde side-effect YASAK — useEffect kullan
+  // v2.9.56: Taktik ayarları
+  const tactics = useAppStore((s) => s.tactics);
+  const setSlider = useAppStore((s) => s.setSlider);
+  const updateActiveTactic = useAppStore((s) => s.updateActiveTactic);
+
   useEffect(() => {
     if (s.status === "finished") {
       onFinish(s.homeScore, s.awayScore);
@@ -501,7 +498,7 @@ function FriendlyLiveView({
       <div className="tm-card p-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[11px] font-bold uppercase tracking-wide text-amber-600 px-2 py-0.5 rounded-full bg-amber-100">
-            Hazırlık Maçı
+            {t("friendly.title")}
           </span>
           <button
             onClick={() => {
@@ -539,7 +536,7 @@ function FriendlyLiveView({
         </div>
       </div>
 
-      {/* Pause / Resume */}
+      {/* Pause / Resume + Taktik değiştir */}
       {s.status !== "finished" && (
         <div className="flex gap-2">
           {s.status === "live" ? (
@@ -557,30 +554,127 @@ function FriendlyLiveView({
               Devam Et
             </button>
           )}
+          {/* v2.9.56: Taktik değiştir butonu — pause durumunda aktif */}
+          <button
+            onClick={() => { haptic("light"); setShowTactics(!showTactics); }}
+            disabled={s.status === "live"}
+            className={cn(
+              "tm-tap px-3 py-2 rounded-md text-xs font-bold flex items-center gap-1",
+              s.status === "live"
+                ? "bg-muted text-muted-foreground/50 cursor-not-allowed"
+                : "bg-primary text-primary-foreground"
+            )}
+          >
+            <Settings size={12} /> Taktik
+          </button>
         </div>
       )}
 
-      {/* Event feed */}
-      <div className="tm-card p-2">
-        <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-2 px-1">
-          Olaylar
-        </div>
-        <div className="space-y-1 max-h-72 overflow-y-auto tm-thin-scrollbar">
-          {s.events.length === 0 && (
-            <div className="text-[10px] text-muted-foreground text-center py-4">
-              Maç başlıyor...
+      {/* v2.9.56: Taktik paneli — pause durumunda açılır */}
+      {showTactics && s.status === "paused" && (
+        <div className="tm-card p-3 space-y-3">
+          <div className="text-[10px] font-bold uppercase text-muted-foreground">Taktik Ayarları</div>
+          {/* Slider'lar */}
+          <TacticSlider
+            label="Hücum Presi"
+            value={tactics.sliders.attackingPressure}
+            onChange={(v) => setSlider("attackingPressure", v)}
+          />
+          <TacticSlider
+            label="Defansif Hat"
+            value={tactics.sliders.defensiveLine}
+            onChange={(v) => setSlider("defensiveLine", v)}
+          />
+          <TacticSlider
+            label="Tempo"
+            value={tactics.sliders.tempo}
+            onChange={(v) => setSlider("tempo", v)}
+          />
+          <TacticSlider
+            label="Kanat Oyunu"
+            value={tactics.sliders.wingPlay}
+            onChange={(v) => setSlider("wingPlay", v)}
+          />
+          {/* Mentalite */}
+          <div>
+            <div className="text-[10px] text-muted-foreground mb-1">Mentalite</div>
+            <div className="flex gap-1">
+              {([1, 2, 3, 4, 5] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => { haptic("light"); updateActiveTactic({ mentality: m }); }}
+                  className={cn(
+                    "tm-tap flex-1 py-1 rounded text-[10px] font-bold",
+                    (tactics.active?.mentality ?? 3) === m
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {m === 1 ? "Çok Def" : m === 2 ? "Def" : m === 3 ? "Dengeli" : m === 4 ? "Hüc" : "Çok Hüc"}
+                </button>
+              ))}
             </div>
-          )}
-          {s.events.map((ev: any, i: number) => (
-            <div key={i} className="flex items-center gap-2 p-1.5 rounded-md text-[10px]">
-              <span className="text-muted-foreground tabular-nums w-7">{ev.minute}'</span>
-              <span className="flex-1">{ev.text ?? ev.type}</span>
-              {ev.teamSide === "home" && <span className="text-xs">{team.shortName}</span>}
-              {ev.teamSide === "away" && <span className="text-xs">{opponent.shortName}</span>}
-            </div>
-          ))}
+          </div>
+          <button
+            onClick={() => { haptic("light"); setShowTactics(false); }}
+            className="tm-tap w-full py-2 rounded-md bg-primary text-primary-foreground text-xs font-bold"
+          >
+            Tamam
+          </button>
         </div>
-      </div>
+      )}
+
+      {/* Sekme seçici — Olaylar / İstatistik */}
+      {(s.status === "live" || s.status === "paused" || s.status === "finished") && (
+        <div className="flex gap-1 p-1 bg-muted rounded-md">
+          <button
+            onClick={() => { haptic("light"); setMatchTab("feed"); }}
+            className={cn("flex-1 py-1.5 rounded text-[10px] font-bold", matchTab === "feed" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
+          >
+            📋 Olaylar
+          </button>
+          <button
+            onClick={() => { haptic("light"); setMatchTab("stats"); }}
+            className={cn("flex-1 py-1.5 rounded text-[10px] font-bold", matchTab === "stats" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
+          >
+            📊 İstatistik
+          </button>
+        </div>
+      )}
+
+      {/* Olaylar sekmesi */}
+      {matchTab === "feed" && (
+        <div className="tm-card p-2">
+          <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-2 px-1">
+            Olaylar
+          </div>
+          <div className="space-y-1 max-h-72 overflow-y-auto tm-thin-scrollbar">
+            {s.events.length === 0 && (
+              <div className="text-[10px] text-muted-foreground text-center py-4">
+                Maç başlıyor...
+              </div>
+            )}
+            {s.events.map((ev: any, i: number) => (
+              <div key={i} className="flex items-center gap-2 p-1.5 rounded-md text-[10px]">
+                <span className="text-muted-foreground tabular-nums w-7">{ev.minute}'</span>
+                <span className="flex-1">{ev.text ?? ev.type}</span>
+                {ev.teamSide === "home" && <span className="text-xs">{team.shortName}</span>}
+                {ev.teamSide === "away" && <span className="text-xs">{opponent.shortName}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* İstatistik sekmesi */}
+      {matchTab === "stats" && (
+        <div className="tm-card p-3 space-y-2">
+          <SimpleStatBar label="Topla Oynama %" home={s.stats?.possession?.[0] ?? 50} away={s.stats?.possession?.[1] ?? 50} />
+          <SimpleStatBar label="İsabetli Şut" home={s.stats?.shotsOnTarget?.[0] ?? 0} away={s.stats?.shotsOnTarget?.[1] ?? 0} />
+          <SimpleStatBar label="Korner" home={s.stats?.corners?.[0] ?? 0} away={s.stats?.corners?.[1] ?? 0} />
+          <SimpleStatBar label="Faul" home={s.stats?.fouls?.[0] ?? 0} away={s.stats?.fouls?.[1] ?? 0} />
+        </div>
+      )}
 
       {/* v2.9.22 Y10: Boşluk — chat butonu için sabit alan */}
       {s.status !== "finished" && <div className="h-16" />}
@@ -687,6 +781,46 @@ function FriendlyResultView({
           <Users size={14} />
           Başka Rakip Seç
         </button>
+      </div>
+    </div>
+  );
+}
+
+// v2.9.56: Basit taktik slider'ı — friendly maçta taktik değiştirme
+function TacticSlider({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] text-muted-foreground">{label}</span>
+        <span className="text-[10px] font-bold tabular-nums">{value}</span>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full accent-primary"
+      />
+    </div>
+  );
+}
+
+// v2.9.56: Basit istatistik bar'ı
+function SimpleStatBar({ label, home, away }: { label: string; home: number; away: number }) {
+  const total = Math.max(1, home + away);
+  const homePct = Math.round((home / total) * 100);
+  const awayPct = 100 - homePct;
+  return (
+    <div>
+      <div className="flex items-center justify-between text-[10px] mb-0.5">
+        <span className="font-bold tabular-nums">{home}</span>
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-bold tabular-nums">{away}</span>
+      </div>
+      <div className="flex h-1.5 rounded-full overflow-hidden bg-muted">
+        <div className="bg-emerald-500" style={{ width: `${homePct}%` }} />
+        <div className="bg-sky-500" style={{ width: `${awayPct}%` }} />
       </div>
     </div>
   );
