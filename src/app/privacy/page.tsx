@@ -74,8 +74,24 @@ export default function PrivacyPage() {
         <section>
           <h2 className="text-base font-bold mb-2">7. Veri Silme Hakkı</h2>
           <p className="text-sm text-muted-foreground">
-            Hesabınızı ve tüm verilerinizi silmek isterseniz, uygulamadan çıkış yapın
-            ve bizimle iletişime geçin. Verileriniz 30 gün içinde kalıcı olarak silinir.
+            Hesabınızı ve tüm verilerinizi silmek için iki seçeneğiniz vardır:
+          </p>
+          <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1 mt-2">
+            <li>
+              <strong>Uygulama içinden:</strong> Ana Panel → "Hesap" bölümü →
+              "Hesabımı Sil" butonu ile anında silme.
+            </li>
+            <li>
+              <strong>Web üzerinden:</strong>{" "}
+              <a href="/delete-account" className="text-primary font-bold underline">
+                Hesap Silme Talebi sayfasından
+              </a>{" "}
+              form doldurarak talep gönderme (30 gün içinde işleme alınır).
+            </li>
+          </ul>
+          <p className="text-sm text-muted-foreground mt-2">
+            Forum gönderileriniz "Silinmiş kullanıcı" olarak anonimleştirilir ve
+            içeriği korunur. Ödeme kayıtları yasal yükümlülükler gereği saklanır.
           </p>
         </section>
 
