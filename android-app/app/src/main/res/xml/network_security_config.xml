@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   ════════════════════════════════════════════════════════════════════════════
-  NETWORK SECURITY CONFIG — v2.9.13
+  NETWORK SECURITY CONFIG — v2.9.52
   ════════════════════════════════════════════════════════════════════════════
   Tüm trafik HTTPS zorunlu. Cleartext (HTTP) tamamen yasak.
 
@@ -9,8 +9,8 @@
   - Supabase domain'i: HTTPS only (pinning yok ama HTTPS zorunlu)
   - Mixed content: native seviyede MIXED_CONTENT_NEVER_ALLOW ile engelli
 
-  Bu config AndroidManifest'te android:networkSecurityConfig ile bağlı.
-  file:// URL'leri (WebView assets) etkilenmez — sadece network trafiği.
+  v2.9.52: localhost/127.0.0.1 cleartext istisnası KALDIRILDI.
+  (Eğer local dev için gerekirse debug build type'a ayrı config taşınmalı)
   ════════════════════════════════════════════════════════════════════════════
 -->
 <network-security-config>
@@ -27,11 +27,5 @@
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
-    </domain-config>
-
-    <!-- localhost (geliştirme amaçlı, production'da etkisiz) -->
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">localhost</domain>
-        <domain includeSubdomains="false">127.0.0.1</domain>
     </domain-config>
 </network-security-config>
