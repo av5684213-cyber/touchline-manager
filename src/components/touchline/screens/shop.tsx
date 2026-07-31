@@ -937,7 +937,7 @@ function CreditsPurchaseTab({ onFeedback }: { onFeedback: (msg: string) => void 
     haptic("medium");
     setPurchasing(pack.sku);
     try {
-      // 1. Google Play Billing ile satın alma akışı başlat
+      // 1. Google Play Billing ile satın alma akışı başlat (DEĞİŞMEDİ)
       const result = await launchPurchaseFlow(pack.sku);
       if (!result.success) {
         haptic("error");
@@ -945,20 +945,66 @@ function CreditsPurchaseTab({ onFeedback }: { onFeedback: (msg: string) => void 
         return;
       }
 
-      // 2. Satın almayı onayla (Google Play gereği)
+      // 2. Satın almayı onayla — Google Play gereği (DEĞİŞMEDİ)
       if (result.purchase?.purchaseToken) {
         await acknowledgePurchase(result.purchase.purchaseToken);
       }
 
-      // 3. Kredileri kullanıcıya ekle
-      const totalCredits = pack.credits + pack.bonusCredits;
-      addCredits(totalCredits);
-      haptic("success");
-      onFeedback(`✓ ${totalCredits} kredi eklendi!${pack.bonusCredits > 0 ? ` (${pack.bonusCredits} bonus)` : ""}`);
+      // 3. v2.9.53: Server-side doğrulama — purchaseToken'ı verify-purchase'a gönder
+      if (result.purchase?.purchaseToken) {
+        try {
+          const { supabase } = await import("@/lib/supabase/client");
+          const { data: verifyData, error: verifyErr } = await supabase()
+            .functions.invoke("verify-purchase", {
+              body: {
+                purchaseToken: result.purchase.purchaseToken,
+                sku: pack.sku,
+              },
+            });
 
-      // TODO: Server-side receipt verification (Supabase Edge Function)
-      // — result.purchase.purchaseToken'ı server'a gönder, Google Play API ile doğrula
-      // — Bu, sahte satın almaları önler (root'lu cihazlarda)
+          if (verifyErr || !verifyData?.success) {
+            // Doğrulama başarısız — ama para alındı, sessizce iptal etme
+            const reason = verifyData?.reason || verifyErr?.message || "doğrulama hatası";
+            const isAlreadyRedeemed = verifyData?.alreadyRedeemed === true;
+            if (isAlreadyRedeemed) {
+              onFeedback("⚠️ Bu satın alma zaten kullanılmış — kredi tekrar eklenmedi.");
+            } else {
+              onFeedback("⏳ Satın alman doğrulanıyor — kredin birazdan eklenecek.");
+              // Arka planda tekrar dene (3 deneme, 5s aralık)
+              setTimeout(async () => {
+                try {
+                  const retry = await supabase().functions.invoke("verify-purchase", {
+                    body: { purchaseToken: result.purchase!.purchaseToken, sku: pack.sku },
+                  });
+                  if (retry.data?.success && retry.data.creditsGranted) {
+                    addCredits(retry.data.creditsGranted);
+                    haptic("success");
+                    onFeedback(`✓ ${retry.data.creditsGranted} kredi eklendi!`);
+                  }
+                } catch { /* sessiz — kullanıcıya zaten mesaj gösterildi */ }
+              }, 5000);
+            }
+            return;
+          }
+
+          // 4. Doğrulama başarılı — sunucunun onayladığı miktarı kullan
+          const grantedCredits = verifyData.creditsGranted ?? (pack.credits + pack.bonusCredits);
+          addCredits(grantedCredits);
+          haptic("success");
+          onFeedback(`✓ ${grantedCredits} kredi eklendi!${pack.bonusCredits > 0 ? ` (${pack.bonusCredits} bonus)` : ""}`);
+        } catch (verifyErr: any) {
+          // Network hatası — para alındı ama doğrulanamadı
+          onFeedback("⏳ Satın alman doğrulanıyor — kredin birazdan eklenecek.");
+          console.warn("[billing] verify-purchase error:", verifyErr);
+          return;
+        }
+      } else {
+        // Dev mode — purchaseToken yok (simülasyon), direkt kredi ekle
+        const totalCredits = pack.credits + pack.bonusCredits;
+        addCredits(totalCredits);
+        haptic("success");
+        onFeedback(`✓ ${totalCredits} kredi eklendi!${pack.bonusCredits > 0 ? ` (${pack.bonusCredits} bonus)` : ""}`);
+      }
     } catch (e: any) {
       haptic("error");
       onFeedback(`✗ Satın alma hatası: ${e?.message ?? "bilinmeyen"}`);
