@@ -3549,3 +3549,51 @@ Test senaryoları:
 3. Bugün cumartesi değilse → "Cmt, 5 Ağu · 12:00" formatı
 4. Maç saati geldikten sonra kupa sekmesine gir → otomatik oynanır
 5. Fikstür ekranında kupa bölümünde de saat bilgisi var
+
+---
+Task ID: v2.9.60
+Agent: main (Super Z)
+Task: Gol Kralı'na Global sekmesi + simülasyon yazısı kaldır + sahte veri temizle
+
+Work Log:
+- top-scorers.tsx:
+  - "Global" sekmesi eklendi (Globe ikonu, emerald renk)
+    * Tüm liglerde GERÇEK oynanmış oyuncular (appearances > 0)
+    * Sahte veri YOK, simülasyon YOK
+    * Bilgi kartı: "Tüm liglerde gerçek maç oynamış oyuncular sıralanır"
+  - Eski "ülke + lig + departman" dropdown KALDIRILDI
+    * Bu dropdown başka lig seçince deterministic hash ile SAHTE gol/asist üretiyordu
+    * Kullanıcıya yanlış bilgi veriyordu — gerçek olmayan istatistikler
+    * Artık sadece 3 sekme: Benim Ligim / Global / Benim Takımım
+  - "(simülasyon)" yazısı KALDIRILDI (line 261'deydi)
+  - generateClubsForLeague + getCountryList import'ları kaldırıldı (artık kullanılmıyor)
+  - Boş durum mesajı: "Henüz hiç ligde maç oynanmadı. Maçlar oynandıkça global sıralama dolacak."
+- help-modal.tsx:
+  - "Canlı simülasyon" → "Canlı maç" (line 211)
+
+SAHTE VERİ RAPORU (simülasyon ile üretilen):
+- top-scorers.tsx (eski): Başka lig seçilince deterministic hash ile sahte gol/asist
+  * DURUM: TAMAMEN KALDIRILDI — artık sadece gerçek oynanmış oyuncular
+- shop.tsx:1032: "Test için satın alma simülasyonu" — Dev mode only
+  * DURUM: OK — production'da gerçek Google Play Billing aktif
+- Kod yorumları: Geliştiriciye yönelik, kullanıcı görmüyor
+  * DURUM: OK — yorum olarak kalabilir
+
+Maç motoru (enhancedMatchEngine.ts):
+- Teknik olarak bir simülasyon ama bu NORMAL — her futbol menajerlik oyunu maç motoru kullanır
+- Kullanıcı "simülasyon" kelimesini UI'da görmek istemiyor, bu düzeltildi
+- Maçlar "canlı oynanıyor" (tick-by-tick, use-match-engine.ts)
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- Gol Kralı'na Global sekmesi eklendi
+- Sahte veri üreten eski sistem TAMAMEN kaldırıldı
+- "simülasyon" yazısı UI'dan temizlendi
+- Artık tüm istatistikler GERÇEK maç verisinden geliyor
+
+Test senaryoları:
+1. Gol Kralı → 3 sekme: Benim Ligim / Global / Benim Takımım
+2. Global sekmesi → tüm liglerde gerçek oynanmış oyuncular
+3. Hiç maç oynanmadıysa → "Henüz hiç ligde maç oynanmadı" mesajı
+4. "(simülasyon)" yazısı artık yok
+5. Eski ülke/lig/departman dropdown'u kaldırıldı

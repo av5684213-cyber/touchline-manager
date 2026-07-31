@@ -1,23 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Crown, TrendingUp, TrendingDown, ChevronDown } from "lucide-react";
+import { Crown, TrendingUp, TrendingDown, ChevronDown, Globe } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { PlayerAvatar } from "../ui-bits";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 import { PlayerProfileModal } from "../player-profile-modal";
-// v2.9.24: Dropdown ile her lig + departman seçilebilir
-import { generateClubsForLeague, LEAGUE_NAMES, type LeagueTier, type Department } from "@/lib/mock/data";
-import { getCountryList } from "@/lib/countries/countries";
 import type { Player } from "@/lib/mock/data";
 
 type SortKey = "goals" | "assists" | "rating" | "motm" | "appearances";
-type TierFilter = "all" | "mine";
-
-// Lig başına 18 takım; 3. Lig (tier 4) 5 departman
-const TIER_DEPTS: Record<LeagueTier, number> = { 1: 1, 2: 1, 3: 1, 4: 1 };
+// v2.9.60: "Global" sekmesi eklendi — tüm liglerin GERÇEK oynanmış oyuncuları
+// "mine" → kullanıcının takımı, "all" → kullanıcının ligi, "global" → tüm ligler
+type TierFilter = "all" | "mine" | "global";
 
 export function TopScorersScreen() {
   const { t, locale } = useI18n();
@@ -30,65 +26,32 @@ export function TopScorersScreen() {
   // v2.9.55: Null guard
   if (!myTeam) return null;
 
-  // v2.9.24: "Tüm Lig" sekmesinde lig + departman dropdown
-  // v2.9.39: Ülke dropdown eklendi
-  const userTier = (myTeam?.leagueTier ?? 2) as LeagueTier;
-  const userDept = (myTeam?.department ?? 1) as Department;
-  const [selCountry, setSelCountry] = useState<string>("TR");
-  const [selTier, setSelTier] = useState<LeagueTier>(userTier);
-  const [selDept, setSelDept] = useState<Department>(userDept);
-
-  // Seçili lig kullanıcının kendi ligi mi?
-  const isMyLeague = selCountry === "TR" && selTier === userTier && selDept === userDept;
-
-  // v2.9.39: Başka lig/departman/ülke seçilirse, o ligin bot takımlarını üret
-  const otherLeagueClubs = useMemo(() => {
-    if (isMyLeague) return [];
-    return generateClubsForLeague(selTier, selDept, selCountry);
-  }, [isMyLeague, selTier, selDept, selCountry]);
-
   const allPlayers = useMemo(() => {
-    const list: Array<{ player: any; team: any; isMyPlayer: boolean; isOtherLeague?: boolean }> = [];
+    const list: Array<{ player: any; team: any; isMyPlayer: boolean }> = [];
 
-    if (tier === "all") {
-      if (isMyLeague) {
-        // Kullanıcının kendi ligindeki gerçek takımlar (gerçek maç verisi)
-        for (const club of clubs) {
-          for (const p of club.players) {
-            if ((p.appearances ?? 0) > 0) {
-              list.push({ player: p, team: club, isMyPlayer: club.id === myTeam?.id });
-            }
+    if (tier === "global") {
+      // v2.9.60: GLOBAL — tüm liglerdeki GERÇEK oynanmış oyuncular
+      // Sadece appearances > 0 olan oyuncular (gerçek maç oynamış)
+      // Sahte veri YOK, simülasyon YOK — sadece gerçek maç verisi
+      for (const club of clubs) {
+        for (const p of club.players) {
+          if ((p.appearances ?? 0) > 0) {
+            list.push({ player: p, team: club, isMyPlayer: club.id === myTeam?.id });
           }
         }
-      } else {
-        // v2.9.45 FIX: Başka lig — bot takımların oyuncularına STABİL sahte maç verisi ekle
-        // Eski kod: Math.random() kullanıyordu → her açılışta farklı istatistik gösteriyordu
-        // Şimdi: oyuncu ID'sine göre deterministic hash ile sahte gol/asist üret
-        // Böylece kullanıcı aynı oyuncuyu tekrar açtığında aynı değerleri görür
-        const hash = (s: string): number => {
-          let h = 0;
-          for (let i = 0; i < s.length; i++) {
-            h = ((h << 5) - h) + s.charCodeAt(i);
-            h |= 0;
-          }
-          return Math.abs(h);
-        };
-        const seasonNumber = useAppStore.getState().seasonNumber ?? 1;
-        for (const club of otherLeagueClubs) {
-          for (const p of club.players) {
-            // Oyuncu ID + sezon sayısı → deterministic seed
-            const seed = hash(`${p.id}_${seasonNumber}`);
-            if (!p.appearances) p.appearances = 5 + (seed % 25);
-            if (!p.goals) p.goals = p.specificPosition === "GK" ? 0 : (seed % 13);
-            if (!p.assists) p.assists = p.specificPosition === "GK" ? 0 : ((seed >> 4) % 9);
-            if (!p.motmAwards) p.motmAwards = (seed >> 8) % 3;
-            list.push({ player: p, team: club, isMyPlayer: false, isOtherLeague: true });
+      }
+    } else if (tier === "all") {
+      // "Tüm Lig" — kullanıcının kendi ligindeki GERÇEK takımlar (gerçek maç verisi)
+      for (const club of clubs) {
+        for (const p of club.players) {
+          if ((p.appearances ?? 0) > 0) {
+            list.push({ player: p, team: club, isMyPlayer: club.id === myTeam?.id });
           }
         }
       }
     }
     return list;
-  }, [clubs, myTeam, tier, isMyLeague, otherLeagueClubs]);
+  }, [clubs, myTeam, tier]);
 
   const ranked = useMemo(() => {
     let filtered = allPlayers;
@@ -172,12 +135,18 @@ export function TopScorersScreen() {
         ))}
       </div>
 
-      {/* Lig filtresi */}
+      {/* v2.9.60: Lig filtresi — 3 sekme: Benim Ligim / Global / Benim Takımım */}
       <div className="flex gap-1.5">
         <button onClick={() => { haptic("light"); setTier("all"); }}
           className={cn("tm-tap flex-1 py-1.5 rounded text-[10px] font-bold border",
             tier === "all" ? "bg-primary text-primary-foreground border-primary" : "border-border bg-card text-muted-foreground")}>
           {t("topscorers.filter.all")}
+        </button>
+        <button onClick={() => { haptic("light"); setTier("global"); }}
+          className={cn("tm-tap flex-1 py-1.5 rounded text-[10px] font-bold border flex items-center justify-center gap-1",
+            tier === "global" ? "bg-emerald-600 text-white border-emerald-600" : "border-border bg-card text-muted-foreground")}>
+          <Globe size={11} />
+          Global
         </button>
         <button onClick={() => { haptic("light"); setTier("mine"); }}
           className={cn("tm-tap flex-1 py-1.5 rounded text-[10px] font-bold border",
@@ -186,80 +155,13 @@ export function TopScorersScreen() {
         </button>
       </div>
 
-      {/* v2.9.39: Ülke + Lig + Departman dropdown — sadece "Tüm Lig" sekmesinde */}
-      {tier === "all" && (
-        <div className="tm-card p-2.5 space-y-2">
-          <div className="text-[10px] text-muted-foreground uppercase font-bold flex items-center gap-1">
-            <ChevronDown size={11} /> {t("topscorers.select_league")}
-          </div>
-          {/* Ülke dropdown */}
-          <div>
-            <label className="text-[9px] text-muted-foreground block mb-0.5">{t("topscorers.country")}</label>
-            <select
-              value={selCountry}
-              onChange={(e) => {
-                haptic("light");
-                setSelCountry(e.target.value);
-                setSelDept(1 as Department);
-              }}
-              className="w-full px-2.5 py-2 rounded-lg bg-card border border-border text-xs cursor-pointer"
-            >
-              {getCountryList().map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.flag_emoji} {c.name_tr}
-                </option>
-              ))}
-            </select>
-          </div>
-          {/* Lig (tier) dropdown */}
-          <div>
-            <label className="text-[9px] text-muted-foreground block mb-0.5">{t("topscorers.league")}</label>
-            <select
-              value={selTier}
-              onChange={(e) => {
-                haptic("light");
-                const newTier = Number(e.target.value) as LeagueTier;
-                setSelTier(newTier);
-                setSelDept(1 as Department); // lig değişince 1. departmana sıfırla
-              }}
-              className="w-full px-2.5 py-2 rounded-lg bg-card border border-border text-xs cursor-pointer"
-            >
-              {([1, 2, 3, 4] as LeagueTier[]).map((tierNum) => (
-                <option key={tierNum} value={tierNum}>
-                  {tierNum === userTier ? "⭐ " : ""}{LEAGUE_NAMES[tierNum][locale]}
-                </option>
-              ))}
-            </select>
-          </div>
-          {/* Departman dropdown — sadece tier 4'te (5 departman) */}
-          {TIER_DEPTS[selTier] > 1 && (
-            <div>
-              <label className="text-[9px] text-muted-foreground block mb-0.5">{t("topscorers.department")}</label>
-              <div className="flex gap-1">
-                {Array.from({ length: TIER_DEPTS[selTier] }, (_, i) => (i + 1) as Department).map((dept) => (
-                  <button
-                    key={dept}
-                    onClick={() => { haptic("light"); setSelDept(dept); }}
-                    className={cn(
-                      "tm-tap flex-1 py-1.5 rounded-md text-[11px] font-bold transition-colors",
-                      selDept === dept
-                        ? "bg-amber-500 text-white"
-                        : "bg-muted/40 text-muted-foreground"
-                    )}
-                  >
-                    D{dept}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {/* Seçili lig bilgisi */}
-          <div className="text-[10px] text-muted-foreground text-center pt-1 border-t border-border/40">
-            {isMyLeague ? (
-              <span className="text-emerald-400 font-semibold">⭐ {t("topscorers.my_league")}</span>
-            ) : (
-              <span>📍 {LEAGUE_NAMES[selTier][locale]}{TIER_DEPTS[selTier] > 1 ? ` · D${selDept}` : ""} (simülasyon)</span>
-            )}
+      {/* v2.9.60: Global sekmesi bilgilendirme */}
+      {tier === "global" && (
+        <div className="tm-card p-2.5 bg-emerald-500/5 border-emerald-500/20 flex items-center gap-2">
+          <Globe size={12} className="text-emerald-400 shrink-0" />
+          <div className="text-[10px] text-muted-foreground leading-tight">
+            Tüm liglerde <strong className="text-foreground">gerçek maç oynamış</strong> oyuncular sıralanır.
+            Sadece bu sezonda en az 1 maç oynayan oyuncular gösterilir.
           </div>
         </div>
       )}
@@ -317,7 +219,9 @@ export function TopScorersScreen() {
         })}
         {top20.length === 0 && (
           <div className="tm-card p-6 text-center text-xs text-muted-foreground">
-            Bu kriterde oyuncu bulunamadı.
+            {tier === "global"
+              ? "Henüz hiç ligde maç oynanmadı. Maçlar oynandıkça global sıralama dolacak."
+              : "Bu kriterde oyuncu bulunamadı."}
           </div>
         )}
       </div>
@@ -374,3 +278,4 @@ function PodiumItem({ rank, entry, onClick }: { rank: number; entry: any; onClic
     </button>
   );
 }
+

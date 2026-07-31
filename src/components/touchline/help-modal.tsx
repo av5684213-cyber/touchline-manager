@@ -208,7 +208,7 @@ function TabsSection() {
       icon: Calendar,
       name: "Maç",
       color: "text-emerald-400",
-      desc: "Bu haftaki maçını oyna. Canlı simülasyon, olaylar, istatistikler. Maç bittiğinde otomatik hafta ilerler.",
+      desc: "Bu haftaki maçını oyna. Canlı maç, olaylar, istatistikler. Maç bittiğinde otomatik hafta ilerler.",
     },
     {
       icon: ArrowLeftRight,
