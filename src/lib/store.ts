@@ -55,9 +55,9 @@ import { DEFAULT_TACTIC, FORMATION_SLOTS, type ActiveTactic } from "@/lib/tactic
 // P1: require() → top-level ES import (circular dependency riski yok, Next.js 16 Turbopack)
 import { TIER_BASE_BUDGETS } from "@/lib/match/engine/constants";
 // v2.9.21 GÖREV 1: Küme düşme/terfi kuralları — TEK KANONİK KAYNAK
-import { TEAMS_PER_LEAGUE, PROMOTION_COUNT, RELEGATION_COUNT, getLeagueZone, isPromotionZone, isRelegationZone } from "@/lib/league-rules";
+import { TEAMS_PER_LEAGUE, PROMOTION_COUNT, RELEGATION_COUNT, getLeagueZone } from "@/lib/league-rules";
 // v2.9.46 GÖREV 2: CL bracket üretici
-import { generateFirstRoundMatches, generateNextRoundMatches, getRoundName as getCLRoundName, getTotalRounds as getCLTotalRounds } from "@/lib/cl-bracket";
+import { generateFirstRoundMatches, generateNextRoundMatches } from "@/lib/cl-bracket";
 // v2.9.30 T-10: Tesis yükseltme maliyeti tek kaynak
 import { calculateUpgradeCost } from "@/lib/stadiumMatrix";
 import { simulateEnhancedMatch, simulatePenaltyShootout } from "@/lib/match/engine/enhancedMatchEngine";
@@ -68,9 +68,9 @@ import { applyCoachTrainingBoost } from "@/lib/staffBonus";
 import { generateSponsorOffers, getTotalSponsorIncome } from "@/lib/sponsorSystem";
 import { checkAndAwardBadges, checkAchievements } from "@/components/touchline/achievements";
 // v2.9.18: Bot AI sistemi
-import { simulateBotMatch, findWeakestPosition, shouldBotBuy, shouldBotSell, getBotFormation } from "@/lib/botAI";
+import { simulateBotMatch, findWeakestPosition, shouldBotBuy, shouldBotSell } from "@/lib/botAI";
 // v2.9.61: Global persistent leagues — tüm ligler store'da tutulur
-import { generateAllLeagues, makeLeagueKey, getTopNFromLeague, type AllLeaguesState, type PersistentLeague } from "@/lib/global-leagues";
+import { generateAllLeagues, makeLeagueKey, type AllLeaguesState, type PersistentLeague } from "@/lib/global-leagues";
 
 /**
  * v2.9.27 G1: Taktik değişikliklerinde debounce'lu cloud-save tetikleyicisi.
@@ -372,7 +372,7 @@ type AppState = {
   // cup actions
   playCupRound: () => { success: boolean; myResult?: string; champion?: string };
   // v2.9.41: Şampiyonlar Ligi
-  startChampionsLeague: () => void;
+  // v2.9.65: startChampionsLeague KALDIRILDI — dead code (CL endSeason'da otomatik başlar)
   playChampionsLeagueRound: () => { success: boolean; myResult?: string; champion?: string };
   // season actions
   endSeason: () => { success: boolean; summary?: SeasonSummary };
@@ -421,8 +421,7 @@ type AppState = {
   generateNews: () => void;
   // cloud
   loadMultiplayerState: (userId: string) => Promise<{ success: boolean; reason?: string }>;
-  saveToCloud: (userId: string) => Promise<void>;
-  saveTacticsToCloud: (userId: string) => Promise<void>;
+  // v2.9.65: saveToCloud/saveTacticsToCloud KALDIRILDI — dead code (cloud-save.ts subscribe ile çalışır)
   // v2.9.28 GÖREV 5: Kart envanteri action'ları
   buyCard: (cardId: string, cardType: "trait_positive" | "trait_negative_removal" | "arketip", cardName: string, groupName: string, price: number, description: string, effectData?: any) => { success: boolean; reason?: string };
   applyCardToPlayer: (cardId: string, playerId: string) => { success: boolean; reason?: string };
@@ -1278,7 +1277,7 @@ export const useAppStore = create<AppState>()(
             set({
               clubs: [...clubs],
               news: [newNews, ...(get().news ?? [])],
-              transfer: { ...transfer, freeAgents: transfer.freeAgents.filter((l) => l.player.id !== playerId), messages: [newMsg, ...transfer.messages] },
+              transfer: { ...transfer, freeAgents: transfer.freeAgents.filter((l) => l.player.id !== playerId), messages: [newMsg, ...transfer.messages].slice(0, 100) },
             });
             return { success: true, response: "accepted" };
           }
@@ -1314,7 +1313,7 @@ export const useAppStore = create<AppState>()(
             set({
               clubs: [...clubs],
               news: [newNews2, ...(get().news ?? [])],
-              transfer: { ...transfer, freeAgentListings: transfer.freeAgentListings?.filter((l) => l.player.id !== playerId) ?? [], messages: [newMsg2, ...transfer.messages] },
+              transfer: { ...transfer, freeAgentListings: transfer.freeAgentListings?.filter((l) => l.player.id !== playerId) ?? [], messages: [newMsg2, ...transfer.messages].slice(0, 100) },
             });
             return { success: true, response: "accepted" };
           }
@@ -1421,7 +1420,7 @@ export const useAppStore = create<AppState>()(
             clubs: updatedClubs,
             allLeagues: updatedAllLeagues, // v2.9.62: allLeagues'i de güncelle
             news: [newNews, ...news],
-            transfer: { ...transfer, messages: [newMsg, ...transfer.messages] },
+            transfer: { ...transfer, messages: [newMsg, ...transfer.messages].slice(0, 100) },
           });
 
           return { success: true, response: "accepted" };
@@ -1456,7 +1455,7 @@ export const useAppStore = create<AppState>()(
 
           set({
             news: [newNews, ...news],
-            transfer: { ...transfer, messages: [newMsg, ...transfer.messages] },
+            transfer: { ...transfer, messages: [newMsg, ...transfer.messages].slice(0, 100) },
           });
           return { success: true, response: "countered", counterFee };
         } else {
@@ -1487,7 +1486,7 @@ export const useAppStore = create<AppState>()(
 
           set({
             news: [newNews, ...news],
-            transfer: { ...transfer, messages: [newMsg, ...transfer.messages] },
+            transfer: { ...transfer, messages: [newMsg, ...transfer.messages].slice(0, 100) },
           });
           return { success: true, response: "rejected" };
         }
@@ -2238,13 +2237,8 @@ export const useAppStore = create<AppState>()(
         return { success: true, myResult, champion };
       },
 
-      // v2.9.41: Şampiyonlar Ligi başlat
-      startChampionsLeague: () => {
-        const cl = get().championsLeague;
-        if (cl.active) return;
-        // Sezon bittiğinde endSeason zaten CL'yi başlatır
-        // Bu action manuel başlatma için (test/debug)
-      },
+      // v2.9.65: startChampionsLeague KALDIRILDI — dead code
+      // CL endSeason'da otomatik başlar, manuel başlatmaya gerek yok
 
       // v2.9.41: Şampiyonlar Ligi turu oyna
       playChampionsLeagueRound: () => {
@@ -4744,30 +4738,9 @@ export const useAppStore = create<AppState>()(
         triggerTacticsSave();
       },
 
-      // v2.9.20 GÖREV 1: saveToCloud ve saveTacticsToCloud artık alias.
-      // Tüm debounce'lu auto-save cloud-save.ts içinde (initCloudSave).
-      // Bu action'lar yalnızca manuel flush için çağrılırsa çalışır — genelde çağrılmaz
-      // çünkü store subscribe zaten değişiklikleri dinler. Geri uyumluluk için tutuldu.
-      saveToCloud: async (userId) => {
-        try {
-          const { flushGameState } = await import("@/lib/cloud-save");
-          let uid = userId;
-          if (!uid) {
-            const { supabase } = await import("@/lib/supabase/client");
-            const { data: sess } = await supabase().auth.getSession();
-            uid = sess.session?.user?.id ?? null;
-          }
-          if (!uid) return;
-          await flushGameState(uid);
-        } catch (e: any) {
-          console.warn("[saveToCloud] hata:", e?.message ?? e);
-        }
-      },
-
-      // saveTacticsToCloud — saveToCloud'a yönlendir (geri uyumluluk)
-      saveTacticsToCloud: async (userId) => {
-        return get().saveToCloud(userId);
-      },
+      // v2.9.65: saveToCloud/saveTacticsToCloud KALDIRILDI — dead code
+      // cloud-save.ts useAppStore.subscribe ile otomatik çalışır
+      // Manuel flush için: import { flushGameState } from "@/lib/cloud-save"
 
       // v2.9.46 Görev 1: Kozmetik Market action'ları
       buyCosmetic: (cosmeticId, creditPrice) => {

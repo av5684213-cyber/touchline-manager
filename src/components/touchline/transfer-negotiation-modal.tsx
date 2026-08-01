@@ -118,11 +118,13 @@ export function TransferNegotiationModal({
 
   const handleLoanSubmit = () => {
     haptic("medium");
-    // Kiralık pazarlık — min appearances yüksekse AI sever (zorunlu oynatma)
+    // v2.9.65 FIX: Math.random kaldırıldı — deterministic yap (handleSubmit ile uyumlu)
+    // Eski kod: aiScore += Math.floor(Math.random() * 20) - 10; → re-roll exploit
     let aiScore = 50;
     if (minAppearances >= 15) aiScore += 15;
     if (loanFee >= askingPrice * 0.1) aiScore += 10;
-    aiScore += Math.floor(Math.random() * 20) - 10;
+    // Deterministic bonus: loanFee askingPrice'ın %15'inden fazlaysa ek puan
+    if (loanFee >= askingPrice * 0.15) aiScore += 5;
 
     if (aiScore >= 55) {
       haptic("success");

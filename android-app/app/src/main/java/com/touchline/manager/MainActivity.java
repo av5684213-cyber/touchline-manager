@@ -348,27 +348,16 @@ public class MainActivity extends Activity {
             }
 
             // v2.9.20 GÖREV 8: FCM Push Notification Token
-            // JS'den AndroidNative.getFCMToken() çağrıldığında token döner.
-            // Firebase SDK olmadan: cihaz UUID'sini token olarak kullan (geçici).
-            // İleride Firebase Messaging SDK eklenince gerçek FCM token döndür.
+            // v2.9.65 FIX: getFCMToken artık Android ID döndürmüyor — boş string döner
+            // Eski kod: Settings.Secure.ANDROID_ID'yi alıp "tm_<androidId>" döndürüyordu
+            // → Play Store Data Safety'de cihaz tanımlayıcı toplandığı belirtilmeliydi
+            // → Gerçek FCM token değil, push gönderilemezdi
+            // Yeni: Firebase SDK eklenene kadar boş döndür, push notifications disabled kalsın
             @android.webkit.JavascriptInterface
             public String getFCMToken() {
-                try {
-                    // Cihaz ID'sini al (Android ID — applications için unique)
-                    android.content.Context ctx = getApplicationContext();
-                    String androidId = android.provider.Settings.Secure.getString(
-                        ctx.getContentResolver(),
-                        android.provider.Settings.Secure.ANDROID_ID
-                    );
-                    // UID prefix ile FCM-like token oluştur
-                    if (androidId != null && !androidId.isEmpty()) {
-                        return "tm_" + androidId;
-                    }
-                    return "";
-                } catch (Exception e) {
-                    android.util.Log.w(TAG, "getFCMToken failed: " + e.getMessage());
-                    return "";
-                }
+                // v2.9.65: Push notifications disabled — gerçek FCM token döndürmek için
+                // Firebase Messaging SDK entegrasyonu gerekir
+                return "";
             }
 
             // v2.9.20 GÖREV 8: Platform bilir

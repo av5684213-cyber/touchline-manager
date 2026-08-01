@@ -273,16 +273,16 @@ Deno.serve(async (req: Request) => {
   const force = body?.force === true;
   const deptId = body?.dept_id ?? null;
 
-  // Yetkilendirme — service role key veya force=true
+  // v2.9.65 FIX: Auth bypass kapatıldı — force=true SADECE service role doğrulandıktan sonra
+  // Eski kod: force=true ise auth hiç gerekmiyordu → yetkisiz tetikleme mümkündü
   const authHeader = req.headers.get("Authorization") ?? "";
   const apiKey = req.headers.get("apikey") ?? "";
-  if (!authHeader.includes(SERVICE_ROLE_KEY) && apiKey !== SERVICE_ROLE_KEY) {
-    if (!force) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+  const isServiceRole = authHeader === `Bearer ${SERVICE_ROLE_KEY}` || apiKey === SERVICE_ROLE_KEY;
+  if (!isServiceRole) {
+    return new Response(JSON.stringify({ error: "Unauthorized — service role required" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   // Hafta içi kontrolü

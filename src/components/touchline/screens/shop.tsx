@@ -55,6 +55,8 @@ const PACKS: Record<PackType, {
   borderColor: string;
   ovrRange: string;
   desc: string;
+  // v2.9.65: Loot box olasılıkları (Play Store politikası gereği)
+  probabilities: Array<{ range: string; chance: number }>;
 }> = {
   bronze: {
     name: "Bronz Paket",
@@ -65,6 +67,12 @@ const PACKS: Record<PackType, {
     borderColor: "border-amber-700/50",
     ovrRange: "50-65 OVR",
     desc: "3 oyuncu — genç yetenekler ve yedekler",
+    probabilities: [
+      { range: "50-55 OVR", chance: 40 },
+      { range: "56-60 OVR", chance: 35 },
+      { range: "61-63 OVR", chance: 20 },
+      { range: "64-65 OVR", chance: 5 },
+    ],
   },
   silver: {
     name: "Gümüş Paket",
@@ -75,6 +83,12 @@ const PACKS: Record<PackType, {
     borderColor: "border-slate-400/50",
     ovrRange: "60-75 OVR",
     desc: "3 oyuncu — rotation oyuncuları",
+    probabilities: [
+      { range: "60-64 OVR", chance: 35 },
+      { range: "65-69 OVR", chance: 35 },
+      { range: "70-72 OVR", chance: 22 },
+      { range: "73-75 OVR", chance: 8 },
+    ],
   },
   gold: {
     name: "Altın Paket",
@@ -85,6 +99,12 @@ const PACKS: Record<PackType, {
     borderColor: "border-yellow-500/50",
     ovrRange: "70-85 OVR",
     desc: "3 oyuncu — ilk 11 kalibresinde",
+    probabilities: [
+      { range: "70-74 OVR", chance: 30 },
+      { range: "75-79 OVR", chance: 35 },
+      { range: "80-82 OVR", chance: 25 },
+      { range: "83-85 OVR", chance: 10 },
+    ],
   },
   platinum: {
     name: "Platin Paket",
@@ -95,6 +115,12 @@ const PACKS: Record<PackType, {
     borderColor: "border-cyan-400/50",
     ovrRange: "78-92 OVR",
     desc: "3 oyuncu — yıldız oyuncular",
+    probabilities: [
+      { range: "78-82 OVR", chance: 25 },
+      { range: "83-86 OVR", chance: 35 },
+      { range: "87-89 OVR", chance: 28 },
+      { range: "90-92 OVR", chance: 12 },
+    ],
   },
 };
 
@@ -284,7 +310,7 @@ export function ShopScreen() {
                 <button
                   key={type}
                   onClick={() => handleBuy(type)}
-                  disabled={!canAfford}
+                  disabled={!canAfford || opening !== null || phase !== "idle"}
                   className={cn(
                     "tm-tap relative rounded-xl p-4 flex flex-col items-center gap-2 border-2 transition-all active:scale-[0.97]",
                     pack.bgColor,
@@ -299,6 +325,20 @@ export function ShopScreen() {
                   <div className={cn("text-sm font-bold", pack.color)}>{pack.name}</div>
                   <div className="text-[10px] text-muted-foreground font-semibold">{pack.ovrRange}</div>
                   <div className="text-[11px] text-muted-foreground text-center leading-tight">{pack.desc}</div>
+                  {/* v2.9.65: Loot box olasılıkları — Play Store politikası gereği */}
+                  <details className="mt-1.5 w-full">
+                    <summary className="text-[9px] text-muted-foreground cursor-pointer hover:text-foreground text-center">
+                      📊 Olasılıklar
+                    </summary>
+                    <div className="mt-1 space-y-0.5 p-1.5 rounded bg-muted/30">
+                      {pack.probabilities.map((p) => (
+                        <div key={p.range} className="flex justify-between text-[9px]">
+                          <span className="text-muted-foreground">{p.range}</span>
+                          <span className="font-bold tabular-nums text-foreground">%{p.chance}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
                   <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 mt-1">
                     <Coins size={12} className="text-amber-300" />
                     <span className="text-xs font-bold text-amber-100 tabular-nums">{pack.price}</span>
@@ -663,6 +703,8 @@ function CosmeticMarketTab({ onFeedback }: { onFeedback: (msg: string) => void }
   const [loading, setLoading] = useState(true);
   const [usingSeed, setUsingSeed] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<CosmeticCategory | "all">("all");
+  // v2.9.65: Satın alma sırasında butonu disable et — race condition önle
+  const [purchasingId, setPurchasingId] = useState<string | null>(null);
 
   // Kataloğu yükle (Supabase bağlıysa oradan, değilse seed)
   useEffect(() => {
@@ -682,8 +724,12 @@ function CosmeticMarketTab({ onFeedback }: { onFeedback: (msg: string) => void }
     : catalog.filter(c => c.category === selectedCategory);
 
   const handleBuy = (item: CosmeticItem) => {
+    // v2.9.65: Çift tıklama önle — zaten satın alınıyorsa iptal
+    if (purchasingId) return;
     haptic("medium");
+    setPurchasingId(item.id);
     const result = buyCosmetic(item.id, item.creditPrice);
+    setPurchasingId(null);
     if (result.success) {
       haptic("success");
       onFeedback(`✓ ${locale === "tr" ? item.nameTr : item.nameEn} satın alındı!`);
@@ -824,7 +870,7 @@ function CosmeticMarketTab({ onFeedback }: { onFeedback: (msg: string) => void }
               ) : (
                 <button
                   onClick={() => handleBuy(item)}
-                  disabled={!canAfford}
+                  disabled={!canAfford || purchasingId !== null}
                   className={cn(
                     "tm-tap w-full flex items-center justify-center gap-1 py-1.5 rounded-md text-[10px] font-bold transition-colors",
                     canAfford
@@ -950,9 +996,18 @@ function CreditsPurchaseTab({ onFeedback }: { onFeedback: (msg: string) => void 
         await acknowledgePurchase(result.purchase.purchaseToken);
       }
 
-      // 3. v2.9.53: Server-side doğrulama — purchaseToken'ı verify-purchase'a gönder
-      if (result.purchase?.purchaseToken) {
-        try {
+      // 3. v2.9.65 FIX: purchaseToken YOKSA kredi ekleme — "Dev mode" bypass kaldırıldı
+      // Eski kod: purchaseToken undefined → else branch → addCredits (BYPASS!)
+      // Yeni: purchaseToken yoksa hata ver, kredi ekleme
+      if (!result.purchase?.purchaseToken) {
+        haptic("error");
+        onFeedback("✗ Satın alma doğrulanamadı — purchaseToken alınamadı. Kredi eklenmedi.");
+        console.warn("[billing] No purchaseToken received — credits NOT added");
+        return;
+      }
+
+      // 4. v2.9.53: Server-side doğrulama — purchaseToken'ı verify-purchase'a gönder
+      try {
           const { supabase } = await import("@/lib/supabase/client");
           const { data: verifyData, error: verifyErr } = await supabase()
             .functions.invoke("verify-purchase", {
@@ -992,18 +1047,11 @@ function CreditsPurchaseTab({ onFeedback }: { onFeedback: (msg: string) => void 
           addCredits(grantedCredits);
           haptic("success");
           onFeedback(`✓ ${grantedCredits} kredi eklendi!${pack.bonusCredits > 0 ? ` (${pack.bonusCredits} bonus)` : ""}`);
-        } catch (verifyErr: any) {
-          // Network hatası — para alındı ama doğrulanamadı
-          onFeedback("⏳ Satın alman doğrulanıyor — kredin birazdan eklenecek.");
-          console.warn("[billing] verify-purchase error:", verifyErr);
-          return;
-        }
-      } else {
-        // Dev mode — purchaseToken yok (simülasyon), direkt kredi ekle
-        const totalCredits = pack.credits + pack.bonusCredits;
-        addCredits(totalCredits);
-        haptic("success");
-        onFeedback(`✓ ${totalCredits} kredi eklendi!${pack.bonusCredits > 0 ? ` (${pack.bonusCredits} bonus)` : ""}`);
+      } catch (verifyErr: any) {
+        // Network hatası — para alındı ama doğrulanamadı
+        onFeedback("⏳ Satın alman doğrulanıyor — kredin birazdan eklenecek.");
+        console.warn("[billing] verify-purchase error:", verifyErr);
+        return;
       }
     } catch (e: any) {
       haptic("error");

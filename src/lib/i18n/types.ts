@@ -1,19 +1,13 @@
 /**
- * v2.9.21 GÖREV 8 — Genişletilmiş dil desteği.
- *
- * Diller: tr (default), en, es, de, fr, pt
- *
- * Google Play'de kullanıcının cihaz diline göre otomatik seçim:
- *   - localStorage'da seçim yoksa navigator.language'den tahmin
- *   - Desteklenmeyen dil varsa en'ye fallback
- *
- * Yeni anahtarlar eklendiğinde Dict tipinde tüm diller opsiyonel —
- * eksikse tr veya en fallback yapılır.
+ * v2.9.65: Dil desteği daraltıldı — sadece tr + en
+ * Eski kod (v2.9.21): 6 dil (tr/en/es/de/fr/pt) iddia ediliyordu ama
+ * es/de/fr/pt için sadece %0.6-0.7 çeviri vardı → kullanıcı yanıltılıyordu
+ * Yeni: sadece tam çevrilmiş diller (tr + en)
  */
 
-export type Locale = "tr" | "en" | "es" | "de" | "fr" | "pt";
+export type Locale = "tr" | "en";
 
-export const LOCALES: Locale[] = ["tr", "en", "es", "de", "fr", "pt"];
+export const LOCALES: Locale[] = ["tr", "en"];
 export const DEFAULT_LOCALE: Locale = "tr";
 
 /**
@@ -22,10 +16,6 @@ export const DEFAULT_LOCALE: Locale = "tr";
 export const LOCALE_NAMES: Record<Locale, { native: string; flag: string }> = {
   tr: { native: "Türkçe", flag: "🇹🇷" },
   en: { native: "English", flag: "🇬🇧" },
-  es: { native: "Español", flag: "🇪🇸" },
-  de: { native: "Deutsch", flag: "🇩🇪" },
-  fr: { native: "Français", flag: "🇫🇷" },
-  pt: { native: "Português", flag: "🇵🇹" },
 };
 
 /**
@@ -65,10 +55,7 @@ export function detectLocaleFromBrowser(): Locale {
       const lang = androidLang.toLowerCase();
       if (lang.startsWith("tr")) return "tr";
       if (lang.startsWith("en")) return "en";
-      if (lang.startsWith("es")) return "es";
-      if (lang.startsWith("de")) return "de";
-      if (lang.startsWith("fr")) return "fr";
-      if (lang.startsWith("pt")) return "pt";
+      // v2.9.65: es/de/fr/pt artık desteklenmiyor — en'ye fallback
     }
   }
 
@@ -76,10 +63,7 @@ export function detectLocaleFromBrowser(): Locale {
   const lang = (navigator.language || navigator.languages?.[0] || "tr").toLowerCase();
   if (lang.startsWith("tr")) return "tr";
   if (lang.startsWith("en")) return "en";
-  if (lang.startsWith("es")) return "es";
-  if (lang.startsWith("de")) return "de";
-  if (lang.startsWith("fr")) return "fr";
-  if (lang.startsWith("pt")) return "pt";
+  // v2.9.65: es/de/fr/pt artık desteklenmiyor — en'ye fallback
 
   // v2.9.54: Desteklenmeyen diller için en'ye fallback
   // (İtalyanca, Rusça, Arapça, Çince, Japonca, vb.)
@@ -103,10 +87,6 @@ export function translate(
   switch (locale) {
     case "tr": text = entry.tr; break;
     case "en": text = entry.en; break;
-    case "es": text = entry.es ?? entry.en; break;
-    case "de": text = entry.de ?? entry.en; break;
-    case "fr": text = entry.fr ?? entry.en; break;
-    case "pt": text = entry.pt ?? entry.en; break;
     default: text = entry.en;
   }
 

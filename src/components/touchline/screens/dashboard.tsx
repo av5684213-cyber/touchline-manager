@@ -808,9 +808,10 @@ function DailyTasks() {
           <button
             key={task.id}
             onClick={() => toggleTask(task.id)}
+            disabled={task.done}
             className={cn(
               "tm-tap w-full flex items-center gap-2 p-1.5 rounded text-left transition-colors",
-              task.done ? "bg-emerald-500/10" : "hover:bg-accent/50"
+              task.done ? "bg-emerald-500/10 opacity-60" : "hover:bg-accent/50"
             )}
           >
             <span className={cn(

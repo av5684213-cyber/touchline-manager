@@ -134,8 +134,8 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
       },
       onMatched: (oppUser: QueueUser) => {
         haptic("success");
-        // v2.9.17: Online rakip bulundu — bot fallback YOK
-        setFeedback(`✓ Online rakip bulundu: ${oppUser.teamName} (OVR ${oppUser.teamOvr}). Maç başlıyor!`);
+        // v2.9.65 FIX: Dürüst mesaj — maç bot'a karşı oynanıyor, online sohbet var
+        setFeedback(`✓ Online rakiple eşleştin: ${oppUser.teamName} (OVR ${oppUser.teamOvr}). Sohbet açıldı — maç bot takıma karşı oynanacak.`);
         setQueueStatus("matched");
         // Rakibin OVR'sine yakın bir bot bul (geçici — gerçek online maç için sunucu tarafı simülasyon gerekir)
         const targetOvr = oppUser.teamOvr ?? 70;

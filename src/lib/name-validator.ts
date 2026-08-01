@@ -196,8 +196,34 @@ export function validateManagerName(raw: string): NameValidationResult {
 }
 
 /**
- * Ülke kodu validasyonu — countries tablosundaki 10 başlıca lig.
+ * v2.9.65: Forum gönderileri için içerik filtresi.
+ * Küfür, reklam, URL, e-posta, sosyal medya hesabı tespiti.
  */
+export function validateForumContent(raw: string): { valid: boolean; reason?: string; message?: string } {
+  const trimmed = (raw ?? "").trim();
+  if (trimmed.length === 0) {
+    return { valid: false, reason: "empty", message: "Boş içerik." };
+  }
+  if (trimmed.length > 500) {
+    return { valid: false, reason: "too-long", message: "Maksimum 500 karakter." };
+  }
+
+  const normalized = normalize(trimmed);
+
+  for (const bad of PROFANITY_PATTERNS) {
+    if (normalized.includes(bad)) {
+      return { valid: false, reason: "profanity", message: "İçerik uygunsuz kelime içeriyor." };
+    }
+  }
+
+  for (const pattern of AD_PATTERNS) {
+    if (pattern.test(trimmed) || pattern.test(normalized)) {
+      return { valid: false, reason: "ad", message: "İçerikte reklam, URL, e-posta veya sosyal medya hesabı olamaz." };
+    }
+  }
+
+  return { valid: true };
+}
 export function validateCountryCode(code: string): boolean {
   if (!code) return false;
   const upper = code.toUpperCase();

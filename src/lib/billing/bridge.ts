@@ -93,10 +93,11 @@ const BILLING_DEV_MODE = process.env.NEXT_PUBLIC_BILLING_DEV_MODE === "true";
 /**
  * Satın alma akışını başlat.
  *
- * v2.9.52: Dev mode bypass artık env flag ile korunuyor.
- * - BILLING_DEV_MODE === true AND native yok → simülasyon (sadece dev/staging)
- * - BILLING_DEV_MODE === false/undefined AND native yok → success:false, billing_unavailable
- * - Native var → gerçek billing akışı (değişmedi)
+ * v2.9.65 FIX: Native bridge async olduğu için `touchline-purchase-result` event'ini bekler.
+ * Eski kod: bridge.launchPurchaseFlow() hemen {success:true, purchase:null} dönüyordu
+ * → shop.tsx "Dev mode" branch'ine düşüp kredileri verify etmeden ekliyordu.
+ *
+ * v2.9.52: Dev mode flag — sadece local dev/staging'de true.
  */
 export async function launchPurchaseFlow(sku: string): Promise<BillingResult> {
   if (!isBillingAvailable()) {
@@ -124,15 +125,49 @@ export async function launchPurchaseFlow(sku: string): Promise<BillingResult> {
 
   try {
     const bridge = (window as any).TouchlineBilling;
-    const result = await bridge.launchPurchaseFlow(sku);
-    const parsed = typeof result === "string" ? JSON.parse(result) : result;
-    if (!parsed.success) {
-      return { success: false, reason: parsed.reason ?? "Satın alma başarısız" };
-    }
-    return {
-      success: true,
-      purchase: parsed.purchase as BillingPurchase,
-    };
+
+    // v2.9.65: Native bridge'i çağır — ama sonucu bekleme (async callback)
+    bridge.launchPurchaseFlow(sku);
+
+    // v2.9.65: `touchline-purchase-result` event'ini bekle (timeout 60 sn)
+    // Native Java tarafı satın alma tamamlandığında bu event'i dispatch ediyor
+    const purchaseResult = await new Promise<BillingResult>((resolve) => {
+      const timeout = setTimeout(() => {
+        window.removeEventListener("touchline-purchase-result", handler);
+        resolve({ success: false, reason: "timeout" });
+      }, 60_000);
+
+      const handler = (event: any) => {
+        const detail = event.detail ?? event;
+        // Sadece bu SKU için olan event'i işle
+        if (detail?.sku && detail.sku !== sku) return;
+
+        clearTimeout(timeout);
+        window.removeEventListener("touchline-purchase-result", handler);
+
+        if (detail.success && detail.purchaseToken) {
+          resolve({
+            success: true,
+            purchase: {
+              sku,
+              purchaseToken: detail.purchaseToken,
+              purchaseTime: detail.purchaseTime ?? Date.now(),
+              purchaseState: "purchased",
+              acknowledged: false,
+            },
+          });
+        } else {
+          resolve({
+            success: false,
+            reason: detail.reason ?? "user_canceled",
+          });
+        }
+      };
+
+      window.addEventListener("touchline-purchase-result", handler);
+    });
+
+    return purchaseResult;
   } catch (e: any) {
     return { success: false, reason: e?.message ?? "Billing exception" };
   }

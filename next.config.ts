@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
   // v2.9.11: Production build'de source map üretme — APK boyutu küçülür, kod gizli kalır
   productionBrowserSourceMaps: false,
+  // v2.9.65: Production'da console.log/debug'leri kaldır — sadece console.error kalsın
+  // PII sızıntısı (user ID) + performans kaybı önlenir
+  compiler: {
+    removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error"] } : false,
+  },
 };
 
 export default nextConfig;

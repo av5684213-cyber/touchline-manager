@@ -304,6 +304,18 @@ function NewTopicForm({
       setError("Mesaj en az 5 karakter olmalı.");
       return;
     }
+    // v2.9.65: Küfür/spam filtresi
+    const { validateForumContent } = await import("@/lib/name-validator");
+    const titleCheck = validateForumContent(title);
+    if (!titleCheck.valid) {
+      setError(titleCheck.message ?? "Başlık reddedildi.");
+      return;
+    }
+    const bodyCheck = validateForumContent(body);
+    if (!bodyCheck.valid) {
+      setError(bodyCheck.message ?? "Mesaj reddedildi.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -464,6 +476,13 @@ function TopicDetail({
   const handleReply = async () => {
     if (!userId || !myTeam) return;
     if (replyText.trim().length < 2) return;
+    // v2.9.65: Küfür/spam filtresi
+    const { validateForumContent } = await import("@/lib/name-validator");
+    const replyCheck = validateForumContent(replyText);
+    if (!replyCheck.valid) {
+      setReplyError(replyCheck.message ?? "Cevap reddedildi.");
+      return;
+    }
     setSubmitting(true);
     setReplyError(null);
     try {

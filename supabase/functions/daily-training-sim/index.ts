@@ -98,6 +98,17 @@ Deno.serve(async (req: Request) => {
   const body = await req.json().catch(() => ({}));
   const force = body?.force === true;
 
+  // v2.9.65 FIX: Auth kontrolü eklendi — eski kodda hiç yoktu
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const apiKey = req.headers.get("apikey") ?? "";
+  const isServiceRole = authHeader === `Bearer ${SERVICE_ROLE_KEY}` || apiKey === SERVICE_ROLE_KEY;
+  if (!isServiceRole) {
+    return new Response(JSON.stringify({ error: "Unauthorized — service role required" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   if (!force && !isWeekdayTR()) {
     return new Response(JSON.stringify({ skipped: "weekend" }), {
       headers: { "Content-Type": "application/json" },

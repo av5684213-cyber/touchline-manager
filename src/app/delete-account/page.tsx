@@ -39,7 +39,7 @@ export default function DeleteAccountPage() {
             </p>
 
             <form
-              action="mailto:touchline-manager@example.com"
+              action="mailto:support@touchline-manager.com"
               method="post"
               encType="text/plain"
               className="space-y-3"
@@ -110,7 +110,7 @@ export default function DeleteAccountPage() {
         <section>
           <h2 className="text-base font-bold mb-2">İletişim</h2>
           <p className="text-sm text-muted-foreground">
-            Sorularınız için: touchline-manager@example.com
+            Sorularınız için: support@touchline-manager.com
           </p>
         </section>
       </div>

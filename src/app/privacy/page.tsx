@@ -98,7 +98,7 @@ export default function PrivacyPage() {
         <section>
           <h2 className="text-base font-bold mb-2">8. İletişim</h2>
           <p className="text-sm text-muted-foreground">
-            Gizlilik politikası hakkında sorularınız için: touchline-manager@example.com
+            Gizlilik politikası hakkında sorularınız için: support@touchline-manager.com
           </p>
         </section>
       </div>

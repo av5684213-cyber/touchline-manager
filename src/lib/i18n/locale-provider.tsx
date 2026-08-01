@@ -96,10 +96,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       switch (locale) {
         case "tr": raw = entry.tr; break;
         case "en": raw = entry.en; break;
-        case "es": raw = entry.es ?? entry.en; break;
-        case "de": raw = entry.de ?? entry.en; break;
-        case "fr": raw = entry.fr ?? entry.en; break;
-        case "pt": raw = entry.pt ?? entry.en; break;
+        // v2.9.65: es/de/fr/pt artık desteklenmiyor
         default: raw = entry.en;
       }
       return interpolate(raw, params);

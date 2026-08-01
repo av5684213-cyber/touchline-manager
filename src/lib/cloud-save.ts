@@ -552,7 +552,11 @@ function catchUpAllLeagues(allLeagues: any, targetMatchday: number): void {
         const awayTeam = league.clubs.find((c: any) => c.id === match.awayId);
         if (!homeTeam || !awayTeam) continue;
 
-        const result = simulateBotMatch(homeTeam, awayTeam, md);
+        // v2.9.65 FIX: Deterministic seed — cihazlar arası tutarlı sonuç
+        // Eski kod: simulateBotMatch Math.random kullanıyor → her cihazda farklı sonuç
+        // Yeni: matchday + homeId + awayId ile seed'lenmiş PRNG kullan
+        const seedStr = `${md}-${match.homeId}-${match.awayId}`;
+        const result = simulateBotMatchSeeded(homeTeam, awayTeam, md, seedStr);
 
         // Fixture'ı güncelle
         const idx = league.fixtures.findIndex((f: any) => f.id === match.id);
@@ -583,13 +587,14 @@ function catchUpAllLeagues(allLeagues: any, targetMatchday: number): void {
           p.appearances = (p.appearances ?? 0) + 1;
         }
 
-        // Gol dağıt
+        // v2.9.65: Deterministic gol dağıt — seeded scorer pick
+        const scorerRng = mulberry32(hashStringToSeed(`${seedStr}-scorers`));
         for (let g = 0; g < result.homeScore; g++) {
-          const scorer = pickScorerSimple(homeXI);
+          const scorer = pickScorerSeeded(homeXI, scorerRng);
           if (scorer) scorer.goals = (scorer.goals ?? 0) + 1;
         }
         for (let g = 0; g < result.awayScore; g++) {
-          const scorer = pickScorerSimple(awayXI);
+          const scorer = pickScorerSeeded(awayXI, scorerRng);
           if (scorer) scorer.goals = (scorer.goals ?? 0) + 1;
         }
       }
@@ -608,4 +613,49 @@ function pickScorerSimple(squad: any[]): any | null {
   );
   const pool = attackers.length > 0 ? attackers : squad;
   return pool[Math.floor(Math.random() * pool.length)] ?? null;
+}
+
+// v2.9.65: Deterministic seed'li PRNG —Mulberry32
+function mulberry32(seed: number): () => number {
+  return function () {
+    seed |= 0;
+    seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function hashStringToSeed(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h) + s.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h);
+}
+
+// v2.9.65: Deterministic simulateBotMatch — catch-up için cihazlar arası tutarlı
+function simulateBotMatchSeeded(homeTeam: any, awayTeam: any, matchday: number, seedStr: string): { homeScore: number; awayScore: number } {
+  const { simulateBotMatch } = require("@/lib/botAI");
+  // Origimal simulateBotMatch'i çağır ama Math.random'u geçersiz kıl
+  const seed = hashStringToSeed(seedStr);
+  const rng = mulberry32(seed);
+  const originalRandom = Math.random;
+  Math.random = rng;
+  try {
+    return simulateBotMatch(homeTeam, awayTeam, matchday);
+  } finally {
+    Math.random = originalRandom;
+  }
+}
+
+// v2.9.65: Deterministic scorer pick
+function pickScorerSeeded(squad: any[], rng: () => number): any | null {
+  if (squad.length === 0) return null;
+  const attackers = squad.filter((p) =>
+    ["ST", "CF", "LW", "RW", "LM", "RM", "CAM", "CM"].includes(p.specificPosition)
+  );
+  const pool = attackers.length > 0 ? attackers : squad;
+  return pool[Math.floor(rng() * pool.length)] ?? null;
 }
