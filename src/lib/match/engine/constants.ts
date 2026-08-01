@@ -759,7 +759,9 @@ export const EVENT_VISIBILITY = {
 // 0-30 dk: baz risk, 30-60 dk: %20 artış, 60-90 dk: %50 artış
 // Kondisyon < 50: risk 2x (aşırı yorgunluk)
 export const INJURY_RISK = {
-  base: 0.001,                    // Baz risk (cond ≥ 60, dk 0-30)
+  // v2.9.64 FIX: base risk 10x azaltıldı — eskiden 0.001 (her maç 3-5 sakatlık, gerçek hayattan 10-25x fazla)
+  // Yeni: 0.0001 → her maç ~0.2-0.5 sakatlık (gerçek futbol: 0.27/maç)
+  base: 0.0001,
   condThresholdLow: 50,           // Kritik kondisyon eşiği (eski 40 → 50)
   condThresholdMid: 60,           // Orta kondisyon eşiği
   condLowMultiplier: 2.0,         // cond < 50: risk 2x (aşırı yorgunluk)

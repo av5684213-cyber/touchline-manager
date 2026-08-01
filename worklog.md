@@ -3804,3 +3804,81 @@ Test senaryoları:
 3. Eski kayıt yükle → allLeagues catch-up yapar (matchday 15'e kadar oynar)
 4. Multiplayer: başka kullanıcının oyuncusuna teklif → Supabase'e yazılır
 5. Multiplayer: gelen teklifleri yanıtla → oyuncu transfer olur
+
+---
+Task ID: v2.9.64
+Agent: main (Super Z)
+Task: Kapsamlı denetim sonucu 12 KRİTİK bug düzeltmesi
+
+Work Log:
+
+1. C3 FIX: Kupa bracket deadlock — 12 → 16 takım
+   - Eski: 12 takım → 6→3→deadlock (3 kazananla 2'li eşleşme yapılamaz)
+   - Yeni: 16 takım → 8→4→2→1 (temiz bracket, bye yok)
+
+2. C1 FIX: endSeason myIdx < 0 guard
+   - Eski: myIdx = -1 → finalPosition=0, promoted=true (yanlış "şampiyon")
+   - Yeni: myIdx < 0 ise return { success: false }
+
+3. D6 FIX: migrateArchetypes deterministic + cloud-save whitelist
+   - Eski: Math.random() → her çağrıda farklı sonuç
+   - Yeni: playerId hash'i (deterministic)
+   - _archetypeMigrationDone artık cloud'a kaydediliyor (whitelist)
+
+4. B1 FIX: Sakatlık oranı 10x azalt
+   - Eski: INJURY_RISK.base = 0.001 → her maç 3-5 sakatlık (gerçek hayattan 10-25x fazla)
+   - Yeni: 0.0001 → her maç ~0.2-0.5 sakatlık (gerçek futbol: 0.27/maç)
+
+5. B2 FIX: Sakatlık severity motorla uyumlu
+   - Eski: applyPostMatchEffects'te Math.random() ile 3-17 gün → motor heavy üretse bile 3 gün
+   - Yeni: motor'un injuryDays + injurySeverity'sini kullan
+
+6. D1 FIX: State mutation immutable (makeLoanOffer)
+   - Eski: myTeam.budget -= loanFee (mutation) → re-render olmuyordu
+   - Yeni: clubs.map() ile immutable update
+   - Ek: Kiralık oyuncu stats sıfırlama (goals/assists/appearances)
+
+7. C8 FIX: Terfi sonrası eski ligden kullanıcıyı çıkar
+   - Eski: sadece hasUser=false, clubs'ta kullanıcı takımı kalıyordu → çift simülasyon
+   - Yeni: clubs'tan filter ile çıkar, 17 takım kaldıysa yeni bot ekle
+
+8. B4 FIX: Bot AI güçlendir
+   - Eski: diff sadece homeAdv (0.1-0.4) → güç farkı ihmal ediliyordu
+   - Yeni: diff/10 = gol beklentisi avantajı (80 vs 50 OVR = 3-0)
+   - Poisson benzeri dağılım, gerçekçi gol ortalaması
+
+9. B5 FIX: TV gelirleri 5x düşür
+   - Eski: T1: 5M, T2: 3M → sezon sonunda 170M birikiyordu
+   - Yeni: T1: 1M, T2: 600K, T3: 500K, T4: 400K → ekonomi dengeli
+
+10. B7 FIX: calculatePlayerValue 200M üst sınır
+    - Eski: sınır yok → ileri sezonlarda 222M oyuncu → pazar bozulur
+    - Yeni: Math.min(200_000_000, ...)
+
+11. A3.4 FIX: PodiumItem sortKey'e göre değer göster
+    - Eski: her zaman {p.goals}⚽ (assists/rating/motm'de bile gol)
+    - Yeni: sortKey'e göre displayValue + displayIcon
+
+12. C5 FIX: makeLoanOffer transfer penceresi kontrolü
+    - Eski: pencere kontrolü yok → 30-34. haftada kiralama yapılabiliyordu
+    - Yeni: isTransferWindowOpen() kontrolü eklendi
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- 12 KRİTİK bug düzeltildi
+- Kupa deadlock önlendi (16 takım)
+- Sakatlık oranı gerçekçi (10x azaldı)
+- Bot AI adil (güç farkı gol sayısına yansıyor)
+- Ekonomi dengeli (TV gelirleri düşürüldü)
+- State mutation düzeltildi (re-render sorunu)
+- Migration deterministic + persistent
+
+Test senaryoları:
+1. Kupa → 16 takım, deadlock yok
+2. Sakatlık → her maç 0-1 oyuncu (3-5 değil)
+3. Bot maçı → güçlü takım zayıf takımı yener (rastgele değil)
+4. Transfer → bütçe dengeli (170M değil ~40M/sezon)
+5. Oyuncu değeri → max 200M (222M değil)
+6. Podium → assists seçilince asist gösterir (gol değil)
+7. Kiralama → 30-34. haftada kapalı
+8. Terfi → eski lig temiz, yeni lig senkron

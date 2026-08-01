@@ -100,9 +100,9 @@ export function TopScorersScreen() {
         </div>
         {ranked.length >= 3 && (
           <div className="grid grid-cols-3 gap-2 mb-3">
-            <PodiumItem rank={2} entry={ranked[1]} onClick={() => { haptic("light"); setProfilePlayer(ranked[1].player); }} />
-            <PodiumItem rank={1} entry={ranked[0]} onClick={() => { haptic("light"); setProfilePlayer(ranked[0].player); }} />
-            <PodiumItem rank={3} entry={ranked[2]} onClick={() => { haptic("light"); setProfilePlayer(ranked[2].player); }} />
+            <PodiumItem rank={2} entry={ranked[1]} sortKey={sortKey} onClick={() => { haptic("light"); setProfilePlayer(ranked[1].player); }} />
+            <PodiumItem rank={1} entry={ranked[0]} sortKey={sortKey} onClick={() => { haptic("light"); setProfilePlayer(ranked[0].player); }} />
+            <PodiumItem rank={3} entry={ranked[2]} sortKey={sortKey} onClick={() => { haptic("light"); setProfilePlayer(ranked[2].player); }} />
           </div>
         )}
         <div className="grid grid-cols-3 gap-1.5">
@@ -256,12 +256,23 @@ export function TopScorersScreen() {
   );
 }
 
-function PodiumItem({ rank, entry, onClick }: { rank: number; entry: any; onClick?: () => void }) {
+function PodiumItem({ rank, entry, sortKey, onClick }: { rank: number; entry: any; sortKey?: SortKey; onClick?: () => void }) {
   const p = entry?.player, t = entry?.team;
   if (!p || !t) return <div />;
   const bgClass = rank === 1 ? "bg-amber-500/15 border-amber-500/40" :
                   rank === 2 ? "bg-slate-400/15 border-slate-400/40" : "bg-orange-700/15 border-orange-700/40";
   const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉";
+
+  // v2.9.64 FIX: sortKey'e göre değer göster (eski kod her zaman gol gösteriyordu)
+  const displayValue = sortKey === "goals" ? p.goals :
+    sortKey === "assists" ? p.assists :
+    sortKey === "rating" ? (p.formRating ?? 0).toFixed(1) :
+    sortKey === "motm" ? (p.motmAwards ?? 0) : (p.appearances ?? 0);
+  const displayIcon = sortKey === "goals" ? "⚽" :
+    sortKey === "assists" ? "🅰" :
+    sortKey === "rating" ? "⭐" :
+    sortKey === "motm" ? "🏆" : "📋";
+
   return (
     <button
       onClick={onClick}
@@ -271,7 +282,7 @@ function PodiumItem({ rank, entry, onClick }: { rank: number; entry: any; onClic
       <PlayerAvatar initials={p.specificPosition} color={t.primaryColor} size={36} />
       <div className="text-[10px] font-bold mt-1 truncate">{p.lastName}</div>
       <div className="text-[11px] text-muted-foreground truncate">{t.shortName}</div>
-      <div className="text-sm font-bold text-foreground tabular-nums mt-0.5">{p.goals}⚽</div>
+      <div className="text-sm font-bold text-foreground tabular-nums mt-0.5">{displayValue}{displayIcon}</div>
     </button>
   );
 }

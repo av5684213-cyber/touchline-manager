@@ -32,11 +32,18 @@ const CLOUD_SAVE_BLACKLIST = new Set<string>([
   "allLeagues",
 ]);
 
+// v2.9.64: _archetypeMigrationDone whitelist — kalıcı flag, cloud'a kaydedilmeli
+const CLOUD_SAVE_WHITELIST = new Set<string>([
+  "_archetypeMigrationDone",
+]);
+
 /**
  * BULGU #9 DÜZELTME (v2.9.2): Hibrit blacklist + convention yaklaşımı.
  * "_" prefix ile başlayan tüm alanlar transient sayılır.
+ * v2.9.64: Whitelist öncelikli — _archetypeMigrationDone kalıcı flag
  */
 function isBlacklisted(key: string): boolean {
+  if (CLOUD_SAVE_WHITELIST.has(key)) return false; // whitelist öncelikli
   if (CLOUD_SAVE_BLACKLIST.has(key)) return true;
   if (key.startsWith("_")) return true;
   return false;

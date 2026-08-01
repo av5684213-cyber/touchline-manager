@@ -207,6 +207,10 @@ export function shouldBotSell(team: Team, player: Player): boolean {
 /**
  * Akıllı bot vs bot simülasyonu.
  * Pozisyon filtreli XI + formasyon modifier + taktik çeşitliliği.
+ *
+ * v2.9.64 FIX: Takım gücü farkı artık gol sayısına yansıyor
+ * Eski kod: diff sadece homeAdv (0.1-0.4) olarak uygulanıyordu → güç farkı ihmal ediliyordu
+ * Yeni: diff doğrudan gol beklentisine etki ediyor (80 OVR vs 50 OVR = 3-0 olur)
  */
 export function simulateBotMatch(
   homeTeam: Team,
@@ -227,27 +231,35 @@ export function simulateBotMatch(
   const homeStr = calculateBotStrength(homeXI, homeProfile);
   const awayStr = calculateBotStrength(awayXI, awayProfile);
 
-  // Maç sonucu hesapla
+  // v2.9.64: Takım gücü farkını gol beklentisine yansıt
+  // Eski kod: diff sadece homeAdv (0.1-0.4) → güçlü takım zayıf takımı hep 1-0 yener
+  // Yeni: her 10 OVR fark = +0.8 gol beklentisi
   const diff = homeStr - awayStr;
-  // v2.9.19: Ev sahibi avantajı dengeli — hedef %42-48
-  const homeAdv = diff > 5 ? 0.4 : diff > 2 ? 0.25 : diff < -5 ? -0.3 : diff < -2 ? -0.15 : 0.1;
+  const strengthAdvantage = diff / 10; // 80 vs 50 = +3.0 gol avantajı
+
+  // Ev sahibi avantajı (sabit 0.3 gol)
+  const homeAdv = 0.3;
 
   // Taktik etkisi: ofansif takım daha çok gol atar ama daha çok yiyebilir
-  const homeAttackBias = homeProfile.mentality >= 4 ? 0.15 : homeProfile.mentality <= 2 ? -0.1 : 0;
-  const awayAttackBias = awayProfile.mentality >= 4 ? 0.15 : awayProfile.mentality <= 2 ? -0.1 : 0;
+  const homeAttackBias = homeProfile.mentality >= 4 ? 0.3 : homeProfile.mentality <= 2 ? -0.2 : 0;
+  const awayAttackBias = awayProfile.mentality >= 4 ? 0.3 : awayProfile.mentality <= 2 ? -0.2 : 0;
 
-  // v2.9.19: Gol sayıları çok yükseldi (3.20/maç) — düşür
-  // Gerçek futbol ortalaması: 2.2-2.8 gol/maç
-  let hs = Math.max(0, Math.round(Math.random() * 2.5 + homeAdv * 1.5 + homeAttackBias));
-  let as = Math.max(0, Math.round(Math.random() * 2.5 - homeAdv * 1.5 + awayAttackBias));
+  // v2.9.64: Gol beklentisi = baz (1.0) + güç avantajı + ev sahibi + taktik
+  // Gerçek futbol: ortalama 2.5 gol/maç, ev sahibi 1.4, deplasman 1.1
+  const homeExpected = Math.max(0, 1.0 + strengthAdvantage + homeAdv + homeAttackBias - awayAttackBias * 0.5);
+  const awayExpected = Math.max(0, 1.0 - strengthAdvantage - homeAdv + awayAttackBias - homeAttackBias * 0.5);
+
+  // Poisson benzeri dağılım — baz + random varyans
+  let hs = Math.max(0, Math.round(homeExpected + (Math.random() - 0.5) * 2));
+  let as = Math.max(0, Math.round(awayExpected + (Math.random() - 0.5) * 2));
 
   // Pressing takım kontrollü oynar — az gol yer
   if (homeProfile.pressing) as = Math.max(0, as - 1);
   if (awayProfile.pressing) hs = Math.max(0, hs - 1);
 
   // Çok yüksek skorları önle
-  hs = Math.min(hs, 5);
-  as = Math.min(as, 5);
+  hs = Math.min(hs, 6);
+  as = Math.min(as, 6);
 
   return { homeScore: hs, awayScore: as };
 }

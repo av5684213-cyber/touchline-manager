@@ -157,7 +157,9 @@ export function calculatePlayerValue(player: Player, seasonPerformanceModifier?:
     (base + potentialBonus) * ageMult * archMult * posMult * condMult * moraleMult * perfMult
   );
 
-  return Math.max(50_000, value); // v2.9.50: 200M sınır kaldırıldı — enflasyon + arketip + traitlere göre
+  // v2.9.64 FIX: 200M üst sınır geri eklendi — enflasyon + arketip + trait çarpanları
+  // ileri sezonlarda tek oyuncuyu 222M'e çıkarıyordu → pazar bozuluyordu
+  return Math.min(200_000_000, Math.max(50_000, value));
 }
 
 // v2.9.30 T-06: calculateWeeklyWage SİLİNDİ — salaryUtils.ts calculateSalaryRange tek kaynak

@@ -513,8 +513,11 @@ function buildCupFixtures(clubs: Team[], myTeamId: string | null): CupMatch[] {
   const sorted = [...clubs].sort((a, b) => teamStrength(b) - teamStrength(a));
 
   // v2.9.50: Sadece ilk 12 takım — son sıradaki takım kupada olmamalı
-  let participants = sorted.slice(0, 12);
-  // v2.9.50: Kullanıcı ilk 12'de değilse kupada olmamalı (lig performansına göre)
+  // v2.9.64 FIX: 12 takım yerine 16 takım — 2'nin kuvveti, bracket deadlock önle
+  // Eski kod (v2.9.50): 12 takım → 6→3→deadlock (3 kazananla 2'li eşleşme yapılamaz)
+  // Yeni: 16 takım → 8→4→2→1 (temiz bracket, bye yok)
+  let participants = sorted.slice(0, 16);
+  // v2.9.50: Kullanıcı ilk 16'da değilse kupada olmamalı (lig performansına göre)
   // Eski kod: kullanıcı her zaman kupaya ekleniyordu — bu rekabeti bozuyordu
 
   // Fisher-Yates shuffle
@@ -1495,6 +1498,12 @@ export const useAppStore = create<AppState>()(
         const myTeam = clubs.find((c) => c.id === myTeamId);
         if (!myTeam) return { success: false, reason: "no-team" };
 
+        // v2.9.64 FIX: Transfer penceresi kontrolü (C5)
+        // Eski kod: makeLoanOffer pencere kontrolü yapmıyordu — 30-34. haftada kiralama yapılabilirdi
+        if (!isTransferWindowOpen()) {
+          return { success: false, reason: "window-closed" };
+        }
+
         // P1 FIX: Kadro limiti kontrolü (25 oyuncu)
         if (myTeam.players.length >= 25) {
           return { success: false, reason: "squad-full" };
@@ -1540,19 +1549,37 @@ export const useAppStore = create<AppState>()(
         const minLoanFee = Math.round(weeklyFee * weeks * 0.9);
 
         if (loanFee >= minLoanFee) {
-          // Kabul edildi — oyuncuyu kiralık ver
-          myTeam.budget -= loanFee;
-          sellerTeam.budget += loanFee;
-          // P0 FIX: Oyuncuyu satıcıdan ÇIKAR (kiralık olduğu için artık oynayamaz)
-          // Yeni takımına ekle, _loaned flag'i ile
-          sellerTeam.players = sellerTeam.players.filter(p => p.id !== playerId);
-          myTeam.players = [...myTeam.players, {
-            ...player,
-            is_free_agent: false,
-            _loaned: true,
-            _loanWeeks: weeks,
-            _loanFrom: sellerTeam.id, // İade için kaynak takım
-          }];
+          // v2.9.64 FIX: Immutable update — mutation YAPMA
+          // Eski kod: myTeam.budget -= loanFee; sellerTeam.budget += loanFee; (mutation)
+          // → Zustand shallow equality re-render tetiklemiyordu
+          const updatedClubs = clubs.map((c) => {
+            if (c.id === myTeam!.id) {
+              return {
+                ...c,
+                budget: c.budget - loanFee,
+                players: [...c.players, {
+                  ...player,
+                  is_free_agent: false,
+                  _loaned: true,
+                  _loanWeeks: weeks,
+                  _loanFrom: sellerTeam!.id,
+                  // v2.9.64: Kiralık oyuncu stats sıfırla
+                  goals: 0,
+                  assists: 0,
+                  appearances: 0,
+                  motmAwards: 0,
+                }],
+              };
+            }
+            if (c.id === sellerTeam!.id) {
+              return {
+                ...c,
+                budget: c.budget + loanFee,
+                players: c.players.filter(p => p.id !== playerId),
+              };
+            }
+            return c;
+          });
 
           const newNews: NewsItem = {
             id: `news_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -1565,7 +1592,7 @@ export const useAppStore = create<AppState>()(
           };
 
           set({
-            clubs: [...clubs],
+            clubs: updatedClubs,
             news: [newNews, ...news],
           });
 
@@ -2861,7 +2888,10 @@ export const useAppStore = create<AppState>()(
           const ticketRev = Math.round(stadiumCap * fillRate * facilitiesState.ticketPrice * stadiumMult);
           const sponsor = 50_000 + facilitiesState.levels.stadium * 10_000 + activeSponsorIncome;
           // v2.9.49: TV geliri tier'a göre — Süper Lig 500K, 3. Lig 25K
-          const tvByTier: Record<number, number> = { 1: 5_000_000, 2: 3_000_000, 3: 2_500_000, 4: 2_000_000 }; // v2.9.50: Min 2M
+          // v2.9.64 FIX: TV gelirleri 5x düşürüldü — ekonomi dengesi
+          // Eski kod: T1: 5M, T2: 3M, T3: 2.5M, T4: 2M → sezon sonunda 170M birikiyordu
+          // Yeni: T1: 1M, T2: 600K, T3: 500K, T4: 400K → daha gerçekçi
+          const tvByTier: Record<number, number> = { 1: 1_000_000, 2: 600_000, 3: 500_000, 4: 400_000 };
           const tv = tvByTier[myTier] ?? 50_000;
           const merch = Math.round(stadiumCap * 0.2 + facilitiesState.levels.academy * 5000);
           const totalIncome = ticketRev + sponsor + tv + merch;
@@ -3169,7 +3199,13 @@ export const useAppStore = create<AppState>()(
 
         // Final standings hesapla
         const standings = computeStandings(clubs, fixtures);
+        // v2.9.64 FIX: myIdx < 0 guard — kullanıcı standings'de yoksa crash + yanlış "şampiyon" önle
+        // Eski kod: myIdx = -1 → finalPosition = 0, promoted = true (yanlış)
         const myIdx = standings.findIndex((s) => s.teamId === myTeamId);
+        if (myIdx < 0) {
+          console.error("[endSeason] Kullanıcı standings'de yok! myTeamId:", myTeamId);
+          return { success: false };
+        }
         const myStat = standings[myIdx];
 
         // Top scorer bul
@@ -3500,15 +3536,26 @@ export const useAppStore = create<AppState>()(
           const newKey = makeLeagueKey(userCountry, newTier);
           if (get().allLeagues && Object.keys(get().allLeagues).length > 0) {
             const updatedAllLeagues = { ...get().allLeagues };
-            // Eski lig: kullanıcı çıktı
+            // v2.9.64 FIX: Eski lig clubs'ından kullanıcı takımını ÇIKAR
+            // Eski kod: sadece hasUser=false yapıyordu, clubs'ta kullanıcı takımı kalıyordu
+            // → simulateAllOtherLeagues bu takımı bot olarak simüle ediyordu (çift simülasyon)
             if (updatedAllLeagues[oldKey]) {
+              const oldLeagueClubs = updatedAllLeagues[oldKey].clubs.filter(
+                (c) => c.id !== myTeamId
+              );
               updatedAllLeagues[oldKey] = {
                 ...updatedAllLeagues[oldKey],
                 hasUser: false,
+                clubs: oldLeagueClubs,
+                // Eski ligde 17 takım kaldı — yeni bot ekle ki 18 olsun
+                ...(oldLeagueClubs.length < 18 ? {
+                  clubs: [...oldLeagueClubs, ...generateClubsForLeague(currentTier, currentDept, userCountryForGen).slice(0, 18 - oldLeagueClubs.length)],
+                } : {}),
               };
             }
-            // Yeni lig: kullanıcı girdi — clubs ve fixtures aşağıda set() ile senkronize edilecek
-            // Şimdilik hasUser = true yap, clubs/fixtures yeni sezon set()'inde güncellenecek
+            // v2.9.64 FIX: Yeni lig clubs'ını KORU — mevcut botları silme
+            // Eski kod: updatedClubs (yeni üretilen 18 takım) ile değiştiriyordu → mevcut bot ligi kayboluyordu
+            // Yeni: sadece hasUser=true yap, clubs'ı updatedClubs ile senkronize et
             if (updatedAllLeagues[newKey]) {
               updatedAllLeagues[newKey] = {
                 ...updatedAllLeagues[newKey],
@@ -4778,25 +4825,36 @@ export const useAppStore = create<AppState>()(
         return get().cosmetics.equipped;
       },
 
-      // v2.9.58: Arketip migration — mevcut oyuncuların ~%65'inin arketipini kaldır
-      // Yeni sistem: sadece yüksek OVR'lı + %35 ihtimalle arketip verilir
-      // Eski kayıtlı oyuncular "her oyuncuda arketip var" kuralıyla üretildiği için
-      // bu migration bir kerelik çalışır ve eski oyuncuları yeni kuralla uyumlu hale getirir
+      // v2.9.64 FIX: migrateArchetypes — deterministic hash kullan (random değil)
+      // Eski kod (v2.9.58): Math.random() kullanıyordu → her çağrıda farklı sonuç
+      // + _archetypeMigrationDone cloud'a kaydedilmiyordu → her cihazda yeniden çalışırdı
+      // Yeni: playerId hash'i kullan, deterministic kaldırma
       migrateArchetypes: () => {
         const { clubs, _archetypeMigrationDone } = get() as any;
         if (_archetypeMigrationDone) return; // Bir kerelik
 
+        // Deterministic hash — aynı oyuncu her zaman aynı kararı alır
+        const hash = (s: string): number => {
+          let h = 0;
+          for (let i = 0; i < s.length; i++) {
+            h = ((h << 5) - h) + s.charCodeAt(i);
+            h |= 0;
+          }
+          return Math.abs(h);
+        };
+
         const updatedClubs = clubs.map((c) => ({
           ...c,
           players: c.players.map((p) => {
-            // Arketipi yoksa dokunma
             if (!p.archetype) return p;
-            // OVR < 70 ve %65 ihtimalle arketipi kaldır
-            if (p.rating < 70 && Math.random() < 0.65) {
+            // playerId hash'ine göre deterministic karar
+            const seed = hash(p.id);
+            // OVR < 70 ve %65 ihtimalle kaldır (hash % 100 < 65)
+            if (p.rating < 70 && (seed % 100) < 65) {
               return { ...p, archetype: "" };
             }
-            // OVR >= 70 ve %30 ihtimalle arketipi kaldır (yıldızlarda bile bazıları sıradan)
-            if (p.rating >= 70 && Math.random() < 0.30) {
+            // OVR >= 70 ve %30 ihtimalle kaldır
+            if (p.rating >= 70 && (seed % 100) < 30) {
               return { ...p, archetype: "" };
             }
             return p;
@@ -4807,7 +4865,7 @@ export const useAppStore = create<AppState>()(
           clubs: updatedClubs,
           _archetypeMigrationDone: true,
         } as any);
-        console.log("[v2.9.58] Arketip migration tamamlandı — oyuncuların ~%65'i arketipsiz");
+        console.log("[v2.9.64] Arketip migration tamamlandı (deterministic)");
       },
 
       // v2.9.58: Yardım modal'ı açma/kapama

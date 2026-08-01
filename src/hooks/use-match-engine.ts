@@ -678,6 +678,10 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
 
     // Sakat olan oyuncular
     const injuredIds = new Set<string>();
+    // v2.9.64 FIX: Sakatlık severity + gün sayısı motor'dan al (random değil)
+    // Eski kod: applyPostMatchEffects'te Math.random() ile 3-17 gün üretiliyordu
+    // → motor "heavy" (28 gün) üretse bile UI 3 gün gösterebiliyordu
+    const injuryDetails = new Map<string, { severity: string; days: number }>();
     // P0 FIX: Kırmızı kart gören oyuncuları da topla — sonraki maçta cezalı
     const suspendedIds = new Set<string>();
     // P0 FIX: Sarı kart sayacı — 2 sarı = 1 maç ceza
@@ -685,6 +689,10 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
     for (const ev of result.events) {
       if (ev.type === "injury" && ev.playerId) {
         injuredIds.add(ev.playerId);
+        // v2.9.64: Motor'un severity + gün sayısını sakla
+        const severity = (ev as any).injurySeverity ?? "light";
+        const days = (ev as any).injuryDays ?? 7;
+        injuryDetails.set(ev.playerId, { severity, days });
       }
       if ((ev.type === "red_card" || (ev.type as string) === "red") && ev.playerId) {
         suspendedIds.add(ev.playerId);
@@ -794,17 +802,22 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
       const newMorale = Math.max(20, Math.min(100, p.morale + moraleChange));
 
       const isInjured = injuredIds.has(p.id);
-      let injuryDuration = Math.floor(Math.random() * 14) + 3;
+      // v2.9.64 FIX: Motor'un injuryDays + injurySeverity'sini kullan (random değil)
+      // Eski kod: Math.random() * 14 + 3 → motor heavy üretse bile 3-17 gün gösterilirdi
+      const injuryInfo = injuryDetails.get(p.id);
+      let injuryDuration = injuryInfo?.days ?? 7;
       // P0 FIX: require() → top-level import (staffBonus zaten import edildi)
       const storeState = useAppStore.getState();
       try {
         // applyDoctorHealingBonus artık top-level import
         injuryDuration = applyDoctorHealingBonus(injuryDuration, storeState.facilities.staff);
       } catch (e) { /* staffBonus yüklenemezse default süre */ }
-      const injurySeverity = Math.floor(Math.random() * 5) + 1;
-      // P0 FIX: Sakatlık tipi severity'ye göre belirlenir (artık "light" hardcode değil)
-      const injuryType = injurySeverity <= 2 ? "light" as const
-        : injurySeverity <= 4 ? "chronic" as const
+      // v2.9.64: Motor'un severity'sini kullan (light/medium/heavy)
+      // Eski kod: Math.random() * 5 + 1 → motorla uyuşmuyor
+      const motorSeverity = injuryInfo?.severity ?? "light";
+      const injurySeverity = motorSeverity === "heavy" ? 5 : motorSeverity === "medium" ? 3 : 1;
+      const injuryType = motorSeverity === "light" ? "light" as const
+        : motorSeverity === "medium" ? "chronic" as const
         : "risky" as const;
       const injury = isInjured
         ? { type: injuryType, remaining_days: injuryDuration, severity: injurySeverity }
