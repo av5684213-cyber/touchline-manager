@@ -17,31 +17,28 @@
  * Amaç: rahatsız edici isimleri kayıt sırasında engellemek.
  */
 const PROFANITY_PATTERNS: string[] = [
-  // Türkçe küfürler (varyantlarıyla)
-  "amcik", "amciklar", "amini", "amina", "amini", "aminoglu", "amina", "amq", "amcikh",
-  "orospu", "orospucocugu", "oruspu", "oruspu", "orosbu", "orosbucocugu",
-  "pezevenk", "pezo", "pezevengin",
+  // Türkçe küfürler (varyantlarıyla) — sadece 4+ karakter (kısa kelimeler false positive)
+  "amcik", "amciklar", "amini", "aminoglu", "amcikh",
+  "orospu", "orospucocugu", "oruspu", "orosbu", "orosbucocugu",
+  "pezevenk", "pezevengin",
   "yarrak", "yarragi", "yarragim", "yarramina", "yarram",
-  "sikik", "sikimi", "sikine", "sikmek", "sikerim", "sik",
-  "göt", "gotunu", "götünü", "gotun", "gotumuz", "gotum",
-  "bok", "bokunu", "bokum", "boklar", "boklu",
-  "salak", "aptal", "gerizekali", "gerizekalı", "mal", "aptal",
-  "puşt", "pust", "şerefsiz", "serefsiz",
-  "ibne", "ibnedir", "ibneler",
-  "pipi", "pepe", "kukuduk",
-  "sie", "sia", "sikeyim", "sikerler", "sikerim",
-  "aq", "amk", "oç", "oc",
+  "sikik", "sikimi", "sikine", "sikmek", "sikerim", "sikeyim", "sikerler",
+  "gotunu", "gotumuz", "götünü",
+  "bokunu", "bokum", "boklar", "boklu",
+  "gerizekali", "gerizekalı",
+  "serefsiz", "şerefsiz",
+  "ibnedir", "ibneler",
   // İngilizce küfürler
   "fuck", "fucker", "fucking", "fucked", "motherfucker", "motherfuck",
-  "shit", "shitty", "shithole",
+  "shitty", "shithole",
   "bitch", "bitchy", "sonofabitch",
   "asshole", "assholes",
-  "bastard", "bitch",
-  "dick", "dickhead", "dickish",
-  "pussy", "cunt", "whore", "slut",
+  "bastard",
+  "dickhead", "dickish",
+  "whore", "slut",
   "nigger", "nigga", "nazi", "fascist",
-  // Reklam/ticari marka desenleri
-  "fifa", "ea", "konami", "playstation", "xbox", "nintendo",
+  // Reklam/ticari marka desenleri (sadece uzun olanlar)
+  "playstation", "konami",
 ];
 
 /**

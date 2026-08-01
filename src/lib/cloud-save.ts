@@ -612,14 +612,7 @@ function catchUpAllLeagues(allLeagues: any, targetMatchday: number): void {
   console.log(`[cloud-save] Catch-up tamamlandı — matchday ${targetMatchday}`);
 }
 
-function pickScorerSimple(squad: any[]): any | null {
-  if (squad.length === 0) return null;
-  const attackers = squad.filter((p) =>
-    ["ST", "CF", "LW", "RW", "LM", "RM", "CAM", "CM"].includes(p.specificPosition)
-  );
-  const pool = attackers.length > 0 ? attackers : squad;
-  return pool[Math.floor(Math.random() * pool.length)] ?? null;
-}
+// v2.9.67: pickScorerSimple KALDIRILDI — dead code (pickScorerSeeded kullanılıyor)
 
 // v2.9.65: Deterministic seed'li PRNG —Mulberry32
 function mulberry32(seed: number): () => number {

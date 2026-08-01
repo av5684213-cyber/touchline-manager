@@ -127,7 +127,16 @@ export async function launchPurchaseFlow(sku: string): Promise<BillingResult> {
     const bridge = (window as any).TouchlineBilling;
 
     // v2.9.65: Native bridge'i çağır — ama sonucu bekleme (async callback)
-    bridge.launchPurchaseFlow(sku);
+    // v2.9.67: Dönüş değerini kontrol et — BillingClient hazır değilse hemen reject
+    const launchResult = bridge.launchPurchaseFlow(sku);
+    if (typeof launchResult === "string") {
+      try {
+        const parsed = JSON.parse(launchResult);
+        if (!parsed.success) {
+          return { success: false, reason: parsed.reason ?? "billing_not_ready" };
+        }
+      } catch { /* JSON parse hatası — devam et, event bekle */ }
+    }
 
     // v2.9.65: `touchline-purchase-result` event'ini bekle (timeout 60 sn)
     // Native Java tarafı satın alma tamamlandığında bu event'i dispatch ediyor

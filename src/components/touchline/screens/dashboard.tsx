@@ -31,6 +31,7 @@ import { MatchReplayModal } from "../match-replay-modal";
 import type { SeasonSummary } from "@/lib/store";
 import type { Player as PlayerT } from "@/lib/mock/data";
 import { SeasonEndModal } from "../season-end-modal";
+import { todayKey } from "@/lib/training/engine";
 import { TeamDetailModal } from "../team-detail-modal";
 import { TeamMessageModal } from "../team-message-modal";
 import { PlayerProfileModal } from "../player-profile-modal";
@@ -757,8 +758,13 @@ function DailyTasks() {
   }, [dailyTasks, today]);
 
   const toggleTask = (id: string) => {
-    const task = tasks.find((tt: any) => tt.id === id);
-    if (!task || task.done) return;
+    // v2.9.67 FIX: Fresh state'ten oku — stale closure race condition önle
+    // Eski kod: tasks.find() closure'dan okuyordu → çift tıklamada stale "done=false" görürdü
+    const freshDailyTasks = useAppStore.getState().dailyTasks;
+    const freshToday = todayKey();
+    const freshTasks = freshDailyTasks?.tasks?.filter((t: any) => t.date === freshToday) ?? [];
+    const freshTask = freshTasks.find((tt: any) => tt.id === id);
+    if (!freshTask || freshTask.done) return;
 
     haptic("success");
     if (team && store) {
@@ -777,7 +783,7 @@ function DailyTasks() {
         }
         useAppStore.setState({ clubs });
       }
-      const taskCredits = (task as any).credits ?? 2;
+      const taskCredits = (freshTask as any).credits ?? 2;
       useAppStore.getState().addCredits(taskCredits);
     }
 

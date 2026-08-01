@@ -73,7 +73,7 @@ export function SpecialCupPanel() {
     }
     try {
       const { data, error } = await supabase
-        .from("special_cups")
+        .from("special_cups_public")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(30);
@@ -554,7 +554,7 @@ function CupDetail({
 
       // Kupa durumunu güncelle
       const { error: updateErr } = await supabase
-        .from("special_cups")
+        .from("special_cups_public")
         .update({ status: "in_progress", current_round: 1 })
         .eq("id", cup.id);
 

@@ -409,14 +409,15 @@ export function TransferScreen() {
                 <button
                   onClick={() => {
                     haptic("success");
-                    // Bedelsiz transfer — sadece maaş öde, serbest listeden çıkar, bildirim ekle
-                    if (team) {
-                      const state = useAppStore.getState();
-                      // P0 FIX: Kadro limiti kontrolü
-                      if (team.players.length >= 25) {
+                    // v2.9.67 FIX: Fresh state'ten oku — stale closure race condition önle
+                    const freshState = useAppStore.getState();
+                    const freshTeam = freshState.clubs.find((c) => c.id === team?.id);
+                    if (!freshTeam) return;
+                    // P0 FIX: Kadro limiti kontrolü (fresh)
+                    if (freshTeam.players.length >= 25) {
                         useAppStore.setState({
                           transfer: {
-                            ...state.transfer,
+                            ...freshState.transfer,
                             messages: [
                               {
                                 id: `msg-${Date.now()}`,
@@ -426,7 +427,7 @@ export function TransferScreen() {
                                 at: Date.now(),
                                 read: false,
                               },
-                              ...state.transfer.messages,
+                              ...freshState.transfer.messages,
                             ],
                           },
                         });
@@ -434,11 +435,11 @@ export function TransferScreen() {
                       }
                       // P0 FIX: Kaleci limiti — max 3 kaleci
                       if (p.specificPosition === "GK") {
-                        const gkCount = team.players.filter(pl => pl.specificPosition === "GK").length;
+                        const gkCount = freshTeam.players.filter(pl => pl.specificPosition === "GK").length;
                         if (gkCount >= 3) {
                           useAppStore.setState({
                             transfer: {
-                              ...state.transfer,
+                              ...freshState.transfer,
                               messages: [
                                 {
                                   id: `msg-${Date.now()}`,
@@ -448,7 +449,7 @@ export function TransferScreen() {
                                   at: Date.now(),
                                   read: false,
                                 },
-                                ...state.transfer.messages,
+                                ...freshState.transfer.messages,
                               ],
                             },
                           });
@@ -456,11 +457,11 @@ export function TransferScreen() {
                         }
                       }
                       const signingFee = (listing.wageDemand ?? 0) * 4; // 4 haftalık maaş = imza bonusu
-                      if (signingFee > team.budget) {
+                      if (signingFee > freshTeam.budget) {
                         // Bütçe yetersiz — bildirim
                         useAppStore.setState({
                           transfer: {
-                            ...state.transfer,
+                            ...freshState.transfer,
                             messages: [
                               {
                                 id: `msg-${Date.now()}`,
@@ -470,25 +471,25 @@ export function TransferScreen() {
                                 at: Date.now(),
                                 read: false,
                               },
-                              ...state.transfer.messages,
+                              ...freshState.transfer.messages,
                             ],
                           },
                         });
                         return;
                       }
-                      const updatedClubs = state.clubs.map((c) =>
-                        c.id === team.id
+                      const updatedClubs = freshState.clubs.map((c) =>
+                        c.id === freshTeam.id
                           ? { ...c, players: [...c.players, { ...p, is_free_agent: false, weeklyWage: listing.wageDemand ?? p.weeklyWage }], budget: c.budget - signingFee }
                           : c
                       );
                       // Serbest listeden kaldır
-                      const updatedFreeAgentListings = (state.transfer.freeAgentListings ?? []).filter(
+                      const updatedFreeAgentListings = (freshState.transfer.freeAgentListings ?? []).filter(
                         (l) => l.player.id !== p.id
                       );
                       useAppStore.setState({
                         clubs: updatedClubs,
                         transfer: {
-                          ...state.transfer,
+                          ...freshState.transfer,
                           freeAgentListings: updatedFreeAgentListings,
                           messages: [
                             {
@@ -502,7 +503,7 @@ export function TransferScreen() {
                               playerId: p.id,
                               amount: signingFee,
                             },
-                            ...state.transfer.messages,
+                            ...freshState.transfer.messages,
                           ],
                         },
                       });
@@ -511,7 +512,6 @@ export function TransferScreen() {
                         incrementTransferCount();
                       } catch (e) { console.warn("[achievements] transfer tetikleyici hatası:", e); }
                       setProfilePlayer(null);
-                    }
                   }}
                   className="tm-tap px-2 py-1.5 rounded text-[10px] font-bold bg-emerald-600 text-white whitespace-nowrap"
                 >

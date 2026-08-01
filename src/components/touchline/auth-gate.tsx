@@ -345,7 +345,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="password"
-                placeholder="Şifre (en az 6 karakter)"
+                // v2.9.67: Placeholder şifre politikasıyla uyumlu
+    placeholder="Şifre (en az 8 karakter, 1 harf + 1 rakam)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSignUp()}

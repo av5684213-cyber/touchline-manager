@@ -1234,10 +1234,8 @@ export const useAppStore = create<AppState>()(
           const faListing = transfer.freeAgents.find((l) => l.player.id === playerId);
           if (faListing) {
             if (myTeam.budget < fee) return { success: false, reason: "budget" };
-            myTeam.budget -= fee;
-            // v2.9.62 FIX: Transfer sonrası oyuncu stats'leri sıfırla
-            // Eski kod: oyuncu eski kulübündeki goals/assists/appearances değerleriyle geliyordu
-            // → top scorer sıralaması bozulurdu (eski kulübün golleri yeni kulübe taşınırdı)
+            // v2.9.67 FIX: Immutable update — mutation YAPMA (makeLoanOffer pattern)
+            // Eski kod: myTeam.budget -= fee; myTeam.players = [...] (mutation → re-render sorunu)
             const newPlayer = {
               ...faListing.player,
               weeklyWage: wage,
@@ -1251,7 +1249,11 @@ export const useAppStore = create<AppState>()(
               last_match_rating: 0,
               is_for_sale: false,
             };
-            myTeam.players = [...myTeam.players, newPlayer];
+            const updatedClubsFA = clubs.map((c) =>
+              c.id === myTeam.id
+                ? { ...c, budget: c.budget - fee, players: [...c.players, newPlayer] }
+                : c
+            );
             // ADDED: Transfer bildirimi — haber + mesaj
             const newMsg: MessageItem = {
               id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -1275,7 +1277,7 @@ export const useAppStore = create<AppState>()(
               playerId,
             };
             set({
-              clubs: [...clubs],
+              clubs: updatedClubsFA,
               news: [newNews, ...(get().news ?? [])],
               transfer: { ...transfer, freeAgents: transfer.freeAgents.filter((l) => l.player.id !== playerId), messages: [newMsg, ...transfer.messages].slice(0, 100) },
             });
@@ -1285,9 +1287,13 @@ export const useAppStore = create<AppState>()(
           const faListing2 = transfer.freeAgentListings?.find((l) => l.player.id === playerId);
           if (faListing2) {
             if (myTeam.budget < fee) return { success: false, reason: "budget" };
-            myTeam.budget -= fee;
-            const newPlayer = { ...faListing2.player, weeklyWage: wage, salary: wage };
-            myTeam.players = [...myTeam.players, newPlayer];
+            // v2.9.67 FIX: Immutable update — mutation YAPMA
+            const newPlayer = { ...faListing2.player, weeklyWage: wage, salary: wage, goals: 0, assists: 0, appearances: 0, motmAwards: 0, is_for_sale: false };
+            const updatedClubsFA2 = clubs.map((c) =>
+              c.id === myTeam.id
+                ? { ...c, budget: c.budget - fee, players: [...c.players, newPlayer] }
+                : c
+            );
             // ADDED: Transfer bildirimi — haber + mesaj
             const newMsg2: MessageItem = {
               id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -1311,7 +1317,7 @@ export const useAppStore = create<AppState>()(
               playerId,
             };
             set({
-              clubs: [...clubs],
+              clubs: updatedClubsFA2,
               news: [newNews2, ...(get().news ?? [])],
               transfer: { ...transfer, freeAgentListings: transfer.freeAgentListings?.filter((l) => l.player.id !== playerId) ?? [], messages: [newMsg2, ...transfer.messages].slice(0, 100) },
             });
