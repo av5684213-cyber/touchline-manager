@@ -125,6 +125,7 @@ const PACKS: Record<PackType, {
 };
 
 export function ShopScreen() {
+  const { t } = useI18n();
   const credits = useAppStore((s) => s.credits);
   const buyPlayerPack = useAppStore((s) => s.buyPlayerPack);
   const buyCard = useAppStore((s) => s.buyCard);
@@ -144,7 +145,7 @@ export function ShopScreen() {
     const pack = PACKS[packType];
     if (credits < pack.price) {
       haptic("error");
-      setFeedback(`✗ Yetersiz kredi! ${pack.name} için ${pack.price} kredi gerek.`);
+      setFeedback(`✗ ${t("shop.insufficient")}! ${pack.name} için ${pack.price} kredi gerek.`);
       setTimeout(() => setFeedback(null), 3000);
       return;
     }
@@ -194,7 +195,7 @@ export function ShopScreen() {
   const handleBuyCard = (card: ShopCard) => {
     if (credits < card.price) {
       haptic("error");
-      setFeedback(`✗ Yetersiz kredi! ${card.cardName} için ${card.price} kredi gerek.`);
+      setFeedback(`✗ ${t("shop.insufficient")}! ${card.cardName} için ${card.price} kredi gerek.`);
       setTimeout(() => setFeedback(null), 3000);
       return;
     }
@@ -213,7 +214,7 @@ export function ShopScreen() {
       setTimeout(() => setFeedback(null), 2500);
     } else {
       haptic("error");
-      setFeedback(`✗ ${result.reason ?? "Satın alma başarısız"}`);
+      setFeedback(`✗ ${result.reason ?? t("shop.purchase_failed")}`);
       setTimeout(() => setFeedback(null), 3000);
     }
   };
@@ -225,7 +226,7 @@ export function ShopScreen() {
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <ShoppingBag size={18} className="text-amber-400" />
-            <h1 className="text-base font-bold">Mağaza</h1>
+            <h1 className="text-base font-bold">{t("shop.title")}</h1>
           </div>
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/40">
             <Coins size={14} className="text-amber-300" />
@@ -247,7 +248,7 @@ export function ShopScreen() {
           )}
         >
           <Package size={14} />
-          Paketler
+          {t("shop.packs")}
         </button>
         <button
           onClick={() => { haptic("light"); setTab("cards"); }}
@@ -257,7 +258,7 @@ export function ShopScreen() {
           )}
         >
           <Layers size={14} />
-          Kartlar
+          {t("shop.cards")}
         </button>
         <button
           onClick={() => { haptic("light"); setTab("market"); }}
@@ -267,7 +268,7 @@ export function ShopScreen() {
           )}
         >
           <ShoppingBag size={14} />
-          Market
+          {t("shop.market")}
         </button>
         <button
           onClick={() => { haptic("light"); setTab("credits"); }}
@@ -277,7 +278,7 @@ export function ShopScreen() {
           )}
         >
           <Coins size={14} />
-          Kredi
+          {t("shop.credits")}
         </button>
         <button
           onClick={() => { haptic("light"); setTab("inventory"); }}
@@ -287,7 +288,7 @@ export function ShopScreen() {
           )}
         >
           <Archive size={14} />
-          Envanterim
+          {t("shop.inventory")}
         </button>
       </div>
 
@@ -328,7 +329,7 @@ export function ShopScreen() {
                   {/* v2.9.65: Loot box olasılıkları — Play Store politikası gereği */}
                   <details className="mt-1.5 w-full">
                     <summary className="text-[9px] text-muted-foreground cursor-pointer hover:text-foreground text-center">
-                      📊 Olasılıklar
+                      📊 {t("shop.probabilities")}
                     </summary>
                     <div className="mt-1 space-y-0.5 p-1.5 rounded bg-muted/30">
                       {pack.probabilities.map((p) => (
@@ -351,7 +352,7 @@ export function ShopScreen() {
           <div className="tm-card p-3 border-sky-500/20 bg-sky-500/5">
             <div className="flex items-center gap-2 mb-1.5">
               <Zap size={13} className="text-sky-400" />
-              <span className="text-[11px] font-bold text-sky-300 uppercase">Nasıl Çalışır?</span>
+              <span className="text-[11px] font-bold text-sky-300 uppercase">{t("shop.how_it_works")}</span>
             </div>
             <ul className="text-[10px] text-muted-foreground space-y-1 leading-relaxed">
               <li>• Her paketten 3 oyuncu çıkar (17 yaşında genç yetenekler)</li>
@@ -433,6 +434,7 @@ function CardsTab({
   onBuyCard: (card: ShopCard) => void;
   onApplyCard: (card: ShopCard) => void;
 }) {
+  const { t } = useI18n();
   const [cardFilter, setCardFilter] = useState<CardType | "all">("all");
   const credits = useAppStore((s) => s.credits);
   const cardInventory = useAppStore((s) => s.cardInventory);
@@ -444,10 +446,10 @@ function CardsTab({
   }, [allCards, cardFilter]);
 
   const filterLabels: Record<string, { label: string; icon: typeof Layers }> = {
-    all: { label: "Tümü", icon: Layers },
-    trait_positive: { label: "Pozitif Trait", icon: Wand2 },
-    trait_negative_removal: { label: "Giderme", icon: X },
-    arketip: { label: "Arketip", icon: Crown },
+    all: { label: t("shop.all"), icon: Layers },
+    trait_positive: { label: t("shop.positive_trait"), icon: Wand2 },
+    trait_negative_removal: { label: t("shop.removal_card"), icon: X },
+    arketip: { label: t("shop.archetype_card"), icon: Crown },
   };
 
   return (
@@ -546,7 +548,7 @@ function CardsTab({
       <div className="tm-card p-3 border-purple-500/20 bg-purple-500/5">
         <div className="flex items-center gap-2 mb-1.5">
           <Sparkles size={13} className="text-purple-400" />
-          <span className="text-[11px] font-bold text-purple-300 uppercase">Kart Nasıl Çalışır?</span>
+          <span className="text-[11px] font-bold text-purple-300 uppercase">{t("shop.card_how")}</span>
         </div>
         <ul className="text-[10px] text-muted-foreground space-y-1 leading-relaxed">
           <li>• <strong className="text-foreground">Pozitif Trait:</strong> Oyuncuya yeni özellik ekler (maç motorunu etkiler)</li>
@@ -579,6 +581,7 @@ function PackOpeningAnimation({
   // v2.9.48: Oyuncuya tıklayınca profil aç
   onPlayerClick?: (player: any) => void;
 }) {
+  const { t } = useI18n();
   const pack = PACKS[packType];
   const Icon = pack.icon;
   const currentPlayer = pulledPlayers[revealIndex];
@@ -593,7 +596,7 @@ function PackOpeningAnimation({
           >
             <Icon size={64} className={pack.color} />
           </div>
-          <div className="text-white text-sm font-bold">Paket açılıyor...</div>
+          <div className="text-white text-sm font-bold">{t("shop.opening")}</div>
           <style>{`
             @keyframes shake {
               0%, 100% { transform: translateX(0) rotate(0deg); }
@@ -630,7 +633,7 @@ function PackOpeningAnimation({
       {phase === "done" && (
         <div className="flex flex-col items-center gap-4 max-w-[360px] w-full max-h-[80vh] overflow-y-auto tm-thin-scrollbar">
           <Crown size={48} className="text-amber-400 shrink-0" />
-          <div className="text-white text-sm font-bold">Paket Açıldı!</div>
+          <div className="text-white text-sm font-bold">{t("shop.opened")}</div>
           <div className="text-white/60 text-xs text-center">
             {pulledPlayers.length} oyuncu kadroya eklendi — detay için tıkla
           </div>
@@ -661,7 +664,7 @@ function PackOpeningAnimation({
             onClick={onClose}
             className="tm-tap px-6 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-bold shrink-0"
           >
-            Tamam
+            {t("shop.ok")}
           </button>
         </div>
       )}
@@ -671,7 +674,7 @@ function PackOpeningAnimation({
           onClick={onNext}
           className="absolute bottom-8 tm-tap px-6 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-bold"
         >
-          {revealIndex < pulledPlayers.length - 1 ? "Sonraki" : "Tamam"}
+          {revealIndex < pulledPlayers.length - 1 ? t("shop.next") : t("shop.ok")}
         </button>
       )}
 
@@ -693,7 +696,7 @@ function PackOpeningAnimation({
 // ============================================================================
 
 function CosmeticMarketTab({ onFeedback }: { onFeedback: (msg: string) => void }) {
-  const { locale } = useI18n();
+  const { t, locale } = useI18n();
   const credits = useAppStore((s) => s.credits);
   const buyCosmetic = useAppStore((s) => s.buyCosmetic);
   const equipCosmetic = useAppStore((s) => s.equipCosmetic);
@@ -775,7 +778,7 @@ function CosmeticMarketTab({ onFeedback }: { onFeedback: (msg: string) => void }
       {usingSeed && (
         <div className="tm-card p-2 bg-amber-500/10 border-amber-500/30 text-center">
           <span className="text-[10px] text-amber-400 font-semibold">
-            ⚠️ Çevrimdışı veri — katalog sunucudan yüklenemedi, örnek içerik gösteriliyor
+            ⚠️ {t("shop.offline_data")} — katalog sunucudan yüklenemedi, örnek içerik gösteriliyor
           </span>
         </div>
       )}
@@ -829,12 +832,12 @@ function CosmeticMarketTab({ onFeedback }: { onFeedback: (msg: string) => void }
               {/* Owned/Equipped badge */}
               {equipped && (
                 <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-emerald-500/30 text-emerald-300 text-[9px] font-bold">
-                  ✓ Giyili
+                  ✓ {t("shop.equipped")}
                 </div>
               )}
               {!equipped && owned && (
                 <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-sky-500/30 text-sky-300 text-[9px] font-bold">
-                  Sahip
+                  {t("shop.owned")}
                 </div>
               )}
 
@@ -866,7 +869,7 @@ function CosmeticMarketTab({ onFeedback }: { onFeedback: (msg: string) => void }
                       : "bg-sky-500/20 text-sky-300 border border-sky-400/40"
                   )}
                 >
-                  {equipped ? "✓ Giyili" : "Giy"}
+                  {equipped ? `✓ ${t("shop.equipped")}` : t("shop.equip")}
                 </button>
               ) : (
                 <button
@@ -902,7 +905,7 @@ function CosmeticMarketTab({ onFeedback }: { onFeedback: (msg: string) => void }
 // ============================================================================
 
 function CosmeticInventoryView() {
-  const { locale } = useI18n();
+  const { t, locale } = useI18n();
   const cosmeticsOwned = useAppStore((s) => s.cosmetics.owned);
   const cosmeticsEquipped = useAppStore((s) => s.cosmetics.equipped);
   const equipCosmetic = useAppStore((s) => s.equipCosmetic);
@@ -954,7 +957,7 @@ function CosmeticInventoryView() {
                     : "bg-emerald-500/20 text-emerald-300 border border-emerald-400/40"
                 )}
               >
-                {equipped ? "Çıkar" : "Giy"}
+                {equipped ? t("shop.unequip") : t("shop.equip")}
               </button>
             </div>
           );
@@ -969,6 +972,7 @@ function CosmeticInventoryView() {
 // ============================================================================
 
 function CreditsPurchaseTab({ onFeedback }: { onFeedback: (msg: string) => void }) {
+  const { t } = useI18n();
   const credits = useAppStore((s) => s.credits);
   const addCredits = useAppStore((s) => s.addCredits);
   const [purchasing, setPurchasing] = useState<string | null>(null);
@@ -1068,7 +1072,7 @@ function CreditsPurchaseTab({ onFeedback }: { onFeedback: (msg: string) => void 
       <div className="tm-card p-3 bg-gradient-to-br from-amber-900/20 to-yellow-900/10 border-amber-500/30">
         <div className="flex items-center gap-2 mb-1.5">
           <Coins size={13} className="text-amber-400" />
-          <span className="text-[11px] font-bold text-amber-300 uppercase">Kredi Satın Al</span>
+          <span className="text-[11px] font-bold text-amber-300 uppercase">{t("shop.buy_credits")}</span>
         </div>
         <p className="text-[10px] text-muted-foreground leading-relaxed">
           Kredilerle futbolcu paketi aç, kart satın al, kozmetik marketten eşya al. Bonus kredili paketler daha avantajlı!
@@ -1078,7 +1082,7 @@ function CreditsPurchaseTab({ onFeedback }: { onFeedback: (msg: string) => void 
       {/* Billing durumu uyarısı */}
       {!billingAvailable && (
         <div className="tm-card p-3 text-center text-[10px] text-amber-400 bg-amber-500/10 border-amber-500/30">
-          ⚠️ Geliştirici Modu — gerçek para ile satın alma devre dışı. Android APK'da Google Play Billing aktif olur. Test için "satın alma" simülasyonu çalışır.
+          ⚠️ {t("shop.dev_mode_warning")} — gerçek para ile satın alma devre dışı. Android APK'da Google Play Billing aktif olur. Test için "satın alma" simülasyonu çalışır.
         </div>
       )}
 
@@ -1155,7 +1159,7 @@ function CreditsPurchaseTab({ onFeedback }: { onFeedback: (msg: string) => void 
 
       {/* Mevcut kredi */}
       <div className="tm-card p-3 flex items-center justify-between">
-        <span className="text-[11px] text-muted-foreground uppercase font-bold">Mevcut Kredi</span>
+        <span className="text-[11px] text-muted-foreground uppercase font-bold">{t("shop.current_credits")}</span>
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/40">
           <Coins size={14} className="text-amber-300" />
           <span className="text-sm font-bold text-amber-100 tabular-nums">{credits}</span>

@@ -93,8 +93,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       setError("Geçersiz ülke seçimi.");
       return;
     }
-    if (password.length < 6) {
+    // v2.9.65: Şifre politikası güçlendirildi — min 8 karakter + rakam + harf
+    if (password.length < 8) {
       setError(t("auth.error.password_short"));
+      return;
+    }
+    if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+      setError("Şifre en az 1 harf ve 1 rakam içermeli.");
       return;
     }
     setSubmitting(true);

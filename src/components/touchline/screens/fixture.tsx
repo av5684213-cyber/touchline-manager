@@ -349,7 +349,7 @@ export function FixtureScreen() {
 // Kupa fikstür bölümü — store.cup.matches'tan okur
 // v2.9.57: Takımlara tıklanınca TeamDetailModal açar
 function CupFixturesSection({ onTeamSelect }: { onTeamSelect?: (team: Team) => void }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const clubs = useAppStore((s) => s.clubs);
   const cup = useAppStore((s) => s.cup);
   const team = useMyTeam();
@@ -378,8 +378,8 @@ function CupFixturesSection({ onTeamSelect }: { onTeamSelect?: (team: Team) => v
       </div>
       {/* v2.9.59: Kupa maç saati bilgisi — cumartesi 12:00/18:00 */}
       {!cup.champion && (() => {
-        const schedule = getCupMatchSchedule(cup.currentRound);
-        const timeUntil = getTimeUntilCupMatch(schedule);
+        const schedule = getCupMatchSchedule(cup.currentRound, new Date(), locale);
+        const timeUntil = getTimeUntilCupMatch(schedule, new Date(), locale);
         return (
           <div className="tm-card p-2 bg-amber-500/5 border-amber-500/20 flex items-center gap-2">
             <Clock size={12} className="text-amber-400 shrink-0" />

@@ -38,7 +38,8 @@ export function MessagesScreen() {
 
   const messages = transfer?.messages ?? [];
   const unreadCount = messages.filter((m) => !m.read).length;
-  const visibleMessages = filter === "unread" ? messages.filter((m) => !m.read) : messages;
+  // v2.9.65: Mesaj listesine cap — üstsüz büyümeyi önle (performans)
+  const visibleMessages = (filter === "unread" ? messages.filter((m) => !m.read) : messages).slice(0, 200);
 
   if (!team) return null;
 

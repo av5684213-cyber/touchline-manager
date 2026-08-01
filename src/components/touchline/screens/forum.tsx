@@ -8,6 +8,7 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 import { formatEuro } from "@/lib/format";
+import { useI18n } from "@/lib/i18n/locale-provider";
 
 type ForumTopic = {
   id: string;
@@ -33,16 +34,18 @@ type ForumReply = {
   created_at: string;
 };
 
+// v2.9.66: Etiketler artık i18n üzerinden geliyor (labelKey → t())
 const CATEGORIES = [
-  { id: "general", label: "Genel", icon: "💬" },
-  { id: "transfer", label: "Transfer", icon: "🔄" },
-  { id: "tactics", label: "Taktik", icon: "📋" },
-  { id: "match", label: "Maç", icon: "⚽" },
-  { id: "trade", label: "Takas", icon: "🤝" },
-  { id: "trash", label: "Sohbet", icon: "🎤" },
+  { id: "general", labelKey: "forum.category_general", icon: "💬" },
+  { id: "transfer", labelKey: "forum.category_transfer", icon: "🔄" },
+  { id: "tactics", labelKey: "forum.category_tactics", icon: "📋" },
+  { id: "match", labelKey: "forum.category_match", icon: "⚽" },
+  { id: "trade", labelKey: "forum.category_trade", icon: "🤝" },
+  { id: "trash", labelKey: "forum.category_chat", icon: "🎤" },
 ];
 
 export function ForumScreen() {
+  const { t } = useI18n();
   const { user } = useSupabaseAuth();
   const myTeam = useMyTeam();
   // v2.9.48: Forum'da takım logosu göstermek için clubs
@@ -137,9 +140,9 @@ export function ForumScreen() {
       <div className="tm-card p-3 bg-gradient-to-br from-indigo-900/20 to-purple-900/10 border-indigo-500/30">
         <div className="flex items-center gap-2 mb-1">
           <MessageSquare size={18} className="text-indigo-400" />
-          <h1 className="text-base font-bold">Forum</h1>
+          <h1 className="text-base font-bold">{t("forum.title")}</h1>
           <span className="text-[10px] text-muted-foreground ml-auto">
-            {topics.length} başlık
+            {topics.length} {t("forum.topic_title").toLocaleLowerCase()}
           </span>
         </div>
         <p className="text-[10px] text-muted-foreground leading-relaxed">
@@ -171,7 +174,7 @@ export function ForumScreen() {
           disabled={!user || !myTeam}
           className="tm-tap w-full py-2.5 rounded-lg bg-indigo-600 text-white text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-50"
         >
-          <Plus size={14} /> Yeni Başlık Aç
+          <Plus size={14} /> {t("forum.new_topic")}
         </button>
       )}
 
@@ -185,7 +188,7 @@ export function ForumScreen() {
             filterCategory === "all" ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"
           )}
         >
-          Tümü
+          {t("forum.all")}
         </button>
         {CATEGORIES.map((cat) => (
           <button
@@ -196,7 +199,7 @@ export function ForumScreen() {
               filterCategory === cat.id ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"
             )}
           >
-            {cat.icon} {cat.label}
+            {cat.icon} {t(cat.labelKey)}
           </button>
         ))}
       </div>
@@ -213,8 +216,8 @@ export function ForumScreen() {
       ) : topics.length === 0 ? (
         <div className="tm-card p-8 text-center">
           <MessageSquare size={32} className="text-muted-foreground/50 mx-auto mb-2" />
-          <p className="text-sm font-bold text-muted-foreground mb-1">Henüz başlık yok</p>
-          <p className="text-[11px] text-muted-foreground">İlk başlığı sen aç!</p>
+          <p className="text-sm font-bold text-muted-foreground mb-1">{t("forum.no_topics")}</p>
+          <p className="text-[11px] text-muted-foreground">{t("forum.be_first")}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -248,7 +251,7 @@ export function ForumScreen() {
                     <div className="flex items-center gap-2 mt-1 text-[9px] text-muted-foreground">
                       <span>{topic.author_team_name ?? "Anonim"}</span>
                       <span>·</span>
-                      <span>{timeAgo(topic.created_at)}</span>
+                      <span>{timeAgo(topic.created_at, t)}</span>
                       <span>·</span>
                       <span className="flex items-center gap-0.5">
                         <MessageSquare size={9} /> {topic.reply_count ?? 0}
@@ -288,6 +291,7 @@ function NewTopicForm({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { t } = useI18n();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [category, setCategory] = useState("general");
@@ -297,11 +301,11 @@ function NewTopicForm({
   const handleSubmit = async () => {
     if (!userId || !myTeam) return;
     if (title.trim().length < 3) {
-      setError("Başlık en az 3 karakter olmalı.");
+      setError(t("forum.title_min"));
       return;
     }
     if (body.trim().length < 5) {
-      setError("Mesaj en az 5 karakter olmalı.");
+      setError(t("forum.message_min"));
       return;
     }
     // v2.9.65: Küfür/spam filtresi
@@ -354,7 +358,7 @@ function NewTopicForm({
         <button onClick={() => { haptic("light"); onClose(); }} className="tm-tap p-1">
           <ArrowLeft size={18} />
         </button>
-        <h1 className="text-base font-bold">Yeni Başlık</h1>
+        <h1 className="text-base font-bold">{t("forum.new_topic")}</h1>
       </div>
 
       {/* Kategori seçimi */}
@@ -370,7 +374,7 @@ function NewTopicForm({
                 category === cat.id ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"
               )}
             >
-              {cat.icon} {cat.label}
+              {cat.icon} {t(cat.labelKey)}
             </button>
           ))}
         </div>
@@ -378,7 +382,7 @@ function NewTopicForm({
 
       {/* Başlık */}
       <div>
-        <label className="text-[10px] text-muted-foreground block mb-1">Başlık</label>
+        <label className="text-[10px] text-muted-foreground block mb-1">{t("forum.topic_title")}</label>
         <input
           type="text"
           value={title}
@@ -391,7 +395,7 @@ function NewTopicForm({
 
       {/* Mesaj */}
       <div>
-        <label className="text-[10px] text-muted-foreground block mb-1">Mesaj</label>
+        <label className="text-[10px] text-muted-foreground block mb-1">{t("forum.message")}</label>
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
@@ -411,7 +415,7 @@ function NewTopicForm({
         className="tm-tap w-full py-2.5 rounded-lg bg-indigo-600 text-white text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-50"
       >
         {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-        Başlığı Yayınla
+        {t("forum.create_topic")}
       </button>
     </div>
   );
@@ -432,6 +436,7 @@ function TopicDetail({
   myTeam: any;
   onBack: () => void;
 }) {
+  const { t } = useI18n();
   const [replies, setReplies] = useState<ForumReply[]>([]);
   const [loading, setLoading] = useState(true);
   const [replyText, setReplyText] = useState("");
@@ -445,7 +450,8 @@ function TopicDetail({
         .from("forum_replies")
         .select("*")
         .eq("topic_id", topic.id)
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: true })
+        .limit(100); // v2.9.65: Cap — üstsüz büyümeyi önle
       if (error) {
         console.warn("[forum] replies error:", error.message);
         return;
@@ -518,7 +524,7 @@ function TopicDetail({
 
   const handleDeleteTopic = async () => {
     if (topic.author_id !== userId) return;
-    if (!confirm("Bu başlığı silmek istediğine emin misin?")) return;
+    if (!confirm(t("forum.delete_confirm"))) return;
     try {
       await supabase.from("forum_replies").delete().eq("topic_id", topic.id);
       await supabase.from("forum_topics").delete().eq("id", topic.id);
@@ -558,14 +564,14 @@ function TopicDetail({
               {cat && <span className="text-[10px]">{cat.icon}</span>}
               <span className="text-xs font-bold">{topic.author_team_name ?? "Anonim"}</span>
             </div>
-            <div className="text-[10px] text-muted-foreground">{timeAgo(topic.created_at)}</div>
+            <div className="text-[10px] text-muted-foreground">{timeAgo(topic.created_at, t)}</div>
             <p className="text-xs mt-1.5 leading-relaxed">{topic.body}</p>
           </div>
         </div>
       </div>
 
       {/* Cevaplar */}
-      <div className="text-[10px] text-muted-foreground uppercase font-bold">Cevaplar ({replies.length})</div>
+      <div className="text-[10px] text-muted-foreground uppercase font-bold">{t("forum.replies")} ({replies.length})</div>
 
       {loading ? (
         <div className="flex items-center justify-center py-8">
@@ -573,7 +579,7 @@ function TopicDetail({
         </div>
       ) : replies.length === 0 ? (
         <div className="tm-card p-6 text-center text-[11px] text-muted-foreground">
-          Henüz cevap yok. İlk cevabı sen yaz!
+          {t("forum.no_replies")}
         </div>
       ) : (
         <div className="space-y-2">
@@ -589,7 +595,7 @@ function TopicDetail({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[11px] font-bold">{reply.author_team_name ?? "Anonim"}</span>
-                    <span className="text-[9px] text-muted-foreground">{timeAgo(reply.created_at)}</span>
+                    <span className="text-[9px] text-muted-foreground">{timeAgo(reply.created_at, t)}</span>
                   </div>
                   <p className="text-[11px] mt-0.5 leading-relaxed">{reply.body}</p>
                 </div>
@@ -619,7 +625,7 @@ function TopicDetail({
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
             maxLength={500}
-            placeholder="Cevabını yaz..."
+            placeholder={t("forum.reply_placeholder")}
             onKeyDown={(e) => { if (e.key === "Enter" && !submitting) handleReply(); }}
             className="flex-1 px-2.5 py-2 rounded-lg bg-muted/30 border border-border text-xs"
           />
@@ -651,7 +657,11 @@ function TopicDetail({
 // Helper: zaman formatı
 // ============================================================================
 
-function timeAgo(isoString: string): string {
+// v2.9.66: timeAgo artık i18n üzerinden çeviri yapıyor (t parametresi)
+function timeAgo(
+  isoString: string,
+  t: (key: string, params?: Record<string, string | number>) => string
+): string {
   const now = Date.now();
   const then = new Date(isoString).getTime();
   const diffMs = now - then;
@@ -659,9 +669,9 @@ function timeAgo(isoString: string): string {
   const diffHour = Math.floor(diffMin / 60);
   const diffDay = Math.floor(diffHour / 24);
 
-  if (diffMin < 1) return "şimdi";
-  if (diffMin < 60) return `${diffMin} dk önce`;
-  if (diffHour < 24) return `${diffHour} saat önce`;
-  if (diffDay < 7) return `${diffDay} gün önce`;
+  if (diffMin < 1) return t("forum.now");
+  if (diffMin < 60) return t("forum.min_ago", { n: diffMin });
+  if (diffHour < 24) return t("forum.hour_ago", { n: diffHour });
+  if (diffDay < 7) return t("forum.day_ago", { n: diffDay });
   return new Date(isoString).toLocaleDateString("tr-TR");
 }

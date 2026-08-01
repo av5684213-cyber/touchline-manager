@@ -50,9 +50,10 @@ export function CupScreen() {
 
   // v2.9.59: Kupa maçının oynanma zamanını hesapla (cumartesi 12:00 veya 18:00)
   // — early return'den önce hesapla ki hook sıralaması korunsun
+  // v2.9.66: Locale-aware etiketler için locale parametresi geçilir
   const currentRound = cup.currentRound;
-  const cupSchedule = getCupMatchSchedule(currentRound);
-  const timeUntil = getTimeUntilCupMatch(cupSchedule);
+  const cupSchedule = getCupMatchSchedule(currentRound, new Date(), locale);
+  const timeUntil = getTimeUntilCupMatch(cupSchedule, new Date(), locale);
 
   // Manual play handler — sadece "maç saati gelmiş ve kullanıcı maçı varsa" otomatik oyna
   const handleAutoPlay = () => {
@@ -63,10 +64,10 @@ export function CupScreen() {
     } else {
       const championTeam = res.champion ? clubs.find((c) => c.id === res.champion) : null;
       if (res.champion) {
-        setLastResult(`🏆 Şampiyon: ${championTeam?.name}`);
+        setLastResult(t("cup.champion_result", { name: championTeam?.name ?? "?" }));
       } else {
         const roundName = t(ROUND_LABELS[currentRound] ?? "cup.round");
-        setLastResult(`✓ ${roundName} oynandı`);
+        setLastResult(t("cup.round_played", { round: roundName }));
       }
     }
   };
@@ -123,7 +124,7 @@ export function CupScreen() {
         <div className="tm-card p-3 border-sky-500/30 bg-sky-500/5">
           <div className="flex items-center gap-2 mb-1.5">
             <Clock size={14} className="text-sky-400" />
-            <span className="text-[10px] text-sky-400 uppercase font-bold">Kupa Maç Saati</span>
+            <span className="text-[10px] text-sky-400 uppercase font-bold">{t("cup.match_time")}</span>
           </div>
           <div className="text-[11px] text-muted-foreground leading-relaxed">
             Kupa maçları <strong className="text-foreground">her cumartesi 12:00 ve 18:00'da</strong> oynanır.
@@ -137,19 +138,19 @@ export function CupScreen() {
         <div className="text-[10px] text-amber-400 font-bold uppercase mb-2">🏆 {t("cup.awards")}</div>
         <div className="grid grid-cols-2 gap-2 text-[10px]">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Çeyrek:</span>
+            <span className="text-muted-foreground">{t("cup.round.quarter_short")}</span>
             <span className="text-amber-300 font-bold">{formatEuro(ROUND_REWARD[2])}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Yarı:</span>
+            <span className="text-muted-foreground">{t("cup.round.semi_short")}</span>
             <span className="text-amber-300 font-bold">{formatEuro(ROUND_REWARD[3])}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Final:</span>
+            <span className="text-muted-foreground">{t("cup.round.final_short")}</span>
             <span className="text-amber-300 font-bold">{formatEuro(ROUND_REWARD[4])}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Şampiyon:</span>
+            <span className="text-muted-foreground">{t("cup.champion_label")}</span>
             <span className="text-amber-300 font-bold">+{formatEuro(CHAMPION_REWARD)}</span>
           </div>
         </div>
@@ -200,7 +201,7 @@ export function CupScreen() {
           </div>
           {/* Tur ödülü göster */}
           <div className="text-[11px] text-center text-amber-400 mb-2">
-            Tur atlarsan: +{formatEuro(ROUND_REWARD[currentRound] ?? 0)}
+            {t("cup.advance_reward")}{formatEuro(ROUND_REWARD[currentRound] ?? 0)}
           </div>
           {/* v2.9.59: Maç saati + geri sayım (Oyna butonu YERİNE) */}
           <div className="mt-2 p-2.5 rounded-md bg-sky-500/10 border border-sky-500/30 text-center">
@@ -210,11 +211,11 @@ export function CupScreen() {
             </div>
             <div className="text-[10px] text-muted-foreground">
               {cupSchedule.isToday
-                ? `Maç ${timeUntil} sonra başlıyor`
-                : `Maça ${timeUntil} kaldı`}
+                ? t("cup.match_starting_in", { n: timeUntil })
+                : t("cup.match_in", { n: timeUntil })}
             </div>
             <div className="text-[9px] text-muted-foreground/70 mt-0.5">
-              Maç saat geldiğinde otomatik oynanır
+              {t("cup.match_auto_play")}
             </div>
           </div>
         </div>
@@ -229,7 +230,7 @@ export function CupScreen() {
             <span className="text-[10px] text-blue-400 uppercase font-bold">{t("cup.spectator_mode")}</span>
           </div>
           <p className="text-[11px] text-muted-foreground mb-2">
-            Bu turda maçı yok. Diğer takımların maçlarını izleyebilirsin.
+            {t("cup.no_match_this_round")}
           </p>
           {/* v2.9.59: Maç saati + geri sayım */}
           <div className="p-2 rounded-md bg-sky-500/10 border border-sky-500/30 text-center mb-2">
@@ -239,12 +240,12 @@ export function CupScreen() {
             </div>
             <div className="text-[10px] text-muted-foreground">
               {cupSchedule.isToday
-                ? `Maçlar ${timeUntil} sonra başlıyor`
-                : `Maçlara ${timeUntil} kaldı`}
+                ? t("cup.matches_starting_in", { n: timeUntil })
+                : t("cup.matches_in", { n: timeUntil })}
             </div>
           </div>
           <div className="text-[10px] text-center text-muted-foreground">
-            {unplayedInCurrentRound.length} maç bekliyor
+            {t("cup.matches_waiting", { n: unplayedInCurrentRound.length })}
           </div>
         </div>
       )}
@@ -253,7 +254,7 @@ export function CupScreen() {
       {cup.eliminated && !cup.champion && unplayedInCurrentRound.length > 0 && (
         <div className="tm-card p-3 border-muted/30">
           <p className="text-[11px] text-muted-foreground mb-2 text-center">
-            Kupadan elendin. Diğer maçlar oynandığında sonuçları görebilirsin.
+            {t("cup.eliminated_wait_results")}
           </p>
           {/* v2.9.59: Maç saati göster */}
           <div className="p-2 rounded-md bg-muted/30 text-center">
@@ -263,8 +264,8 @@ export function CupScreen() {
             </div>
             <div className="text-[10px] text-muted-foreground">
               {cupSchedule.isToday
-                ? `Maçlar ${timeUntil} sonra başlıyor`
-                : `Maçlara ${timeUntil} kaldı`}
+                ? t("cup.matches_starting_in", { n: timeUntil })
+                : t("cup.matches_in", { n: timeUntil })}
             </div>
           </div>
         </div>
@@ -273,7 +274,7 @@ export function CupScreen() {
       {/* Elenen kullanıcı — bu tur bitti, bekleniyor */}
       {cup.eliminated && !cup.champion && unplayedInCurrentRound.length === 0 && (
         <div className="tm-card p-3 text-center text-xs text-muted-foreground">
-          Kupadan elendin. Sonraki turu bekliyorsun (otomatik oynanır).
+          {t("cup.eliminated_wait_next")}
         </div>
       )}
 
@@ -283,7 +284,7 @@ export function CupScreen() {
           <Calendar size={12} className="text-muted-foreground" />
           {t(ROUND_LABELS[currentRound] ?? "cup.round")}
           <span className="text-[10px] text-muted-foreground font-normal">
-            ({cupMatches.filter(m => m.round === currentRound && m.played).length}/{cupMatches.filter(m => m.round === currentRound).length} oynandı)
+            ({cupMatches.filter(m => m.round === currentRound && m.played).length}/{cupMatches.filter(m => m.round === currentRound).length} {t("cup.played_label")})
           </span>
         </div>
         <div className="space-y-1">
@@ -361,7 +362,7 @@ export function CupScreen() {
       {/* Kupa tamamlandıysa — bilgi kartı */}
       {cup.champion && (
         <div className="tm-card p-3 text-center text-[11px] text-muted-foreground">
-          Kupa bu sezon tamamlandı. Yeni sezonda yeniden başlayacak.
+          {t("cup.completed")}
         </div>
       )}
 

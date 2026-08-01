@@ -250,7 +250,7 @@ export function DashboardScreen() {
         className="tm-tap w-full p-2.5 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-600 dark:text-sky-300 text-xs font-bold flex items-center justify-center gap-2 hover:bg-sky-500/20 transition-colors"
       >
         <HelpCircle size={14} />
-        Nasıl Oynanır? — Oyun Rehberi
+        {t("dash.how_to_play")} — {t("dash.game_guide")}
       </button>
 
       {/* Team summary compact row */}
@@ -621,6 +621,7 @@ function NotifIcon({ kind }: { kind: Notification["kind"] }) {
 }
 
 function InflationIndicator() {
+  const { t } = useI18n();
   const seasonNumber = useAppStore((s) => s.seasonNumber) ?? 1;
   const mult = getInflationMultiplier(seasonNumber);
   const pct = Math.round((mult - 1) * 100);
@@ -634,10 +635,10 @@ function InflationIndicator() {
         <span className="text-base">📈</span>
         <div>
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-bold">
-            Sezon {seasonNumber} Enflasyonu
+            {t("dash.season_inflation", { n: seasonNumber })}
           </div>
           <div className="text-[11px] text-muted-foreground">
-            Piyasa değerleri, maaşlar ve maliyetler buna göre
+            {t("dash.inflation_note")}
           </div>
         </div>
       </div>
@@ -830,7 +831,7 @@ function DailyTasks() {
       </div>
       {allDone && (
         <div className="mt-2 pt-2 border-t border-border text-center text-[10px] font-bold text-emerald-400">
-          🎉 Tüm görevler tamam! Yarın yenilenecek.
+          {t("dash.task.all_done")}
         </div>
       )}
     </div>
@@ -839,6 +840,7 @@ function DailyTasks() {
 
 // ===== Galibiyet Serisi Göstergesi =====
 function StreakIndicator({ fixtures, teamId }: { fixtures: any[]; teamId: string }) {
+  const { t } = useI18n();
   const recent = fixtures
     .filter((f) => f.played && (f.homeId === teamId || f.awayId === teamId))
     .sort((a, b) => b.matchday - a.matchday)
@@ -878,7 +880,7 @@ function StreakIndicator({ fixtures, teamId }: { fixtures: any[]; teamId: string
           "text-sm font-bold",
           isWinStreak ? "text-emerald-400" : isLoseStreak ? "text-red-400" : "text-amber-400"
         )}>
-          {isWinStreak ? `${streak} maçlık galibiyet serisi!` : isLoseStreak ? `${streak} maçlık mağlubiyet serisi` : `${streak} beraberlik`}
+          {isWinStreak ? `${streak} ${t("dash.streak.wins")}` : isLoseStreak ? `${streak} ${t("dash.streak.losses")}` : `${streak} ${t("dash.streak.draws")}`}
         </div>
         <div className="text-[11px] text-muted-foreground">
           {isWinStreak && streak >= 3 ? "Takım morali yüksek! 📈" : isLoseStreak && streak >= 3 ? "Takım morali düşük ⚠️" : "Son 5 maç"}
@@ -890,7 +892,7 @@ function StreakIndicator({ fixtures, teamId }: { fixtures: any[]; teamId: string
             "inline-flex items-center justify-center w-5 h-5 rounded text-[11px] font-bold",
             r === "W" ? "bg-emerald-500 text-white" : r === "L" ? "bg-red-500 text-white" : "bg-amber-400 text-amber-900"
           )}>
-            {r === "W" ? "G" : r === "L" ? "M" : "B"}
+            {r === "W" ? t("dash.win_short") : r === "L" ? t("dash.loss_short") : t("dash.draw_short")}
           </span>
         ))}
       </div>
@@ -952,11 +954,11 @@ function MessagesBox() {
 
   return (
     <section>
-      <SectionTitle icon={MessageSquare} title={`Mesajlar${unreadCount > 0 ? ` (${unreadCount} yeni)` : ""}`} />
+      <SectionTitle icon={MessageSquare} title={`${t("dash.messages_section")}${unreadCount > 0 ? ` ${t("dash.new_messages", { n: unreadCount })}` : ""}`} />
       <div className="tm-card divide-y divide-border">
         {messages.length === 0 ? (
           <div className="p-4 text-sm text-muted-foreground text-center">
-            Yeni mesaj yok.
+            {t("dash.no_messages")}
           </div>
         ) : (
           messages.slice(0, 3).map((m) => (
@@ -998,7 +1000,7 @@ function AccountManagement() {
 
       if (error || !data?.success) {
         haptic("error");
-        setFeedback(data?.reason || error?.message || "Hesap silinemedi — tekrar dene.");
+        setFeedback(data?.reason || error?.message || t("dash.delete_failed"));
         setDeleting(false);
         return;
       }
@@ -1009,14 +1011,14 @@ function AccountManagement() {
       // AuthGate giriş ekranına yönlendirecek
     } catch (e: any) {
       haptic("error");
-      setFeedback(`Hata: ${e?.message ?? "bilinmeyen"}`);
+      setFeedback(t("dash.error_prefix", { msg: e?.message ?? "?" }));
       setDeleting(false);
     }
   };
 
   return (
     <section>
-      <SectionTitle icon={Users} title="Hesap" />
+      <SectionTitle icon={Users} title={t("dash.account_section")} />
       <div className="tm-card divide-y divide-border">
         {/* v2.9.54: Dil ayarı */}
         <LanguageSettingsRow locale={locale} setLocale={setLocale} />
@@ -1027,7 +1029,7 @@ function AccountManagement() {
           className="tm-tap w-full flex items-center gap-2 p-3 text-left hover:bg-accent/30 transition-colors"
         >
           <LogOut size={14} className="text-muted-foreground shrink-0" />
-          <span className="text-xs font-semibold">Çıkış Yap</span>
+          <span className="text-xs font-semibold">{t("dash.sign_out")}</span>
         </button>
 
         {/* Delete account */}
@@ -1037,13 +1039,12 @@ function AccountManagement() {
             className="tm-tap w-full flex items-center gap-2 p-3 text-left hover:bg-red-500/10 transition-colors"
           >
             <Trash2 size={14} className="text-red-400 shrink-0" />
-            <span className="text-xs font-semibold text-red-400">Hesabımı Sil</span>
+            <span className="text-xs font-semibold text-red-400">{t("dash.delete_account")}</span>
           </button>
         ) : (
           <div className="p-3 space-y-2">
             <div className="text-[11px] text-muted-foreground leading-relaxed">
-              ⚠️ Hesabın ve tüm verilerin kalıcı olarak silinecek. Bu işlem geri alınamaz.
-              Forum gönderilerin "Silinmiş kullanıcı" olarak korunacak.
+              {t("dash.delete_warning")}
             </div>
             {feedback && (
               <div className="text-[10px] text-red-400 font-semibold">{feedback}</div>
@@ -1054,14 +1055,14 @@ function AccountManagement() {
                 disabled={deleting}
                 className="tm-tap flex-1 py-2 rounded-lg border border-border text-xs font-bold text-muted-foreground"
               >
-                İptal
+                {t("common.cancel")}
               </button>
               <button
                 onClick={handleDelete}
                 disabled={deleting}
                 className="tm-tap flex-[2] py-2 rounded-lg bg-red-600 text-white text-xs font-bold disabled:opacity-50"
               >
-                {deleting ? "Siliniyor..." : "Evet, kalıcı olarak sil"}
+                {deleting ? t("dash.deleting") : t("dash.delete_confirm")}
               </button>
             </div>
           </div>
@@ -1073,6 +1074,7 @@ function AccountManagement() {
 
 // v2.9.54: Dil ayarı — tek satır (AccountManagement içinde)
 function LanguageSettingsRow({ locale, setLocale }: { locale: Locale; setLocale: (l: Locale) => void }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const current = LOCALE_NAMES[locale];
 
@@ -1083,7 +1085,7 @@ function LanguageSettingsRow({ locale, setLocale }: { locale: Locale; setLocale:
         className="tm-tap w-full flex items-center gap-2 p-3 text-left hover:bg-accent/30 transition-colors"
       >
         <Globe size={14} className="text-muted-foreground shrink-0" />
-        <span className="text-xs font-semibold flex-1">Dil / Language</span>
+        <span className="text-xs font-semibold flex-1">{t("dash.language_label")}</span>
         <span className="text-sm">{current.flag}</span>
         <span className="text-[10px] font-bold text-muted-foreground">{locale.toUpperCase()}</span>
         <ChevronDown size={12} className={cn("text-muted-foreground transition-transform", open && "rotate-180")} />
@@ -1115,12 +1117,13 @@ function LanguageSettingsRow({ locale, setLocale }: { locale: Locale; setLocale:
 
 // v2.9.54: Dil ayarı — tam bölüm (demo mode'da, kullanıcı giriş yapmamışken)
 function LanguageSettingsSection({ locale, setLocale }: { locale: Locale; setLocale: (l: Locale) => void }) {
+  const { t } = useI18n();
   return (
     <section>
-      <SectionTitle icon={Users} title="Dil / Language" />
+      <SectionTitle icon={Users} title={t("dash.language_label")} />
       <div className="tm-card p-3 space-y-2">
         <p className="text-[10px] text-muted-foreground mb-1">
-          Oyun dilini seç. Google Play'den indirildiğinde cihaz dilin otomatik algılanır.
+          {t("dash.language_hint")}
         </p>
         <div className="grid grid-cols-3 gap-1.5">
           {LOCALES.map((l: Locale) => {

@@ -119,6 +119,8 @@ function MatchReport({
   fixtures: FixtureRow[];
   locale: Locale;
 }) {
+  // v2.9.66 Faz 6: i18n — hardcoded string'leri t() ile değiştir
+  const { t } = useI18n();
   // Son 10 maç
   const myRecent = useMemo(() =>
     fixtures
@@ -177,7 +179,7 @@ function MatchReport({
   }, [myRecent, team.id]);
 
   if (myRecent.length === 0 || !stats) {
-    return <div className="tm-card p-4 text-center text-xs text-muted-foreground">Henüz oynanan maç yok.</div>;
+    return <div className="tm-card p-4 text-center text-xs text-muted-foreground">{t("reports.no_matches_played")}</div>;
   }
 
   return (
@@ -187,9 +189,9 @@ function MatchReport({
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
             <Activity size={12} className="text-muted-foreground" />
-            <span className="text-xs font-bold">Son Form</span>
+            <span className="text-xs font-bold">{t("reports.recent_form")}</span>
           </div>
-          <span className="text-[11px] text-muted-foreground">{myRecent.length} maçlık süreç</span>
+          <span className="text-[11px] text-muted-foreground">{t("reports.match_span", { n: myRecent.length })}</span>
         </div>
         <div className="flex gap-1 mb-2">
           {stats.form.map((r, i) => (
@@ -224,26 +226,26 @@ function MatchReport({
       <div className="tm-card p-3">
         <div className="flex items-center gap-1.5 mb-2">
           <Target size={12} className="text-muted-foreground" />
-          <span className="text-xs font-bold">Gol Analizi (son {myRecent.length} maç)</span>
+          <span className="text-xs font-bold">{t("reports.goal_analysis", { n: myRecent.length })}</span>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="bg-emerald-500/10 rounded p-2 text-center">
-            <div className="text-[10px] text-muted-foreground uppercase">Atılan Gol</div>
+            <div className="text-[10px] text-muted-foreground uppercase">{t("reports.goals_for")}</div>
             <div className="text-lg font-bold text-emerald-400 tabular-nums">{stats.goalsFor}</div>
-            <div className="text-[10px] text-muted-foreground">maç başı {stats.avgGoalsFor.toFixed(2)}</div>
+            <div className="text-[10px] text-muted-foreground">{t("reports.per_match_avg", { n: stats.avgGoalsFor.toFixed(2) })}</div>
           </div>
           <div className="bg-red-500/10 rounded p-2 text-center">
-            <div className="text-[10px] text-muted-foreground uppercase">Yenilen Gol</div>
+            <div className="text-[10px] text-muted-foreground uppercase">{t("reports.goals_against")}</div>
             <div className="text-lg font-bold text-red-400 tabular-nums">{stats.goalsAgainst}</div>
-            <div className="text-[10px] text-muted-foreground">maç başı {stats.avgGoalsAgainst.toFixed(2)}</div>
+            <div className="text-[10px] text-muted-foreground">{t("reports.per_match_avg", { n: stats.avgGoalsAgainst.toFixed(2) })}</div>
           </div>
           <div className="bg-sky-500/10 rounded p-2 text-center">
-            <div className="text-[10px] text-muted-foreground uppercase">Gol Yemedi</div>
+            <div className="text-[10px] text-muted-foreground uppercase">{t("reports.clean_sheets")}</div>
             <div className="text-lg font-bold text-sky-400 tabular-nums">{stats.cleanSheets}</div>
             <div className="text-[10px] text-muted-foreground">%{((stats.cleanSheets / myRecent.length) * 100).toFixed(0)}</div>
           </div>
           <div className="bg-orange-500/10 rounded p-2 text-center">
-            <div className="text-[10px] text-muted-foreground uppercase">Golsüz Maç</div>
+            <div className="text-[10px] text-muted-foreground uppercase">{t("reports.failed_to_score")}</div>
             <div className="text-lg font-bold text-orange-400 tabular-nums">{stats.failedToScore}</div>
             <div className="text-[10px] text-muted-foreground">%{((stats.failedToScore / myRecent.length) * 100).toFixed(0)}</div>
           </div>
@@ -254,13 +256,13 @@ function MatchReport({
       <div className="tm-card p-3">
         <div className="flex items-center gap-1.5 mb-2">
           <MapPin size={12} className="text-muted-foreground" />
-          <span className="text-xs font-bold">Ev / Deplasman</span>
+          <span className="text-xs font-bold">{t("reports.home_away")}</span>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="bg-muted/20 rounded p-2">
             <div className="flex items-center gap-1 mb-1">
               <Home size={10} className="text-emerald-400" />
-              <span className="text-[11px] font-bold uppercase">Ev Sahibi</span>
+              <span className="text-[11px] font-bold uppercase">{t("reports.home_team")}</span>
             </div>
             {/* P2 FIX: "G-değil" yerine net G/B/M formatı */}
             <div className="text-[10px] text-muted-foreground">
@@ -271,13 +273,13 @@ function MatchReport({
                 style={{ width: `${stats.homeGames > 0 ? (stats.homeWins / stats.homeGames) * 100 : 0}%` }} />
             </div>
             <div className="text-[11px] text-muted-foreground mt-0.5">
-              %{stats.homeGames > 0 ? ((stats.homeWins / stats.homeGames) * 100).toFixed(0) : 0} galibiyet
+              %{stats.homeGames > 0 ? ((stats.homeWins / stats.homeGames) * 100).toFixed(0) : 0} {t("reports.win_rate")}
             </div>
           </div>
           <div className="bg-muted/20 rounded p-2">
             <div className="flex items-center gap-1 mb-1">
               <Footprints size={10} className="text-sky-400" />
-              <span className="text-[11px] font-bold uppercase">Deplasman</span>
+              <span className="text-[11px] font-bold uppercase">{t("reports.away_team")}</span>
             </div>
             <div className="text-[10px] text-muted-foreground">
               {stats.awayWins}G · {stats.awayDraws ?? 0}B · {(stats.awayGames ?? 0) - (stats.awayWins ?? 0) - (stats.awayDraws ?? 0)}M
@@ -287,7 +289,7 @@ function MatchReport({
                 style={{ width: `${stats.awayGames > 0 ? (stats.awayWins / stats.awayGames) * 100 : 0}%` }} />
             </div>
             <div className="text-[11px] text-muted-foreground mt-0.5">
-              %{stats.awayGames > 0 ? ((stats.awayWins / stats.awayGames) * 100).toFixed(0) : 0} galibiyet
+              %{stats.awayGames > 0 ? ((stats.awayWins / stats.awayGames) * 100).toFixed(0) : 0} {t("reports.win_rate")}
             </div>
           </div>
         </div>
@@ -297,7 +299,7 @@ function MatchReport({
       <div className="tm-card p-3">
         <div className="flex items-center gap-1.5 mb-2">
           <ClipboardList size={12} className="text-muted-foreground" />
-          <span className="text-xs font-bold">Maç Listesi (son {myRecent.length})</span>
+          <span className="text-xs font-bold">{t("reports.match_list", { n: myRecent.length })}</span>
         </div>
         <div className="space-y-1.5">
           {myRecent.map((f, i) => {
@@ -401,7 +403,7 @@ function FinancialReport({
         </div>
         <div className="text-2xl font-bold tabular-nums">{formatEuro(team.budget, locale)}</div>
         <div className="text-[11px] text-muted-foreground mt-0.5">
-          Sezon sonu tahmini: {formatEuro(projectedBudget, locale)}
+          {t("reports.season_end_estimate")}: {formatEuro(projectedBudget, locale)}
         </div>
       </div>
 
@@ -423,15 +425,15 @@ function FinancialReport({
       <div className="tm-card p-3">
         <div className="flex items-center gap-1.5 mb-2">
           <ArrowUpRight size={12} className="text-emerald-400" />
-          <span className="text-xs font-bold">Haftalık Gelirler</span>
+          <span className="text-xs font-bold">{t("reports.weekly_income")}</span>
         </div>
         <div className="space-y-1">
-          <FinRow label="Bilet Geliri" value={ticketRev} color="emerald" locale={locale} />
-          <FinRow label="Sponsor" value={sponsor} color="emerald" locale={locale} />
-          <FinRow label="TV Geliri" value={tv} color="emerald" locale={locale} />
+          <FinRow label={t("reports.ticket_revenue")} value={ticketRev} color="emerald" locale={locale} />
+          <FinRow label={t("reports.sponsor")} value={sponsor} color="emerald" locale={locale} />
+          <FinRow label={t("reports.tv_revenue")} value={tv} color="emerald" locale={locale} />
           <FinRow label={t("reports.licensed_products")} value={merch} color="emerald" locale={locale} />
           <div className="border-t border-border pt-1">
-            <FinRow label="Toplam Gelir" value={totalIncome} color="emerald" bold locale={locale} />
+            <FinRow label={t("reports.total_income")} value={totalIncome} color="emerald" bold locale={locale} />
           </div>
         </div>
       </div>
@@ -440,15 +442,15 @@ function FinancialReport({
       <div className="tm-card p-3">
         <div className="flex items-center gap-1.5 mb-2">
           <ArrowDownRight size={12} className="text-red-400" />
-          <span className="text-xs font-bold">Haftalık Giderler</span>
+          <span className="text-xs font-bold">{t("reports.weekly_expense")}</span>
         </div>
         <div className="space-y-1">
           {/* v2.9.55: Oyuncu maaşları — en büyük gider */}
-          <FinRow label="⚽ Oyuncu Maaşları" value={playerWages} color="red" locale={locale} />
-          <FinRow label="Personel Maaşları" value={staffWages} color="red" locale={locale} />
-          <FinRow label="Tesis Bakım" value={facilityCost} color="red" locale={locale} />
+          <FinRow label={t("reports.player_wages")} value={playerWages} color="red" locale={locale} />
+          <FinRow label={t("reports.staff_wages")} value={staffWages} color="red" locale={locale} />
+          <FinRow label={t("reports.facility_maintenance")} value={facilityCost} color="red" locale={locale} />
           <div className="border-t border-border pt-1">
-            <FinRow label="Toplam Gider" value={totalExpense} color="red" bold locale={locale} />
+            <FinRow label={t("reports.total_expense")} value={totalExpense} color="red" bold locale={locale} />
           </div>
         </div>
       </div>
@@ -457,15 +459,15 @@ function FinancialReport({
       <div className="tm-card p-3">
         <div className="flex items-center gap-1.5 mb-2">
           <Trophy size={12} className="text-amber-400" />
-          <span className="text-xs font-bold">Kadro Değeri</span>
+          <span className="text-xs font-bold">{t("reports.squad_value")}</span>
         </div>
         <div className="grid grid-cols-2 gap-2 text-center">
           <div className="bg-muted/20 rounded p-2">
-            <div className="text-[10px] text-muted-foreground uppercase">Toplam Değer</div>
+            <div className="text-[10px] text-muted-foreground uppercase">{t("reports.total_value")}</div>
             <div className="text-base font-bold tabular-nums text-amber-300">{formatEuro(squadValue, locale)}</div>
           </div>
           <div className="bg-muted/20 rounded p-2">
-            <div className="text-[10px] text-muted-foreground uppercase">Oyuncu Başına</div>
+            <div className="text-[10px] text-muted-foreground uppercase">{t("reports.value_per_player")}</div>
             <div className="text-base font-bold tabular-nums">
               {formatEuro(squadValue / team.players.length, locale)}
             </div>
@@ -477,7 +479,7 @@ function FinancialReport({
       <div className="tm-card p-3">
         <div className="flex items-center gap-1.5 mb-2">
           <Zap size={12} className="text-sky-400" />
-          <span className="text-xs font-bold">Transfer Durumu</span>
+          <span className="text-xs font-bold">{t("reports.transfer_status")}</span>
         </div>
         <div className="grid grid-cols-3 gap-1.5 text-center">
           <div className="bg-muted/20 rounded p-1.5">
@@ -512,6 +514,8 @@ function PerformanceReport({
   fixtures: FixtureRow[];
   locale: Locale;
 }) {
+  // v2.9.66 Faz 6: i18n — hardcoded string'leri t() ile değiştir
+  const { t } = useI18n();
   const players = team.players;
 
   // Takım özet istatistikleri
@@ -601,7 +605,7 @@ function PerformanceReport({
           <span className="text-xs font-bold">Takım Özeti</span>
         </div>
         <div className="grid grid-cols-3 gap-1.5 text-center">
-          <StatTile label="Ort. Rating" value={teamStats.avgRating.toFixed(0)} />
+          <StatTile label={t("reports.avg_rating")} value={teamStats.avgRating.toFixed(0)} />
           <StatTile label="Ort. Form" value={teamStats.avgForm.toFixed(1)} />
           <StatTile label="Ort. Kondisyon" value={`${teamStats.avgCond.toFixed(0)}%`} />
           <StatTile label="Ort. Moral" value={teamStats.avgMorale.toFixed(0)} />
@@ -707,7 +711,7 @@ function PerformanceReport({
         <div className="tm-card p-3 border-red-500/30">
           <div className="flex items-center gap-1.5 mb-2">
             <AlertTriangle size={12} className="text-red-400" />
-            <span className="text-xs font-bold text-red-400">Sakat Oyuncular ({injuredPlayers.length})</span>
+            <span className="text-xs font-bold text-red-400">{t("reports.injured_players")} ({injuredPlayers.length})</span>
           </div>
           <div className="space-y-0.5">
             {injuredPlayers.map((p) => (
@@ -964,6 +968,8 @@ function SeasonReport({
   fixtures: FixtureRow[];
   seasonNumber: number;
 }) {
+  // v2.9.66 Faz 6: i18n — hardcoded string'leri t() ile değiştir
+  const { t } = useI18n();
   const standings = useMemo(() => computeStandings(clubs, fixtures), [clubs, fixtures]);
   const myStat = standings.find((s) => s.teamId === team.id);
   const myPos = standings.findIndex((s) => s.teamId === team.id) + 1;
@@ -1006,7 +1012,7 @@ function SeasonReport({
 
   // Lig hedefleri
   const targets = [
-    { pos: 1, label: "Şampiyonluk", color: "bg-amber-500/20 text-amber-300" },
+    { pos: 1, label: t("reports.championship"), color: "bg-amber-500/20 text-amber-300" },
     { pos: 2, label: "Yükselme", color: "bg-emerald-500/20 text-emerald-300" },
     { pos: 4, label: "Play-off", color: "bg-sky-500/20 text-sky-300" },
     { pos: 16, label: "Küme Düşme Hattı", color: "bg-red-500/20 text-red-300" },
@@ -1027,12 +1033,12 @@ function SeasonReport({
       <div className="tm-card p-3">
         <div className="flex items-center gap-1.5 mb-2">
           <Calendar size={12} className="text-amber-400" />
-          <span className="text-xs font-bold">Sezon {seasonNumber} İlerlemesi</span>
+          <span className="text-xs font-bold">{t("reports.season_progress_label", { n: seasonNumber })}</span>
         </div>
         <div className="mb-1">
           <div className="flex justify-between text-[11px] text-muted-foreground mb-0.5">
             <span>Hafta {currentMd}/{totalMd}</span>
-            <span>{myFixtures.length} maç oynandı · {totalMd - myFixtures.length} maç kaldı</span>
+            <span>{t("reports.matches_remaining", { played: myFixtures.length, remaining: totalMd - myFixtures.length })}</span>
           </div>
           <div className="h-2 rounded-full bg-muted overflow-hidden">
             <div className="h-full bg-primary rounded-full" style={{ width: `${(currentMd / totalMd) * 100}%` }} />
@@ -1151,10 +1157,10 @@ function SeasonReport({
       <div className="tm-card p-3">
         <div className="flex items-center gap-1.5 mb-2">
           <TrendingUp size={12} className="text-sky-400" />
-          <span className="text-xs font-bold">Sezon Tahminleri</span>
+          <span className="text-xs font-bold">{t("reports.season_predictions")}</span>
         </div>
         <div className="space-y-1">
-          <PredRow label="Tahmini Sezon Sonu Puanı" value={projectedPoints} />
+          <PredRow label={t("reports.estimated_season_points")} value={projectedPoints} />
           <PredRow label="Maç Başına Gol" value={(allStats.gf / Math.max(1, myFixtures.length)).toFixed(2)} />
           <PredRow label="Maç Başına Gol Yeme" value={(allStats.ga / Math.max(1, myFixtures.length)).toFixed(2)} />
           <PredRow label="Galibiyet Oranı" value={`%${((allStats.w / Math.max(1, myFixtures.length)) * 100).toFixed(0)}`} />
@@ -1167,7 +1173,7 @@ function SeasonReport({
       <div className="tm-card p-3">
         <div className="flex items-center gap-1.5 mb-2">
           <Users size={12} className="text-muted-foreground" />
-          <span className="text-xs font-bold">Yakındaki Rakipler</span>
+          <span className="text-xs font-bold">{t("reports.nearby_rivals")}</span>
         </div>
         <div className="space-y-0.5">
           {nearby.map((s, i) => {
