@@ -509,10 +509,16 @@ export async function flushGameState(userId: string): Promise<void> {
     tacticsSaveTimeoutId = null;
   }
   // Immediate save
-  return new Promise((resolve) => {
-    saveGameState(userId, true);
-    saveTacticsState(userId, true);
-    setTimeout(resolve, 800); // RPC'lerin tamamlanması için kısa bekle
+  // v2.9.65 FIX: flushGameState artık gerçek RPC'leri bekliyor
+  // Eski kod: setTimeout(resolve, 800) — RPC'ler bitmeden resolve ediyordu
+  return new Promise(async (resolve) => {
+    try {
+      await saveGameState(userId, true);
+      await saveTacticsState(userId, true);
+    } catch (e) {
+      console.error("[cloud-save] flush error:", e);
+    }
+    resolve();
   });
 }
 

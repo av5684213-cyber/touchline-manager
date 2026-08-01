@@ -336,14 +336,8 @@ export function calculateBuyerCost(askingPrice: number) {
   };
 }
 
-export function calculateSellerNet(salePrice: number) {
-  const tax = Math.round(salePrice * TRANSFER_TAX_RATE);
-  return {
-    salePrice,
-    tax,
-    net: salePrice - tax,
-  };
-}
+// v2.9.65: calculateSellerNet KALDIRILDI — dead code (hiç çağrılmıyordu)
+// Satıcı vergisi store.ts'te hardcoded %2.5 olarak uygulanıyor
 
 export function getPositionGroup(pos: Position) {
   return POSITION_GROUP[pos];

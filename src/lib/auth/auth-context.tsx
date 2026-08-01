@@ -11,6 +11,7 @@ type AuthContextValue = {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  connectionError: boolean; // v2.9.65: Supabase bağlantı hatası
   signUp: (email: string, password: string, managerName: string, teamName?: string, countryCode?: string) => Promise<{ error?: string }>;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signInWithGoogle: () => Promise<{ error?: string }>;
@@ -23,6 +24,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  // v2.9.65: Bağlantı hatası durumu — kullanıcıya gösterilir
+  const [connectionError, setConnectionError] = useState(false);
   const { loginDemo } = useAppStore();
 
   useEffect(() => {
@@ -49,8 +52,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           );
         }
       })
-      .catch(() => {
-        // Supabase erişilemezse — demo moduna düş
+      .catch((err) => {
+        // v2.9.65 FIX: Sessiz demo mode yerine bağlantı hatası göster
+        console.warn("[auth] getSession error:", err?.message);
+        setConnectionError(true);
         setLoading(false);
       });
 
@@ -230,7 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, session, loading, signUp, signIn, signInWithGoogle, signOut }}
+      value={{ user, session, loading, connectionError, signUp, signIn, signInWithGoogle, signOut }}
     >
       {children}
     </AuthContext.Provider>

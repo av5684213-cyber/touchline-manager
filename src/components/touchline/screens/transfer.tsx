@@ -857,6 +857,8 @@ function IncomingOfferCard({
 }) {
   const { t } = useI18n();
   const team = useMyTeam();
+  // v2.9.65: İşlem sırasında butonları disable et — race condition önle
+  const [processing, setProcessing] = useState(false);
 
   const recColor =
     offer.recommended === "accept"
@@ -925,18 +927,22 @@ function IncomingOfferCard({
         <button
           onClick={() => {
             haptic("success");
+            setProcessing(true);
             useAppStore.getState().acceptOffer(offer.id);
           }}
-          className="tm-tap flex-1 inline-flex items-center justify-center gap-1 py-2 rounded-md bg-emerald-600 text-white text-xs font-bold"
+          disabled={processing}
+          className="tm-tap flex-1 inline-flex items-center justify-center gap-1 py-2 rounded-md bg-emerald-600 text-white text-xs font-bold disabled:opacity-50"
         >
           <Check size={14} /> {t("transfer.incoming.accept")}
         </button>
         <button
           onClick={() => {
             haptic("light");
+            setProcessing(true);
             useAppStore.getState().rejectOffer(offer.id);
           }}
-          className="tm-tap flex-1 inline-flex items-center justify-center gap-1 py-2 rounded-md border border-border text-xs font-bold"
+          disabled={processing}
+          className="tm-tap flex-1 inline-flex items-center justify-center gap-1 py-2 rounded-md border border-border text-xs font-bold disabled:opacity-50"
         >
           <X size={14} /> {t("transfer.incoming.reject")}
         </button>
