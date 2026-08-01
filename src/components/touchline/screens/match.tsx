@@ -1240,7 +1240,7 @@ function TacticsDrawer({
       <div className="relative w-full max-w-[390px] bg-background rounded-t-2xl border-t border-border max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h3 className="text-sm font-bold">{t("match.tactics")}</h3>
-          <button onClick={onClose} className="tm-tap p-1">
+          <button onClick={onClose} aria-label="Kapat" className="tm-tap p-1">
             <X size={16} />
           </button>
         </div>

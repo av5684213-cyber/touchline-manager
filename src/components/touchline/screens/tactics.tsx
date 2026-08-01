@@ -505,6 +505,7 @@ export function TacticsScreen() {
               </div>
               <button
                 onClick={() => setRoleSlot(null)}
+                aria-label="Kapat"
                 className="tm-tap text-[10px] text-muted-foreground hover:text-foreground"
               >
                 ✕
@@ -1119,7 +1120,7 @@ function FormationPickerModal({
       <div className="relative w-full max-w-[390px] bg-background rounded-t-2xl border-t border-border tm-safe-bottom max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h3 className="text-sm font-bold">Formasyon Seç</h3>
-          <button onClick={onClose} className="tm-tap p-1">
+          <button onClick={onClose} aria-label="Kapat" className="tm-tap p-1">
             <X size={16} />
           </button>
         </div>
@@ -1395,13 +1396,14 @@ function SlotPlayerPicker({
           {current && onShowProfile && (
             <button
               onClick={() => { haptic("light"); onShowProfile(current); }}
+              aria-label="Profil"
               className="tm-tap p-1.5 mr-1 rounded-full border border-sky-500/40 bg-sky-500/10 text-sky-400"
               title="Oyuncu kartını aç"
             >
               <Info size={14} />
             </button>
           )}
-          <button onClick={onClose} className="tm-tap p-1">
+          <button onClick={onClose} aria-label="Kapat" className="tm-tap p-1">
             <X size={16} />
           </button>
         </div>
@@ -1704,7 +1706,7 @@ function CompareCard({
           <Repeat size={14} />
           <span className="text-sm font-bold">{t("tactics.compare")}</span>
         </div>
-        <button onClick={onClose} className="tm-tap p-1"><X size={14} /></button>
+        <button onClick={onClose} aria-label="Kapat" className="tm-tap p-1"><X size={14} /></button>
       </div>
       <div className="grid grid-cols-[1fr_auto_1fr] gap-2 mb-2">
         <PlayerHeader p={players[0]} teamColor={teamColor} />

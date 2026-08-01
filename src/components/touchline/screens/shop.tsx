@@ -678,6 +678,7 @@ function PackOpeningAnimation({
       {(phase === "shaking" || phase === "revealing") && (
         <button
           onClick={onClose}
+          aria-label="Kapat"
           className="absolute top-4 right-4 tm-tap p-2 text-white/50 hover:text-white"
         >
           <X size={20} />

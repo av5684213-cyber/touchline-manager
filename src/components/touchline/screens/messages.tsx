@@ -6,6 +6,7 @@ import { useAppStore, useMyTeam } from "@/lib/store";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
+import { useI18n } from "@/lib/i18n/locale-provider";
 
 const KIND_STYLE: Record<string, { bg: string; text: string; label: string; icon: string }> = {
   transfer_accepted: { bg: "bg-emerald-500/15", text: "text-emerald-400", label: "Teklif Kabul", icon: "✓" },
@@ -26,6 +27,7 @@ function relativeTime(ts: number): string {
 }
 
 export function MessagesScreen() {
+  const { t } = useI18n();
   const team = useMyTeam();
   const transfer = useAppStore((s) => s.transfer);
   const markMessageRead = useAppStore((s) => s.markMessageRead);
@@ -46,10 +48,12 @@ export function MessagesScreen() {
         <div>
           <h1 className="text-base font-bold flex items-center gap-2">
             <Inbox size={18} className="text-primary" />
-            Mesajlar
+            {t("messages.title")}
           </h1>
           <p className="text-[11px] text-muted-foreground">
-            {unreadCount > 0 ? `${unreadCount} okunmamış mesaj` : `${messages.length} mesaj`}
+            {unreadCount > 0
+              ? t("messages.unread_count", { n: unreadCount })
+              : t("messages.message_count", { n: messages.length })}
           </p>
         </div>
         {unreadCount > 0 && (
@@ -57,7 +61,7 @@ export function MessagesScreen() {
             onClick={() => { haptic("light"); markAllMessagesRead(); }}
             className="tm-tap px-2.5 py-1.5 rounded-md text-[10px] font-bold bg-primary/10 text-primary border border-primary/30"
           >
-            Tümünü okundu işaretle
+            {t("messages.mark_all_read")}
           </button>
         )}
       </div>
@@ -70,7 +74,7 @@ export function MessagesScreen() {
             filter === "ALL" ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border"
           )}
         >
-          Tümü ({messages.length})
+          {t("messages.all")} ({messages.length})
         </button>
         <button
           onClick={() => { haptic("light"); setFilter("unread"); }}
@@ -79,7 +83,7 @@ export function MessagesScreen() {
             filter === "unread" ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border"
           )}
         >
-          Okunmamış ({unreadCount})
+          {t("messages.unread_tab")} ({unreadCount})
         </button>
       </div>
 
@@ -87,10 +91,10 @@ export function MessagesScreen() {
         <div className="tm-card p-8 text-center">
           <Mail size={32} className="text-muted-foreground/30 mx-auto mb-2" />
           <p className="text-xs font-bold mb-1">
-            {filter === "unread" ? "Okunmamış mesaj yok" : "Henüz mesaj yok"}
+            {filter === "unread" ? t("messages.no_unread") : t("messages.empty")}
           </p>
           <p className="text-[10px] text-muted-foreground">
-            Transfer teklifi gönderdiğinde takım sahiplerinden yanıt gelecek.
+            {t("messages.empty_desc")}
           </p>
         </div>
       ) : (
@@ -122,7 +126,7 @@ export function MessagesScreen() {
                         <span className="font-bold text-emerald-400">{formatEuro(m.amount)}</span>
                       )}
                       {m.counterOffer && (
-                        <span className="font-bold text-sky-400">Counter: {formatEuro(m.counterOffer)}</span>
+                        <span className="font-bold text-sky-400">{t("messages.counter")}: {formatEuro(m.counterOffer)}</span>
                       )}
                     </div>
 
@@ -136,12 +140,12 @@ export function MessagesScreen() {
                             const res = useAppStore.getState().completeTransfer(m.relatedOfferId!);
                             if (!res.success) {
                               haptic("error");
-                              alert(res.reason === "budget" ? "Yetersiz bütçe" : "Transfer tamamlanamadı");
+                              alert(res.reason === "budget" ? t("messages.insufficient_budget") : t("messages.transfer_failed"));
                             }
                           }}
                           className="tm-tap flex-1 py-1.5 rounded-md text-[10px] font-bold bg-emerald-600 text-white"
                         >
-                          Transferi Tamamla
+                          {t("messages.complete_transfer")}
                         </button>
                       )}
                       {m.kind === "transfer_negotiated" && m.relatedOfferId && m.counterOffer && (
@@ -153,14 +157,14 @@ export function MessagesScreen() {
                               const res = useAppStore.getState().acceptCounterOffer(m.relatedOfferId!);
                               if (!res.success) {
                                 haptic("error");
-                                alert(res.reason === "budget" ? "Yetersiz bütçe" : "Hata");
+                                alert(res.reason === "budget" ? t("messages.insufficient_budget") : t("messages.error"));
                               } else {
                                 clearMessage(m.id);
                               }
                             }}
                             className="tm-tap flex-1 py-1.5 rounded-md text-[10px] font-bold bg-emerald-600 text-white"
                           >
-                            Kabul ({formatEuro(m.counterOffer)})
+                            {t("messages.accept")} ({formatEuro(m.counterOffer)})
                           </button>
                           <button
                             onClick={(e) => {
@@ -171,7 +175,7 @@ export function MessagesScreen() {
                             }}
                             className="tm-tap px-3 py-1.5 rounded-md text-[10px] font-bold border border-border text-muted-foreground"
                           >
-                            Reddet
+                            {t("messages.reject")}
                           </button>
                         </>
                       )}
@@ -185,7 +189,7 @@ export function MessagesScreen() {
                             }}
                             className="tm-tap flex-1 py-1.5 rounded-md text-[10px] font-bold bg-emerald-600 text-white"
                           >
-                            Sat ({formatEuro(m.amount ?? 0)})
+                            {t("messages.sell")} ({formatEuro(m.amount ?? 0)})
                           </button>
                           <button
                             onClick={(e) => {
@@ -195,7 +199,7 @@ export function MessagesScreen() {
                             }}
                             className="tm-tap flex-1 py-1.5 rounded-md text-[10px] font-bold border border-border text-muted-foreground"
                           >
-                            Reddet
+                            {t("messages.reject")}
                           </button>
                         </>
                       )}

@@ -937,7 +937,7 @@ function WelcomeBanner({ teamName }: { teamName: string }) {
             {t("dash.welcome.body")}
           </div>
         </div>
-        <button onClick={() => setDismissed(true)} className="tm-tap text-muted-foreground text-xs">✕</button>
+        <button onClick={() => setDismissed(true)} aria-label="Kapat" className="tm-tap text-muted-foreground text-xs">✕</button>
       </div>
     </div>
   );
