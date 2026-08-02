@@ -243,6 +243,15 @@ export function DashboardScreen() {
   // v2.9.58: Yardım modal'ı açma
   const setHelpModalOpen = useAppStore((s) => s.setHelpModalOpen);
 
+  // v2.9.67: team null ise loading göster — React error #130 önle
+  if (!team) {
+    return (
+      <div className="px-4 py-16 text-center text-sm text-muted-foreground">
+        {t("common.loading")}
+      </div>
+    );
+  }
+
   return (
     <div className="px-4 py-4 space-y-4 pb-24">
       {/* v2.9.58: Yardım butonu — oyunun amacı + sekmeler + arketip açıklaması */}
