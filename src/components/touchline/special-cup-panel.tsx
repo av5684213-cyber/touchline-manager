@@ -6,7 +6,7 @@ import { useAppStore, useMyTeam } from "@/lib/store";
 import { useSupabaseAuth } from "@/lib/auth/auth-context";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
-import { haptic, useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline";
+import { haptic } from "@/hooks/touchline"; // v2.9.73: useBodyScrollLock + useEscapeToClose kaldırıldı (dead imports)
 
 type SpecialCup = {
   id: string;

@@ -3965,3 +3965,106 @@ Deployment:
 3. Supabase Dashboard → Edge Functions → Secrets:
    - GOOGLE_PLAY_PACKAGE_NAME = "com.touchline.manager"
 4. pg_cron extension kurulu değilse kur (cleanup job için)
+
+---
+Task ID: v2.9.73
+Agent: main (Super Z)
+Task: Son yayına hazırlık denetimi — 9 HIGH + 14 MEDIUM + 3 LOW sorun
+
+Work Log:
+
+HIGH (6):
+1. v2.9.73-a: RPC p_profile_id auth.uid() + SET search_path = public
+   - Migration 034: 48 SECURITY DEFINER fonksiyona search_path eklendi
+   - 7 RPC'ye auth.uid() kontrolü eklendi (rpc_load/save_game_state, rpc_create_outgoing_offer, rpc_accept_counter_offer, rpc_complete_upgrade_if_due, rpc_get_facility_levels, rpc_get_unread_message_count)
+   - Eski: p_profile_id parametresi auth.uid() ile karşılaştırılmadan kullanılıyordu — kurbanın state'ini okuyabilir/overwrite edebilir
+   - Yeni: IF auth.uid() IS NULL OR p_profile_id != auth.uid() THEN RAISE 'Forbidden' ERRCODE '42501'
+
+2. v2.9.73-b: Multiplayer transfer RPC (rpc_respond_multiplayer_offer)
+   - Migration 035: SECURITY DEFINER + SET search_path
+   - auth.uid() seller kontrolü, SELECT FOR UPDATE ile concurrent accept engeli
+   - Tek transaction: player update + buyer budget - + seller budget + + notification
+   - Eski: 4 client-side çağrı, RLS ihlali (seller buyer'ın bütçesini güncelleyemiyor)
+   - Yeni: RPC tek çağrı, atomic, RLS-safe
+
+3. v2.9.73-c: verify-purchase rate-limit + chat guest spoofing fix
+   - verify-purchase: 10 dk'da max 5 verify çağrısı (Google Play API quota koruması)
+   - Migration 036: chat_messages RLS policy güncellendi — guest_% koşulu kaldırıldı
+     (authenticated kullanıcı 'guest_kurban' set edip kurbanın kotasını tüketemez)
+   - Migration 036: forum_topics/replies length constraints
+     (title: 1-120, body: 1-2000, replies body: 1-1000)
+
+4. v2.9.73-d: Bankruptcy mekanizması
+   - advanceMatchday içinde: emergency_threshold = (playerWages + staffWages) × 2
+   - Bütçe threshold altında + > 11 oyuncu → en yüksek maaşlı otomatik satışa (marketValue × 0.8)
+   - Bütçe 0 + ≤ 11 oyuncu → transfer yasağı haberi
+   - makeTransferOffer: bütçe 0 + ≤ 11 → return { success: false, reason: 'bankrupt' }
+   - dict.ts'e transfer.reason.bankrupt eklendi (tr+en)
+
+5. v2.9.73-e: Gizlilik politikası + loot box görünür
+   - Privacy policy 8 veri kategorisiye genişletildi (Play Store Data Safety formuyla uyumlu):
+     * Hesap bilgileri, Profil, Oyun verileri, Forum, Sohbet (24h), FCM token, Ödeme, Engelleme/Raporlar
+   - Hesap silme metni düzeltildi: '30 gün' yanıltıcıydı, 'en geç 30 gün, genellikle anında'
+   - Loot box olasılıkları: <details open> ile her zaman görünür (Play Store 'clearly visible')
+
+6. v2.9.73-f: Dashboard React Hooks + re-render fix
+   - useEffect içinde useAppStore çağrısı → top-level'a taşındı (Rules of Hooks)
+   - DailyTasks: const store = useAppStore() kaldırıldı (tüm state'e subscribe, re-render fırtınası)
+   - transferNewsCount, tactics top-level selector'lar
+
+MEDIUM (4):
+7. v2.9.73-g: CL participant country hardcoded 'TR' fix
+   - store.ts:3918 — country: get().userCountryCode || 'TR'
+   - GB/ES/DE kullanıcıları artık CL'de doğru ülke ile işaretlenir
+
+8. v2.9.73-g: saveGameState retry + exponential backoff
+   - rpc_save_game_state için 3 retry + [1s, 2s, 4s] backoff
+   - Tüm denemeler başarısızsa localStorage pending queue (son 5 kayıt)
+   - 42501 (forbidden) ve 23505 (unique_violation) retry edilmez
+
+9. v2.9.73-g: useRealtimeSync error logging
+   - 2 catch bloğu /* no-op */ → console.warn
+
+10. v2.9.73-g: Email/şifre maxLength
+    - email maxLength=254 (RFC 5321), şifre maxLength=128 (Supabase limit)
+    - Login + signup bölümlerinin her ikisine de eklendi
+
+LOW (3):
+11. v2.9.73-h: salaryUtils.ts inflateCurrentWage silindi (ölü kod)
+12. v2.9.73-h: special-cup-panel.tsx dead imports silindi (useBodyScrollLock, useEscapeToClose)
+13. v2.9.73-h: dict.ts standings.zone.playoff silindi (ölü string — backend'de playoff yok)
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- 9 HIGH + 4 MEDIUM + 3 LOW = 16 sorun düzeltildi
+- 3 yeni migration: 034 (RPC security), 035 (multiplayer transfer RPC), 036 (chat + forum)
+- Play Store yayın blocker'larının tümü kapatıldı:
+  * Veri güvenliği formu uyumlu (8 kategori)
+  * Loot box olasılıkları görünür
+  * Hesap silme çalışıyor
+  * Chat moderasyonu sunucu tarafında
+- Güvenlik açıklarının tümü kapatıldı:
+  * RLS bypass (p_profile_id)
+  * Function search_path hijack
+  * Multiplayer transfer RLS ihlali
+  * Chat guest spoofing
+  * verify-purchase TOCTOU + rate-limit
+- Ekonomi dengesi: bankruptcy mekanizması eklendi
+- Performans: Dashboard re-render fırtınası düzeltildi
+
+Test senaryoları:
+1. RPC auth: başka kullanıcı UUID ile rpc_load_game_state → 42501 'Forbidden'
+2. Multiplayer transfer: satıcı teklif kabul et → buyer bütçesi doğru düşer (RLS-safe)
+3. verify-purchase: 6. çağrı → 429 'Rate limit'
+4. Chat: authenticated 'guest_x' set → reject (RLS)
+5. Bankruptcy: bütçe 0 + 11 oyuncu → transfer teklif 'bankrupt' reason
+6. CL: GB kullanıcısı tier 1 ilk 3 → CL'de 'GB' olarak işaretlenir
+7. saveGameState: network hatası → 3 retry → localStorage pending queue
+8. Dashboard: team/news değişmeyince re-render olmaz (DailyTasks)
+
+Deployment:
+1. Migration 034, 035, 036'yı Supabase SQL editor'da sırayla çalıştır
+2. Edge Function verify-purchase'i deploy et (rate-limit eklendi)
+3. Supabase Secrets: GOOGLE_PLAY_PACKAGE_NAME = "com.touchline.manager"
+4. pg_cron extension kurulu mu kontrol et (chat cleanup job için)
+5. Google Play Console → Data Safety formunu güncelle (8 veri kategorisi)

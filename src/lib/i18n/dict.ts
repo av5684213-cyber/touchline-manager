@@ -317,7 +317,8 @@ export const dict: Dict = {
   "standings.col.points": { tr: "P", en: "Pts" },
   "standings.col.form": { tr: "Form", en: "Form" },
   "standings.zone.promotion": { tr: "Doğrudan Çıkma", en: "Promotion" },
-  "standings.zone.playoff": { tr: "Play-off", en: "Play-off" },
+  // v2.9.73: "standings.zone.playoff" silindi — ölü kod (backend'de playoff yok,
+  // getLeagueZone sadece "promotion" | "relegation" | "middle" döndürür)
   "standings.zone.relegation": { tr: "Düşme", en: "Relegation" },
   "standings.zone.middle": { tr: "Orta Sıra", en: "Mid-table" },
   "standings.form.w": { tr: "G", en: "W" },

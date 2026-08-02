@@ -58,16 +58,5 @@ export function calculateSalaryRange(
   };
 }
 
-/**
- * Oyuncunun mevcut maaşını enflasyona göre güncelle.
- * Yeni sözleşme / sezon başı yenileme için kullanılır.
- */
-export function inflateCurrentWage(
-  currentWage: number,
-  oldSeasonNumber: number,
-  newSeasonNumber: number
-): number {
-  // Eski maaşı Sezon 1'e normalize et, sonra yeni sezona uygula
-  const baseWage = removeInflation(currentWage, oldSeasonNumber);
-  return applyInflation(baseWage, newSeasonNumber);
-}
+// v2.9.73: inflateCurrentWage silindi — ölü kod (hiçbir yerden import edilmemişti).
+// Sezon başı maaş yenileme özelliği eklenirse, calculateSalaryRange kullanılmalı.
