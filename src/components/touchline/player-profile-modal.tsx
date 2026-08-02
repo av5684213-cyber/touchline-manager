@@ -2616,6 +2616,9 @@ function AchievementsTab({
   // v2.9.44: AchievementsTab ile AYNI veri kaynağı — player.seasonHistory veya generateFallbackHistory
   const seasonHistory = player.seasonHistory ?? generateFallbackHistory(player);
 
+  // v2.9.67 FIX: Bu sezonun gol dağılımını da hesapla — kariyer toplamıyla uyumlu olsun
+  const currentBreakdown = computeGoalBreakdown(player);
+
   // Kariyer toplamları — sezon geçmişi + bu sezon gerçek stats (player.goals vb.)
   const totals = seasonHistory.reduce(
     (acc, s) => {
@@ -2632,14 +2635,24 @@ function AchievementsTab({
       acc.freekick += s.goalsFreekick ?? 0;
       return acc;
     },
-    { apps: 0, goals: 0, assists: 0, yellow: 0, red: 0, minutes: 0, right: 0, left: 0, head: 0, penalty: 0, freekick: 0 }
+    {
+      apps: player.appearances ?? 0,
+      goals: player.goals ?? 0,
+      assists: player.assists ?? 0,
+      yellow: 0, red: 0, minutes: 0,
+      // v2.9.67: Bu sezonun gol dağılımını başlangıç değerine ekle
+      right: currentBreakdown.right,
+      left: currentBreakdown.left,
+      head: currentBreakdown.head,
+      penalty: currentBreakdown.penalty,
+      freekick: currentBreakdown.freekick,
+    }
   );
 
-  // v2.9.44: Mevcut sezon + geçmiş toplamı → kariyer toplamı
-  // Geçmiş sezonlarda yapılanlar + bu sezon yapılanlar = gerçek kariyer
-  const careerGoals = totals.goals + (player.goals ?? 0);
-  const careerAssists = totals.assists + (player.assists ?? 0);
-  const careerApps = totals.apps + (player.appearances ?? 0);
+  // v2.9.67 FIX: totals zaten bu sezonu içeriyor (başlangıç değerinde) — çift sayma yok
+  const careerGoals = totals.goals;
+  const careerAssists = totals.assists;
+  const careerApps = totals.apps;
   const careerMotm = player.motmAwards ?? 0;
 
   // Başarı rozetleri — v2.9.44: kariyer toplamı (geçmiş + bu sezon) bazlı
