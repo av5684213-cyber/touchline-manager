@@ -39,30 +39,32 @@ import type { TabKey } from "@/components/touchline/bottom-nav";
  */
 export const TAB_BACKGROUNDS: Partial<Record<TabKey, string>> = {
   // Ana navigasyon (5)
-  dashboard: "/backgrounds/bg_dashboard.webp",
-  tactics: "/backgrounds/bg_tactics.webp",
-  match: "/backgrounds/bg_match.webp",
-  transfer: "/backgrounds/bg_transfer.webp",
-  finance: "/backgrounds/bg_finance.webp",
+  // v2.9.74 FIX K1: relative path (./backgrounds/...) — absolute path (/backgrounds/...)
+  // WebView file://'da filesystem root'a resolve olur → 404. Relative path her ortamda doğru.
+  dashboard: "./backgrounds/bg_dashboard.webp",
+  tactics: "./backgrounds/bg_tactics.webp",
+  match: "./backgrounds/bg_match.webp",
+  transfer: "./backgrounds/bg_transfer.webp",
+  finance: "./backgrounds/bg_finance.webp",
 
   // "Diğer" menüsü (9)
-  leaderboard: "/backgrounds/bg_leaderboard.webp",
-  forum: "/backgrounds/bg_forum.webp",
-  shop: "/backgrounds/bg_shop.webp",
-  youth: "/backgrounds/bg_youth.webp",
-  topscorers: "/backgrounds/bg_topscorers.webp",
-  awards: "/backgrounds/bg_awards.webp",
-  reports: "/backgrounds/bg_reports.webp",
-  news: "/backgrounds/bg_news.webp",
-  messages: "/backgrounds/bg_messages.webp",
+  leaderboard: "./backgrounds/bg_leaderboard.webp",
+  forum: "./backgrounds/bg_forum.webp",
+  shop: "./backgrounds/bg_shop.webp",
+  youth: "./backgrounds/bg_youth.webp",
+  topscorers: "./backgrounds/bg_topscorers.webp",
+  awards: "./backgrounds/bg_awards.webp",
+  reports: "./backgrounds/bg_reports.webp",
+  news: "./backgrounds/bg_news.webp",
+  messages: "./backgrounds/bg_messages.webp",
 
   // Kulüp/lig alt sekmeleri (6)
-  standings: "/backgrounds/bg_standings.webp",
-  scouting: "/backgrounds/bg_scouting.webp",
-  fixture: "/backgrounds/bg_fixture.webp",
-  friendly: "/backgrounds/bg_friendly.webp",
-  facilities: "/backgrounds/bg_facilities.webp",
-  cup: "/backgrounds/bg_cup.webp",
+  standings: "./backgrounds/bg_standings.webp",
+  scouting: "./backgrounds/bg_scouting.webp",
+  fixture: "./backgrounds/bg_fixture.webp",
+  friendly: "./backgrounds/bg_friendly.webp",
+  facilities: "./backgrounds/bg_facilities.webp",
+  cup: "./backgrounds/bg_cup.webp",
 };
 
 /**
