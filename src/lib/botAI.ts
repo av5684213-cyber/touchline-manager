@@ -215,7 +215,8 @@ export function shouldBotSell(team: Team, player: Player): boolean {
 export function simulateBotMatch(
   homeTeam: Team,
   awayTeam: Team,
-  matchday: number
+  matchday: number,
+  rng?: () => number
 ): { homeScore: number; awayScore: number } {
   const homeProfile = getBotTacticProfile(homeTeam);
   const awayProfile = getBotTacticProfile(awayTeam);
@@ -249,9 +250,16 @@ export function simulateBotMatch(
   const homeExpected = Math.max(0, 1.0 + strengthAdvantage + homeAdv + homeAttackBias - awayAttackBias * 0.5);
   const awayExpected = Math.max(0, 1.0 - strengthAdvantage - homeAdv + awayAttackBias - homeAttackBias * 0.5);
 
+  // v2.9.74 FIX K2: Math.random override KALDIRILDI — güvenlik açığı.
+  // Eski kod: cloud-save.ts Math.random'ı global olarak seeded RNG ile değiştiriyordu,
+  // bu pencerede eş zamanlı crypto.randomUUID() / Supabase token generation seeded
+  // RNG döner → token tahmin edilebilir.
+  // Yeni: opsiyonel rng parametresi. Verilirse onu kullanır, yoksa Math.random (default).
+  const randomFn = rng ?? Math.random;
+
   // Poisson benzeri dağılım — baz + random varyans
-  let hs = Math.max(0, Math.round(homeExpected + (Math.random() - 0.5) * 2));
-  let as = Math.max(0, Math.round(awayExpected + (Math.random() - 0.5) * 2));
+  let hs = Math.max(0, Math.round(homeExpected + (randomFn() - 0.5) * 2));
+  let as = Math.max(0, Math.round(awayExpected + (randomFn() - 0.5) * 2));
 
   // Pressing takım kontrollü oynar — az gol yer
   if (homeProfile.pressing) as = Math.max(0, as - 1);

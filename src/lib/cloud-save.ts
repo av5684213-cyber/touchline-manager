@@ -679,19 +679,17 @@ function hashStringToSeed(s: string): number {
   return Math.abs(h);
 }
 
-// v2.9.65: Deterministic simulateBotMatch — catch-up için cihazlar arası tutarlı
+// v2.9.65+v2.9.74: Deterministic simulateBotMatch — catch-up için cihazlar arası tutarlı
+// v2.9.74 FIX K2: Math.random global override KALDIRILDI (güvenlik açığı).
+// Eski kod: Math.random = rng; try {...} finally { Math.random = originalRandom; }
+// Bu pencerede eş zamanlı crypto.randomUUID() / Supabase token generation seeded RNG
+// kullanıyordu → token tahmin edilebilir.
+// Yeni: simulateBotMatch'e rng parametresi geçirilir, global Math.random'a dokunulmaz.
 function simulateBotMatchSeeded(homeTeam: any, awayTeam: any, matchday: number, seedStr: string): { homeScore: number; awayScore: number } {
   const { simulateBotMatch } = require("@/lib/botAI");
-  // Origimal simulateBotMatch'i çağır ama Math.random'u geçersiz kıl
   const seed = hashStringToSeed(seedStr);
   const rng = mulberry32(seed);
-  const originalRandom = Math.random;
-  Math.random = rng;
-  try {
-    return simulateBotMatch(homeTeam, awayTeam, matchday);
-  } finally {
-    Math.random = originalRandom;
-  }
+  return simulateBotMatch(homeTeam, awayTeam, matchday, rng);
 }
 
 // v2.9.65: Deterministic scorer pick
