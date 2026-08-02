@@ -1326,6 +1326,35 @@ export const useAppStore = create<AppState>()(
           return { success: false, reason: "not-found" };
         }
 
+        // v2.9.68 FIX: loanListings'te de ara — kiralık listedeki oyuncuya transfer teklifi
+        if (!sellerTeam || !player) {
+          const loanListing = transfer.loanListings?.find((l) => l.player.id === playerId);
+          if (loanListing) {
+            // Kiralık listede var — satın alma teklifine izin ver
+            player = loanListing.player;
+            // Satıcı takımı bul
+            sellerTeam = clubs.find((c) => c.players.some((p) => p.id === playerId));
+            if (!sellerTeam) {
+              const allLeagues = get().allLeagues;
+              if (allLeagues) {
+                for (const key of Object.keys(allLeagues)) {
+                  const league = allLeagues[key];
+                  const found = league.clubs.find((c) => c.players.some((p) => p.id === playerId));
+                  if (found) { sellerTeam = found; break; }
+                }
+              }
+            }
+            if (!sellerTeam) {
+              return { success: false, reason: "loan-seller-not-found" };
+            }
+          }
+        }
+
+        if (!sellerTeam || !player) {
+          return { success: false, reason: "not-found" };
+        }
+
+        // v2.9.68: marketValue burada tanımlanmalı (loanListings bloğu sonrası)
         const marketValue = player.marketValue ?? player.market_value ?? 0;
 
         // Bot takımın karar verme mantığı
@@ -1671,7 +1700,12 @@ export const useAppStore = create<AppState>()(
             clubs: updatedClubs,
             allLeagues: updatedAllLeagues,
             news: [newNews, ...news],
-            transfer: { ...transfer, messages: [newLoanMsg, ...transfer.messages].slice(0, 100) },
+            transfer: {
+              ...transfer,
+              // v2.9.68: Kiralanan oyuncuyu loanListings'ten de çıkar
+              loanListings: (transfer.loanListings ?? []).filter((l) => l.player.id !== playerId),
+              messages: [newLoanMsg, ...transfer.messages].slice(0, 100),
+            },
           });
 
           return { success: true, response: "accepted" };
@@ -3541,10 +3575,9 @@ export const useAppStore = create<AppState>()(
               form: 70,
               morale: 70,
               confidence: 70,
-              // P1 FIX: Sakatlık ve loan flag'lerini sıfırla
+              // v2.9.68: Sakatlık sıfırla ama injury_history KORU (kariyer geçmişi)
               is_injured: false,
               injury: undefined,
-              injury_history: [],
               _loaned: false,
               _loanWeeks: 0,
               // P0 FIX BUG #2: suspended_until sezon sonunda sıfırlanmalı

@@ -48,9 +48,19 @@ export function PlayerProfileModal({
 
   // v2.9.48: Reaktif takım bul — oyuncunun hangi takımda olduğunu
   const clubs = useAppStore((s) => s.clubs);
+  const youthAcademy = useAppStore((s) => s.youthAcademy);
   const playerTeam = useMemo(
-    () => clubs.find(c => c.players.some(p => p.id === player.id)) ?? null,
-    [clubs, player.id]
+    () => {
+      // Önce clubs'ta ara
+      const club = clubs.find(c => c.players.some(p => p.id === player.id));
+      if (club) return club;
+      // v2.9.68: Youth academy'de de ara
+      if (youthAcademy?.players.some(p => p.id === player.id)) {
+        return { name: "Altyapı", shortName: "ALT", primaryColor: "#10b981" } as any;
+      }
+      return null;
+    },
+    [clubs, youthAcademy, player.id]
   );
 
   // P0 FIX: Escape tuşu + body scroll lock
@@ -178,7 +188,7 @@ export function PlayerProfileModal({
                 title={playerTeam.name}
               >
                 <span className="w-3 h-3 rounded-sm shrink-0" style={{ background: playerTeam.primaryColor }} />
-                <span className="truncate">{playerTeam.shortName}</span>
+                <span className="truncate">{playerTeam.name}</span>
               </button>
             )}
           </div>
@@ -495,7 +505,10 @@ function OverviewTab({
 
       {/* Stats — 3 sütun kompakt */}
       <div className="grid grid-cols-3 gap-2">
-        <StatColumn title="Teknik" stats={technical} playerId={player.id} statKeys={["goalkeeping","goalkeeping","goalkeeping","heading","positioning","passing","goalkeeping","leadership","concentration","agility","finishing","dribbling","firstTouch","heading","marking","crossing","passing","technique","tackling","longShots"]} />
+        {/* v2.9.68: statKeys isGK'ya göre dallandır — growth rozeti doğru stat'tan gelsin */}
+        <StatColumn title="Teknik" stats={technical} playerId={player.id} statKeys={(player.specificPosition === "GK")
+          ? ["goalkeeping","goalkeeping","goalkeeping","heading","positioning","passing","goalkeeping","leadership","concentration","agility"]
+          : ["finishing","dribbling","firstTouch","heading","marking","crossing","passing","technique","tackling","longShots"]} />
         <StatColumn title="Zihinsel" stats={mental} playerId={player.id} statKeys={["aggression","bravery","workRate","decisions","determination","concentration","leadership","anticipation","flair","positioning","composure","teamwork","vision"]} />
         <StatColumn title="Fiziksel" stats={physical} playerId={player.id} statKeys={["agility","stamina","balance","strength","speed","acceleration","jumping","leftFoot","rightFoot"]} />
       </div>

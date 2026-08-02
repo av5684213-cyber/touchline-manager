@@ -60,7 +60,7 @@ export function SeasonEndModal({
             <h2 className="text-lg font-bold">
               {isChampion ? "Şampiyonluk!" : "Sezon Sonu"}
             </h2>
-            <p className="text-[11px] text-muted-foreground">2025–26 sezonu tamamlandı</p>
+            <p className="text-[11px] text-muted-foreground">{summary ? `${summary.season - 1}–${String(summary.season).slice(-2)} sezonu tamamlandı` : "Sezon tamamlandı"}</p>
           </div>
 
           {/* Final position */}
@@ -215,7 +215,7 @@ export function SeasonEndModal({
         <div className="text-5xl mb-3">⚽</div>
         <h2 className="text-xl font-bold mb-1">Yeni Sezon Başlıyor</h2>
         <p className="text-[11px] text-muted-foreground mb-4">
-          2026–27 sezonuna hazır mısın? Kadro yenilendi, taktikleri gözden geçir.
+          {summary ? `${summary.season - 1}–${String(summary.season).slice(-2)}` : "Yeni"} sezonuna hazır mısın? Kadro yenilendi, taktikleri gözden geçir.
         </p>
 
         {/* Hazırlık listesi */}

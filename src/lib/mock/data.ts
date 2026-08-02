@@ -635,7 +635,12 @@ function generateStats(pos: Position, ovr: number): PlayerStats {
 }
 
 export function generatePlayer(pos: Position, ovrRange: { min: number; max: number }, countryCode?: string): Player {
-  const ovr = rand(ovrRange.min, ovrRange.max);
+  let ovr = rand(ovrRange.min, ovrRange.max);
+  // v2.9.68: Yaş bazlı OVR cap — genç oyuncular çok yüksek OVR alamasın
+  // 17-18 yaş: max 75, 19-20: max 82, 21-22: max 88, 23+: sınırsız
+  const age = rand(17, 36);
+  const ageOvrCap = age <= 18 ? 75 : age <= 20 ? 82 : age <= 22 ? 88 : 99;
+  ovr = Math.min(ovr, ageOvrCap);
   // v2.9.35: Ülke bazlı isim havuzu — countryCode verilirse o ülkenin isimlerini kullan
   let first: string;
   let last: string;
@@ -657,7 +662,7 @@ export function generatePlayer(pos: Position, ovrRange: { min: number; max: numb
     last = pick(LAST_NAMES_TR);
     nation = isForeign ? "Yabancı" : "Türkiye";
   }
-  const age = rand(17, 36);
+  // v2.9.68: age zaten yukarıda üretildi — tekrar üretme
   const stats = generateStats(pos, ovr);
   const goals = pos === "GK" ? 0 : rand(0, pos.startsWith("ST") || pos === "CF" ? 12 : 6);
   const assists = pos === "GK" ? 0 : rand(0, 8);
