@@ -1362,12 +1362,23 @@ export const useAppStore = create<AppState>()(
         // v2.9.68: marketValue burada tanımlanmalı (loanListings bloğu sonrası)
         const marketValue = player.marketValue ?? player.market_value ?? 0;
 
+        // v2.9.74 FIX Y3: marketValue 0 ise "accepted" döndürme — bu, bot takımın
+        // ücretsiz oyuncu vermesine yol açardı. Eski kod: ratio = marketValue > 0
+        // ? fee / marketValue : 1 → ratio = 1 → "accepted". Kullanıcı 0 € teklif
+        // verse bile bot kabul ederdi.
+        if (marketValue <= 0) {
+          return { success: false, reason: "Oyuncu değeri hesaplanamadı (marketValue=0)" };
+        }
+        // Negatif fee kontrolü (uç durum testi #4'te tespit edildi)
+        if (fee < 0) {
+          return { success: false, reason: "Geçersiz teklif tutarı (negatif)" };
+        }
+
         // Bot takımın karar verme mantığı
-        // fee >= %100 → kabul
         // fee >= %85 → kabul
         // fee >= %70 → karşı teklif (marketValue * 0.95)
         // fee < %70 → reddet
-        const ratio = marketValue > 0 ? fee / marketValue : 1;
+        const ratio = fee / marketValue;
         let response: "accepted" | "rejected" | "countered" = "rejected";
         let counterFee = 0;
 
@@ -3568,7 +3579,8 @@ export const useAppStore = create<AppState>()(
 
         // 40+ yaş oyuncuları emekli et, regen üret
         const retiredNames: string[] = [];
-        const updatedClubs = clubs.map((c) => {
+        // v2.9.74 FIX K5: let yap — promotion/relegation sırasında re-assignment var
+        let updatedClubs: Team[] = clubs.map((c) => {
           const remainingPlayers = c.players.filter((p) => {
             if (p.age >= 40) {
               retiredNames.push(`${p.firstName} ${p.lastName}`);
@@ -3716,8 +3728,11 @@ export const useAppStore = create<AppState>()(
               }
             }
           }
-          updatedClubs.length = 0;
-          (updatedClubs as Team[]).push(...newLeagueClubs);
+          // v2.9.74 FIX K5: array mutation KALDIRILDI — immutable re-assignment.
+          // Eski kod: updatedClubs.length = 0; push(...newLeagueClubs)
+          // Bu pattern React/zustand re-render'i tetiklemeyebilir veya eş zamanlı
+          // okuyan component eski değeri görebilir.
+          updatedClubs = [...newLeagueClubs] as Team[];
 
           // v2.9.62 FIX: Hardcoded "TR" yerine kullanıcının ülkesini kullan
           // Eski kod (v2.9.61): makeLeagueKey("TR", currentTier) — TR dışı kullanıcılar için lig bozulurdu
@@ -4775,12 +4790,16 @@ export const useAppStore = create<AppState>()(
         const player = myTeam.players.find(p => p.id === playerId);
         if (!player) return { success: false, reason: "Oyuncu bulunamadı" };
 
-        // v2.9.46 GÖREV 6: Oyuncu başına maksimum 2 kart limiti
-        // — Mevcut kart sayısı (pozitif trait + arketip + negatif giderme toplamı)
-        // — 2'ye ulaşılmışsa yeni kart uygulama engellenir
+        // v2.9.46 GÖREV 6 + v2.9.74 FIX K4: Oyuncu başına maksimum 2 kart limiti
+        // v2.9.74: trait_negative_removal artık SAYILMIYOR — bu bir "iyileştirme"
+        // eylemi, "kart uygulama" değil. Kullanıcı 2 negatif trait'i kaldırdıktan
+        // sonra yeni pozitif trait ekleyemiyordu (limit dolu). Ayrıca arketip
+        // değişimi de sayılmamalı (deneme-yanılma için).
+        // Yeni kural: sadece trait_positive + stat_boost sayılır.
         const currentCount = (player as any).cardsAppliedCount ?? 0;
         const MAX_CARDS_PER_PLAYER = 2;
-        if (currentCount >= MAX_CARDS_PER_PLAYER) {
+        const countsTowardsLimit = card.cardType === "trait_positive" || card.cardType === "stat_boost";
+        if (countsTowardsLimit && currentCount >= MAX_CARDS_PER_PLAYER) {
           return {
             success: false,
             reason: `Bu oyuncu maksimum kart sayısına ulaştı — ${currentCount}/${MAX_CARDS_PER_PLAYER}`,
@@ -4853,9 +4872,13 @@ export const useAppStore = create<AppState>()(
               updated.rating = Math.min(99, (updated.rating ?? 70) + Math.ceil(boostAmount / 3));
             }
           }
-          // v2.9.46 GÖREV 6: Kart sayacını artır (kalıcı — sadece artar, azalmaz)
+          // v2.9.46 GÖREV 6 + v2.9.74 FIX K4: Kart sayacını artır
+          // v2.9.74: sadece trait_positive + stat_boost sayaca eklenir.
+          // trait_negative_removal ve arketip değişimi sayılmaz.
+          if (card.cardType === "trait_positive" || card.cardType === "stat_boost") {
+            updated.cardsAppliedCount = (updated.cardsAppliedCount ?? 0) + 1;
+          }
           // v2.9.67: appliedCards'a kart adını ekle (profil'de gösterim için)
-          updated.cardsAppliedCount = (updated.cardsAppliedCount ?? 0) + 1;
           (updated as any).appliedCards = [...((updated as any).appliedCards ?? []), { cardId, cardName: card.cardName, cardType: card.cardType, appliedAt: Date.now() }];
           return updated;
         });

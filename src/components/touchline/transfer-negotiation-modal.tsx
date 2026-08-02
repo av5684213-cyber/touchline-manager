@@ -115,8 +115,9 @@ export function TransferNegotiationModal({
           ? "Transfer penceresi kapalı (son 5 hafta)"
           : result.reason === "bankrupt"
           ? "🚨 İflas durumunda transfer yapılamaz — önce bütçenizi düzeltin"
-          : result.reason === "too-low"
-          ? "Teklif çok düşük (minimum %85)"
+          // v2.9.74 FIX Y1: "too-low" branch kaldırıldı — makeTransferOffer
+          // bu reason'ı hiç döndürmüyor (aiScore 60+'da kabul, 40-60 counter,
+          // <40 reject). Ölü kod.
           : `Transfer başarısız: ${result.reason}`;
         setFeedback(`✗ ${reasonMsg}`);
       }
