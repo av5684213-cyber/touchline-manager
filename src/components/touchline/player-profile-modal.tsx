@@ -1379,7 +1379,10 @@ function ActionsTab({
   const [loanOfferWeeks, setLoanOfferWeeks] = useState(12);
 
   const isListed = transfer.myListedPlayers.some((l) => l.playerId === player.id);
-  const isMyPlayer = myTeam?.players.some((p) => p.id === player.id) ?? false;
+  // v2.9.67: Kendi oyuncum mu? — myTeam.players VE youthAcademy.players kontrol et
+  const youthAcademy = useAppStore((s) => s.youthAcademy);
+  const isMyPlayer = (myTeam?.players.some((p) => p.id === player.id) ?? false)
+    || (youthAcademy?.players.some((p) => p.id === player.id) ?? false);
   // P0 FIX BUG #4: Oyuncu şu an kaptan mı? ("kaptan" eski değer, "captain" yeni — ikisini de kontrol et)
   const myPlayer = myTeam?.players.find((p) => p.id === player.id);
   const isCaptain = !!myPlayer && (myPlayer.special_role === "captain" || myPlayer.special_role === "kaptan");
@@ -2516,6 +2519,21 @@ function PlayerCardPickerModal({ player, onClose }: { player: Player; onClose: (
           {(player.cardsAppliedCount ?? 0) >= 2 && (
             <div className="mt-1.5 text-[10px] text-amber-400 font-bold text-center">
               ⚠️ Bu oyuncu maksimum kart sayısına ulaştı (2/2). Yeni kart basılamaz.
+            </div>
+          )}
+
+          {/* v2.9.67: Basılan kartları göster */}
+          {((player as any).appliedCards?.length ?? 0) > 0 && (
+            <div className="mt-2 space-y-1">
+              <div className="text-[10px] text-muted-foreground uppercase font-bold">Uygulanan Kartlar</div>
+              {(player as any).appliedCards.map((card: any, i: number) => (
+                <div key={i} className="flex items-center gap-2 px-2 py-1 rounded-md bg-muted/30">
+                  <span className="text-[10px]">
+                    {card.cardType === "trait_positive" ? "✅" : card.cardType === "trait_negative_removal" ? "🧹" : "🎭"}
+                  </span>
+                  <span className="text-[11px] font-semibold flex-1 truncate">{card.cardName}</span>
+                </div>
+              ))}
             </div>
           )}
         </div>

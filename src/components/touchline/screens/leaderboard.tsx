@@ -3,11 +3,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { Trophy, Crown, Medal, Users, Globe } from "lucide-react";
 import { useAppStore, useMyTeam } from "@/lib/store";
-// v2.9.47 Faz 2: dead supabase import kaldırıldı — leaderboard lokal veri kullanıyor
-// v2.9.27 G3: Global sıralama — tüm liglerin bot takımlarını üret
-import { generateClubsForLeague, LEAGUE_NAMES, type LeagueTier, type Department } from "@/lib/mock/data";
+import { generateClubsForLeague, LEAGUE_NAMES, type LeagueTier, type Department, type Team } from "@/lib/mock/data";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
+import { TeamDetailModal } from "../team-detail-modal";
 
 type LeaderboardEntry = {
   rank: number;
@@ -37,6 +36,7 @@ export function LeaderboardScreen() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"local" | "global">("local");
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
 
   // v2.9.27 G3: Global modda tüm liglerin bot takımlarını üret
   const globalClubs = useMemo(() => {
@@ -185,12 +185,19 @@ export function LeaderboardScreen() {
       {/* List */}
       {!loading && entries.length > 0 && (
         <div className="tm-card divide-y divide-border">
-          {entries.slice(3).map((entry) => (
-            <div
+          {entries.slice(3).map((entry) => {
+            // v2.9.67: Takım bul — isme tıklayınca TeamDetailModal aç
+            const teamData = clubs.find((c) => c.name === entry.teamName) ?? null;
+            return (
+            <button
               key={`${entry.managerName}-${entry.rank}-${entry.teamName}`}
+              onClick={() => {
+                if (teamData) { haptic("light"); setSelectedTeam(teamData); }
+              }}
               className={cn(
-                "flex items-center gap-2 p-2.5",
-                entry.isMe && "bg-primary/10 border-l-4 border-primary"
+                "tm-tap w-full flex items-center gap-2 p-2.5 text-left transition-colors",
+                entry.isMe && "bg-primary/10 border-l-4 border-primary",
+                teamData && "hover:bg-accent/30"
               )}
             >
               <div className="w-7 text-center text-xs font-bold tabular-nums text-muted-foreground">
@@ -216,8 +223,9 @@ export function LeaderboardScreen() {
                 <div className="text-xs font-bold tabular-nums">{entry.points.toLocaleString("tr-TR")}</div>
                 <div className="text-[9px] text-muted-foreground">puan</div>
               </div>
-            </div>
-          ))}
+            </button>
+            );
+          })}
         </div>
       )}
 
@@ -260,6 +268,15 @@ export function LeaderboardScreen() {
           💡 Global sıralama tüm liglerin (Süper Lig, 1. Lig, 2. Lig, 3. Lig) takımlarını OVR bazlı sıralar.
           Bot takımlar T1-T4 rozetiyle gösterilir.
         </div>
+      )}
+      {/* v2.9.67: Takım detay modal'ı — isme tıklayınca açılır */}
+      {selectedTeam && myTeam && (
+        <TeamDetailModal
+          team={selectedTeam}
+          isMyTeam={selectedTeam.id === myTeam.id}
+          onClose={() => setSelectedTeam(null)}
+          onMessage={() => setSelectedTeam(null)}
+        />
       )}
     </div>
   );

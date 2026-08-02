@@ -4689,7 +4689,9 @@ export const useAppStore = create<AppState>()(
             updated.archetype = card.cardName;
           }
           // v2.9.46 GÖREV 6: Kart sayacını artır (kalıcı — sadece artar, azalmaz)
+          // v2.9.67: appliedCards'a kart adını ekle (profil'de gösterim için)
           updated.cardsAppliedCount = (updated.cardsAppliedCount ?? 0) + 1;
+          (updated as any).appliedCards = [...((updated as any).appliedCards ?? []), { cardId, cardName: card.cardName, cardType: card.cardType, appliedAt: Date.now() }];
           return updated;
         });
 
