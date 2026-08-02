@@ -89,6 +89,10 @@ export function DashboardScreen() {
   const clubs = useAppStore((s) => s.clubs);
   const fixtures = useAppStore((s) => s.fixtures);
   const team = useMyTeam();
+  // v2.9.73 FIX: Hook'lar component top level'da çağrılmalı (Rules of Hooks).
+  // Eski kod useEffect içinde useAppStore çağırıyordu — kırılgan, ESLint uyarır.
+  const transferNewsCount = useAppStore((s) => s.news.filter(n => n.category === "transfer").length);
+  const tactics = useAppStore((s) => s.tactics);
 
   const [notifs] = useState<Notification[]>(() => seedNotifications(clubs, team?.id ?? ""));
   const [target] = useState(() => nextMatchTarget());
@@ -156,13 +160,13 @@ export function DashboardScreen() {
       else break;
     }
 
-    // v2.9.70 FIX: Reaktif news + tactics okuma — getState() değil
-    const transferNews = useAppStore((s) => s.news.filter(n => n.category === "transfer").length);
+    // v2.9.73 FIX: Hook'lar artık top-level'da (transferNewsCount, tactics)
+    // Eski kod useEffect içinde useAppStore çağırıyordu — Rules of Hooks ihlali.
+    // useEffect içinde sadece side-effect yapılmalı, hook çağrılmamalı.
 
     // P0 FIX BUG #9: Taktik skoru hesapla — "Deha" başarımı (90+) için
     let tacticScore = 0;
     try {
-      const tactics = useAppStore((s) => s.tactics);
       if (team && tactics?.formationKey) {
         const formation = getFormation(tactics.formationKey);
         // lineup: tactics.lineup -> gerçek Player objelerine çöz
@@ -185,7 +189,7 @@ export function DashboardScreen() {
     const newlyUnlocked = checkAchievements({
       matchWon,
       goalScored,
-      transferDone: transferNews > 0,
+      transferDone: transferNewsCount > 0,
       topScorerGoals: topScorer?.goals ?? 0,
       topAssists: topAssist?.assists ?? 0,
       cleanSheetStreak,
@@ -199,7 +203,7 @@ export function DashboardScreen() {
     if (newlyUnlocked.length > 0) {
       setNewAchievements(newlyUnlocked);
     }
-  }, [fixtures, clubs, team, myStat]);
+  }, [fixtures, clubs, team, myStat, transferNewsCount, tactics]);
 
   // Tüm fikstür oynandı mı?
   const allPlayed = useMemo(() => {
@@ -743,7 +747,10 @@ function SeasonGoals({ team, myStat, standings }: { team: any; myStat: any; stan
 function DailyTasks() {
   const { t } = useI18n();
   const today = new Date().toISOString().slice(0, 10);
-  const store = useAppStore();
+  // v2.9.73 FIX: Tüm store'a subscribe olma (re-render fırtınası).
+  // Eski kod: const store = useAppStore(); — her state değişiminde re-render.
+  // store değişkeni sadece `if (team && store)` truthy check için kullanılıyordu,
+  // ama useAppStore() her zaman truthy obje döner → etkisiz.
   const team = useMyTeam();
 
   // v2.9.50: Günlük görevler artık store'da — cloud-save'e dahil, cihazlar arası senkron
@@ -775,7 +782,7 @@ function DailyTasks() {
     if (!freshTask || freshTask.done) return;
 
     haptic("success");
-    if (team && store) {
+    if (team) {  // v2.9.73: store gereksizdi — her zaman truthy
       const state = useAppStore.getState();
       const clubs = [...state.clubs];
       const myClub = clubs.find((c) => c.id === team.id);
