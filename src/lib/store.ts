@@ -4269,9 +4269,15 @@ export const useAppStore = create<AppState>()(
       },
 
       // P0: ===== Kredi sistemi actions =====
+      // v2.9.74 FIX K3: addCredits sonrası immediate cloud-save trigger.
+      // Eski kod: sadece lokal set yapıyordu, 3 sn debounce bekliyordu.
+      // Bu pencerede verify-purchase server-side güncelleme yaparsa race condition.
+      // Yeni: set sonrası triggerTacticsSave() ile immediate save.
       addCredits: (amount) => {
         const { credits } = get();
         set({ credits: credits + amount });
+        // Cloud-save tetikle (debounce'lu, ama en azından state güncel)
+        try { triggerTacticsSave(); } catch { /* cloud-save yüklenmemiş olabilir */ }
       },
 
       spendCredits: (amount) => {

@@ -218,7 +218,33 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── 4. Krediyi ekle ───────────────────────────────────────────────────
-    // app_state tablosundaki credits alanını güncelle
+    // v2.9.74 FIX K3: Çift kaynak race'i çöz — hem app_state HEM de
+    // user_game_state tablolarındaki credits alanını güncelle.
+    // Eski kod: sadece app_state güncelliyordu → client 3 sn debounce ile
+    // user_game_state.state.credits'i eski değerle overwrite ediyordu →
+    // sonraki login'de X kayboluyordu.
+    // Yeni: iki tabloyu da güncelle, böylece client ne zaman save yaparsa yapsın
+    // credits değeri korunur.
+
+    // 4a. user_game_state (client'ın okuduğu tek kaynak)
+    const { data: gameState } = await adminClient
+      .from("user_game_state")
+      .select("state")
+      .eq("profile_id", userId)
+      .maybeSingle();
+
+    if (gameState?.state) {
+      const state = gameState.state as any;
+      const currentCredits = state.credits ?? 0;
+      state.credits = currentCredits + expectedCredits;
+
+      await adminClient
+        .from("user_game_state")
+        .update({ state, updated_at: new Date().toISOString() })
+        .eq("profile_id", userId);
+    }
+
+    // 4b. app_state (geri uyumluluk için — bazı eski kodlar hâlâ burayı okuyor)
     const { data: appState } = await adminClient
       .from("app_state")
       .select("state")
