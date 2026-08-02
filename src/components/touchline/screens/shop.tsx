@@ -326,8 +326,10 @@ export function ShopScreen() {
                   <div className={cn("text-sm font-bold", pack.color)}>{pack.name}</div>
                   <div className="text-[10px] text-muted-foreground font-semibold">{pack.ovrRange}</div>
                   <div className="text-[11px] text-muted-foreground text-center leading-tight">{pack.desc}</div>
-                  {/* v2.9.65: Loot box olasılıkları — Play Store politikası gereği */}
-                  <details className="mt-1.5 w-full">
+                  {/* v2.9.65+v2.9.73: Loot box olasılıkları — Play Store politikası gereği
+                      v2.9.73: <details open> ile her zaman görünür başlat. Play Store
+                      "clearly visible" gereksinimi — collapsed olasılık politikaya aykırı. */}
+                  <details className="mt-1.5 w-full" open>
                     <summary className="text-[9px] text-muted-foreground cursor-pointer hover:text-foreground text-center">
                       📊 {t("shop.probabilities")}
                     </summary>

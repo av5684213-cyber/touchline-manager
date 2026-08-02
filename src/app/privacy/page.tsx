@@ -22,15 +22,22 @@ export default function PrivacyPage() {
 
         <section>
           <h2 className="text-base font-bold mb-2">2. Toplanan Veriler</h2>
-          <p className="text-sm text-muted-foreground mb-2">Uygulama aşağıdaki verileri toplar:</p>
+          <p className="text-sm text-muted-foreground mb-2">Uygulama aşağıdaki veri kategorilerini toplar:</p>
           <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
-            <li><strong>E-posta adresi:</strong> Hesap oluşturma ve giriş için (Google OAuth veya e-posta/şifre)</li>
-            <li><strong>Oyun verileri:</strong> Takım adı, taktikler, oyuncu kadrosu, maç sonuçları, transferler</li>
-            <li><strong>Cihaz bilgisi:</strong> Tarayıcı tipi, ekran boyutu (analitik amaçlı)</li>
+            <li><strong>Hesap bilgileri:</strong> E-posta adresi (Google OAuth veya e-posta/şifre ile giriş için), şifre hash'i (Supabase Auth tarafından yönetilir, düz metin olarak saklanmaz)</li>
+            <li><strong>Profil bilgileri:</strong> Ülke kodu (kullanıcının seçtiği lig ülkesi — TR/GB/ES/DE), takım adı, menajer adı</li>
+            <li><strong>Oyun verileri:</strong> Takım kadrosu, taktikler, maç sonuçları, transfer geçmişi, tesis seviyeleri, antrenman programı, kart envanteri, kozmetikler</li>
+            <li><strong>Forum içeriği:</strong> Açtığınız konular, yazdığınız cevaplar (kalıcı olarak saklanır, hesap silme sonrası "Silinmiş kullanıcı" olarak anonimleştirilir)</li>
+            <li><strong>Sohbet mesajları:</strong> Hazırlık maçı sohbet mesajları (24 saat saklanır, sonra otomatik silinir; kötüye kullanım incelemesi için)</li>
+            <li><strong>Bildirim token'ı:</strong> Push bildirimleri için FCM token (cihaz bazında, bildirimler kapalıysa toplanmaz)</li>
+            <li><strong>Ödeme kayıtları:</strong> Google Play purchase token (replay attack önleme için, yasal yükümlülük gereği saklanır)</li>
+            <li><strong>Engelleme/Raporlar:</strong> Engellediğiniz kullanıcı ID'leri, raporladığınız mesajlar (topluluk moderasyonu için)</li>
+            <li><strong>Cihaz/oturum bilgisi:</strong> Tarayıcı tipi, ekran boyutu, uygulama sürümü (hata ayıklama ve analitik amaçlı)</li>
           </ul>
           <p className="text-sm text-muted-foreground mt-2">
-            Tüm oyun verileri Supabase (Frankfurt, EU) bulut sunucularında saklanır.
-            Veriler cihazda kalıcı olarak saklanmaz.
+            Tüm bulut verileri Supabase (Frankfurt, EU) bulut sunucularında saklanır.
+            Oyun state'i aynı zamanda cihazınızın localStorage'ında da saklanır (offline erişim için).
+            Push bildirim token'ları Google Firebase Cloud Messaging (FCM) üzerinden iletilir.
           </p>
         </section>
 
@@ -86,7 +93,8 @@ export default function PrivacyPage() {
               <a href="/delete-account" className="text-primary font-bold underline">
                 Hesap Silme Talebi sayfasından
               </a>{" "}
-              form doldurarak talep gönderme (30 gün içinde işleme alınır).
+              form doldurarak talep gönderme (en geç 30 gün içinde işleme alınır,
+              genellikle anında silinir).
             </li>
           </ul>
           <p className="text-sm text-muted-foreground mt-2">
