@@ -373,7 +373,7 @@ export function TeamDetailModal({
                   </span>
                   <ClubBadge short={opp.shortName} primaryColor={opp.primaryColor} size={18} />
                   <div className="flex-1 min-w-0">
-                    <div className="text-[10px] font-semibold truncate">{opp.shortName}</div>
+                    <div className="text-[10px] font-semibold truncate">{opp.name}</div>
                   </div>
                   {f.played ? (
                     <button
