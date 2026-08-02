@@ -1653,10 +1653,25 @@ export const useAppStore = create<AppState>()(
             read: false,
           };
 
+          // v2.9.67: Panel'e transfer mesajı ekle — kullanıcı mesajlar sekmesinde görebilsin
+          const newLoanMsg: MessageItem = {
+            id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            kind: "transfer_accepted",
+            fromTeamName: sellerTeam!.name,
+            fromTeamShort: sellerTeam!.shortName,
+            fromTeamColor: sellerTeam!.primaryColor,
+            message: `${player.firstName} ${player.lastName} ${weeks} haftalığına kiralandı. Ücret: ${formatEuroShort(loanFee)}.`,
+            at: Date.now(),
+            read: false,
+            amount: loanFee,
+            playerId,
+          };
+
           set({
             clubs: updatedClubs,
-            allLeagues: updatedAllLeagues, // v2.9.67: allLeagues'i de güncelle
+            allLeagues: updatedAllLeagues,
             news: [newNews, ...news],
+            transfer: { ...transfer, messages: [newLoanMsg, ...transfer.messages].slice(0, 100) },
           });
 
           return { success: true, response: "accepted" };
@@ -1671,7 +1686,23 @@ export const useAppStore = create<AppState>()(
             read: false,
           };
 
-          set({ news: [newNews, ...news] });
+          // v2.9.67: Panel'e red mesajı ekle
+          const newRejectMsg: MessageItem = {
+            id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            kind: "transfer_rejected",
+            fromTeamName: sellerTeam.name,
+            fromTeamShort: sellerTeam.shortName,
+            fromTeamColor: sellerTeam.primaryColor,
+            message: `${player.firstName} ${player.lastName} için kiralama teklifi reddedildi. Teklif çok düşük.`,
+            at: Date.now(),
+            read: false,
+            playerId,
+          };
+
+          set({
+            news: [newNews, ...news],
+            transfer: { ...transfer, messages: [newRejectMsg, ...transfer.messages].slice(0, 100) },
+          });
           return { success: true, response: "rejected" };
         }
       },

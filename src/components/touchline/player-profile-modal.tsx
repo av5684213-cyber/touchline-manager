@@ -1544,18 +1544,21 @@ function ActionsTab({
         setFeedback("✗ Yetersiz bütçe!");
       } else if (res.reason === "free-agent") {
         setFeedback("✗ Serbest ajanlar kiralanamaz. 'Transfer Teklifi' gönder.");
+      } else if (res.reason === "window-closed") {
+        setFeedback("✗ Transfer penceresi kapalı.");
       } else {
         setFeedback("✗ Oyuncu bulunamadı.");
       }
     } else if (res.response === "accepted") {
       haptic("success");
-      setFeedback(`✓ ${player.firstName} ${player.lastName} ${loanOfferWeeks} haftalığına kiralandı!`);
-      onClose();
+      // v2.9.67: Panel'e bildirim gitti — kullanıcı mesajlarda görecek
+      setFeedback(`✓ ${player.firstName} ${player.lastName} ${loanOfferWeeks} haftalığına kiralandı! Ücret: ${formatEuro(loanOfferFee, locale)}. Bildirim panelinize eklendi.`);
+      setTimeout(() => onClose(), 2000);
     } else {
       haptic("error");
-      setFeedback("✗ Kiralama teklifi reddedildi. Daha yüksek ücret teklif et.");
+      setFeedback(`✗ ${player.firstName} ${player.lastName} için kiralama teklifi reddedildi. Daha yüksek ücret teklif et. Bildirim panelinize eklendi.`);
     }
-    setTimeout(() => setFeedback(null), 4000);
+    setTimeout(() => setFeedback(null), 5000);
   };
 
   // Transfer penceresi açık mı?
