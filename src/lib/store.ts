@@ -1522,10 +1522,45 @@ export const useAppStore = create<AppState>()(
         // Oyuncunun sahibi olan takımı bul
         let sellerTeam: Team | undefined;
         let player: any;
+        // v2.9.67 FIX: Önce clubs'ta ara, sonra allLeagues'te ara
         for (const c of clubs) {
           if (c.id === myTeamId) continue;
           const p = c.players.find((p) => p.id === playerId);
           if (p) { sellerTeam = c; player = p; break; }
+        }
+        // allLeagues'te ara (diğer liglerden oyuncu kiralama)
+        if (!sellerTeam || !player) {
+          const allLeagues = get().allLeagues;
+          if (allLeagues && Object.keys(allLeagues).length > 0) {
+            for (const key of Object.keys(allLeagues)) {
+              const league = allLeagues[key];
+              if (league.hasUser) continue;
+              for (const c of league.clubs) {
+                const p = c.players.find((pp) => pp.id === playerId);
+                if (p) { sellerTeam = c; player = p; break; }
+              }
+              if (sellerTeam) break;
+            }
+          }
+        }
+        // loanListings'te ara (kiralık listesindeki oyuncu)
+        if (!sellerTeam || !player) {
+          const loanListing = transfer.loanListings?.find((l) => l.player.id === playerId);
+          if (loanListing) {
+            player = loanListing.player;
+            // Satıcı takımı clubs'ta veya allLeagues'te bul
+            sellerTeam = clubs.find((c) => c.players.some((p) => p.id === playerId));
+            if (!sellerTeam) {
+              const allLeagues = get().allLeagues;
+              if (allLeagues) {
+                for (const key of Object.keys(allLeagues)) {
+                  const league = allLeagues[key];
+                  const found = league.clubs.find((c) => c.players.some((p) => p.id === playerId));
+                  if (found) { sellerTeam = found; break; }
+                }
+              }
+            }
+          }
         }
         if (!sellerTeam || !player) {
           // Serbest ajan kontrolü — onlar kiralanamaz
@@ -1555,8 +1590,6 @@ export const useAppStore = create<AppState>()(
 
         if (loanFee >= minLoanFee) {
           // v2.9.64 FIX: Immutable update — mutation YAPMA
-          // Eski kod: myTeam.budget -= loanFee; sellerTeam.budget += loanFee; (mutation)
-          // → Zustand shallow equality re-render tetiklemiyordu
           const updatedClubs = clubs.map((c) => {
             if (c.id === myTeam!.id) {
               return {
@@ -1568,7 +1601,6 @@ export const useAppStore = create<AppState>()(
                   _loaned: true,
                   _loanWeeks: weeks,
                   _loanFrom: sellerTeam!.id,
-                  // v2.9.64: Kiralık oyuncu stats sıfırla
                   goals: 0,
                   assists: 0,
                   appearances: 0,
@@ -1586,6 +1618,31 @@ export const useAppStore = create<AppState>()(
             return c;
           });
 
+          // v2.9.67 FIX: Satıcı allLeagues'ten ise orayı da güncelle
+          let updatedAllLeagues = get().allLeagues;
+          if (sellerTeam && updatedAllLeagues && Object.keys(updatedAllLeagues).length > 0) {
+            const allLeaguesCopy = { ...updatedAllLeagues };
+            let foundInAllLeagues = false;
+            for (const key of Object.keys(allLeaguesCopy)) {
+              const league = allLeaguesCopy[key];
+              if (league.clubs.some((c) => c.id === sellerTeam!.id)) {
+                allLeaguesCopy[key] = {
+                  ...league,
+                  clubs: league.clubs.map((c) =>
+                    c.id === sellerTeam!.id
+                      ? { ...c, budget: c.budget + loanFee, players: c.players.filter(p => p.id !== playerId) }
+                      : c
+                  ),
+                };
+                foundInAllLeagues = true;
+                break;
+              }
+            }
+            if (foundInAllLeagues) {
+              updatedAllLeagues = allLeaguesCopy;
+            }
+          }
+
           const newNews: NewsItem = {
             id: `news_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
             category: "transfer",
@@ -1598,6 +1655,7 @@ export const useAppStore = create<AppState>()(
 
           set({
             clubs: updatedClubs,
+            allLeagues: updatedAllLeagues, // v2.9.67: allLeagues'i de güncelle
             news: [newNews, ...news],
           });
 

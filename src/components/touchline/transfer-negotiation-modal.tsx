@@ -31,8 +31,12 @@ export function TransferNegotiationModal({
   // Transfer argümanları
   const [sellOnPercent, setSellOnPercent] = useState(0);
   const [performanceBonusGoals, setPerformanceBonusGoals] = useState(0);
+  // v2.9.67: Performans bonusu miktarını kullanıcı belirleyebilsin
+  const [performanceBonusAmount, setPerformanceBonusAmount] = useState(0);
   const [buyBackAmount, setBuyBackAmount] = useState(0);
   const [exchangePlayerId, setExchangePlayerId] = useState<string>("");
+  // v2.9.67: Takas + nakit para
+  const [exchangeCashAmount, setExchangeCashAmount] = useState(0);
   const [installmentMonths, setInstallmentMonths] = useState(0); // 0 = peşin
 
   // Kiralık argümanları
@@ -57,12 +61,22 @@ export function TransferNegotiationModal({
     else if (installmentMonths <= 6) aiScore += 0;
     else aiScore -= 5;
     // Performance bonus: ek gelir
-    if (performanceBonusGoals > 0) aiScore += 5;
+    if (performanceBonusGoals > 0) {
+      aiScore += 5;
+      // v2.9.67: Kullanıcının belirlediği bonus miktarı yüksekse ek puan
+      const bonusAmount = performanceBonusAmount || Math.round(askingPrice * 0.1);
+      if (bonusAmount >= askingPrice * 0.15) aiScore += 5;
+    }
     // Takas: oyuncu değeri kontrol
     const exchangePlayer = myTeam?.players.find((p) => p.id === exchangePlayerId);
     if (exchangePlayer) {
       if (exchangePlayer.marketValue >= askingPrice * 0.5) aiScore += 15;
       else aiScore -= 5;
+      // v2.9.67: Takas + ek nakit varsa ek puan
+      if (exchangeCashAmount > 0) {
+        const totalValue = exchangePlayer.marketValue + exchangeCashAmount;
+        if (totalValue >= askingPrice * 0.9) aiScore += 5;
+      }
     }
 
     // Random factor KALDIRILDI — v2.9.21 GÖREV 6
@@ -220,7 +234,21 @@ export function TransferNegotiationModal({
                     onChange={(e) => setPerformanceBonusGoals(Number(e.target.value))}
                     className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-muted accent-primary"
                   />
-                  <div className="text-[11px] text-muted-foreground">{performanceBonusGoals > 0 ? `${performanceBonusGoals} golde ${formatEuro(askingPrice * 0.1, locale)} bonus` : "Bonus yok"}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {performanceBonusGoals > 0 ? (
+                      <div className="flex items-center gap-2">
+                        <span>{performanceBonusGoals} golde</span>
+                        <input
+                          type="number"
+                          value={performanceBonusAmount || ""}
+                          placeholder={String(Math.round(askingPrice * 0.1))}
+                          onChange={(e) => setPerformanceBonusAmount(Number(e.target.value))}
+                          className="w-24 bg-card border border-border rounded px-1.5 py-0.5 text-[11px] font-bold tabular-nums"
+                        />
+                        <span>bonus</span>
+                      </div>
+                    ) : "Bonus yok"}
+                  </div>
                 </div>
 
                 {/* Buy-back */}
@@ -238,27 +266,42 @@ export function TransferNegotiationModal({
                   <div className="text-[11px] text-muted-foreground">Bu fiyattan geri alabilirsin</div>
                 </div>
 
-                {/* Exchange player */}
+                {/* Exchange player + cash */}
                 <div>
                   <label className="text-[10px] font-semibold text-muted-foreground uppercase">
-                    Takas + Para
+                    Takas + Nakit Para
                   </label>
+                  <div className="text-[10px] text-muted-foreground mb-1">
+                    Takas vereceğin oyuncu + ekstra nakit para. (Takas yoksa sadece para ödersin)
+                  </div>
                   <select
                     value={exchangePlayerId}
                     onChange={(e) => setExchangePlayerId(e.target.value)}
                     className="w-full bg-card border border-border rounded-md px-2 py-1 text-xs font-bold mt-1"
                   >
-                    <option value="">Takas yok</option>
+                    <option value="">Takas yok (sadece para)</option>
                     {myTeam?.players
                       .filter((p) => p.id !== player.id)
                       .sort((a, b) => b.marketValue - a.marketValue)
-                      .slice(0, 10)
+                      .slice(0, 25) // v2.9.67: Tüm kadroyu göster (10 → 25)
                       .map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.firstName} {p.lastName} — {formatEuro(p.marketValue, locale)}
+                          {p.firstName} {p.lastName} — {formatEuro(p.marketValue, locale)} (OVR {p.rating})
                         </option>
                       ))}
                   </select>
+                  {exchangePlayerId && (
+                    <div className="mt-1.5">
+                      <label className="text-[10px] text-muted-foreground">Ekstra Nakit Para (takasın üstüne)</label>
+                      <input
+                        type="number"
+                        value={exchangeCashAmount || ""}
+                        placeholder="0"
+                        onChange={(e) => setExchangeCashAmount(Number(e.target.value))}
+                        className="w-full bg-card border border-border rounded-md px-2 py-1 text-xs font-bold tabular-nums mt-0.5"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Installment */}

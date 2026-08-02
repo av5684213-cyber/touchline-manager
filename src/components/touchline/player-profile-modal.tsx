@@ -573,7 +573,9 @@ function StatsTab({
   const seasonHistory = history; // v2.9.44: alias — achievements ile aynı kaynak
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
-  // Kariyer toplamları
+  // Kariyer toplamları — sezon geçmişi + BU SEZON gerçek stats
+  // v2.9.67 FIX: Bu sezonun gollerini de dahil et (yoksa 0 görünüyordu)
+  const currentBreakdown = computeGoalBreakdown(player);
   const totals = history.reduce(
     (acc, s) => {
       acc.apps += s.appearances;
@@ -589,13 +591,28 @@ function StatsTab({
       acc.freekick += s.goalsFreekick ?? 0;
       return acc;
     },
-    { apps: 0, goals: 0, assists: 0, yellow: 0, red: 0, minutes: 0, right: 0, left: 0, head: 0, penalty: 0, freekick: 0 }
+    {
+      apps: player.appearances ?? 0,
+      goals: player.goals ?? 0,
+      assists: player.assists ?? 0,
+      yellow: 0, red: 0, minutes: 0,
+      right: currentBreakdown.right,
+      left: currentBreakdown.left,
+      head: currentBreakdown.head,
+      penalty: currentBreakdown.penalty,
+      freekick: currentBreakdown.freekick,
+    }
   );
 
+  // v2.9.67 FIX: history boşsa CurrentSeasonCard yine de göster
   if (history.length === 0) {
     return (
-      <div className="tm-card p-4 text-center text-xs text-muted-foreground">
-        Bu oyuncunun kayıtlı sezon geçmişi yok.
+      <div className="space-y-2">
+        {/* Güncel sezon kartı — gol türü dağılımı her zaman göster */}
+        <CurrentSeasonCard player={player} locale={locale} />
+        <div className="tm-card p-4 text-center text-xs text-muted-foreground">
+          Bu oyuncunun kayıtlı sezon geçmişi yok. İlk sezonunu oynuyor.
+        </div>
       </div>
     );
   }
@@ -607,6 +624,9 @@ function StatsTab({
 
   return (
     <div className="space-y-2.5">
+      {/* v2.9.67 FIX: Güncel sezon kartı — gol türü dağılımı her zaman göster */}
+      <CurrentSeasonCard player={player} locale={locale} />
+
       {/* Kariyer özeti */}
       <div className="tm-card p-2.5">
         <div className="text-[11px] text-muted-foreground uppercase tracking-wide font-bold mb-2">Kariyer Toplamı</div>

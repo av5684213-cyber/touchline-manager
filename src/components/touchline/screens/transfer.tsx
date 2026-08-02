@@ -7,6 +7,7 @@ import {
   Check,
   ChevronRight,
   Clock,
+  ArrowLeftRight,
   Eye,
   Heart,
   Plus,
@@ -859,6 +860,9 @@ function IncomingOfferCard({
   const team = useMyTeam();
   // v2.9.65: İşlem sırasında butonları disable et — race condition önle
   const [processing, setProcessing] = useState(false);
+  // v2.9.67: Pazarlık yapma state'i
+  const [showCounter, setShowCounter] = useState(false);
+  const [counterPrice, setCounterPrice] = useState(offer.offerAmount);
 
   const recColor =
     offer.recommended === "accept"
@@ -935,6 +939,17 @@ function IncomingOfferCard({
         >
           <Check size={14} /> {t("transfer.incoming.accept")}
         </button>
+        {/* v2.9.67: Pazarlık Yap butonu */}
+        <button
+          onClick={() => {
+            haptic("light");
+            setShowCounter(!showCounter);
+          }}
+          disabled={processing}
+          className="tm-tap flex-1 inline-flex items-center justify-center gap-1 py-2 rounded-md bg-amber-600 text-white text-xs font-bold disabled:opacity-50"
+        >
+          <ArrowLeftRight size={14} /> Pazarlık
+        </button>
         <button
           onClick={() => {
             haptic("light");
@@ -947,6 +962,60 @@ function IncomingOfferCard({
           <X size={14} /> {t("transfer.incoming.reject")}
         </button>
       </div>
+
+      {/* v2.9.67: Pazarlık paneli */}
+      {showCounter && (
+        <div className="tm-card p-3 space-y-2 bg-amber-500/5 border-amber-500/20">
+          <div className="text-[10px] font-bold uppercase text-amber-400">Pazarlık Yap</div>
+          <div className="text-[11px] text-muted-foreground">
+            Mevcut teklif: {formatEuro(offer.offerAmount)} · İstediğin fiyat:
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              value={counterPrice}
+              onChange={(e) => setCounterPrice(Number(e.target.value))}
+              min={Math.round(offer.offerAmount * 0.5)}
+              step={50000}
+              className="flex-1 bg-card border border-border rounded-md px-2 py-1.5 text-xs font-bold tabular-nums"
+            />
+            <button
+              onClick={() => {
+                haptic("medium");
+                // Counter offer'ı mesaj olarak ekle
+                const { transfer } = useAppStore.getState();
+                const counterMsg = {
+                  id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                  kind: "transfer_offer_incoming" as const,
+                  fromTeamName: offer.buyerTeamName,
+                  fromTeamShort: offer.buyerTeamShort,
+                  fromTeamColor: offer.buyerTeamColor,
+                  message: `${player?.firstName ?? ""} ${player?.lastName ?? ""} için karşı teklif: ${formatEuro(counterPrice)}`,
+                  at: Date.now(),
+                  read: false,
+                  amount: counterPrice,
+                  counterOffer: counterPrice,
+                  playerId: offer.myPlayerId,
+                };
+                useAppStore.setState({
+                  transfer: {
+                    ...transfer,
+                    incomingOffers: transfer.incomingOffers.filter((o) => o.id !== offer.id),
+                    messages: [counterMsg, ...transfer.messages].slice(0, 100),
+                  },
+                });
+                setShowCounter(false);
+              }}
+              className="tm-tap px-3 py-1.5 rounded-md bg-amber-600 text-white text-xs font-bold"
+            >
+              Gönder
+            </button>
+          </div>
+          <div className="text-[10px] text-muted-foreground">
+            Karşı teklifin bot'a gönderilir. Bot kabul ederse yeni teklif gelir.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
