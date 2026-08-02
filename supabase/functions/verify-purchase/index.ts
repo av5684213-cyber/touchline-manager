@@ -41,7 +41,10 @@ const SKU_CREDITS: Record<string, number> = {
   credits_mega: 2400,    // 2000 + 400 bonus
 };
 
-const DEFAULT_PACKAGE = "com.touchline.manager";
+// Edge Function secrets üzerinden alınır, fallback sadece geliştirme içindir.
+// Üretimde Supabase Dashboard → Edge Functions → Secrets altında
+// GOOGLE_PLAY_PACKAGE_NAME = "com.touchline.manager" olarak ayarlanmalı.
+const DEFAULT_PACKAGE = Deno.env.get("GOOGLE_PLAY_PACKAGE_NAME") ?? "com.touchline.manager";
 
 Deno.serve(async (req: Request) => {
   // CORS
@@ -100,22 +103,12 @@ Deno.serve(async (req: Request) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // ── 2. Replay attack kontrolü ─────────────────────────────────────────
-    const { data: existing } = await adminClient
-      .from("redeemed_purchases")
-      .select("purchase_token")
-      .eq("purchase_token", purchaseToken)
-      .maybeSingle();
-
-    if (existing) {
-      return jsonResponse<VerifyResponse>({
-        success: false,
-        alreadyRedeemed: true,
-        reason: "This purchase token has already been redeemed",
-      }, 409);
-    }
-
-    // ── 3. Google Play Developer API ile doğrula ─────────────────────────
+    // ── 2. Google Play Developer API ile doğrula ─────────────────────────
+    // (NOT: Replay kontrolü aşağıda atomik INSERT ... ON CONFLICT ile yapılıyor.
+    //  Eski sürümdeki SELECT-then-INSERT pattern'i TOCTOU race'a açıktı:
+    //  iki paralel istek aynı purchaseToken için ikisi de "existing=null" görüp
+    //  iki kez kredi yükleyebiliyordu. Artık önce Google doğrulaması yapılıp
+    //  sonra atomik insert ile kazanılan tek istek krediyi veriyor.)
     const serviceAccountJson = Deno.env.get("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON");
     if (!serviceAccountJson) {
       console.error("[verify-purchase] GOOGLE_PLAY_SERVICE_ACCOUNT_JSON not set");
@@ -156,16 +149,48 @@ Deno.serve(async (req: Request) => {
       }, 400);
     }
 
-    // ── 4. Token'ı redeemed olarak işaretle ───────────────────────────────
-    await adminClient.from("redeemed_purchases").insert({
-      purchase_token: purchaseToken,
-      user_id: userId,
-      sku: sku,
-      credits_granted: expectedCredits,
-      verified_at: new Date().toISOString(),
-    });
+    // ── 3. Atomik redeem (TOCTOU-safe) ────────────────────────────────────
+    // redeemed_purchases tablosundaki UNIQUE(purchase_token) constraint'i
+    // sayesinde, aynı token için paralel iki istekten yalnızca biri insert'i
+    // başarır. .select().single() ile dönen satırı alırız; ikinci istek
+    // 23505 (unique_violation) hatası alır ve credits vermeden 409 döner.
+    const { data: redeemedRow, error: redeemErr } = await adminClient
+      .from("redeemed_purchases")
+      .insert({
+        purchase_token: purchaseToken,
+        user_id: userId,
+        sku: sku,
+        credits_granted: expectedCredits,
+        verified_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
 
-    // ── 5. Krediyi ekle ───────────────────────────────────────────────────
+    if (redeemErr) {
+      // 23505 = unique_violation → zaten redeem edilmiş
+      if (redeemErr.code === "23505") {
+        return jsonResponse<VerifyResponse>({
+          success: false,
+          alreadyRedeemed: true,
+          reason: "This purchase token has already been redeemed",
+        }, 409);
+      }
+      console.error("[verify-purchase] insert error:", redeemErr);
+      return jsonResponse<VerifyResponse>({
+        success: false,
+        reason: "Failed to record redemption",
+      }, 500);
+    }
+    if (!redeemedRow) {
+      // Defensive: insert başarılı oldu ama satır dönmedi (beklenmeyen durum)
+      return jsonResponse<VerifyResponse>({
+        success: false,
+        alreadyRedeemed: true,
+        reason: "This purchase token has already been redeemed",
+      }, 409);
+    }
+
+    // ── 4. Krediyi ekle ───────────────────────────────────────────────────
     // app_state tablosundaki credits alanını güncelle
     const { data: appState } = await adminClient
       .from("app_state")
