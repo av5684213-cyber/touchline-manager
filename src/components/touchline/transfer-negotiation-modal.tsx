@@ -35,8 +35,7 @@ export function TransferNegotiationModal({
   const [performanceBonusAmount, setPerformanceBonusAmount] = useState(0);
   const [buyBackAmount, setBuyBackAmount] = useState(0);
   const [exchangePlayerId, setExchangePlayerId] = useState<string>("");
-  // v2.9.67: Takas + nakit para
-  const [exchangeCashAmount, setExchangeCashAmount] = useState(0);
+  // v2.9.67: Takas yok ekstra nakit — takas oyuncusunun değeri transfer ücretinden düşülür
   const [installmentMonths, setInstallmentMonths] = useState(0); // 0 = peşin
 
   // Kiralık argümanları
@@ -70,13 +69,11 @@ export function TransferNegotiationModal({
     // Takas: oyuncu değeri kontrol
     const exchangePlayer = myTeam?.players.find((p) => p.id === exchangePlayerId);
     if (exchangePlayer) {
+      // v2.9.67: Takas oyuncusunun değeri askingPrice'a yakın mı?
       if (exchangePlayer.marketValue >= askingPrice * 0.5) aiScore += 15;
       else aiScore -= 5;
-      // v2.9.67: Takas + ek nakit varsa ek puan
-      if (exchangeCashAmount > 0) {
-        const totalValue = exchangePlayer.marketValue + exchangeCashAmount;
-        if (totalValue >= askingPrice * 0.9) aiScore += 5;
-      }
+      // Takas oyuncusunun değeri askingPrice'ı geçiyorsa bonus
+      if (exchangePlayer.marketValue >= askingPrice) aiScore += 5;
     }
 
     // Random factor KALDIRILDI — v2.9.21 GÖREV 6
@@ -266,13 +263,13 @@ export function TransferNegotiationModal({
                   <div className="text-[11px] text-muted-foreground">Bu fiyattan geri alabilirsin</div>
                 </div>
 
-                {/* Exchange player + cash */}
+                {/* Takas — oyuncu değişimi */}
                 <div>
                   <label className="text-[10px] font-semibold text-muted-foreground uppercase">
-                    Takas + Nakit Para
+                    Takas (Oyuncu Değişimi)
                   </label>
                   <div className="text-[10px] text-muted-foreground mb-1">
-                    Takas vereceğin oyuncu + ekstra nakit para. (Takas yoksa sadece para ödersin)
+                    Takas vereceğin oyuncunun değeri transfer ücretinden düşülür.
                   </div>
                   <select
                     value={exchangePlayerId}
@@ -283,25 +280,38 @@ export function TransferNegotiationModal({
                     {myTeam?.players
                       .filter((p) => p.id !== player.id)
                       .sort((a, b) => b.marketValue - a.marketValue)
-                      .slice(0, 25) // v2.9.67: Tüm kadroyu göster (10 → 25)
+                      .slice(0, 25)
                       .map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.firstName} {p.lastName} — {formatEuro(p.marketValue, locale)} (OVR {p.rating})
                         </option>
                       ))}
                   </select>
-                  {exchangePlayerId && (
-                    <div className="mt-1.5">
-                      <label className="text-[10px] text-muted-foreground">Ekstra Nakit Para (takasın üstüne)</label>
-                      <input
-                        type="number"
-                        value={exchangeCashAmount || ""}
-                        placeholder="0"
-                        onChange={(e) => setExchangeCashAmount(Number(e.target.value))}
-                        className="w-full bg-card border border-border rounded-md px-2 py-1 text-xs font-bold tabular-nums mt-0.5"
-                      />
-                    </div>
-                  )}
+                  {exchangePlayerId && (() => {
+                    const exPlayer = myTeam?.players.find((p) => p.id === exchangePlayerId);
+                    if (!exPlayer) return null;
+                    const adjustedFee = askingPrice - exPlayer.marketValue;
+                    return (
+                      <div className="mt-1.5 p-2 rounded-md bg-muted/30 text-[10px] space-y-0.5">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Transfer ücreti:</span>
+                          <span className="font-bold tabular-nums">{formatEuro(askingPrice, locale)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Takas oyuncusu değeri:</span>
+                          <span className="font-bold tabular-nums text-amber-400">-{formatEuro(exPlayer.marketValue, locale)}</span>
+                        </div>
+                        <div className="flex justify-between pt-0.5 border-t border-border">
+                          <span className="font-bold">Ödenecek:</span>
+                          {adjustedFee > 0 ? (
+                            <span className="font-bold tabular-nums text-emerald-400">{formatEuro(adjustedFee, locale)}</span>
+                          ) : (
+                            <span className="font-bold tabular-nums text-sky-400">0 (Takas yeterli)</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Installment */}
