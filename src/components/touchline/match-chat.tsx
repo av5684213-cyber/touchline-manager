@@ -239,7 +239,8 @@ export function useMatchChat(matchId: string, userId: string, userName: string) 
 
   const sendMessage = (text: string) => {
     if (!text.trim() || !channelRef.current || !connected) return;
-    // P0 FIX BUG #14: Rate limiting kontrolü
+    // v2.9.72: Client-side rate-limit hala UX için (anlık feedback)
+    // ama ARTIK asıl rate-limit sunucuda (chat_messages BEFORE INSERT trigger).
     if (!canSendMessage()) {
       haptic("error");
       return;
@@ -256,13 +257,60 @@ export function useMatchChat(matchId: string, userId: string, userName: string) 
       text: filteredText.slice(0, 200), // P0 FIX: Max 200 karakter
       at: Date.now(),
     };
-    channelRef.current.send({
-      type: "broadcast",
-      event: "message",
-      payload: msg,
-    });
-    // Kendi mesajını da ekle
-    setMessages((prev) => [...prev, msg]);
+
+    // v2.9.72: Önce DB'ye yaz (server-side rate-limit + report lookup için).
+    // Insert başarılı olursa broadcast et — böylece rate-limit'e takılan
+    // mesajlar hiç yayınlanmaz. Guest kullanıcılar için DB yazma atlanır
+    // (RLS guest_'e izin verir, ama FK yok — yine de yazılabilir).
+    const sendBroadcast = () => {
+      channelRef.current?.send({
+        type: "broadcast",
+        event: "message",
+        payload: msg,
+      });
+      setMessages((prev) => [...prev, msg]);
+    };
+
+    if (isSupabaseConfigured()) {
+      supabase
+        .from("chat_messages")
+        .insert({
+          match_id: matchId,
+          user_id: userId,
+          user_name: msg.userName,
+          message: msg.text,
+        })
+        .then(({ error }) => {
+          if (error) {
+            // 42901 = chat rate-limit (custom code from trigger)
+            // 23505 = unique_violation (zaten var, yine de broadcast etme)
+            const isRateLimited =
+              error.code === "42901" ||
+              /rate limit/i.test(error.message);
+            if (isRateLimited) {
+              haptic("error");
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: `sys_${Date.now()}`,
+                  userId: "system",
+                  userName: "Sistem",
+                  text: "⏳ Çok hızlı mesaj gönderiyorsun. Biraz bekle.",
+                  at: Date.now(),
+                } as ChatMessage,
+              ]);
+              return; // Broadcast yapma
+            }
+            // Diğer hatalar — yine de broadcast et (best-effort),
+            // kullanıcı mesajını kaybetsin istemiyoruz.
+            console.warn("[chat] insert error (broadcasting anyway):", error.message);
+          }
+          sendBroadcast();
+        });
+    } else {
+      // Dev mode — DB yok, direkt broadcast
+      sendBroadcast();
+    }
   };
 
   return { messages, sendMessage, connected };
