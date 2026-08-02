@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { MessageSquare, Plus, ArrowLeft, Send, Loader2, Trash2, WifiOff, Flag } from "lucide-react";
+import { MessageSquare, Plus, ArrowLeft, Send, Loader2, Trash2, WifiOff, Flag, Pencil, Check, X } from "lucide-react";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { useSupabaseAuth } from "@/lib/auth/auth-context";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -442,6 +442,11 @@ function TopicDetail({
   const [replyText, setReplyText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [replyError, setReplyError] = useState<string | null>(null);
+  // v2.9.74 FIX Y6: Topic edit state
+  const [editingTopic, setEditingTopic] = useState(false);
+  const [editTitle, setEditTitle] = useState(topic.title);
+  const [editBody, setEditBody] = useState(topic.body);
+  const [editSubmitting, setEditSubmitting] = useState(false);
   const cat = CATEGORIES.find(c => c.id === topic.category);
 
   const loadReplies = useCallback(async () => {
@@ -535,6 +540,36 @@ function TopicDetail({
     }
   };
 
+  // v2.9.74 FIX Y6: canEditTopic — 10 dakika içinde mi?
+  const canEditTopic = (createdAt: string): boolean => {
+    const created = new Date(createdAt).getTime();
+    const tenMin = 10 * 60 * 1000;
+    return Date.now() - created < tenMin;
+  };
+
+  // v2.9.74 FIX Y6: handleEditTopic — topic başlığı + body güncelle
+  const handleEditTopic = async () => {
+    if (topic.author_id !== userId) return;
+    if (!editTitle.trim() || !editBody.trim()) return;
+    setEditSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from("forum_topics")
+        .update({ title: editTitle.trim(), body: editBody.trim() })
+        .eq("id", topic.id);
+      if (error) throw error;
+      haptic("success");
+      setEditingTopic(false);
+      // Topic'i yeniden yükle (parent component yapacak)
+      onBack();
+    } catch (e: any) {
+      console.warn("[forum] edit exception:", e);
+      alert("Düzenleme hatası: " + (e?.message ?? e));
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
   return (
     <div className="px-4 py-4 pb-24 space-y-3">
       {/* Back button */}
@@ -544,9 +579,22 @@ function TopicDetail({
         </button>
         <h1 className="text-sm font-bold truncate flex-1">{topic.title}</h1>
         {topic.author_id === userId && (
-          <button onClick={handleDeleteTopic} className="tm-tap p-1 text-red-400">
-            <Trash2 size={14} />
-          </button>
+          <>
+            {/* v2.9.74 FIX Y6: Edit butonu (10 dk pencere ile) */}
+            {canEditTopic(topic.created_at) && (
+              <button
+                onClick={() => { haptic("light"); setEditingTopic(true); }}
+                className="tm-tap p-1 text-sky-400"
+                aria-label="Düzenle"
+                title="Düzenle (10 dk içinde)"
+              >
+                <Pencil size={14} />
+              </button>
+            )}
+            <button onClick={handleDeleteTopic} className="tm-tap p-1 text-red-400">
+              <Trash2 size={14} />
+            </button>
+          </>
         )}
         {/* v2.9.70: Bildir butonu — başlık */}
         {topic.author_id !== userId && userId && (
@@ -589,7 +637,42 @@ function TopicDetail({
               <span className="text-xs font-bold">{topic.author_team_name ?? "Anonim"}</span>
             </div>
             <div className="text-[10px] text-muted-foreground">{timeAgo(topic.created_at, t)}</div>
-            <p className="text-xs mt-1.5 leading-relaxed">{topic.body}</p>
+            {/* v2.9.74 FIX Y6: Edit mode — input'lar görünsün */}
+            {editingTopic ? (
+              <div className="mt-2 space-y-2">
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  maxLength={120}
+                  className="w-full bg-card border border-border rounded-md px-2 py-1.5 text-xs"
+                />
+                <textarea
+                  value={editBody}
+                  onChange={(e) => setEditBody(e.target.value)}
+                  maxLength={2000}
+                  rows={4}
+                  className="w-full bg-card border border-border rounded-md px-2 py-1.5 text-xs"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleEditTopic}
+                    disabled={editSubmitting || !editTitle.trim() || !editBody.trim()}
+                    className="tm-tap flex-1 py-1.5 rounded-md bg-sky-600 text-white text-[10px] font-bold disabled:opacity-50 flex items-center justify-center gap-1"
+                  >
+                    <Check size={12} /> Kaydet
+                  </button>
+                  <button
+                    onClick={() => { setEditingTopic(false); setEditTitle(topic.title); setEditBody(topic.body); }}
+                    className="tm-tap flex-1 py-1.5 rounded-md border border-border text-[10px] font-bold flex items-center justify-center gap-1"
+                  >
+                    <X size={12} /> İptal
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs mt-1.5 leading-relaxed">{topic.body}</p>
+            )}
           </div>
         </div>
       </div>

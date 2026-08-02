@@ -117,8 +117,14 @@ Deno.serve(async (req: Request) => {
       .limit(5);
 
     if (rlErr) {
-      console.warn("[verify-purchase] rate-limit check error:", rlErr.message);
-      // Hata durumunda rate-limit'i atla (fail-open) — meşru kullanımı bloklamamak için
+      // v2.9.74 FIX Y7: fail-open → fail-closed. Eski kod hatada rate-limit'i
+      // atlayıp Google API çağrısı yapıyordu → kota tüketilebilir.
+      // Yeni: rate-limit check hatasında 503 dön (meşru kullanıcı retry yapar).
+      console.error("[verify-purchase] rate-limit check error:", rlErr.message);
+      return jsonResponse<VerifyResponse>({
+        success: false,
+        reason: "Rate limit check temporarily unavailable. Please retry.",
+      }, 503);
     } else if (recentVerifications && recentVerifications.length >= 5) {
       const oldest = new Date(recentVerifications[4].verified_at).getTime();
       const tenMin = 10 * 60 * 1000;

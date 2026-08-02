@@ -60,10 +60,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
     // Auth değişikliklerini dinle
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
       setLoading(false);
+
+      // v2.9.74 FIX Y9: SIGNED_OUT öncesi pending save'i immediate modda flush et.
+      // Eski kod: token expires → SIGNED_OUT → stopCloudSave → bekleyen saveGameState
+      // (3 sn debounce) iptal → son maç/transfer kaybolur.
+      // Yeni: SIGNED_OUT event'inde immediate save çağır (beforeunload gibi).
+      if (event === "SIGNED_OUT" && user) {
+        try {
+          flushGameState(user.id);
+        } catch (e) {
+          console.warn("[auth] flushGameState on SIGNED_OUT failed:", e);
+        }
+      }
 
       // Kullanıcı giriş yaptı ama local store'da auth yoksa — local login (demo) yap
       if (newSession?.user && !useAppStore.getState().isAuthed) {

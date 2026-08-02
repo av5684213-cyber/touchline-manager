@@ -321,6 +321,43 @@ async function saveTacticsToTable(userId: string): Promise<void> {
  * v2.9.20: Artık user_game_state (JSONB) + active_tactics + app_state
  * tablolarının üçüne de yazıyor (multiplayer uyumu için).
  */
+
+/**
+ * v2.9.74 FIX Y8: Offline queue'yu flush et — login olduğunda çağrılır.
+ * Eski kod: saveGameState retry'lar başarısız olunca tm_state_pending_sync
+ * localStorage'ına push yapıyordu, ama initCloudSave bunu okumuyordu →
+ * 5 kayıttan sonrası kaybolurdu.
+ * Yeni: login'de queue'yu oku, her bir kaydı Supabase'e yaz, sonra temizle.
+ */
+async function flushPendingSyncQueue(userId: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = localStorage.getItem("tm_state_pending_sync");
+    if (!raw) return;
+    const pending = JSON.parse(raw) as Array<{ state: any; _pendingAt: number }>;
+    if (!Array.isArray(pending) || pending.length === 0) return;
+
+    console.log(`[cloud-save] Flushing ${pending.length} pending state(s) from offline queue`);
+    for (const item of pending) {
+      try {
+        await supabase.rpc("rpc_save_game_state", {
+          p_profile_id: userId,
+          p_state: item.state,
+          p_version: 1,
+        });
+      } catch (e) {
+        console.warn("[cloud-save] Pending sync item failed:", e);
+        // Devam et — diğer item'ları dene
+      }
+    }
+    // Tüm item'lar işlendi (başarılı veya değil) — queue'yu temizle
+    localStorage.removeItem("tm_state_pending_sync");
+    console.log("[cloud-save] Pending queue flushed");
+  } catch (e) {
+    console.warn("[cloud-save] flushPendingSyncQueue exception:", e);
+  }
+}
+
 export function saveGameState(userId: string, immediate: boolean = false) {
   if (!isLoaded && !immediate) return;
 
@@ -459,7 +496,9 @@ let visibilityHandler: (() => void) | null = null;
 
 export function initCloudSave(userId: string) {
   currentUserId = userId;
-  // Önce yükle
+  // v2.9.74 FIX Y8: Önce offline queue'yu flush et (login öncesi bekleyen state'ler)
+  flushPendingSyncQueue(userId);
+  // Sonra yükle
   loadGameState(userId).then(() => {
     // Sonra store değişikliklerini dinle
     if (unsubscribeFn) {
