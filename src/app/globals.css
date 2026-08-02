@@ -51,12 +51,11 @@
   --radius: 0.625rem;
   --background: oklch(0.22 0.05 260); /* lacivert */
   --foreground: oklch(0.98 0 0); /* beyaz yazı */
-  /* v2.9.74: Kartlar %70 opak — arka plan görseli kartların arkasından NET görünsün
-     Alpha 0.7 = %30 şeffaflık. backdrop-blur(8px) ile cam efekti (okunabilirlik korunur).
-     Eski 0.8 yeterli değildi, kullanıcı "görünmüyor" dedi. */
-  --card: oklch(0.28 0.05 260 / 0.7); /* daha açık lacivert kart, %30 şeffaf */
+  /* v2.9.74: Kartlar %50 opak — arka plan görseli kartların arkasından DAHA NET görünsün
+     Alpha 0.5 = %50 şeffaflık. backdrop-blur(6px) ile cam efekti (okunabilirlik korunur). */
+  --card: oklch(0.28 0.05 260 / 0.5); /* daha açık lacivert kart, %50 şeffaf */
   --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.28 0.05 260 / 0.95); /* popover tam opak (modal'lar okunabilir kalsın) */
+  --popover: oklch(0.28 0.05 260 / 0.85); /* popover daha şeffaf (modal'lar hâlâ okunabilir) */
   --popover-foreground: oklch(0.98 0 0);
   /* primary = header koyu yeşil #1a3a2a (kalsın) */
   --primary: oklch(0.32 0.06 150);
@@ -64,7 +63,7 @@
   --secondary: oklch(0.32 0.04 260);
   --secondary-foreground: oklch(0.98 0 0);
   /* v2.9.74: muted de %30 şeffaf — oyuncu kartları (bg-muted/30) arkadan görsel göstersin */
-  --muted: oklch(0.32 0.04 260 / 0.7);
+  --muted: oklch(0.32 0.04 260 / 0.5);
   /* P1 FIX: Kontrast artırıldı — 0.75 → 0.82 (WCAG AA ~6:1) */
   --muted-foreground: oklch(0.82 0.02 260);
   --accent: oklch(0.36 0.05 260);
@@ -96,17 +95,17 @@
 .dark {
   --background: oklch(0.18 0.05 260);
   --foreground: oklch(0.98 0 0);
-  /* v2.9.74: Kartlar %70 opak (dark theme'de de) */
-  --card: oklch(0.24 0.05 260 / 0.7);
+  /* v2.9.74: Kartlar %50 opak (dark theme'de de) */
+  --card: oklch(0.24 0.05 260 / 0.5);
   --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.24 0.05 260 / 0.95);
+  --popover: oklch(0.24 0.05 260 / 0.85);
   --popover-foreground: oklch(0.98 0 0);
   --primary: oklch(0.45 0.08 150);
   --primary-foreground: oklch(0.15 0.05 260);
   --secondary: oklch(0.32 0.04 260);
   --secondary-foreground: oklch(0.98 0 0);
   /* v2.9.74: muted %30 şeffaf (dark theme) */
-  --muted: oklch(0.32 0.04 260 / 0.7);
+  --muted: oklch(0.32 0.04 260 / 0.5);
   /* P1 FIX: Dark mode kontrast artırıldı — 0.7 → 0.78 (WCAG AA) */
   --muted-foreground: oklch(0.78 0.02 260);
   --accent: oklch(0.36 0.05 260);
@@ -205,12 +204,11 @@
   height: 100%;
 }
 
-/* Card — v2.9.74: %20 şeffaf + backdrop-blur (cam efekti)
-   Arka plan görseli kartların arkasından görünsün, ama içerik okunabilir kalsın */
+/* Card — v2.9.74: %50 şeffaf + hafif blur (cam efekti) */
 .tm-card {
   background: var(--card);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   box-shadow: 0 1px 2px oklch(0 0 0 / 0.04);
@@ -220,15 +218,15 @@
    (tm-card kullanmayan ama bg-card kullanan component'ler için) */
 .bg-card {
   background-color: var(--card);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
-/* v2.9.74: bg-muted de şeffaf + blur (oyuncu kartları, küçük kutular) */
+/* v2.9.74: bg-muted de şeffaf + hafif blur (oyuncu kartları, küçük kutular) */
 .bg-muted {
   background-color: var(--muted);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
 
 /* Stat badge for player rating */

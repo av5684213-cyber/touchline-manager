@@ -125,16 +125,13 @@ export function TabBackground({ tabKey }: { tabKey: TabKey }) {
       />
 
       {/* Overlay — okunabilirlik için koyu katman
-          forum/messages gibi metin yoğun ekranlar için 60%,
-          diğerleri için 50% yeterli */}
+          v2.9.74: 0.55 → 0.35 — arka plan görseli daha net görünsün
+          Kartların kendi backdrop-blur'u okunabilirliği zaten sağlıyor */}
       <div
         className="absolute inset-0"
         style={{
-          // Tailwind'e dinamik class yazmak yerine inline style — sekme bazlı opsiyonel
-          // yoğunluk için yer var (örn: tabKey === 'forum' ? 0.6 : 0.5)
-          backgroundColor: "rgba(0, 0, 0, 0.55)",
-          // Görsel henüz yüklenmediyse overlay'i hafiflet (fallback bg görünür)
-          opacity: loaded && !error ? 1 : 0.3,
+          backgroundColor: "rgba(0, 0, 0, 0.35)",
+          opacity: loaded && !error ? 1 : 0.2,
           transition: "opacity 300ms ease-out",
         }}
       />
