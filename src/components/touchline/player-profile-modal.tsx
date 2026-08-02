@@ -29,7 +29,7 @@ import { haptic } from "@/hooks/touchline";
 type Tab = "overview" | "stats" | "actions" | "achievements";
 
 export function PlayerProfileModal({
-  player,
+  player: playerProp,
   teamColor,
   onClose,
 }: {
@@ -45,6 +45,22 @@ export function PlayerProfileModal({
   const [photoFeedback, setPhotoFeedback] = useState<string | null>(null);
   // v2.9.48: Takım detay modal'ı için state
   const [showTeamDetail, setShowTeamDetail] = useState(false);
+
+  // v2.9.69 FIX: player prop'u stale olabilir (useState'ten geliyor)
+  // Store'dan reaktif olarak GÜNCEL player'ı oku — kart basıldığında anında güncellensin
+  const reactivePlayer = useAppStore((s) => {
+    for (const c of s.clubs) {
+      const p = c.players.find(p => p.id === playerProp.id);
+      if (p) return p;
+    }
+    // Youth academy'de de ara
+    const youthP = s.youthAcademy?.players.find(p => p.id === playerProp.id);
+    if (youthP) return youthP;
+    // Bulunamazsa prop'u kullan (fallback)
+    return playerProp;
+  });
+  // Tüm component'te reactivePlayer kullan — prop değil
+  const player = reactivePlayer;
 
   // v2.9.48: Reaktif takım bul — oyuncunun hangi takımda olduğunu
   const clubs = useAppStore((s) => s.clubs);
