@@ -403,6 +403,10 @@ export const dict: Dict = {
   "transfer.nationality": { tr: "Uyruk", en: "Nationality" },
   "transfer.window_open": { tr: "Transfer penceresi açık", en: "Transfer window open" },
   "transfer.window_closed": { tr: "Transfer penceresi kapalı", en: "Transfer window closed" },
+  "transfer.reason.bankrupt": {
+    tr: "İflas durumunda transfer yapılamaz. Önce bütçenizi düzeltin.",
+    en: "Transfers are blocked during bankruptcy. Fix your budget first."
+  },
 
   // ---- training ----
   "training.title": { tr: "Antrenman Akademisi", en: "Training Academy" },

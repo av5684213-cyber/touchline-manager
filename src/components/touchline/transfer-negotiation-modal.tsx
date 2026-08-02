@@ -113,6 +113,8 @@ export function TransferNegotiationModal({
           ? "3 kaleci limiti doldu"
           : result.reason === "window-closed"
           ? "Transfer penceresi kapalı (son 5 hafta)"
+          : result.reason === "bankrupt"
+          ? "🚨 İflas durumunda transfer yapılamaz — önce bütçenizi düzeltin"
           : result.reason === "too-low"
           ? "Teklif çok düşük (minimum %85)"
           : `Transfer başarısız: ${result.reason}`;

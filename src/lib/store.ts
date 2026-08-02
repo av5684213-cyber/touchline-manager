@@ -1167,6 +1167,11 @@ export const useAppStore = create<AppState>()(
           return { success: false, reason: "window-closed" };
         }
 
+        // v2.9.73: İFLAS YASAĞI — bütçe 0 + 11 oyuncu → transfer yapılamaz
+        if (myTeam.budget === 0 && myTeam.players.length <= 11) {
+          return { success: false, reason: "bankrupt" };
+        }
+
         // Toplam maliyet: transfer ücreti + %5 agent + %3 imza
         const total = calculateBuyerCost(fee).total; // v2.9.30 T-07: tek kaynak
         if (myTeam.budget < total) {
@@ -3026,6 +3031,69 @@ export const useAppStore = create<AppState>()(
           const totalExpense = playerWages + staffWages + facilityCost;
           const net = totalIncome - totalExpense;
           myTeam.budget = Math.max(0, myTeam.budget + net) + matchBonus;
+
+          // v2.9.73: BANKRUPTCY mekanizması
+          // Sorun: Bütçe 0'a düşse bile hiçbir yaptırım yoktu. Kullanıcı maaş
+          // bütçesi sezon ortasında negatife düşse bile oyuncular satılmıyor,
+          // maaş kesilmiyordu. financial_health enum tanımlı ama set edilmiyordu.
+          // Çözüm: Bütçe 0 ise en yüksek maaşlı oyuncuyu otomatik satışa çıkar
+          // ve kullanıcıya haber ver. Bütçe threshold'u 'emergency_threshold' olarak
+          // (maaşların ~2 haftalık tutarı) tanımla.
+          const weeklyWages = playerWages + staffWages;
+          const emergencyThreshold = weeklyWages * 2; // 2 haftalık maaş
+          const currentNews = get().news ?? [];
+          const newNewsItems: NewsItem[] = [];
+          if (myTeam.budget < emergencyThreshold && myTeam.players.length > 11) {
+            // En yüksek maaşlı oyuncuyu bul (en düşük değerli değil — pahalı kadroyu küçült)
+            const sortedByWage = [...myTeam.players]
+              .filter(p => !p.is_injured && !(p as any)._loaned) // sakat/kiralık değil
+              .sort((a, b) => (b.weeklyWage ?? b.salary ?? 0) - (a.weeklyWage ?? a.salary ?? 0));
+            const expensivePlayer = sortedByWage[0];
+            if (expensivePlayer) {
+              // Satışa çıkar — marketValue %80'ine (acil satış)
+              const salePrice = Math.round(
+                (expensivePlayer.marketValue ?? 1_000_000) * 0.8
+              );
+              expensivePlayer.is_for_sale = true;
+              expensivePlayer.sale_price = salePrice;
+              // Haberdar et
+              newNewsItems.push({
+                id: `bankrupt_${Date.now()}`,
+                category: "transfer",
+                headline: "⚠️ Mali Kriz — Oyuncu Satışa Çıkarıldı",
+                body: `Bütçeniz kritik seviyede (${myTeam.budget.toLocaleString("tr-TR")}₺). ` +
+                  `En yüksek maaşlı oyuncunuz ${expensivePlayer.firstName} ${expensivePlayer.lastName} ` +
+                  `(${(expensivePlayer.weeklyWage ?? expensivePlayer.salary ?? 0).toLocaleString("tr-TR")}₺/hafta) ` +
+                  `otomatik satışa çıkarıldı. Değer: ${salePrice.toLocaleString("tr-TR")}₺. ` +
+                  `Daha fazla oyuncu satmazsanız iflas riski devam eder.`,
+                timestamp: Date.now(),
+                importance: 5,
+                read: false,
+                playerId: expensivePlayer.id,
+              });
+              console.warn(
+                `[bankruptcy] Budget ${myTeam.budget} < threshold ${emergencyThreshold}. ` +
+                `Auto-listing ${expensivePlayer.firstName} ${expensivePlayer.lastName} for ${salePrice}`
+              );
+            }
+          }
+          // Tam iflas (bütçe 0 + satılacak oyuncu yok): transfer yasağı
+          if (myTeam.budget === 0 && myTeam.players.length <= 11) {
+            newNewsItems.push({
+              id: `bankrupt_critical_${Date.now()}`,
+              category: "headline",
+              headline: "🚨 İFLAS RİSKİ — Transfer Yasağı",
+              body: `Bütçeniz tükendi ve satılacak oyuncunuz yok. Transfer penceresi ` +
+                `siz bütçenizi düzeltene kadar kilitli. Maç gelirleriyle toparlanmayı bekleyin ` +
+                `veya bazı tesisleri düşürün.`,
+              timestamp: Date.now(),
+              importance: 5,
+              read: false,
+            });
+          }
+          if (newNewsItems.length > 0) {
+            set({ news: [...newNewsItems, ...currentNews].slice(0, 50) });
+          }
 
           // P0 FIX: Kiralık oyuncuların _loanWeeks değerini azalt — 0 olunca kaynak takıma iade et
           const playersAfterLoan: Player[] = [];
