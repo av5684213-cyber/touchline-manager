@@ -103,6 +103,33 @@ Deno.serve(async (req: Request) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
+    // ── 1b. Rate limit (per-user) ────────────────────────────────────────
+    // v2.9.73: Google Play Developer API kotasını korumak için.
+    // Aynı kullanıcı 10 dakikada max 5 verify çağrısı yapabilir.
+    // Kötü niyetli kullanıcı saniyede 100 istek atıp API kotasını tüketemez.
+    // Aynı zamanda redeemed_purchases tablosunu checkpoint olarak kullanıyoruz
+    // (yeni tablo oluşturmaya gerek yok — son 5 kayıt yeterli).
+    const { data: recentVerifications, error: rlErr } = await adminClient
+      .from("redeemed_purchases")
+      .select("verified_at")
+      .eq("user_id", userId)
+      .order("verified_at", { ascending: false })
+      .limit(5);
+
+    if (rlErr) {
+      console.warn("[verify-purchase] rate-limit check error:", rlErr.message);
+      // Hata durumunda rate-limit'i atla (fail-open) — meşru kullanımı bloklamamak için
+    } else if (recentVerifications && recentVerifications.length >= 5) {
+      const oldest = new Date(recentVerifications[4].verified_at).getTime();
+      const tenMin = 10 * 60 * 1000;
+      if (Date.now() - oldest < tenMin) {
+        return jsonResponse<VerifyResponse>({
+          success: false,
+          reason: "Rate limit: too many purchase verifications. Wait 10 minutes.",
+        }, 429);
+      }
+    }
+
     // ── 2. Google Play Developer API ile doğrula ─────────────────────────
     // (NOT: Replay kontrolü aşağıda atomik INSERT ... ON CONFLICT ile yapılıyor.
     //  Eski sürümdeki SELECT-then-INSERT pattern'i TOCTOU race'a açıktı:
