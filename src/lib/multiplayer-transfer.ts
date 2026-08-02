@@ -212,123 +212,39 @@ export async function fetchIncomingMultiplayerOffers(): Promise<MultiplayerOffer
 /**
  * Multiplayer teklifi yanıtlı (accept/reject).
  *
- * Kabul edilirse:
- * 1. Oyuncunun team_id'sini buyer_team_id yap
- * 2. Buyer bütçesinden düş, seller bütçesine ekle
- * 3. Teklif status = 'accepted'
+ * v2.9.73: Artık RPC'ye taşıyoruz (rpc_respond_multiplayer_offer).
+ * Eski client-side implementasyon 4 ayrı Supabase çağrısı yapıyordu:
+ *   1. UPDATE players (RLS ihlali — seller, buyer'ın takımını güncelleyemez)
+ *   2. UPDATE teams buyer budget (RLS ihlali)
+ *   3. UPDATE teams seller budget
+ *   4. INSERT notification
+ * Ayrıca atomic değildi — herhangi biri başarısız olursa yarı transfer kalırdı.
+ *
+ * Yeni RPC:
+ *   - SECURITY DEFINER (RLS bypass)
+ *   - auth.uid() ile seller kontrolü
+ *   - SELECT FOR UPDATE ile concurrent accept engeli
+ *   - Tek transaction içinde 4 güncelleme
+ *   - Buyer bütçe kontrolü server-side
  */
 export async function respondToMultiplayerOffer(
   offerId: string,
   accept: boolean
 ): Promise<{ success: boolean; reason?: string }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, reason: "not-authed" };
+    const { data, error } = await supabase.rpc("rpc_respond_multiplayer_offer", {
+      p_offer_id: offerId,
+      p_accept: accept,
+    });
 
-    // Teklifi getir
-    const { data: offer, error: offerError } = await supabase
-      .from("transfer_offers_mp")
-      .select(`
-        id,
-        player_id,
-        buyer_team_id,
-        seller_team_id,
-        offer_amount,
-        status
-      `)
-      .eq("id", offerId)
-      .single();
-
-    if (offerError || !offer) {
-      return { success: false, reason: "not-found" };
+    if (error) {
+      console.error("[multiplayer-transfer] RPC error:", error);
+      return { success: false, reason: "db-error" };
     }
 
-    if (offer.status !== "pending") {
-      return { success: false, reason: "already-responded" };
+    if (!data?.success) {
+      return { success: false, reason: data?.reason ?? "unknown" };
     }
-
-    // Satıcı bu kullanıcı mı?
-    const { data: myTeam } = await supabase
-      .from("teams")
-      .select("id")
-      .eq("manager_user_id", user.id)
-      .single();
-
-    if (!myTeam || myTeam.id !== offer.seller_team_id) {
-      return { success: false, reason: "not-authorized" };
-    }
-
-    if (accept) {
-      // Transfer uygula
-      // 1. Oyuncunun team_id'sini güncelle
-      const { error: playerUpdateError } = await supabase
-        .from("players")
-        .update({ team_id: offer.buyer_team_id })
-        .eq("id", offer.player_id);
-
-      if (playerUpdateError) {
-        return { success: false, reason: "player-update-failed" };
-      }
-
-      // 2. Buyer bütçesinden düş
-      const { data: buyerTeam } = await supabase
-        .from("teams")
-        .select("budget")
-        .eq("id", offer.buyer_team_id)
-        .single();
-
-      if (buyerTeam) {
-        const totalCost = Math.round(offer.offer_amount * 1.08);
-        await supabase
-          .from("teams")
-          .update({ budget: Math.max(0, buyerTeam.budget - totalCost) })
-          .eq("id", offer.buyer_team_id);
-      }
-
-      // 3. Seller bütçesine ekle (%2.5 vergi düş)
-      const { data: sellerTeam } = await supabase
-        .from("teams")
-        .select("budget")
-        .eq("id", offer.seller_team_id)
-        .single();
-
-      if (sellerTeam) {
-        const net = Math.round(offer.offer_amount * 0.975);
-        await supabase
-          .from("teams")
-          .update({ budget: sellerTeam.budget + net })
-          .eq("id", offer.seller_team_id);
-      }
-
-      // 4. Buyer'a bildirim
-      const { data: buyerTeamData } = await supabase
-        .from("teams")
-        .select("manager_user_id")
-        .eq("id", offer.buyer_team_id)
-        .single();
-
-      if (buyerTeamData) {
-        await supabase
-          .from("notifications")
-          .insert({
-            user_id: buyerTeamData.manager_user_id,
-            type: "transfer_accepted",
-            title: "Teklif Kabul Edildi",
-            body: `Transfer teklifiniz kabul edildi! Oyuncu kadronuza eklendi.`,
-            data: { player_id: offer.player_id, offer_amount: offer.offer_amount },
-            read: false,
-          });
-      }
-    }
-
-    // Teklif status güncelle
-    await supabase
-      .from("transfer_offers_mp")
-      .update({
-        status: accept ? "accepted" : "rejected",
-        responded_at: new Date().toISOString(),
-      })
-      .eq("id", offerId);
 
     return { success: true };
   } catch (e) {
