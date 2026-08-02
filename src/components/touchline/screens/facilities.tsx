@@ -63,7 +63,8 @@ const STAFF_TYPE_ORDER: StaffMember["type"][] = [
 import { calculateUpgradeCost as calcCostFromMatrix } from "@/lib/stadiumMatrix";
 
 function calcUpgradeCost(facilityId: string, currentLevel: number): number {
-  const seasonNumber = useAppStore.getState().seasonNumber ?? 1;
+  // v2.9.70 FIX: Reaktif seasonNumber — getState() değil
+  const seasonNumber = useAppStore((s) => s.seasonNumber) ?? 1;
   return calcCostFromMatrix(facilityId, currentLevel, seasonNumber);
 }
 function calcUpgradeDays(currentLevel: number): number {

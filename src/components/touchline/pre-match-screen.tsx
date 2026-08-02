@@ -90,15 +90,11 @@ export function PreMatchScreen({
     return b.rating - a.rating;
   });
 
-  // P1 FIX: İlk 11'i rating'e göre DEĞİL, formasyon bazlı seç — maksimum 1 kaleci
-  // Kullanıcının takımı için tactics.lineup kullan (kullanıcının seçtiği diziliş)
-  // Rakip için formasyon bazlı otomatik seçim
-  const storeState = useAppStore.getState();
-  const userFormation = storeState.tactics.active?.formation ?? "4-4-2";
-  const tacticsLineup = storeState.tactics.lineup;
+  // v2.9.70 FIX: Reaktif tactics + seasonMatchday — getState() değil
+  const userFormation = useAppStore((s) => s.tactics.active?.formation) ?? "4-4-2";
+  const tacticsLineup = useAppStore((s) => s.tactics.lineup);
+  const currentMatchday = useAppStore((s) => s.seasonMatchday) ?? 0;
   const filledTactics = tacticsLineup.filter((p): p is Player => p !== null);
-  // BULGU #1 DÜZELTME (v2.9.3): matchday al — pickXIByFormation cezalı oyuncuları ele
-  const currentMatchday = storeState.seasonMatchday ?? 0;
 
   let homeXI: Player[];
   let awayXI: Player[];

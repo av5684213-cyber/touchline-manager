@@ -11,12 +11,14 @@ import { supabase } from "@/lib/supabase/client";
  * Kullanım: App shell'in içinde bir kez çağır.
  */
 export function useRealtimeSync() {
+  // v2.9.70 FIX: Reaktif myTeamId — mount anında null ise, login sonrası değişince yeniden çalış
+  const myTeamId = useAppStore((s) => s.myTeamId);
+  const clubs = useAppStore((s) => s.clubs);
+
   useEffect(() => {
-    const store = useAppStore.getState();
-    const myTeamId = store.myTeamId;
     if (!myTeamId) return;
 
-    const myTeam = store.clubs.find((c) => c.id === myTeamId);
+    const myTeam = clubs.find((c) => c.id === myTeamId);
     if (!myTeam?.department) return;
 
     const deptId = myTeam.department;
@@ -63,7 +65,7 @@ export function useRealtimeSync() {
       supabase().removeChannel(standingsChannel);
       supabase().removeChannel(fixturesChannel);
     };
-  }, []);
+  }, [myTeamId, clubs]); // v2.9.70: deps eklendi — login sonrası yeniden çalış
 }
 
 async function reloadStandings(deptId: number) {

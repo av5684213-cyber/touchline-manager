@@ -156,14 +156,13 @@ export function DashboardScreen() {
       else break;
     }
 
-    // Transfer sayısı (haberlerden say)
-    const transferNews = useAppStore.getState().news.filter(n => n.category === "transfer").length;
+    // v2.9.70 FIX: Reaktif news + tactics okuma — getState() değil
+    const transferNews = useAppStore((s) => s.news.filter(n => n.category === "transfer").length);
 
     // P0 FIX BUG #9: Taktik skoru hesapla — "Deha" başarımı (90+) için
     let tacticScore = 0;
     try {
-      const state = useAppStore.getState();
-      const tactics = state.tactics;
+      const tactics = useAppStore((s) => s.tactics);
       if (team && tactics?.formationKey) {
         const formation = getFormation(tactics.formationKey);
         // lineup: tactics.lineup -> gerçek Player objelerine çöz
@@ -193,7 +192,7 @@ export function DashboardScreen() {
       winStreak,
       leaguePosition: myStat.position,
       budget: team.budget,
-      seasonsPlayed: useAppStore.getState().seasonNumber ?? 1,
+      seasonsPlayed: useAppStore((s) => s.seasonNumber) ?? 1,
       tacticScore, // P0 FIX BUG #9: Deha başarımı (90+) için
     });
 

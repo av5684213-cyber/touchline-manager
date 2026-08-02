@@ -76,6 +76,9 @@ export function MatchScreen() {
   const team = useMyTeam();
   const clubs = useAppStore((s) => s.clubs);
   const fixtures = useAppStore((s) => s.fixtures);
+  // v2.9.70 FIX: Reaktif tactics + seasonMatchday — stale read önle
+  const tacticsState = useAppStore((s) => s.tactics);
+  const seasonMatchday = useAppStore((s) => s.seasonMatchday);
 
   // Rakip seçimi — bir sonraki oynanmamış maç
   const opponent = useMemo(() => {
@@ -138,7 +141,8 @@ export function MatchScreen() {
   // P1 FIX: Gerçek saat kilidi kaldırıldı — FM/CM mantığı
   // Artık scheduler kullanılmıyor, oyuncu istediği an oynar
   // (nowTick ve schedule hesabı kaldırıldı)
-  const currentMatchId = `match_md${useAppStore.getState().seasonMatchday}_${useAppStore.getState().seasonNumber}`;
+  // v2.9.70 FIX: Reaktif seasonMatchday + seasonNumber
+  const currentMatchId = `match_md${seasonMatchday}_${useAppStore((s) => s.seasonNumber)}`;
   const currentWatched = false; // artık pencere mantığı yok
   const currentAutoSimmed = false;
 
@@ -246,8 +250,9 @@ export function MatchScreen() {
             {/* Saha sekmesi — 2D pitch + oyuncu tıklanır */}
             {matchTab === "pitch" && (() => {
               // Kullanıcının takımı için TAKTİK dizilişini kullan, rakip için ilk 11
-              const tacticsLineup = useAppStore.getState().tactics.lineup;
-              const userFormation = useAppStore.getState().tactics.active?.formation ?? "4-4-2";
+              // v2.9.70 FIX: Reaktif tacticsState kullan — getState() değil
+              const tacticsLineup = tacticsState.lineup;
+              const userFormation = tacticsState.active?.formation ?? "4-4-2";
 
               const mapPlayer = (p: any, side: "home" | "away") => ({
                 id: p.id,
@@ -266,7 +271,7 @@ export function MatchScreen() {
               let homeList, awayList;
               // P0 FIX: Rakip takım için en iyi 11'i rating'e göre seç
               // BULGU #1 DÜZELTME (v2.9.3): isPlayerAvailableAt ile cezalı oyuncuları da ele
-              const currentMd = useAppStore.getState().seasonMatchday ?? 0;
+              const currentMd = seasonMatchday ?? 0;
               const pickBestXI = (players: any[]) =>
                 [...players].filter(p => isPlayerAvailableAt(p, currentMd)).sort((a, b) => b.rating - a.rating).slice(0, 11);
               if (userIsHome && filledTactics.length === 11) {
@@ -892,8 +897,8 @@ function HalftimeSubs({ team, homeTeam, engine, mySide }: {
   const [subsDone, setSubsDone] = useState(0);
   const maxSubs = 3;
 
-  // P0 FIX: tactics.lineup'dan gerçek ilk 11'i al, team.players.slice(0,11) DEĞİL
-  const tactics = useAppStore.getState().tactics;
+  // v2.9.70 FIX: Reaktif tactics okuma — getState() değil
+  const tactics = useAppStore((s) => s.tactics);
   const lineupPlayers = tactics.lineup.filter((p): p is PlayerT => p !== null);
   const lineupIds = new Set(lineupPlayers.map(p => p.id));
   // İlk 11: lineup'dan, yedekler: kadroda olup lineup'ta olmayanlar
@@ -1188,8 +1193,8 @@ function TacticsDrawer({
 
   if (!open) return null;
 
-  // P0 FIX: tactics.lineup'dan gerçek ilk 11'i al, myTeam.players.slice(0,11) DEĞİL
-  const storeTactics = useAppStore.getState().tactics;
+  // v2.9.70 FIX: Reaktif tactics okuma — getState() değil
+  const storeTactics = useAppStore((s) => s.tactics);
   const lineupPlayers = storeTactics.lineup.filter((p): p is PlayerT => p !== null);
   const lineupIds = new Set(lineupPlayers.map(p => p.id));
   const lineup = lineupPlayers.length === 11 ? lineupPlayers : myTeam.players.slice(0, 11);
@@ -1451,8 +1456,8 @@ function PostMatch({
     LW: 11, RW: 12, CF: 13, ST: 14,
   };
 
-  // P0 FIX: Kullanıcının TAKTİKTE SEÇTİĞİ ilk 11'i kullan — auto-select yapma
-  const tacticsLineup = useAppStore.getState().tactics.lineup;
+  // v2.9.70 FIX: Reaktif tactics okuma — getState() değil
+  const tacticsLineup = useAppStore((s) => s.tactics).lineup;
   const tacticsPlayerIds = new Set(tacticsLineup.filter(p => p !== null).map(p => p!.id));
 
   const buildRatedList = (players: typeof homeTeam.players, isUserTeam: boolean) => {

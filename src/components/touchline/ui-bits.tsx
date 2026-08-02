@@ -135,44 +135,34 @@ export function RatingBadge({ value }: { value: number }) {
 }
 
 // P5: Gelişim rozeti — sezon başına göre oyuncunun rating artışını gösterir
+// v2.9.70 FIX: Reaktif seasonStartStats okuma — getState() değil
 export function GrowthBadge({ currentRating, playerId }: { currentRating: number; playerId: string }) {
-  try {
-    // Store'dan sezon başı stats'ını oku (lazy import ile circular dependency önle)
-    const store = useAppStore.getState();
-    const startStats = store.seasonStartStats?.[playerId];
-    if (!startStats) return null;
-    const startRating = startStats.rating ?? currentRating;
-    const diff = currentRating - startRating;
-    if (diff <= 0) return null;
+  const startStats = useAppStore((s) => s.seasonStartStats?.[playerId]);
+  if (!startStats) return null;
+  const startRating = startStats.rating ?? currentRating;
+  const diff = currentRating - startRating;
+  if (diff <= 0) return null;
     return (
       <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
         ↑ +{diff}
       </span>
     );
-  } catch {
-    return null;
-  }
 }
 
 // P2: Stat gelişim rozeti — belirli bir stat için sezon başına göre artış gösterir
-// Örnek: pace 50→52 ise "+2" gösterir
+// v2.9.70 FIX: Reaktif seasonStartStats okuma — getState() değil
 export function StatGrowth({ playerId, statKey, currentValue }: { playerId: string; statKey: string; currentValue: number }) {
-  try {
-    const store = useAppStore.getState();
-    const startStats = store.seasonStartStats?.[playerId];
-    if (!startStats) return null;
-    const startValue = startStats[statKey];
-    if (startValue === undefined) return null;
-    const diff = currentValue - startValue;
-    if (diff <= 0) return null;
+  const startStats = useAppStore((s) => s.seasonStartStats?.[playerId]);
+  if (!startStats) return null;
+  const startValue = startStats[statKey];
+  if (startValue === undefined) return null;
+  const diff = currentValue - startValue;
+  if (diff <= 0) return null;
     return (
       <span className="text-[11px] font-bold text-emerald-400 leading-none ml-0.5">
         +{diff}
       </span>
     );
-  } catch {
-    return null;
-  }
 }
 
 // P2: Sakatlık rozeti — sakat oyuncularda kırmızı 🤕 icon + gün sayısı

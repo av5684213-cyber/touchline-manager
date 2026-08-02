@@ -368,7 +368,9 @@ function FinancialReport({
   const tierBonus = (5 - myTier) * 0.04;
   const fillRate = Math.max(0.2, Math.min(0.85, 1 - (facilities.ticketPrice / 250) + tierBonus));
   const ticketRev = Math.round(stadiumCap * fillRate * facilities.ticketPrice * stadiumMult);
-  const dynamicSponsorIncome = (useAppStore.getState().sponsors?.active ?? []).reduce(
+  // v2.9.70 FIX: Reaktif sponsor okuma — stale read önle
+  const sponsors = useAppStore((s) => s.sponsors);
+  const dynamicSponsorIncome = (sponsors?.active ?? []).reduce(
     (s: number, sp: any) => s + (sp.amount ?? 0), 0
   );
   const sponsor = 50_000 + facilities.levels.stadium * 10_000 + dynamicSponsorIncome;

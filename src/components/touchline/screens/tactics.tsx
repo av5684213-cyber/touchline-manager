@@ -1361,7 +1361,8 @@ function SlotPlayerPicker({
   const candidates = showAll ? [...sameGroup, ...otherGroup] : sameGroup;
 
   // Mevcut rol
-  const currentRole = useAppStore.getState().tactics.slotRoles[slotIndex] ?? "";
+  // v2.9.70 FIX: Reaktif slotRoles — getState() değil
+  const currentRole = useAppStore((s) => s.tactics.slotRoles[slotIndex]) ?? "";
 
   // Pozisyona göre gösterilecek stat'lar
   const getPosStats = (p: PlayerT): string => {

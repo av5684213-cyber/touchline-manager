@@ -295,7 +295,7 @@ export function PlayerProfileModal({
       {showTeamDetail && playerTeam && (
         <TeamDetailModal
           team={playerTeam}
-          isMyTeam={playerTeam.id === useAppStore.getState().myTeamId}
+          isMyTeam={playerTeam.id === useAppStore((s) => s.myTeamId)}
           onClose={() => setShowTeamDetail(false)}
           onMessage={() => {}}
         />
@@ -1292,6 +1292,10 @@ function StatColumn({
 }
 
 function StatValue({ value, playerId, statKey }: { value: number | undefined; playerId?: string; statKey?: string }) {
+  // v2.9.70 FIX: Reaktif pendingGains + seasonStartStats — getState() değil
+  const pendingGains = useAppStore((s) => s.pendingGains);
+  const seasonStartStats = useAppStore((s) => s.seasonStartStats);
+
   if (value === undefined) return <span className="text-muted-foreground/50">—</span>;
   // P0 FIX: Stat değerleri tam sayı göster
   const displayValue = Math.round(value);
@@ -1305,29 +1309,23 @@ function StatValue({ value, playerId, statKey }: { value: number | undefined; pl
   // v2.9.34 F2: pendingGains rozeti — bu sezonda maçlardan kazanılan stat artışları
   let pendingGain: number | null = null;
   if (playerId && statKey) {
-    try {
-      const store = useAppStore.getState();
-      const gains = store.pendingGains?.[playerId];
-      if (gains && gains[statKey]) {
-        pendingGain = gains[statKey];
-      }
-    } catch { /* ignore */ }
+    const gains = pendingGains?.[playerId];
+    if (gains && gains[statKey]) {
+      pendingGain = gains[statKey];
+    }
   }
 
   // P2: Gelişim rozeti — sezon başına göre, tam sayı
   let growth: number | null = null;
   if (playerId && statKey) {
-    try {
-      const store = useAppStore.getState();
-      const startStats = store.seasonStartStats?.[playerId];
-      if (startStats) {
-        const startValue = startStats[statKey];
+    const startStats = seasonStartStats?.[playerId];
+    if (startStats) {
+      const startValue = startStats[statKey];
         if (startValue !== undefined) {
           const diff = Math.round(value - startValue);
           if (diff > 0) growth = diff;
         }
       }
-    } catch { /* ignore */ }
   }
 
   return (
