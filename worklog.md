@@ -3882,3 +3882,86 @@ Test senaryoları:
 6. Podium → assists seçilince asist gösterir (gol değil)
 7. Kiralama → 30-34. haftada kapalı
 8. Terfi → eski lig temiz, yeni lig senkron
+
+---
+Task ID: v2.9.72
+Agent: main (Super Z)
+Task: Denetim raporu kalan 5 orta/düşük öncelikli sorun düzeltme
+
+Work Log:
+
+1. v2.9.72-a: verify-purchase TOCTOU race fix (HIGH — mali exploit)
+   - Sorun: SELECT-then-INSERT pattern → iki paralel istek ikisi de
+     'existing=null' görüp iki kez kredi yükleyebiliyordu (double-credit)
+   - Çözüm: Atomik INSERT ... .select().single() → UNIQUE(purchase_token)
+     constraint sayesinde yalnızca bir istek kazanır
+   - Google Play doğrulaması INSERT'ten ÖNCE yapılır (geçersiz token = tabloya yazılmaz)
+   - Ek: DEFAULT_PACKAGE artık GOOGLE_PLAY_PACKAGE_NAME env var'ından okunur
+
+2. v2.9.72-b: Dual Supabase client consolidation (MEDIUM — sessiz RLS failure)
+   - Sorun: İki ayrı browser Supabase client (farklı storageKey)
+     → primary oturum açar, secondary'de oturum yok → RLS reddeder
+     → rpc_assign_team_to_user_v2 sessizce başarısız, takım ATANMIYOR
+   - Çözüm: Secondary modül (@/lib/supabase/client) artık primary'yi
+     re-export ediyor. Tüm eski `supabase()` çağrıları çalışmaya devam eder
+     ama tek client kullanıyor.
+   - Yan etki: Önceden 'any' arkasında gizlenen 2 TS hatası ortaya çıktı
+     (FixtureRow.date eksik, leagueTier number) — düzeltildi
+
+3. v2.9.72-c: Chat rate-limit server-side (MEDIUM — spam vector)
+   - Sorun: match-chat.tsx rate-limit sadece client-side (in-memory)
+     → sayfa yenileme/çoklu tab/devtools/modified client ile bypass
+   - Çözüm: Migration 033 — chat_messages tablosu + BEFORE INSERT trigger
+     - 60 saniyede max 10 mesaj (UI ile aynı limit)
+     - Custom ERRCODE 42901 (client'ta tanınır)
+     - CHECK constraint: message 1-200 char, user_name 1-50 char
+     - pg_cron: 24 saatlik mesajları otomatik sil
+     - RLS: authenticated yazabilir, kendi mesajlarını silebilir
+   - Client: önce DB'ye insert, başarılı olursa broadcast
+     Rate-limit hatası → 'Sistem' mesajı gösterilir
+
+4. v2.9.72-d: Profanity filter hardening (MEDIUM — UGC policy risk)
+   - Sorun: Eski filterMessage zayıftı:
+     - Regex meta-karakter → catch → naive substring (false positive)
+     - \b ASCII-only → Türkçe ç/ş/ğ/ı sorunlu
+     - Lookalike char (𝖋𝖚𝖈𝖐) bypass
+     - Zero-width char (f​uck) bypass
+     - Leetspeak (sh1t) bypass
+   - Çözüm:
+     - escapeRegex() — meta-karakterleri escape
+     - normalizeForFilter(): NFKD + combining marks temizle + zero-width temizle
+       + leetspeak map (0→o, 1→i, 3→e, 4→a, 5→s, 7→t, 8→b, @→a, $→s, *→'')
+       + tekrarlayan harf daralt (3+ → 2)
+     - BANNED_WORDS_NORMALIZED — banned list de aynı normalizasyondan geçer
+     - Manuel kelime sınırı: (^|[^a-zA-Z0-9])word([^a-zA-Z0-9]|$)
+     - Substring fallback TAMAMEN KALDIRILDI
+   - Test: scripts/test-profanity-filter.ts — 18 test, hepsi geçiyor
+
+5. v2.9.72-e: Hardcoded package name → env var (LOW)
+   - verify-purchase/index.ts:44 — DEFAULT_PACKAGE artık env var'ından
+   - Supabase Dashboard → Edge Functions → Secrets altında ayarlanmalı
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- 5 audit sorunu tamamı çözüldü (1 HIGH + 3 MEDIUM + 1 LOW)
+- TOCTOU race exploit kapatıldı (mali risk)
+- Sessiz RLS failure düzeltildi (auth team assignment artık çalışıyor)
+- Chat spam vector kapatıldı (server-side rate-limit)
+- Profanity filter UGC politikasına uygun hale getirildi
+- Migration 033: chat_messages + RLS + trigger + cron cleanup
+
+Test senaryoları:
+1. Purchase: aynı purchaseToken ile 2 paralel istek → sadece 1 kredi yükler
+2. Auth: yeni kullanıcı login → rpc_assign_team_to_user_v2 çalışır (öncesi: sessiz failure)
+3. Chat: 11. mesaj → '⏳ Çok hızlı' uyarısı, mesaj yayınlanmaz
+4. Filter: '𝖋𝖚𝖈𝖐 you' → '**** you' (lookalike bypass kapatıldı)
+5. Filter: 'sh1t you' → '**** you' (leetspeak bypass kapatıldı)
+6. Filter: 'fucking hell' → 'fucking hell' (word boundary doğru)
+7. Filter: 'piç oldu' → '*** oldu' (Türkçe precomposed char artık eşleşir)
+
+Deployment:
+1. Migration 033'ü Supabase SQL editor'da çalıştır
+2. Edge Function verify-purchase'i deploy et
+3. Supabase Dashboard → Edge Functions → Secrets:
+   - GOOGLE_PLAY_PACKAGE_NAME = "com.touchline.manager"
+4. pg_cron extension kurulu değilse kur (cleanup job için)
