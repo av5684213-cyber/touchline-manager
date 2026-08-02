@@ -120,11 +120,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   const handleDemo = () => {
     loginDemo();
+    setMode("demo"); // v2.9.74 FIX: mode "landing" kalırsa children render edilmez
   };
 
   // Geliştirici/Yönetici modu — kayıtsız giriş, tüm özellikler local
   const handleDevMode = () => {
     loginDemo("Geliştirici");
+    setMode("demo"); // v2.9.74 FIX: mode "landing" kalırsa children render edilmez
   };
 
   // Loading ekranı
