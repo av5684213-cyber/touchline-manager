@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { MessageSquare, Plus, ArrowLeft, Send, Loader2, Trash2, WifiOff } from "lucide-react";
+import { MessageSquare, Plus, ArrowLeft, Send, Loader2, Trash2, WifiOff, Flag } from "lucide-react";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { useSupabaseAuth } from "@/lib/auth/auth-context";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -526,7 +526,7 @@ function TopicDetail({
     if (topic.author_id !== userId) return;
     if (!confirm(t("forum.delete_confirm"))) return;
     try {
-      await supabase.from("forum_replies").delete().eq("topic_id", topic.id);
+      // v2.9.70: forum_replies zaten ON DELETE CASCADE — sadece topic'i sil
       await supabase.from("forum_topics").delete().eq("id", topic.id);
       haptic("success");
       onBack();
@@ -546,6 +546,30 @@ function TopicDetail({
         {topic.author_id === userId && (
           <button onClick={handleDeleteTopic} className="tm-tap p-1 text-red-400">
             <Trash2 size={14} />
+          </button>
+        )}
+        {/* v2.9.70: Bildir butonu — başlık */}
+        {topic.author_id !== userId && userId && (
+          <button
+            onClick={async () => {
+              haptic("light");
+              try {
+                const { supabase } = await import("@/lib/supabase/client");
+                await supabase().from("forum_reports").insert({
+                  reporter_id: userId,
+                  topic_id: topic.id,
+                  reason: "inappropriate",
+                });
+                alert("Bildirildi. İnceleme yapılacak.");
+              } catch (e: any) {
+                if (e?.code === "23505") alert("Bu içeriği zaten bildirdiniz.");
+                else alert("Bildirme hatası: " + (e?.message ?? "bilinmeyen"));
+              }
+            }}
+            className="tm-tap p-1 text-amber-400/60"
+            aria-label="Bildir"
+          >
+            <Flag size={14} />
           </button>
         )}
       </div>
@@ -608,6 +632,30 @@ function TopicDetail({
                     className="tm-tap p-1 text-red-400/60"
                   >
                     <Trash2 size={11} />
+                  </button>
+                )}
+                {/* v2.9.70: Bildir butonu — cevap */}
+                {reply.author_id !== userId && userId && (
+                  <button
+                    onClick={async () => {
+                      haptic("light");
+                      try {
+                        const { supabase } = await import("@/lib/supabase/client");
+                        await supabase().from("forum_reports").insert({
+                          reporter_id: userId,
+                          reply_id: reply.id,
+                          reason: "inappropriate",
+                        });
+                        alert("Bildirildi. İnceleme yapılacak.");
+                      } catch (e: any) {
+                        if (e?.code === "23505") alert("Bu içeriği zaten bildirdiniz.");
+                        else alert("Bildirme hatası: " + (e?.message ?? "bilinmeyen"));
+                      }
+                    }}
+                    className="tm-tap p-1 text-amber-400/60"
+                    aria-label="Bildir"
+                  >
+                    <Flag size={11} />
                   </button>
                 )}
               </div>

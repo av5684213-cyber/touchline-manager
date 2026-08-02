@@ -11,11 +11,9 @@ import { haptic } from "@/hooks/touchline";
 const BANNED_WORDS = [
   // İngilizce
   "fuck", "shit", "bitch", "asshole", "bastard", "damn", "cunt", "dick", "piss",
-  // Türkçe
-  "amk", "aq", "sik", "yarrak", "oruspu", "pezevenk", "göt", "piç", "amcık",
-  "ibne", "oğlum", "orosbu", "sikeyim", "götveren", "göt veren",
-  // Hakaretler
-  "salak", "aptal", "mal", "gerizekalı", "öküz", "eqşek", "eşek",
+  // Türkçe — sadece 4+ karakter (false positive önle)
+  "amcık", "yarrak", "oruspu", "pezevenk", "piç", "ibne", "orosbu", "sikeyim",
+  "götveren", "gerizekalı",
 ];
 
 function filterMessage(text: string): string {
@@ -91,7 +89,7 @@ export async function blockUserInSupabase(
   try {
     const { error } = await supabase
       .from("blocked_users")
-      .insert({ blocker_id: blockerId, blocked_id: blockedId });
+      .insert({ blocker_user_id: blockerId, blocked_user_id: blockedId });
     if (error) {
       // 23505 = unique_violation (zaten engelli) — sessizce geç
       // 23503 = foreign_key_violation — zaten yukarıda guest kontrolü yaptık
@@ -130,7 +128,7 @@ export async function loadBlockedUsersFromSupabase(userId: string): Promise<void
       return;
     }
     if (Array.isArray(data)) {
-      const supabaseIds = data.map((row: any) => row.blocked_id as string);
+      const supabaseIds = data.map((row: any) => row.blocked_user_id as string);
       // BULGU #7 DÜZELTME: merge — cloud-save'den gelen guest ID'leri koru,
       // Supabase'ten gelen auth ID'lerini ekle. Duplicate'leri temizle.
       const localIds = useAppStore.getState().blockedUsers ?? [];

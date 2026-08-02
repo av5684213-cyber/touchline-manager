@@ -72,7 +72,7 @@ export const dict: Dict = {
   "auth.or": { tr: "veya", en: "or" },
   "auth.back": { tr: "← Geri", en: "← Back" },
   "auth.error.name_required": { tr: "Menajer adı gerekli", en: "Manager name required" },
-  "auth.error.password_short": { tr: "Şifre en az 6 karakter olmalı", en: "Password must be at least 6 characters" },
+  "auth.error.password_short": { tr: "Şifre en az 8 karakter olmalı", en: "Password must be at least 8 characters" },
   "auth.error.email_confirm": { tr: "Email onayı gerekli. Emailini kontrol et.", en: "Email confirmation required. Check your email." },
   "auth.error.email_exists": { tr: "Bu email zaten kayıtlı", en: "This email is already registered" },
   "auth.error.invalid": { tr: "Email veya şifre hatalı", en: "Invalid email or password" },
@@ -593,6 +593,11 @@ export const dict: Dict = {
 
   // ---- shop & market ----
   "shop.title": { tr: "Mağaza", en: "Shop" },
+  "shop.pack.bronze": { tr: "Bronz Paket", en: "Bronze Pack" },
+  "shop.pack.silver": { tr: "Gümüş Paket", en: "Silver Pack" },
+  "shop.pack.gold": { tr: "Altın Paket", en: "Gold Pack" },
+  "shop.pack.platinum": { tr: "Platin Paket", en: "Platinum Pack" },
+  "auth.password_hint": { tr: "Şifre (en az 8 karakter, 1 harf + 1 rakam)", en: "Password (min 8 chars, 1 letter + 1 digit)" },
   "shop.how_works": { tr: "Nasıl Çalışır?", en: "How It Works" },
   "shop.coming_market": { tr: "Yakında: Market", en: "Coming Soon: Market" },
   // ---- shop (v2.9.66 i18n genişletme) ----

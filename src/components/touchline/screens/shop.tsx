@@ -1033,7 +1033,7 @@ function CreditsPurchaseTab({ onFeedback }: { onFeedback: (msg: string) => void 
               onFeedback("⚠️ Bu satın alma zaten kullanılmış — kredi tekrar eklenmedi.");
             } else {
               onFeedback("⏳ Satın alman doğrulanıyor — kredin birazdan eklenecek.");
-              // Arka planda tekrar dene (3 deneme, 5s aralık)
+              // Arka planda tekrar dene (1 deneme, 5s sonra)
               setTimeout(async () => {
                 try {
                   const retry = await supabase().functions.invoke("verify-purchase", {

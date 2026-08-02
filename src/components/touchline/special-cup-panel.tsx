@@ -291,15 +291,15 @@ function CreateCupForm({
     }
 
     try {
+      // v2.9.70 FIX: Migration 030 imzasına uy — p_creator_id/p_is_password_protected yok
       const { data, error: rpcErr } = await supabase.rpc("rpc_create_special_cup", {
-        p_creator_id: userId,
+        p_creator_team_name: myTeam.name,
+        p_creator_team_short: myTeam.shortName,
+        p_creator_team_color: myTeam.primaryColor,
         p_cup_name: cupName.trim(),
         p_size: size,
-        p_is_password_protected: isProtected,
         p_password: isProtected ? password : null,
-        p_team_name: myTeam.name,
-        p_team_short: myTeam.shortName,
-        p_team_color: myTeam.primaryColor,
+        p_scheduled_day: "saturday",
       });
       if (rpcErr) {
         setError(rpcErr.message);
@@ -464,9 +464,9 @@ function CupDetail({
     if (!useAppStore.getState().spendCredits(2)) { onFeedback("Kredi harcanamadı."); return; }
 
     try {
+      // v2.9.70 FIX: Migration 030 imzasına uy — p_user_id yok (auth.uid() kullanır)
       const { data, error } = await supabase.rpc("rpc_join_special_cup", {
         p_cup_id: cup.id,
-        p_user_id: userId,
         p_team_name: myTeam.name,
         p_team_short: myTeam.shortName,
         p_team_color: myTeam.primaryColor,
