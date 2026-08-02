@@ -1721,7 +1721,7 @@ function LiveMatchEventsBar({
       </div>
       <div className="space-y-0.5 max-h-32 overflow-y-auto tm-thin-scrollbar">
         {importantEvents.map((ev, i) => {
-          const teamName = ev.team === "home" ? homeTeam?.shortName : ev.team === "away" ? awayTeam?.shortName : "";
+          const teamName = ev.team === "home" ? homeTeam?.name : ev.team === "away" ? awayTeam?.name : "";
           let icon = "⚽";
           let color = "text-amber-400";
           if (ev.type === "yellow_card" || ev.type === "second_yellow") {
@@ -1802,7 +1802,7 @@ function MatchEndSummary({
         <Trophy size={14} className="text-amber-400" />
         <span className="text-xs font-bold">Maç Özeti</span>
         <span className="text-[10px] text-muted-foreground ml-auto">
-          {homeTeam.shortName} {homeScore}-{awayScore} {awayTeam.shortName}
+          {homeTeam.name} {homeScore}-{awayScore} {awayTeam.name}
         </span>
       </div>
 
@@ -1811,7 +1811,7 @@ function MatchEndSummary({
           <div className="text-[10px] text-muted-foreground uppercase font-bold mb-1">⚽ Goller</div>
           <div className="space-y-1">
             {goals.map((g, i) => {
-              const teamName = g.team === "home" ? homeTeam?.shortName : awayTeam?.shortName;
+              const teamName = g.team === "home" ? homeTeam?.name : awayTeam?.name;
               const isMyTeam = g.team === mySide;
               return (
                 <div key={`goal-${i}`} className="flex items-center gap-2 text-xs">
@@ -1841,7 +1841,7 @@ function MatchEndSummary({
                 <span className="w-3 h-4 bg-amber-400 rounded-sm shrink-0" />
                 <span className="font-semibold truncate">{c.playerName || "Bilinmeyen"}</span>
                 <span className="text-[10px] text-muted-foreground">
-                  ({c.team === "home" ? homeTeam?.shortName : awayTeam?.shortName})
+                  ({c.team === "home" ? homeTeam?.name : awayTeam?.name})
                 </span>
               </div>
             ))}
@@ -1851,7 +1851,7 @@ function MatchEndSummary({
                 <span className="w-3 h-4 bg-red-500 rounded-sm shrink-0" />
                 <span className="font-semibold truncate">{c.playerName || "Bilinmeyen"}</span>
                 <span className="text-[10px] text-muted-foreground">
-                  ({c.team === "home" ? homeTeam?.shortName : awayTeam?.shortName})
+                  ({c.team === "home" ? homeTeam?.name : awayTeam?.name})
                 </span>
               </div>
             ))}

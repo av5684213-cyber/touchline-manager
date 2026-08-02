@@ -41,6 +41,8 @@ export function TransferNegotiationModal({
   const [loanFee, setLoanFee] = useState(Math.round(askingPrice * 0.1));
   const [loanWeeks, setLoanWeeks] = useState(12);
   const [minAppearances, setMinAppearances] = useState(0);
+  // v2.9.67: Kira bitiminde satın alma opsiyonu (buyout)
+  const [loanBuyoutAmount, setLoanBuyoutAmount] = useState(0);
 
   // Teklif gönder
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -133,6 +135,9 @@ export function TransferNegotiationModal({
     let aiScore = 50;
     if (minAppearances >= 15) aiScore += 15;
     if (loanFee >= askingPrice * 0.1) aiScore += 10;
+    // v2.9.67: Buyout opsiyonu — AI sever (garanti para)
+    if (loanBuyoutAmount >= askingPrice) aiScore += 15;
+    if (loanBuyoutAmount >= askingPrice * 1.2) aiScore += 5;
     // Deterministic bonus: loanFee askingPrice'ın %15'inden fazlaysa ek puan
     if (loanFee >= askingPrice * 0.15) aiScore += 5;
 
@@ -350,6 +355,25 @@ export function TransferNegotiationModal({
                     {minAppearances > 0
                       ? `${minAppearances} maçta ilk 11'de oynamazsan ceza ödersin`
                       : "Şart yok — serbest oynatma"}
+                  </div>
+                </div>
+
+                {/* v2.9.67: Kira bitiminde satın alma opsiyonu */}
+                <div>
+                  <label className="text-[10px] font-semibold text-muted-foreground uppercase">
+                    Satın Alma Opsiyonu (Kira Bitiminde)
+                  </label>
+                  <input
+                    type="number"
+                    value={loanBuyoutAmount || ""}
+                    placeholder="0 = yok"
+                    onChange={(e) => setLoanBuyoutAmount(Number(e.target.value))}
+                    className="w-full bg-card border border-border rounded-md px-2 py-1 text-xs font-bold tabular-nums mt-1"
+                  />
+                  <div className="text-[11px] text-muted-foreground">
+                    {loanBuyoutAmount > 0
+                      ? `Kira bitiminde ${formatEuro(loanBuyoutAmount, locale)} ödeyerek oyuncuyu kalıcı alabilirsin`
+                      : "Opsiyon yok — kira bitince oyuncu geri döner"}
                   </div>
                 </div>
               </div>

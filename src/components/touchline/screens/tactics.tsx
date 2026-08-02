@@ -640,14 +640,14 @@ export function TacticsScreen() {
             </div>
           </div>
         ) : (
-          // v2.9.22 Y1: Yedek oyuncu listesi — 7 yedek (yatay kaydırılabilir) + Diğer Oyuncular
+          // v2.9.67: Yedek oyuncu listesi — dikey liste (okunabilir)
           <div className="px-2 py-2 space-y-2">
-            {/* Maç kadrosu yedekleri — 7 oyuncu */}
-            <div className="overflow-x-auto tm-no-scrollbar">
+            {/* Maç kadrosu yedekleri — 7 oyuncu (liste) */}
+            <div>
               <div className="text-[10px] text-muted-foreground font-bold uppercase mb-1">Yedek Kulübesi ({matchDayBench.length}/7)</div>
-              <div className="flex gap-1.5 min-w-min">
+              <div className="space-y-1 max-h-[200px] overflow-y-auto tm-thin-scrollbar">
                 {matchDayBench.length === 0 && (
-                  <div className="text-[10px] text-muted-foreground text-center py-3 w-full">
+                  <div className="text-[10px] text-muted-foreground text-center py-2">
                     Tüm oyuncular ilk 11'de — yedek yok.
                   </div>
                 )}
@@ -658,32 +658,30 @@ export function TacticsScreen() {
                     key={p.id}
                     onClick={() => { haptic("light"); setBenchModeSlot(p.id); }}
                     className={cn(
-                      "tm-tap shrink-0 w-[68px] flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-md border-2 transition-colors",
+                      "tm-tap w-full flex items-center gap-2 py-1.5 px-2 rounded-md border transition-colors",
                       "hover:border-primary/50 hover:bg-accent/30",
                       POSITION_ROW_BG[posGroup],
+                      benchModeSlot === p.id && "border-primary ring-1 ring-primary/30",
                     )}
                   >
                     <span
-                      className="inline-flex items-center justify-center rounded-full text-[10px] font-bold text-white border border-white/30"
-                      style={{
-                        width: 28, height: 28,
-                        background: team.primaryColor ?? "#1a3a2a",
-                      }}
+                      className="inline-flex items-center justify-center rounded-full text-[10px] font-bold text-white border border-white/30 shrink-0"
+                      style={{ width: 28, height: 28, background: team.primaryColor ?? "#1a3a2a" }}
                     >
                       {p.rating}
                     </span>
-                    <span className="text-[10px] font-semibold truncate w-full text-center">
+                    <span className="text-xs font-semibold flex-1 text-left truncate">
                       {p.firstName} {p.lastName}
                     </span>
-                    <span className="text-[11px] text-muted-foreground">{p.specificPosition}</span>
+                    <span className="text-[11px] text-muted-foreground shrink-0">{p.specificPosition}</span>
                     {(p.cond ?? 100) < 50 && (
-                      <span className="text-[11px] text-red-400 font-bold">{p.cond}❤</span>
+                      <span className="text-[10px] text-red-400 font-bold shrink-0">{p.cond}❤</span>
                     )}
                     {p.is_injured && (
-                      <span className="text-[11px] text-red-400 font-bold">🤕</span>
+                      <span className="text-[10px] shrink-0">🤕</span>
                     )}
                     {p.suspended_until && Number(p.suspended_until) > seasonMatchday && (
-                      <span className="text-[11px] text-amber-400 font-bold" title="Cezalı">🟥</span>
+                      <span className="text-[10px] shrink-0">🟥</span>
                     )}
                   </button>
                 );
@@ -691,11 +689,11 @@ export function TacticsScreen() {
               </div>
             </div>
 
-            {/* Diğer Oyuncular — yedek kulübesi dışındaki tüm oyuncular */}
+            {/* Diğer Oyuncular — liste */}
             {otherPlayers.length > 0 && (
-              <div className="overflow-x-auto tm-no-scrollbar pt-2 border-t border-border/40">
+              <div className="pt-2 border-t border-border/40">
                 <div className="text-[10px] text-muted-foreground font-bold uppercase mb-1">Diğer Oyuncular ({otherPlayers.length})</div>
-                <div className="flex gap-1.5 min-w-min">
+                <div className="space-y-1 max-h-[200px] overflow-y-auto tm-thin-scrollbar">
                   {otherPlayers.map((p) => {
                     const posGroup = POSITION_GROUP[p.specificPosition] ?? "MID";
                     return (
@@ -703,29 +701,27 @@ export function TacticsScreen() {
                         key={p.id}
                         onClick={() => { haptic("light"); setBenchModeSlot(p.id); }}
                         className={cn(
-                          "tm-tap shrink-0 w-[68px] flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-md border-2 transition-colors opacity-70",
+                          "tm-tap w-full flex items-center gap-2 py-1.5 px-2 rounded-md border transition-colors opacity-80",
                           "hover:border-primary/50 hover:bg-accent/30 hover:opacity-100",
                           POSITION_ROW_BG[posGroup],
+                          benchModeSlot === p.id && "border-primary ring-1 ring-primary/30 opacity-100",
                         )}
                       >
                         <span
-                          className="inline-flex items-center justify-center rounded-full text-[10px] font-bold text-white border border-white/30"
-                          style={{
-                            width: 28, height: 28,
-                            background: team.primaryColor ?? "#1a3a2a",
-                          }}
+                          className="inline-flex items-center justify-center rounded-full text-[10px] font-bold text-white border border-white/30 shrink-0"
+                          style={{ width: 28, height: 28, background: team.primaryColor ?? "#1a3a2a" }}
                         >
                           {p.rating}
                         </span>
-                        <span className="text-[10px] font-semibold truncate w-full text-center">
+                        <span className="text-xs font-semibold flex-1 text-left truncate">
                           {p.firstName} {p.lastName}
                         </span>
-                        <span className="text-[11px] text-muted-foreground">{p.specificPosition}</span>
+                        <span className="text-[11px] text-muted-foreground shrink-0">{p.specificPosition}</span>
                         {p.is_injured && (
-                          <span className="text-[11px] text-red-400 font-bold">🤕</span>
+                          <span className="text-[10px] shrink-0">🤕</span>
                         )}
                         {p.suspended_until && Number(p.suspended_until) > seasonMatchday && (
-                          <span className="text-[11px] text-amber-400 font-bold" title="Cezalı">🟥</span>
+                          <span className="text-[10px] shrink-0">🟥</span>
                         )}
                       </button>
                     );
