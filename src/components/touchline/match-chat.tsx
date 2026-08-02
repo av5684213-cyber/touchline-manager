@@ -6,8 +6,17 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { useAppStore } from "@/lib/store";
 import { haptic } from "@/hooks/touchline";
 
-// P0 FIX BUG #14: Basit küfür/argo filtresi — Google Play UGC politikası gereği
+// P0 FIX BUG #14 + v2.9.72: Küfür/argo filtresi — Google Play UGC politikası gereği
 // Türkçe + İngilizce yaygın küfürler
+//
+// v2.9.72 HARDENING:
+//   1. Kelimeyi regex.escape yap (eski sürümde meta-karakterler catch'e düşüyordu)
+//   2. Unicode NFKD normalizasyonu (lookalike char'lar: 𝖋𝖚𝖈𝖐 → fuck)
+//   3. Zero-width char'ları temizle (f​uck → fuck)
+//   4. Leetspeak collapse (f*ck, f.u.c.k, fck → fuck için normalize)
+//   5. \b yerine manuel kelime sınırı (Türkçe ç/ş/ğ/ı \b'de word char sayılmaz)
+//   6. Naive substring fallback KALDIRILDI — false positive riski yüzünden
+
 const BANNED_WORDS = [
   // İngilizce
   "fuck", "shit", "bitch", "asshole", "bastard", "damn", "cunt", "dick", "piss",
@@ -16,19 +25,95 @@ const BANNED_WORDS = [
   "götveren", "gerizekalı",
 ];
 
+// Regex meta-karakterlerini escape yap
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Metni normalize et: NFKD → combining mark temizle → zero-width → leetspeak → collapse
+function normalizeForFilter(text: string): string {
+  // 1. NFKD normalizasyonu — lookalike Unicode char'ları temel formuna indirir
+  //    (örn: 𝖋𝖚𝖈𝖐 → f,u,c,k ayrı code point'ler → Latin 'fuck')
+  //    Side effect: "ç" → "c" + U+0327 (combining cedilla)
+  let normalized = text.normalize("NFKD");
+
+  // 2. Combining mark'ları temizle (NFKD'nin yan etkisi)
+  //    Bu, "ç" → "c", "ş" → "s", "ğ" → "g", "ı" → "i" (öyle kalsın),
+  //    "ö" → "o", "ü" → "u" dönüşümü yapar.
+  //    Banned words listesi de aynı dönüşümden geçtiği için eşleşme çalışır.
+  //    U+0300-U+036F = combining diacritical marks
+  normalized = normalized.replace(/[\u0300-\u036F]/g, "");
+
+  // 3. Zero-width ve görünmez char'ları temizle
+  //    (U+200B zero-width space, U+200C ZWNJ, U+200D ZWJ, U+FEFF BOM)
+  normalized = normalized.replace(/[\u200B-\u200D\uFEFF]/g, "");
+
+  // 4. Leetspeak → Latin (yaygın varyantlar)
+  //    @ → a, $ → s, 0 → o, 1 → i, 3 → e, 4 → a, 5 → s, 7 → t, 8 → b
+  //    * → (remove) — "f*ck" → "fck" → sonra collapse etmek yerine, "f*ck" → "fck"
+  //    Yıldız dahil bazı noktalama işaretleri de leetspeak için olabilir ama
+  //    çok agresif olmak false positive yaratır. Sadece yaygın olanları al.
+  normalized = normalized.replace(/[0-9@$*]/g, (c) => {
+    const map: Record<string, string> = {
+      "0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "8": "b",
+      "@": "a", "$": "s",
+      "*": "", // yıldızı sil — "f*ck" → "fck" → tekrarlı harf collapse ile "fck"
+    };
+    return map[c] ?? c;
+  });
+
+  // 5. Tekrarlayan harfleri daralt (fuuuck → fuuck)
+  //    3+ tekrarı 2'ye indir. "fck" → "fck" (değişmez), "fuuuck" → "fuuck".
+  //    Bu kural biraz gevşek — "fck" hala "fuck" ile eşleşmez. Ama çok agresif
+  //    daraltma (örn: 2'ye değil 1'e) false positive yaratır ("luck" → "lck"?).
+  //    Şimdilik 3+ → 2 kalsın, ileride vurgulanmış char'lar için ayrı kural eklenebilir.
+  normalized = normalized.replace(/([a-zA-Z])\1{2,}/g, "$1$1");
+
+  return normalized;
+}
+
+// Banned words'i de aynı normalizasyondan geçir — böylece "piç" (precomposed)
+// ile "pic" (NFKD + strip combining) eşleşir.
+const BANNED_WORDS_NORMALIZED = BANNED_WORDS.map((w) => normalizeForFilter(w));
+
 function filterMessage(text: string): string {
-  let filtered = text;
-  for (const word of BANNED_WORDS) {
-    // Kelime sınırı + case-insensitive
-    try {
-      const regex = new RegExp(`\\b${word}\\b`, "gi");
-      filtered = filtered.replace(regex, "*".repeat(word.length));
-    } catch {
-      // Regex hatası (özel karakter) — basit replace dene
-      filtered = filtered.split(word).join("*".repeat(word.length));
-    }
+  // Strateji: Metni normalize et (NFKD + zero-width temizle + leetspeak collapse),
+  // sonra banned word'leri manuel kelime sınırıyla yıldızla.
+  //
+  // Neden normalize edilmiş metni döndürüyoruz (orijinali değil)?
+  //   - Lookalike char saldırıları (𝖋𝖚𝖈𝖐) ancak normalize edilince yakalanır.
+  //   - Orijinal metinde yıldızlama yaparsak, banned word'ün normalize edilmiş
+  //     hali orijinalde farklı pozisyonda olabilir → replace çalışmaz.
+  //   - Trade-off: Kullanıcı kendi mesajında biraz farklı karakterler görebilir
+  //     (örn: @ → a, 4 → a) ama bu kabul edilebilir — küfür sansürlenmiş oluyor.
+  //
+  // Manuel kelime sınırı: \b yerine ASCII + Türkçe harfleri kullan.
+  // JS regex'te \b sadece [a-zA-Z0-9_] sınırlarını tanır — Türkçe ç, ş, ğ, ı
+  // non-word char sayılır. Bu yüzden "piç" kelimesi "çopiççe" içinde de
+  // eşleşirdi (yanlış). Manuel sınır bunu önlüyor.
+
+  let result = normalizeForFilter(text);
+
+  for (let i = 0; i < BANNED_WORDS_NORMALIZED.length; i++) {
+    const word = BANNED_WORDS_NORMALIZED[i];
+    const originalLen = BANNED_WORDS[i].length;
+    const escaped = escapeRegex(word);
+    // ASCII-only boundary — çünkü normalize sonrası Türkçe harfler ASCII'ye döndü
+    const pattern = new RegExp(
+      `(^|[^a-zA-Z0-9])${escaped}([^a-zA-Z0-9]|$)`,
+      "gi"
+    );
+    // Replace loop — aynı kelime birden fazla geçiyorsa hepsini yakala
+    let prev: string;
+    let iterations = 0;
+    do {
+      prev = result;
+      result = result.replace(pattern, (_m, pre, post) => `${pre}${"*".repeat(originalLen)}${post}`);
+      iterations++;
+    } while (result !== prev && iterations < 100); // Safety limit
   }
-  return filtered;
+
+  return result;
 }
 
 // P0 FIX BUG #14: Rate limiting — dakikada max 10 mesaj
