@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useAppStore } from "@/lib/store";
-import { supabase } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase"; // v2.9.72: tek client (eski: @/lib/supabase/client)
 
 /**
  * Realtime hook — Supabase Realtime ile standings + fixtures
@@ -24,7 +24,7 @@ export function useRealtimeSync() {
     const deptId = myTeam.department;
 
     // Standings değişikliğini dinle
-    const standingsChannel = supabase()
+    const standingsChannel = supabase
       .channel("standings-changes")
       .on(
         "postgres_changes",
@@ -42,7 +42,7 @@ export function useRealtimeSync() {
       .subscribe();
 
     // Fixtures değişikliğini dinle (maç oynandı)
-    const fixturesChannel = supabase()
+    const fixturesChannel = supabase
       .channel("fixtures-changes")
       .on(
         "postgres_changes",
@@ -62,15 +62,15 @@ export function useRealtimeSync() {
       .subscribe();
 
     return () => {
-      supabase().removeChannel(standingsChannel);
-      supabase().removeChannel(fixturesChannel);
+      supabase.removeChannel(standingsChannel);
+      supabase.removeChannel(fixturesChannel);
     };
   }, [myTeamId, clubs]); // v2.9.70: deps eklendi — login sonrası yeniden çalış
 }
 
 async function reloadStandings(deptId: number) {
   try {
-    const { data } = await supabase()
+    const { data } = await supabase
       .from("standings")
       .select("*")
       .eq("department_id", deptId)
@@ -92,7 +92,7 @@ async function reloadFixtures(deptId: number) {
     const myTeamId = store.myTeamId;
     if (!myTeamId) return;
 
-    const { data } = await supabase()
+    const { data } = await supabase
       .from("fixtures")
       .select("*")
       .or(`home_team_id.eq.${myTeamId},away_team_id.eq.${myTeamId}`)
@@ -106,6 +106,9 @@ async function reloadFixtures(deptId: number) {
         awayId: f.away_team_id,
         homeScore: f.home_score,
         awayScore: f.away_score,
+        // v2.9.72: FixtureRow requires date; DB'de kickoff/match_date kolonu
+        // yoksa boş string fallback (sadece oynanmamış maçlar için sıralama)
+        date: f.match_date ?? f.kickoff ?? f.date ?? "",
         played: f.status === "finished",
       }));
 

@@ -4581,7 +4581,7 @@ export const useAppStore = create<AppState>()(
             }));
             return {
               id: t.id, name: t.name, shortName: t.short_name, primaryColor: t.primary_color, secondaryColor: t.secondary_color,
-              leagueTier: t.league_tier === "super_lig" ? 1 : t.league_tier === "1_lig" ? 2 : t.league_tier === "2_lig" ? 3 : 4,
+              leagueTier: (t.league_tier === "super_lig" ? 1 : t.league_tier === "1_lig" ? 2 : t.league_tier === "2_lig" ? 3 : 4) as 1 | 2 | 3 | 4,
               department: t.department_id, players, budget: t.budget, stadiumCapacity: t.stadium_capacity,
               stadiumName: t.stadium_name, is_bot: t.is_bot, manager_user_id: t.manager_user_id,
             };
@@ -4589,7 +4589,10 @@ export const useAppStore = create<AppState>()(
 
           const fixtureRows = (fixtures ?? []).map((f: any) => ({
             id: f.id, matchday: f.matchday, homeId: f.home_team_id, awayId: f.away_team_id,
-            homeScore: f.home_score, awayScore: f.away_score, played: f.status === "finished" || f.played_at != null,
+            homeScore: f.home_score, awayScore: f.away_score,
+            // v2.9.72: FixtureRow requires date — DB column may be match_date/kickoff
+            date: f.match_date ?? f.kickoff ?? f.date ?? "",
+            played: f.status === "finished" || f.played_at != null,
           }));
 
           set({

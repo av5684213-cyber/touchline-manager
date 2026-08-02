@@ -87,8 +87,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           pendingTimeouts.push(
             setTimeout(async () => {
               try {
-                const { supabase: supabaseClient } = await import("@/lib/supabase/client");
-                const { data: assignResult, error: assignErr } = await supabaseClient().rpc(
+                // v2.9.72 FIX: Daha önce @/lib/supabase/client üzerinden
+                // ikincil bir Supabase client kullanılıyordu (farklı storageKey).
+                // Bu, oturumun ikincil client'ta olmamasına → RLS reddine yol açıyordu.
+                // Artık tek primary client kullanılıyor (@/lib/supabase).
+                const { data: assignResult, error: assignErr } = await supabase.rpc(
                   "rpc_assign_team_to_user_v2",
                   {
                     p_user_id: newSession!.user.id,
