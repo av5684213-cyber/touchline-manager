@@ -81,8 +81,9 @@ async function reloadStandings(deptId: number) {
       // Broadcast event ile sayfa yenilenmesini tetikle
       window.dispatchEvent(new CustomEvent("standings-updated", { detail: data }));
     }
-  } catch {
-    /* no-op */
+  } catch (e) {
+    // v2.9.73: Eski kod sessizce hata yutuyordu — log eklendi
+    console.warn("[realtime-sync] reloadStandings error:", e);
   }
 }
 
@@ -114,7 +115,8 @@ async function reloadFixtures(deptId: number) {
 
       useAppStore.setState({ fixtures: fixtureRows });
     }
-  } catch {
-    /* no-op */
+  } catch (e) {
+    // v2.9.73: Eski kod sessizce hata yutuyordu — log eklendi
+    console.warn("[realtime-sync] reloadFixtures error:", e);
   }
 }

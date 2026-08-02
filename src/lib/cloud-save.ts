@@ -332,15 +332,60 @@ export function saveGameState(userId: string, immediate: boolean = false) {
       // P0 FIX: localStorage'a da yedekle
       saveToLocalStorage(stateToSave);
 
-      // user_game_state — tam state JSON olarak
-      const { error } = await supabase.rpc("rpc_save_game_state", {
-        p_profile_id: userId,
-        p_state: stateToSave,
-        p_version: 1,
-      });
+      // v2.9.73: rpc_save_game_state için retry + exponential backoff
+      // (saveTacticsToTable ile aynı pattern — network hatası durumunda state kaybolmasın)
+      const MAX_RETRIES = 3;
+      const RETRY_DELAYS = [1000, 2000, 4000];
+      let savedSuccessfully = false;
 
-      if (error) {
-        console.warn("[cloud-save] Save error:", error.message);
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        const { error } = await supabase.rpc("rpc_save_game_state", {
+          p_profile_id: userId,
+          p_state: stateToSave,
+          p_version: 1,
+        });
+
+        if (!error) {
+          savedSuccessfully = true;
+          break;
+        }
+
+        console.warn(
+          `[cloud-save] Save error (attempt ${attempt + 1}/${MAX_RETRIES + 1}):`,
+          error.message
+        );
+
+        // 42501 = forbidden (auth.uid mismatch), 23505 = unique_violation
+        // Bu hatalar retry ile çözülmez — döngüden çık
+        if (error.code === "42501" || error.code === "23505") {
+          break;
+        }
+
+        if (attempt < MAX_RETRIES) {
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAYS[attempt]));
+        }
+      }
+
+      if (!savedSuccessfully) {
+        // Tüm denemeler başarısız — localStorage'a yedekle (offline queue)
+        if (typeof window !== "undefined") {
+          try {
+            const pending = JSON.parse(localStorage.getItem("tm_state_pending_sync") ?? "[]");
+            pending.push({ state: stateToSave, _pendingAt: Date.now() });
+            // Son 5 kaydı tut
+            localStorage.setItem(
+              "tm_state_pending_sync",
+              JSON.stringify(pending.slice(-5))
+            );
+          } catch { /* ignore */ }
+        }
+      } else {
+        // Başarılı — pending sync varsa temizle
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.removeItem("tm_state_pending_sync");
+          } catch { /* ignore */ }
+        }
       }
 
       // v2.9.20: Multiplayer tablolarına da yaz (active_tactics + app_state)

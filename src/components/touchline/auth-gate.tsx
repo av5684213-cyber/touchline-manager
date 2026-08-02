@@ -242,6 +242,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-card border border-border text-sm"
                 autoCapitalize="none"
+                maxLength={254}
               />
             </div>
             <div className="relative">
@@ -253,6 +254,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSignIn()}
                 className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-card border border-border text-sm"
+                maxLength={128}
               />
             </div>
             {error && <p className="text-[11px] text-red-400 text-center">{error}</p>}
@@ -338,6 +340,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-card border border-border text-sm"
                 autoCapitalize="none"
+                maxLength={254}
               />
             </div>
             {/* Şifre */}
@@ -351,6 +354,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSignUp()}
                 className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-card border border-border text-sm"
+                maxLength={128}
               />
             </div>
             {error && <p className="text-[11px] text-red-400 text-center">{error}</p>}

@@ -3915,7 +3915,9 @@ export const useAppStore = create<AppState>()(
                 teamName: userTeamData.name,
                 teamShort: userTeamData.shortName,
                 teamColor: userTeamData.primaryColor,
-                country: "TR", // kullanıcının ülkesi
+                // v2.9.73 FIX: Eski kod hardcoded "TR" idi — GB/ES/DE kullanıcıları
+                // tier 1'de ilk 3'e girse bile CL'de "TR" olarak işaretlenirdi.
+                country: get().userCountryCode || "TR",
                 tier: 1,
                 finalPosition: userFinalIdx + 1,
                 isUser: true,
