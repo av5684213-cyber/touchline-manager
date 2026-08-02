@@ -111,7 +111,7 @@ function triggerTacticsSave(): void {
  */
 type CardItem = {
   cardId: string;          // benzersiz ID (örn "trait_pos_Ofsayt ustası_defans")
-  cardType: "trait_positive" | "trait_negative_removal" | "arketip";
+  cardType: "trait_positive" | "trait_negative_removal" | "arketip" | "stat_boost";
   cardName: string;        // kart adı (örn "Ofsayt ustası" veya "Hız Eğitimi Kartı")
   groupName: string;       // hangi pozisyon grubuna ait (defans/orta_saha/forvet/kaleci/arketip)
   quantity: number;        // kaç adet sahip
@@ -423,7 +423,7 @@ type AppState = {
   loadMultiplayerState: (userId: string) => Promise<{ success: boolean; reason?: string }>;
   // v2.9.65: saveToCloud/saveTacticsToCloud KALDIRILDI — dead code (cloud-save.ts subscribe ile çalışır)
   // v2.9.28 GÖREV 5: Kart envanteri action'ları
-  buyCard: (cardId: string, cardType: "trait_positive" | "trait_negative_removal" | "arketip", cardName: string, groupName: string, price: number, description: string, effectData?: any) => { success: boolean; reason?: string };
+  buyCard: (cardId: string, cardType: "trait_positive" | "trait_negative_removal" | "arketip" | "stat_boost", cardName: string, groupName: string, price: number, description: string, effectData?: any) => { success: boolean; reason?: string };
   applyCardToPlayer: (cardId: string, playerId: string) => { success: boolean; reason?: string };
   getCardInventory: () => CardItem[];
   // v2.9.34 F2: Maç sonrası stat artışı ekle + sezon sonu kalıcı uygula
@@ -4727,6 +4727,18 @@ export const useAppStore = create<AppState>()(
           if (player.archetype === card.cardName) {
             return { success: false, reason: "Oyuncu zaten bu arketipte" };
           }
+        } else if (card.cardType === "stat_boost") {
+          // v2.9.70: Stat Boost — belirli stat'ı kalıcı artır
+          const statKey = card.effectData?.statKey;
+          const boostAmount = card.effectData?.boostAmount ?? 1;
+          if (!statKey) {
+            return { success: false, reason: "Geçersiz stat boost kartı" };
+          }
+          // Mevcut değer 99 ise artırma
+          const currentValue = (player as any)[statKey] ?? 50;
+          if (currentValue >= 99) {
+            return { success: false, reason: "Bu stat zaten maksimum (99)" };
+          }
         }
 
         // Kart tipine göre uygula
@@ -4751,6 +4763,16 @@ export const useAppStore = create<AppState>()(
           } else if (card.cardType === "arketip") {
             // Arketip değiştir
             updated.archetype = card.cardName;
+          } else if (card.cardType === "stat_boost") {
+            // v2.9.70: Stat Boost — belirli stat'ı kalıcı artır
+            const statKey = card.effectData?.statKey;
+            const boostAmount = card.effectData?.boostAmount ?? 1;
+            if (statKey) {
+              const currentValue = (updated as any)[statKey] ?? 50;
+              (updated as any)[statKey] = Math.min(99, currentValue + boostAmount);
+              // OVR'yi yeniden hesapla (basit yaklaşım — boost kadar OVR artır)
+              updated.rating = Math.min(99, (updated.rating ?? 70) + Math.ceil(boostAmount / 3));
+            }
           }
           // v2.9.46 GÖREV 6: Kart sayacını artır (kalıcı — sadece artar, azalmaz)
           // v2.9.67: appliedCards'a kart adını ekle (profil'de gösterim için)

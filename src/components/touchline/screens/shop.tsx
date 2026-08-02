@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Coins, Package, Sparkles, X, Zap, Crown, Award, ShoppingBag, Layers, Wand2, Archive } from "lucide-react";
+import { Coins, Package, Sparkles, X, Zap, Crown, Award, ShoppingBag, Layers, Wand2, Archive, TrendingUp } from "lucide-react";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { PlayerAvatar, PositionPill, RatingBadge } from "../ui-bits";
 import { POSITION_GROUP } from "@/lib/mock/data";
@@ -450,6 +450,7 @@ function CardsTab({
     trait_positive: { label: t("shop.positive_trait"), icon: Wand2 },
     trait_negative_removal: { label: t("shop.removal_card"), icon: X },
     arketip: { label: t("shop.archetype_card"), icon: Crown },
+    stat_boost: { label: "Stat Boost", icon: TrendingUp },
   };
 
   return (
@@ -502,6 +503,7 @@ function CardsTab({
                 {card.cardType === "trait_positive" && <Wand2 size={12} className="text-emerald-400" />}
                 {card.cardType === "trait_negative_removal" && <X size={12} className="text-red-400" />}
                 {card.cardType === "arketip" && <Crown size={12} className="text-amber-400" />}
+                {card.cardType === "stat_boost" && <TrendingUp size={12} className="text-emerald-400" />}
                 <span className="text-[9px] text-muted-foreground uppercase font-bold">
                   {getRarityLabel(card.rarity)}
                 </span>
@@ -551,6 +553,7 @@ function CardsTab({
           <span className="text-[11px] font-bold text-purple-300 uppercase">{t("shop.card_how")}</span>
         </div>
         <ul className="text-[10px] text-muted-foreground space-y-1 leading-relaxed">
+          <li>• <strong className="text-foreground">Stat Boost:</strong> Oyuncunun belirli stat'ını (şut, pas, hız vb.) kalıcı olarak artırır</li>
           <li>• <strong className="text-foreground">Pozitif Trait:</strong> Oyuncuya yeni özellik ekler (maç motorunu etkiler)</li>
           <li>• <strong className="text-foreground">Giderme Kartı:</strong> Negatif trait'i kaldırır, penaltıyı geri alır</li>
           <li>• <strong className="text-foreground">Arketip Kartı:</strong> Oyuncunun arketipini değiştirir</li>

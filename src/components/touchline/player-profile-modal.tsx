@@ -2561,7 +2561,7 @@ function PlayerCardPickerModal({ player, onClose }: { player: Player; onClose: (
               {(player as any).appliedCards.map((card: any, i: number) => (
                 <div key={i} className="flex items-center gap-2 px-2 py-1 rounded-md bg-muted/30">
                   <span className="text-[10px]">
-                    {card.cardType === "trait_positive" ? "✅" : card.cardType === "trait_negative_removal" ? "🧹" : "🎭"}
+                    {card.cardType === "trait_positive" ? "✅" : card.cardType === "trait_negative_removal" ? "🧹" : card.cardType === "stat_boost" ? "📈" : "🎭"}
                   </span>
                   <span className="text-[11px] font-semibold flex-1 truncate">{card.cardName}</span>
                 </div>

@@ -1,34 +1,23 @@
 /**
- * v2.9.28 GÖREV 1-3: Kart Sistemi — Trait/Arketip Kartları.
+ * v2.9.28 GÖREV 1-3: Kart Sistemi — Trait/Arketip/Stat Boost Kartları.
  *
- * Mevcut trait/arketip verisinden (traitsData.ts + data.ts ARKETIPLER)
- * otomatik olarak satılabilir kart listesi türetir.
- *
- * 3 kart tipi:
+ * 4 kart tipi:
  *   1. Pozitif Trait Kartı — oyuncuya yeni pozitif trait ekler
  *   2. Negatif Özellik Giderme Kartı — oyuncudaki negatif trait'i kaldırır
  *   3. Arketip Kartı — oyuncunun arketipini değiştirir
+ *   4. Stat Boost Kartı (v2.9.70) — oyuncunun belirli stat'ını kalıcı olarak artırır
  *
- * Fiyatlandırma (GÖREV 2):
+ * Fiyatlandırma:
  *   - Pozitif trait: taban_fiyat[level] × (1 + engineWeight × 10)
- *     BEYAZ: 10, LACIVERT: 20, MOR: 35, ALTIN: 50
- *     engineWeight yoksa (kozmetik) taban fiyat
- *   - Negatif giderme: taban 15 + |penalty toplamı| × 1.5
- *   - Arketip: 30 (sabit, tüm arketipler aynı fiyat)
- *
- * İsimlendirme (GÖREV 3):
- *   - Negatif giderme kartları: "[Karşıt Sıfat] Eğitimi Kartı"
- *   - Fiziksel: speed→Hız, heading→Hava Hakimiyeti, workrate→Çalışkanlık
- *   - Zihinsel: awareness→Farkındalık, coolness→Soğukkanlılık, vision→Vizyon,
- *     decision→Karar Verme, disciplin→Disiplin
- *   - Teknik: control→Top Kontrolü, passing→Pas, shooting→Şut,
- *     catching→Tutuş, reflexes→Refleks, defending→Defans
+ *   - Negatif giderme: 15 + |penalty| × 1.5
+ *   - Arketip: 30 (sabit)
+ *   - Stat Boost: +1 → 15, +2 → 30, +3 → 50 (artan maliyet)
  */
 
 import { TRAITS_DATA, type TraitLevel, type TraitDef } from "@/lib/match/engine/traitsData";
 import { ARKETIPLER } from "@/lib/mock/data";
 
-export type CardType = "trait_positive" | "trait_negative_removal" | "arketip";
+export type CardType = "trait_positive" | "trait_negative_removal" | "arketip" | "stat_boost";
 
 export type ShopCard = {
   cardId: string;
@@ -227,6 +216,62 @@ function generateArketipCards(): ShopCard[] {
   return cards;
 }
 
+// ============================================================================
+// v2.9.70: Stat Boost Kartları — oyuncunun belirli stat'ını kalıcı artırır
+// ============================================================================
+
+/**
+ * Stat Boost kartı fiyatı — artan maliyet (diminishing returns yok, sabit)
+ * +1: 15 kredi, +2: 30 kredi, +3: 50 kredi
+ */
+const STAT_BOOST_PRICES: Record<number, number> = {
+  1: 15,
+  2: 30,
+  3: 50,
+};
+
+/**
+ * Boost edilebilecek stat'lar ve Türkçe adları.
+ * Sadece en yaygın 6 stat — diğerleri trait/arketip kartlarıyla zaten etkileniyor.
+ */
+const BOOSTABLE_STATS: Array<{ statKey: string; statName: string; description: string }> = [
+  { statKey: "finishing", statName: "Bitiricilik", description: "Oyuncunun şut/finishing stat'ını kalıcı olarak artırır." },
+  { statKey: "passing", statName: "Pas", description: "Oyuncunun pas isabeti stat'ını kalıcı olarak artırır." },
+  { statKey: "dribbling", statName: "Çalım Atma", description: "Oyuncunun dribling stat'ını kalıcı olarak artırır." },
+  { statKey: "tackling", statName: "Müdahale", description: "Oyuncunun tackling/defans stat'ını kalıcı olarak artırır." },
+  { statKey: "speed", statName: "Hız", description: "Oyuncunun hız stat'ını kalıcı olarak artırır." },
+  { statKey: "heading", statName: "Hava Hakimiyeti", description: "Oyuncunun kafa/top Hakimiyeti stat'ını kalıcı olarak artırır." },
+];
+
+/**
+ * Tüm stat boost kartlarını üret (6 stat × 3 seviye = 18 kart).
+ */
+function generateStatBoostCards(): ShopCard[] {
+  const cards: ShopCard[] = [];
+
+  for (const stat of BOOSTABLE_STATS) {
+    for (const boost of [1, 2, 3]) {
+      const cardId = `stat_boost_${stat.statKey}_${boost}`;
+      const rarity = boost === 1 ? "common" : boost === 2 ? "rare" : "epic";
+      cards.push({
+        cardId,
+        cardType: "stat_boost",
+        cardName: `${stat.statName} +${boost}`,
+        groupName: "stat_boost",
+        price: STAT_BOOST_PRICES[boost] ?? 15,
+        description: stat.description,
+        effectData: {
+          statKey: stat.statKey,
+          boostAmount: boost,
+        },
+        rarity,
+      });
+    }
+  }
+
+  return cards;
+}
+
 /**
  * Tüm kartları üret — mağaza için tek giriş noktası.
  * Mevcut trait verisinden otomatik türetildiği için, ileride yeni trait
@@ -237,6 +282,7 @@ export function getAllShopCards(): ShopCard[] {
     ...generatePositiveTraitCards(),
     ...generateNegativeRemovalCards(),
     ...generateArketipCards(),
+    ...generateStatBoostCards(),
   ];
 }
 
@@ -315,6 +361,7 @@ export function getGroupLabel(groupName: string): string {
     return `Arketip · ${pos}`;
   }
   switch (groupName) {
+    case "stat_boost": return "Stat Boost";
     case "defans": return "Defans";
     case "orta_saha": return "Orta Saha";
     case "forvet": return "Forvet";
