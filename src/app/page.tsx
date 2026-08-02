@@ -36,6 +36,8 @@ import { LeaderboardScreen } from "@/components/touchline/screens/leaderboard";
 import { NewsScreen } from "@/components/touchline/screens/news";
 import { MessagesScreen } from "@/components/touchline/screens/messages";
 import { OtherDrawer } from "@/components/touchline/other-drawer";
+// v2.9.74: Sekme arka planları (Manus.ai üretimi, optimize edilmiş WebP)
+import { TabBackground } from "@/components/touchline/tab-background";
 import { WelcomeModal } from "@/components/touchline/welcome-modal";
 // v2.9.58: Yardım modal'ı — oyunun amacı + sekmeler + arketip açıklaması
 import { HelpModal } from "@/components/touchline/help-modal";
@@ -121,18 +123,25 @@ export default function Home() {
     <AuthGate>
       <CosmeticsApplier />
       <div className="tm-app-shell flex flex-col">
-        {isMatch && <TopBar compact />}
-        {!isMatch && <StickyQuickBar activeTab={tab} onChange={setTab} />}
-        <main className="flex-1 overflow-y-auto tm-thin-scrollbar">
-          <ErrorBoundary resetKey={tab}>
-            {renderScreen()}
-          </ErrorBoundary>
-        </main>
-        <BottomNav
-          active={tab}
-          onChange={setTab}
-          onOpenOther={() => setOtherOpen(true)}
-        />
+        {/* v2.9.74: Sekme bazlı arka plan görseli + overlay
+            - pointer-events: none → tıklama/scroll bozulmaz
+            - z-0 → içerik (z-10+) üstte kalır
+            - Eksik görselde sessizce fallback (bg-background) */}
+        <TabBackground tabKey={tab} />
+        <div className="relative z-10 flex flex-col flex-1 min-h-0">
+          {isMatch && <TopBar compact />}
+          {!isMatch && <StickyQuickBar activeTab={tab} onChange={setTab} />}
+          <main className="flex-1 overflow-y-auto tm-thin-scrollbar">
+            <ErrorBoundary resetKey={tab}>
+              {renderScreen()}
+            </ErrorBoundary>
+          </main>
+          <BottomNav
+            active={tab}
+            onChange={setTab}
+            onOpenOther={() => setOtherOpen(true)}
+          />
+        </div>
         <OtherDrawer
           open={otherOpen}
           onClose={() => setOtherOpen(false)}
