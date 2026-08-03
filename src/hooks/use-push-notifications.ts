@@ -124,26 +124,16 @@ export function usePushNotifications() {
     };
   }, [user]);
 
-  // Çıkış yapınca token sil
-  useEffect(() => {
-    return () => {
-      if (registeredRef.current) {
-        // Token cleanup — async olarak çalıştır
-        (async () => {
-          try {
-            const { supabase } = await import("@/lib/supabase/client");
-            await supabase().rpc("rpc_unregister_push_token", {
-              p_token: registeredRef.current,
-            });
-            console.log("[fcm] Push token unregistered");
-          } catch {
-            // no-op
-          }
-        })();
-        registeredRef.current = null;
-      }
-    };
-  }, [user]);
+  // v2.9.75: Ölü unregister cleanup KALDIRILDI.
+  // Eski kod (useEffect with registeredRef.current + rpc_unregister_push_token):
+  //   - PUSH_NOTIFICATIONS_ENABLED = false olduğu için registeredRef.current
+  //     hiçbir zaman set edilmiyordu (ilk useEffect satır 79'da erken return)
+  //   - Cleanup fonksiyonu registeredRef.current null olduğu için hep atlanıyordu
+  //   - Pratikte hiç çalışmıyordu — zararsız ama gereksiz ölü kod
+  // Backend'deki rpc_unregister_push_token RPC'si DOKUNULMADI — sadece
+  // client tarafındaki artık kod yolu temizlendi.
+  // İleride push notifications tekrar açılırsa (PUSH_NOTIFICATIONS_ENABLED = true),
+  // unregister cleanup buraya yeniden eklenebilir.
 }
 
 /**
