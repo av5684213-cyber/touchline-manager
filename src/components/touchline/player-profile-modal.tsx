@@ -5,6 +5,7 @@ import { type Locale } from "@/lib/i18n/types";
 import { X, User, Upload, ArrowLeftRight, Banknote, Wand2, Crown, Check } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { POSITION_GROUP, ARKETIPLER, type Player, type SeasonStat, type SeasonAward } from "@/lib/mock/data";
+import { AWARD_CATEGORIES, getAwardImagePath, AWARD_MIGRATION_MAP, type AwardTier } from "@/lib/award-system";
 import { TIER_TEAM_NAMES, TEAM_NAME_BANK } from "@/lib/match/engine/constants";
 import { getArketipEtkiOzet, getOvrFactorPercent } from "@/lib/match/engine/arketipEffects";
 // v2.9.75: Trait level renkleri için (MOR/ALTIN/LACIVERT/BEYAZ)
@@ -2910,54 +2911,63 @@ function AchievementsTab({
         </div>
       )}
 
-      {/* v2.9.46 GÖREV 3: Kariyer Ödülleri — sezon bazlı geçmiş */}
+      {/* v2.9.76: Ödül Vitrini — WebP görseller ile seasonAwards gösterimi */}
       {(() => {
         const awards = (player as any).seasonAwards as SeasonAward[] | undefined;
         if (!awards || awards.length === 0) return null;
 
-        // Ödül ikonları + etiketleri
-        const AWARD_META: Record<string, { icon: string; label: string; color: string }> = {
-          top_scorer: { icon: "⚽", label: "Gol Kralı", color: "text-emerald-400" },
-          top_assist: { icon: "🅰", label: "Asist Kralı", color: "text-sky-400" },
-          mvp: { icon: "⭐", label: "Sezonun Oyuncusu", color: "text-purple-400" },
-          best_goalkeeper: { icon: "🧤", label: "En İyi Kaleci", color: "text-cyan-400" },
-          most_motm: { icon: "🏆", label: "En Çok Maç Adamı", color: "text-amber-400" },
-          most_appearances: { icon: "📋", label: "En Çok Maç Oynayan", color: "text-indigo-400" },
-          league_champion: { icon: "👑", label: "Lig Şampiyonu", color: "text-amber-300" },
-          cup_champion: { icon: "🏆", label: "Kupa Şampiyonu", color: "text-amber-300" },
-          champions_league_winner: { icon: "🌍", label: "Şampiyonlar Ligi", color: "text-blue-300" },
-        };
+        // Eski awardType'ları migrate et
+        const migratedAwards = awards.map(a => ({
+          ...a,
+          awardType: AWARD_MIGRATION_MAP[a.awardType] ?? a.awardType,
+          tier: (a.tier ?? (a.rank === 1 ? "gold" : a.rank === 2 ? "silver" : "bronze")) as AwardTier,
+        }));
 
-        // Sıralama: en yeni sezon en üstte
-        const sorted = [...awards].sort((a, b) => b.seasonNumber - a.seasonNumber);
+        // En yeni en üstte
+        const sorted = [...migratedAwards].sort((a, b) =>
+          (b.awardedAt ?? b.seasonNumber * 1e10) - (a.awardedAt ?? a.seasonNumber * 1e10)
+        );
+
+        // Eski takım ödülleri için emoji fallback
+        const EMOJI_FALLBACK: Record<string, { icon: string; label: string }> = {
+          most_appearances: { icon: "📋", label: "En Çok Maç Oynayan" },
+          league_champion: { icon: "👑", label: "Lig Şampiyonu" },
+          cup_champion: { icon: "🏆", label: "Kupa Şampiyonu" },
+          champions_league_winner: { icon: "🌍", label: "Şampiyonlar Ligi" },
+        };
 
         return (
           <div>
             <div className="text-[11px] text-muted-foreground uppercase font-bold mb-2">
-              Kariyer Ödülleri ({awards.length})
+              🏆 Ödül Vitrini ({awards.length})
             </div>
-            <div className="space-y-1">
+            <div className="grid grid-cols-3 gap-2">
               {sorted.map((a, i) => {
-                const meta = AWARD_META[a.awardType] ?? { icon: "🏅", label: a.awardType, color: "text-muted-foreground" };
-                const rankBadge = a.rank === 1 ? "🥇" : a.rank === 2 ? "🥈" : a.rank === 3 ? "🥉" : "";
+                const cat = AWARD_CATEGORIES[a.awardType as keyof typeof AWARD_CATEGORIES];
+                const imgPath = getAwardImagePath(a.awardType, a.tier as AwardTier);
+                const name = cat ? (locale === "en" ? cat.enName : cat.trName) : (EMOJI_FALLBACK[a.awardType]?.label ?? a.awardType);
+
                 return (
-                  <div key={i} className="tm-card p-2 flex items-center gap-2 text-[10px]">
-                    <span className="text-base shrink-0">{meta.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className={cn("font-bold truncate", meta.color)}>
-                        {meta.label}
-                      </div>
-                      <div className="text-[9px] text-muted-foreground">
-                        {a.seasonLabel} · {a.clubName ?? "—"}
-                        {a.country !== "TR" && a.country !== "INT" && ` · ${a.country}`}
-                        {a.leagueTier && ` · T${a.leagueTier}`}
-                      </div>
+                  <div key={i} className="tm-card p-1.5 flex flex-col items-center text-center gap-1">
+                    {imgPath ? (
+                      <img
+                        src={imgPath}
+                        alt={name}
+                        className="w-12 h-12 object-contain rounded-md"
+                        loading="lazy"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                    ) : (
+                      <span className="text-2xl">{EMOJI_FALLBACK[a.awardType]?.icon ?? "🏅"}</span>
+                    )}
+                    <div className="text-[9px] font-bold truncate w-full" title={name}>
+                      {name}
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {rankBadge && <span className="text-sm">{rankBadge}</span>}
-                      <span className="text-muted-foreground font-bold tabular-nums">
-                        {a.statValue}{a.awardType === "top_scorer" ? "G" : a.awardType === "top_assist" ? "A" : ""}
-                      </span>
+                    <div className="text-[8px] text-muted-foreground">
+                      {a.seasonLabel?.split("/")[0] ?? `S${a.seasonNumber}`}
+                      {a.tier === "gold" && " 🥇"}
+                      {a.tier === "silver" && " 🥈"}
+                      {a.tier === "bronze" && " 🥉"}
                     </div>
                   </div>
                 );
