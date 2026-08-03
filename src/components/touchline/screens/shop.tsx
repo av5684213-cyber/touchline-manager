@@ -136,6 +136,13 @@ export function ShopScreen() {
   const [pulledPlayers, setPulledPlayers] = useState<any[]>([]);
   const [revealIndex, setRevealIndex] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
+  // v2.9.75: Satın alma onayı — "Emin misin?" modal'ı
+  const [confirmPurchase, setConfirmPurchase] = useState<{
+    type: "pack" | "card";
+    name: string;
+    price: number;
+    onConfirm: () => void;
+  } | null>(null);
   // v2.9.28 GÖREV 4: Kart basma modal'ı
   const [applyCard, setApplyCard] = useState<ShopCard | null>(null);
   // v2.9.48: Paketten çıkan oyuncu profili
@@ -149,30 +156,38 @@ export function ShopScreen() {
       setTimeout(() => setFeedback(null), 3000);
       return;
     }
+    // v2.9.75: Onay modal'ı göster
+    setConfirmPurchase({
+      type: "pack",
+      name: pack.name,
+      price: pack.price,
+      onConfirm: () => {
+        setConfirmPurchase(null);
+        haptic("medium");
+        setOpening(packType);
+        setPhase("shaking");
+        setPulledPlayers([]);
+        setRevealIndex(0);
 
-    haptic("medium");
-    setOpening(packType);
-    setPhase("shaking");
-    setPulledPlayers([]);
-    setRevealIndex(0);
-
-    setTimeout(() => {
-      const result = buyPlayerPack(packType);
-      if (result.success && result.players) {
-        haptic("success");
-        setPulledPlayers(result.players);
-        setPhase("revealing");
         setTimeout(() => {
-          setPhase("done");
-          haptic("success");
-        }, 2500);
-      } else {
-        setFeedback(result.reason ?? "Paket açılamadı");
-        setOpening(null);
-        setPhase("idle");
-        setTimeout(() => setFeedback(null), 3000);
-      }
-    }, 2000);
+          const result = buyPlayerPack(packType);
+          if (result.success && result.players) {
+            haptic("success");
+            setPulledPlayers(result.players);
+            setPhase("revealing");
+            setTimeout(() => {
+              setPhase("done");
+              haptic("success");
+            }, 2500);
+          } else {
+            setFeedback(result.reason ?? "Paket açılamadı");
+            setOpening(null);
+            setPhase("idle");
+            setTimeout(() => setFeedback(null), 3000);
+          }
+        }, 2000);
+      },
+    });
   };
 
   const handleClose = () => {
@@ -199,24 +214,33 @@ export function ShopScreen() {
       setTimeout(() => setFeedback(null), 3000);
       return;
     }
-    const result = buyCard(
-      card.cardId,
-      card.cardType,
-      card.cardName,
-      card.groupName,
-      card.price,
-      card.description,
-      card.effectData
-    );
-    if (result.success) {
-      haptic("success");
-      setFeedback(`✓ ${card.cardName} satın alındı! Envanterine eklendi.`);
-      setTimeout(() => setFeedback(null), 2500);
-    } else {
-      haptic("error");
-      setFeedback(`✗ ${result.reason ?? t("shop.purchase_failed")}`);
-      setTimeout(() => setFeedback(null), 3000);
-    }
+    // v2.9.75: Onay modal'ı göster
+    setConfirmPurchase({
+      type: "card",
+      name: card.cardName,
+      price: card.price,
+      onConfirm: () => {
+        setConfirmPurchase(null);
+        const result = buyCard(
+          card.cardId,
+          card.cardType,
+          card.cardName,
+          card.groupName,
+          card.price,
+          card.description,
+          card.effectData
+        );
+        if (result.success) {
+          haptic("success");
+          setFeedback(`✓ ${card.cardName} satın alındı! Envanterine eklendi.`);
+          setTimeout(() => setFeedback(null), 2500);
+        } else {
+          haptic("error");
+          setFeedback(`✗ ${result.reason ?? t("shop.purchase_failed")}`);
+          setTimeout(() => setFeedback(null), 3000);
+        }
+      },
+    });
   };
 
   return (
@@ -420,6 +444,35 @@ export function ShopScreen() {
           card={applyCard}
           onClose={() => setApplyCard(null)}
         />
+      )}
+
+      {/* v2.9.75: Satın alma onayı — "Emin misin?" modal'ı */}
+      {confirmPurchase && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="tm-card w-full max-w-[300px] p-4 space-y-3 text-center">
+            <div className="text-2xl">🛒</div>
+            <div className="text-sm font-bold">Satın Almayı Onayla</div>
+            <div className="text-[11px] text-muted-foreground">
+              <span className="font-bold text-foreground">{confirmPurchase.name}</span> satın almak üzeresin.
+              <br />
+              Fiyat: <span className="font-bold text-amber-300">{confirmPurchase.price} kredi</span>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => { haptic("light"); setConfirmPurchase(null); }}
+                className="tm-tap flex-1 py-2 rounded-md border border-border text-xs font-bold"
+              >
+                Vazgeç
+              </button>
+              <button
+                onClick={() => { haptic("success"); confirmPurchase.onConfirm(); }}
+                className="tm-tap flex-1 py-2 rounded-md bg-amber-600 text-white text-xs font-bold"
+              >
+                Satın Al
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
