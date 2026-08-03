@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import { type Locale } from "@/lib/i18n/types";
-import { X, User, Upload, ArrowLeftRight, Banknote, Wand2, Crown, Check, Info } from "lucide-react";
+import { X, User, Upload, ArrowLeftRight, Banknote, Wand2, Crown, Check } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { POSITION_GROUP, ARKETIPLER, type Player, type SeasonStat, type SeasonAward } from "@/lib/mock/data";
 import { TIER_TEAM_NAMES, TEAM_NAME_BANK } from "@/lib/match/engine/constants";
@@ -1316,92 +1316,6 @@ function SeasonCell({ label, value, color }: { label: string; value: number; col
   );
 }
 
-// v2.9.75: Stat açıklamaları — her stat için kısa Türkçe açıklama
-const STAT_DESCRIPTIONS: Record<string, string> = {
-  // Teknik (Saha oyuncusu)
-  "Bitiricilik": "Şut çekerken golü bitirme yeteneği. Forvetler için kritik.",
-  "Dribling": "Topu rakip yanından geçirme becerisi.",
-  "İlk Kontrol": "Gelen topu kontrol etme kalitesi — ilk temasın temizliği.",
-  "Kafa Vuruşu": "Hava toplarında kafa ile mücadele gücü.",
-  "Markaj": "Rakibi yakın takipte tutma, topu kazanma becerisi.",
-  "Orta Yapma": "Kenardan ortalama kalitesi — asist kaynağı.",
-  "Pas": "Topu takım arkadaşına ulaştırma doğruluğu.",
-  "Teknik": "Top kontrolü ve oyun kurma kalitesi. Yaratıcı oyuncular için.",
-  "Top Kapma": "Müdahale yaparak topu kazanma başarısı.",
-  "Uzaktan Şut": "Ceza sahası dışından şut çekme etkisi.",
-
-  // Teknik (Kaleci)
-  "Refleksler": "Ani şutlara refleksle tepki verme hızı.",
-  "Top Tutma": "Gelen topu tutma güvenliği — sektirmeme.",
-  "Bire Bir": "Forvet ile karşı karşıya kalınca çıkış başarısı.",
-  "Hava Hakimiyeti": "Kaleci için hava toplarına çıkma cesareti ve zamanlaması.",
-  "Alan Hakimiyeti": "Kalecinin ceza sahası içinde konumlanma ve yönetimi.",
-  "Degaj": "Kaleden açılan uzak atışların doğruluğu.",
-  "Elle Oyun": "El ile topu kontrol etme ve dağıtma becerisi.",
-  "İletişim": "Defansı yönlendirme ve organize etme.",
-
-  // Zihinsel
-  "Agresiflik": "Mücadele gücü ve top için baskı yapma yoğunluğu.",
-  "Cesaret": "Riskli durumda müdahaleden kaçmama — kafa toplarında kritik.",
-  "Çalışkanlık": "Savunmada yardımcı olma ve koşu yapma isteği.",
-  "Karar Alma": "Doğru hamleyi doğru zamanda seçme yeteneği.",
-  "Kararlılık": "Baskı altında istikrarlı kalma — kritik anlarda.",
-  "Konsantrasyon": "Maç boyunca odaklanmayı sürdürme — hata yapmama.",
-  "Liderlik": "Takımı yönlendirme ve moralli tutma — kaptanlık.",
-  "Önsezi": "Rakibin hamlesini önceden sezip pozisyon alma.",
-  "Özel Yetenek": "Beklenmedik, yaratıcı hamleler yapma — sürpriz elementi.",
-  "Pozisyon Alma": "Doğru yerde olma — savunmada ve hücumda.",
-  "Soğukkanlılık": "Baskı altında panik yapmama — penaltıda kritik.",
-  "Takım Oyunu": "Takım arkadaşlarıyla uyumlu oynama — pas ağı.",
-  "Vizyon": "Sahayı okuma ve doğru pası görme yeteneği.",
-
-  // Fiziksel
-  "Çeviklik": "Yön değiştirme hızı ve denge — kısa pas oyununda.",
-  "Dayanıklılık": "Maç sonuna kadar performansı koruma.",
-  "Denge": "Mücadelede ayakta kalma — fiziksel temas anında.",
-  "Güç": "Fiziksel üstünlük — omuz mücadelesinde.",
-  "Hız": "Maksimum koşu hızı — hızlı hücum ve geri kaçış.",
-  "Hızlanma": "İlk adımdan itibaren hızlanma — patlama gücü.",
-  "Zıplama": "Hava mücadelesinde yükselme — kafa toplarında.",
-  "Sol Ayak": "Sol ayak ile oynama kalitesi — çift ayaklılık avantajı.",
-  "Sağ Ayak": "Sağ ayak ile oynama kalitesi — çift ayaklılık avantajı.",
-};
-
-// v2.9.75: Stat info icon — tıklayınca açıklama gösterir
-function StatInfoIcon({ label }: { label: string }) {
-  const [open, setOpen] = useState(false);
-  const desc = STAT_DESCRIPTIONS[label];
-  if (!desc) return null;
-  return (
-    <>
-      <button
-        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
-        className="tm-tap shrink-0 text-muted-foreground/50 hover:text-sky-400 transition-colors"
-        aria-label={`${label} açıklaması`}
-      >
-        <Info size={10} />
-      </button>
-      {open && (
-        <div className="fixed inset-0 z-[70]" onClick={() => setOpen(false)}>
-          <div className="absolute inset-0 bg-black/60" />
-          <div
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] max-w-[90vw] bg-card rounded-lg border border-border p-3 space-y-2"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-sky-400">{label}</span>
-              <button onClick={() => setOpen(false)} className="tm-tap p-0.5 text-muted-foreground hover:text-foreground">
-                <X size={14} />
-              </button>
-            </div>
-            <p className="text-[11px] leading-relaxed text-muted-foreground">{desc}</p>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
 function StatColumn({
   title,
   stats,
@@ -1419,11 +1333,7 @@ function StatColumn({
       <div className="space-y-0.5">
         {stats.map((s, i) => (
           <div key={s.label} className="flex justify-between items-center text-[11px]">
-            {/* v2.9.75: Stat label + info icon */}
-            <span className="text-muted-foreground truncate flex-1 mr-1 flex items-center gap-0.5">
-              {s.label}
-              <StatInfoIcon label={s.label} />
-            </span>
+            <span className="text-muted-foreground truncate flex-1 mr-1">{s.label}</span>
             <StatValue value={s.value} playerId={playerId} statKey={statKeys[i]} />
           </div>
         ))}
