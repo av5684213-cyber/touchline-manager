@@ -540,6 +540,22 @@ function OverviewTab({
       {/* Güncel sezon kartı — sezon istatistikleri + gol türü dağılımı */}
       <CurrentSeasonCard player={player} locale={locale} />
 
+      {/* v2.9.75: Uygulanan Kartlar — mağaza modalındaki ile AYNI format
+          (PlayerCardPickerModal satır 2556-2568). appliedCards boşsa gösterme. */}
+      {((player as any).appliedCards?.length ?? 0) > 0 && (
+        <div className="space-y-1">
+          <div className="text-[10px] text-muted-foreground uppercase font-bold">Uygulanan Kartlar</div>
+          {(player as any).appliedCards.map((card: any, i: number) => (
+            <div key={i} className="flex items-center gap-2 px-2 py-1 rounded-md bg-muted/30">
+              <span className="text-[10px]">
+                {card.cardType === "trait_positive" ? "✅" : card.cardType === "trait_negative_removal" ? "🧹" : card.cardType === "stat_boost" ? "📈" : "🎭"}
+              </span>
+              <span className="text-[11px] font-semibold flex-1 truncate">{card.cardName}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Gelişim grafiği — son maç rating'leri */}
       {player.match_ratings && player.match_ratings.length > 0 && (
         <div className="pt-2 border-t border-border">
