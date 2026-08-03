@@ -3629,6 +3629,94 @@ export const useAppStore = create<AppState>()(
           console.warn("[endSeason] season awards hesaplama hatası:", e);
         }
 
+        // v2.9.76: Milestone ödülleri (B grubu) — sezon sonu kontrol
+        try {
+          const TIERS_MS = ["gold", "silver", "bronze"] as const;
+          for (const p of team.players) {
+            const careerApps = (p.seasonHistory ?? []).reduce((s, st) => s + st.appearances, 0) + (p.appearances ?? 0);
+            const careerGoals = (p.seasonHistory ?? []).reduce((s, st) => s + st.goals, 0) + (p.goals ?? 0);
+            const careerMax = Math.max(careerApps, careerGoals);
+            const existingAwards = seasonAwardsForPlayers.get(p.id) ?? [];
+
+            // century_club — 50/100/200 (maç veya gol, önce dolan)
+            const msKey = "century_club";
+            const msThresholds = [200, 100, 50]; // gold, silver, bronze
+            const alreadyHas = existingAwards.some(a => a.awardType === msKey && a.tier === "gold");
+            if (!alreadyHas) {
+              for (let t = 0; t < 3; t++) {
+                const threshold = msThresholds[t];
+                const tier = TIERS_MS[t];
+                const hasLower = existingAwards.some(a => a.awardType === msKey && a.tier === tier);
+                if (careerMax >= threshold && !hasLower) {
+                  existingAwards.push({
+                    seasonNumber: oldSeasonNumber, seasonLabel, awardType: msKey,
+                    tier, rank: 0, statValue: careerMax,
+                    country: "INT", leagueTier: team.leagueTier ?? 2, clubName: team.name,
+                    awardedAt: Date.now(),
+                  });
+                  break;
+                }
+              }
+            }
+
+            // iron_man — sezon boyunca sakatlanmadan her maçta oyna
+            const totalMatches = fixtures.filter(f => f.homeId === team.id || f.awayId === team.id).length;
+            const playedAll = (p.appearances ?? 0) >= totalMatches && !(p as any).wasInjuredThisSeason;
+            if (playedAll && totalMatches > 0) {
+              const ironKey = "iron_man";
+              // Mevcut iron_man ödüllerini say (kaç sezon üst üste)
+              const ironAwards = existingAwards.filter(a => a.awardType === ironKey);
+              const consecutiveSeasons = ironAwards.length + 1; // bu sezon dahil
+              const ironThresholds = [5, 3, 1]; // gold, silver, bronze
+              for (let t = 0; t < 3; t++) {
+                if (consecutiveSeasons >= ironThresholds[t]) {
+                  const tier = TIERS_MS[t];
+                  const hasTier = ironAwards.some(a => a.tier === tier);
+                  if (!hasTier) {
+                    existingAwards.push({
+                      seasonNumber: oldSeasonNumber, seasonLabel, awardType: ironKey,
+                      tier, rank: 0, statValue: consecutiveSeasons,
+                      country: "INT", leagueTier: team.leagueTier ?? 2, clubName: team.name,
+                      awardedAt: Date.now(),
+                    });
+                  }
+                  break;
+                }
+              }
+            }
+
+            // hattrick_hero — yaklaşık: sezon başına 3+ gol = 1 hat-trick
+            // (gerçek per-match takibi olmadığı için yaklaşık hesaplama)
+            const seasonHatTricks = Math.floor((p.goals ?? 0) / 3);
+            const careerHatTricks = (p.seasonHistory ?? []).reduce((s, st) => s + Math.floor(st.goals / 3), 0) + seasonHatTricks;
+            if (careerHatTricks > 0) {
+              const htKey = "hattrick_hero";
+              const htThresholds = [5, 3, 1]; // gold, silver, bronze
+              for (let t = 0; t < 3; t++) {
+                if (careerHatTricks >= htThresholds[t]) {
+                  const tier = TIERS_MS[t];
+                  const hasTier = existingAwards.some(a => a.awardType === htKey && a.tier === tier);
+                  if (!hasTier) {
+                    existingAwards.push({
+                      seasonNumber: oldSeasonNumber, seasonLabel, awardType: htKey,
+                      tier, rank: 0, statValue: careerHatTricks,
+                      country: "INT", leagueTier: team.leagueTier ?? 2, clubName: team.name,
+                      awardedAt: Date.now(),
+                    });
+                  }
+                  break;
+                }
+              }
+            }
+
+            if (existingAwards.length > 0) {
+              seasonAwardsForPlayers.set(p.id, existingAwards);
+            }
+          }
+        } catch (e) {
+          console.warn("[endSeason] milestone awards hesaplama hatası:", e);
+        }
+
         // 40+ yaş oyuncuları emekli et, regen üret
         const retiredNames: string[] = [];
         // v2.9.74 FIX K5: let yap — promotion/relegation sırasında re-assignment var
