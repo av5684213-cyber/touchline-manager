@@ -148,17 +148,47 @@ export function calculatePlayerValue(player: Player, seasonPerformanceModifier?:
   const posMult = POSITION_VALUE_WEIGHT[pos] ?? 1.00;
   const condMult = cond < 50 ? 0.85 : 1.00;
   const moraleMult = morale > 80 ? 1.05 : 1.00;
-  // v2.9.46 GÖREV 5: Sezon performans modifier'ı (opsiyonel)
-  // — Sadece sezon sonunda endSeason tarafından verilir
-  // — Varsayılan 1.0 (etkisiz) — sezon ortasında değer bu faktörden etkilenmez
   const perfMult = seasonPerformanceModifier ?? 1.0;
 
+  // v2.9.76: Ödül çarpanı — sadece en yüksek tier uygulanır (kümülatif değil)
+  // Sezon ödülü: gold=%12, silver=%6, bronze=%3
+  // Milestone ödülü: gold=%6, silver=%3, bronze=%1
+  let awardMult = 1.0;
+  try {
+    const awards = (player as any).seasonAwards as any[] | undefined;
+    if (awards && awards.length > 0) {
+      const TIER_RANK: Record<string, number> = { gold: 3, silver: 2, bronze: 1 };
+      const SEASON_MULT: Record<string, number> = { gold: 1.12, silver: 1.06, bronze: 1.03 };
+      const MILESTONE_MULT: Record<string, number> = { gold: 1.06, silver: 1.03, bronze: 1.01 };
+      const MILESTONE_KEYS = new Set(["hattrick_hero", "century_club", "iron_man"]);
+
+      let bestSeasonTier: string | null = null;
+      let bestMilestoneTier: string | null = null;
+
+      for (const a of awards) {
+        const tier = a.tier ?? (a.rank === 1 ? "gold" : a.rank === 2 ? "silver" : "bronze");
+        const isMilestone = MILESTONE_KEYS.has(a.awardType);
+        if (isMilestone) {
+          if (!bestMilestoneTier || TIER_RANK[tier] > TIER_RANK[bestMilestoneTier]) {
+            bestMilestoneTier = tier;
+          }
+        } else {
+          if (!bestSeasonTier || TIER_RANK[tier] > TIER_RANK[bestSeasonTier]) {
+            bestSeasonTier = tier;
+          }
+        }
+      }
+
+      // En yüksek sezon ödülü + en yüksek milestone ödülü (ikisi ayrı çarpanlar)
+      if (bestSeasonTier) awardMult *= SEASON_MULT[bestSeasonTier] ?? 1.0;
+      if (bestMilestoneTier) awardMult *= MILESTONE_MULT[bestMilestoneTier] ?? 1.0;
+    }
+  } catch { /* seasonAwards yoksa 1.0 kalır */ }
+
   const value = Math.round(
-    (base + potentialBonus) * ageMult * archMult * posMult * condMult * moraleMult * perfMult
+    (base + potentialBonus) * ageMult * archMult * posMult * condMult * moraleMult * perfMult * awardMult
   );
 
-  // v2.9.64 FIX: 200M üst sınır geri eklendi — enflasyon + arketip + trait çarpanları
-  // ileri sezonlarda tek oyuncuyu 222M'e çıkarıyordu → pazar bozuluyordu
   return Math.min(200_000_000, Math.max(50_000, value));
 }
 
