@@ -281,23 +281,16 @@ export type SeasonStat = {
 // v2.9.46 GÖREV 3: Sezon-bazlı ödül kaydı (kalıcı, kariyerlik)
 // Her sezon sonunda endSeason tarafından yazılır, oyuncu.seasonAwards[] dizisinde saklanır.
 export type SeasonAward = {
-  seasonNumber: number;          // 1, 2, 3, ... (seasonId yerine basit sayı)
-  seasonLabel: string;           // "2024/25" gibi okunabilir etiket
-  awardType:
-    | "top_scorer"               // gol kralı
-    | "top_assist"               // asist kralı
-    | "mvp"                      // sezonun oyuncusu (en yüksek formRating)
-    | "best_goalkeeper"          // en iyi kaleci (en çok kurtarış)
-    | "most_motm"                // en çok maçın adamı
-    | "most_appearances"         // en çok maç oynayan
-    | "league_champion"          // lig şampiyonu (kulüp bazlı, oyuncuya da verilir)
-    | "cup_champion"             // kupa şampiyonu (kulüp bazlı)
-    | "champions_league_winner"; // Şampiyonlar Ligi şampiyonu
-  rank: number;                  // 1 = birinci, 2 = ikinci, 3 = üçüncü
-  statValue: number;             // ödülün temel aldığı istatistik (gol sayısı, asist sayısı vb.)
-  country: string;               // "TR", "DE", "FR" ... (ödülün verildiği ülke ligi)
-  leagueTier: number;            // 1-4 (ödülün verildiği lig seviyesi)
-  clubName?: string;             // ödül kazanıldığı kulüp
+  seasonNumber: number;
+  seasonLabel: string;
+  awardType: string;             // v2.9.76: artık tüm AwardKey'leri kabul eder (award-system.ts)
+  tier?: "gold" | "silver" | "bronze"; // v2.9.76: yeni — rank yerine tier (geri uyumlu)
+  rank: number;                  // 1 = birinci, 2 = ikinci, 3 = üçüncü (geri uyumluluk)
+  statValue: number;
+  country: string;
+  leagueTier: number;
+  clubName?: string;
+  awardedAt?: number;            // v2.9.76: milestone ödülleri için timestamp
 };
 
 export type LeagueTier = 1 | 2 | 3 | 4;
