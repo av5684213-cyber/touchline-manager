@@ -3025,7 +3025,12 @@ export const useAppStore = create<AppState>()(
           const tierBonus = (5 - myTier) * 0.04;
           const fillRate = Math.max(0.2, Math.min(0.85, 1 - (facilitiesState.ticketPrice / 250) + tierBonus));
           const ticketRev = Math.round(stadiumCap * fillRate * facilitiesState.ticketPrice * stadiumMult);
-          const sponsor = 50_000 + facilitiesState.levels.stadium * 10_000 + activeSponsorIncome;
+          // v2.9.74 FIX O3: Sponsor gelirine tierMultiplier eklendi.
+          // Eski: T1 ve T4 aynı baz sponsor — ekonomik dengesizlik.
+          // Yeni: T1: 1.5x, T2: 1.2x, T3: 0.8x, T4: 0.5x
+          const sponsorTierMult: Record<number, number> = { 1: 1.5, 2: 1.2, 3: 0.8, 4: 0.5 };
+          const sponsorMult = sponsorTierMult[myTier] ?? 1.0;
+          const sponsor = Math.round((50_000 + facilitiesState.levels.stadium * 10_000 + activeSponsorIncome) * sponsorMult);
           // v2.9.49: TV geliri tier'a göre — Süper Lig 500K, 3. Lig 25K
           // v2.9.64 FIX: TV gelirleri 5x düşürüldü — ekonomi dengesi
           // Eski kod: T1: 5M, T2: 3M, T3: 2.5M, T4: 2M → sezon sonunda 170M birikiyordu

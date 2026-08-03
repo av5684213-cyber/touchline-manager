@@ -89,11 +89,27 @@ export async function loadGameState(userId: string): Promise<boolean> {
     if (data && Object.keys(data).length > 0) {
       const cloudState = data as Record<string, unknown>;
 
-      useAppStore.setState((prev) => ({
-        ...prev,
-        ...cloudState,
-        isAuthed: true,
-      }));
+      // v2.9.74 FIX O8: Shallow merge yerine deep merge.
+      // Eski kod: {...prev, ...cloudState} — nested objeler (tactics.slotRoles,
+      // transfer.freeAgents) cloud'dan gelen ile tamamen değiştirilirdi →
+      // slotRoles kaybolur. Yeni: deep merge ile nested objeleri birleştir.
+      useAppStore.setState((prev) => {
+        const merged = { ...prev };
+        for (const key of Object.keys(cloudState)) {
+          const cloudVal = cloudState[key];
+          const prevVal = (prev as any)[key];
+          // Sadece plain objeleri deep merge et (array, function, primitive değil)
+          if (
+            cloudVal && typeof cloudVal === "object" && !Array.isArray(cloudVal) &&
+            prevVal && typeof prevVal === "object" && !Array.isArray(prevVal)
+          ) {
+            (merged as any)[key] = { ...prevVal, ...cloudVal };
+          } else {
+            (merged as any)[key] = cloudVal;
+          }
+        }
+        return { ...merged, isAuthed: true } as any;
+      });
 
       // v2.9.62: allLeagues cloud'dan gelmez (blacklist) — eksikse yeniden üret
       // Kullanıcının ligindeki clubs array'i ile senkronize et

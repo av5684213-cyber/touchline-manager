@@ -483,7 +483,8 @@ export function TacticsScreen() {
                     </span>
                   )}
                 </span>
-                <span className="text-[10px] text-white font-semibold drop-shadow max-w-[60px] truncate text-center">
+                {/* v2.9.74 FIX O10: max-w 60px → 90px */}
+                <span className="text-[10px] text-white font-semibold drop-shadow max-w-[90px] truncate text-center">
                   {p ? `${p.firstName} ${p.lastName}` : "Boş"}
                 </span>
                 {role && (
@@ -628,7 +629,8 @@ export function TacticsScreen() {
                     className="tm-tap py-1 px-1 rounded text-[11px] font-bold border bg-card border-border hover:bg-accent/50 transition-colors flex flex-col items-center gap-0.5"
                   >
                     <span className="text-[10px] text-muted-foreground">{slotPos}</span>
-                    <span className="text-[11px] truncate max-w-[50px]">
+                    {/* v2.9.74 FIX O10: max-w 50px → 80px, daha az kesilme */}
+                    <span className="text-[11px] truncate max-w-[80px]">
                       {current ? `${current.firstName} ${current.lastName}` : "Boş"}
                     </span>
                     {current && (
