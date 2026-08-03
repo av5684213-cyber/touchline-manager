@@ -38,6 +38,8 @@ import { MessagesScreen } from "@/components/touchline/screens/messages";
 import { OtherDrawer } from "@/components/touchline/other-drawer";
 // v2.9.74: Sekme arka planları (Manus.ai üretimi, optimize edilmiş WebP)
 import { TabBackground } from "@/components/touchline/tab-background";
+// v2.9.75: Her ekranın köşesinde floating "i" yardım butonu
+import { ScreenHelpButton } from "@/components/touchline/screen-help-button";
 import { WelcomeModal } from "@/components/touchline/welcome-modal";
 // v2.9.58: Yardım modal'ı — oyunun amacı + sekmeler + arketip açıklaması
 import { HelpModal } from "@/components/touchline/help-modal";
@@ -141,6 +143,8 @@ export default function Home() {
             onChange={setTab}
             onOpenOther={() => setOtherOpen(true)}
           />
+          {/* v2.9.75: Floating "i" yardım butonu — aktif sekme'nin içeriğini açıklar */}
+          <ScreenHelpButton screen={tab} />
         </div>
         <OtherDrawer
           open={otherOpen}
