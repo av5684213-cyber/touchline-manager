@@ -24,15 +24,15 @@ export default function PrivacyPage() {
           <h2 className="text-base font-bold mb-2">2. Toplanan Veriler</h2>
           <p className="text-sm text-muted-foreground mb-2">Uygulama aşağıdaki veri kategorilerini toplar:</p>
           <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
-            <li><strong>Hesap bilgileri:</strong> E-posta adresi (Google OAuth veya e-posta/şifre ile giriş için), şifre hash'i (Supabase Auth tarafından yönetilir, düz metin olarak saklanmaz)</li>
+            {/* v2.9.74 FIX D2: 9 → 8 kategori (cihaz/oturum bilgisi hesap bilgileriyle birleştirildi) */}
+            <li><strong>Hesap bilgileri:</strong> E-posta adresi (Google OAuth veya e-posta/şifre ile giriş için), şifre hash'i (Supabase Auth tarafından yönetilir, düz metin olarak saklanmaz), tarayıcı tipi, ekran boyutu, uygulama sürümü (hata ayıklama ve analitik amaçlı)</li>
             <li><strong>Profil bilgileri:</strong> Ülke kodu (kullanıcının seçtiği lig ülkesi — TR/GB/ES/DE), takım adı, menajer adı</li>
             <li><strong>Oyun verileri:</strong> Takım kadrosu, taktikler, maç sonuçları, transfer geçmişi, tesis seviyeleri, antrenman programı, kart envanteri, kozmetikler</li>
             <li><strong>Forum içeriği:</strong> Açtığınız konular, yazdığınız cevaplar (kalıcı olarak saklanır, hesap silme sonrası "Silinmiş kullanıcı" olarak anonimleştirilir)</li>
             <li><strong>Sohbet mesajları:</strong> Hazırlık maçı sohbet mesajları (24 saat saklanır, sonra otomatik silinir; kötüye kullanım incelemesi için)</li>
             <li><strong>Bildirim token'ı:</strong> Push bildirimleri için FCM token (cihaz bazında, bildirimler kapalıysa toplanmaz)</li>
-            <li><strong>Ödeme kayıtları:</strong> Google Play purchase token (replay attack önleme için, yasal yükümlülük gereği saklanır)</li>
+            <li><strong>Ödeme kayırları:</strong> Google Play purchase token (replay attack önleme için, yasal yükümlülük gereği saklanır)</li>
             <li><strong>Engelleme/Raporlar:</strong> Engellediğiniz kullanıcı ID'leri, raporladığınız mesajlar (topluluk moderasyonu için)</li>
-            <li><strong>Cihaz/oturum bilgisi:</strong> Tarayıcı tipi, ekran boyutu, uygulama sürümü (hata ayıklama ve analitik amaçlı)</li>
           </ul>
           <p className="text-sm text-muted-foreground mt-2">
             Tüm bulut verileri Supabase (Frankfurt, EU) bulut sunucularında saklanır.

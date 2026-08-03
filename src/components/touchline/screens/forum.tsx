@@ -142,7 +142,8 @@ export function ForumScreen() {
           <MessageSquare size={18} className="text-indigo-400" />
           <h1 className="text-base font-bold">{t("forum.title")}</h1>
           <span className="text-[10px] text-muted-foreground ml-auto">
-            {topics.length} {t("forum.topic_title").toLocaleLowerCase()}
+            {/* v2.9.74 FIX D11: "0 title" yerine "0 başlık" — i18n key düzelt */}
+            {topics.length} {topics.length === 1 ? t("forum.topic") : t("forum.topics")}
           </span>
         </div>
         <p className="text-[10px] text-muted-foreground leading-relaxed">

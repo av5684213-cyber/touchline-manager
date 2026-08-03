@@ -46,8 +46,8 @@ export const dict: Dict = {
   "nav.leaderboard": { tr: "Liderlik", en: "Leaderboard" },
   "nav.forum": { tr: "Forum", en: "Forum" },
   // v2.9.45: Önceden orphan olan 2 sekme için i18n anahtarları
-  "nav.news": { tr: "Haberler", en: "News", es: "Noticias", de: "Nachrichten", fr: "Actualités", pt: "Notícias" },
-  "nav.messages": { tr: "Mesajlar", en: "Messages", es: "Mensajes", de: "Nachrichten", fr: "Messages", pt: "Mensagens" },
+  "nav.news": { tr: "Haberler", en: "News" },
+  "nav.messages": { tr: "Mesajlar", en: "Messages" },
 
   // ---- common ----
   "common.loading": { tr: "Yükleniyor…", en: "Loading…" },
@@ -528,8 +528,8 @@ export const dict: Dict = {
   "fixture.filter.played": { tr: "Oynanan", en: "Played" },
   "fixture.filter.upcoming": { tr: "Yaklaşan", en: "Upcoming" },
   "fixture.play": { tr: "Oyna", en: "Play" },
-  "fixture.replay": { tr: "Tekrar Oynat", en: "Replay", es: "Repetición", de: "Wiederholung", fr: "Revoir", pt: "Repetir" },
-  "fixture.watch": { tr: "İzle", en: "Watch", es: "Ver", de: "Ansehen", fr: "Regarder", pt: "Assistir" },
+  "fixture.replay": { tr: "Tekrar Oynat", en: "Replay" },
+  "fixture.watch": { tr: "İzle", en: "Watch" },
   "fixture.vs": { tr: "vs", en: "vs" },
   "fixture.home": { tr: "Ev", en: "Home" },
   "fixture.away": { tr: "Dep", en: "Away" },
@@ -652,6 +652,8 @@ export const dict: Dict = {
 
   // ---- forum (v2.9.66 i18n) ----
   "forum.title": { tr: "Forum", en: "Forum" },
+  "forum.topic": { tr: "başlık", en: "topic" },
+  "forum.topics": { tr: "başlık", en: "topics" },
   "forum.new_topic": { tr: "Yeni Başlık Aç", en: "New Topic" },
   "forum.all": { tr: "Tümü", en: "All" },
   "forum.category_general": { tr: "Genel", en: "General" },
