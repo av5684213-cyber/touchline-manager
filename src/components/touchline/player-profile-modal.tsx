@@ -1625,8 +1625,9 @@ function ActionsTab({
         <RatingBadge value={player.formRating} />
       </div>
 
-      {/* Transfer penceresi uyarısı */}
-      {!transferWindowOpen && (
+      {/* Transfer penceresi uyarısı — sadece BAŞKA takımın oyuncusuna teklif yaparken göster
+          (kendi oyuncunda satış/serbest bırakma pencere dışı çalışır) */}
+      {!isMyPlayer && !transferWindowOpen && (
         <div className="tm-card p-2.5 text-center text-[11px] font-bold bg-red-500/10 text-red-400 border-red-500/30">
           🔒 Transfer penceresi kapalı. Teklif gönderemezsiniz.
         </div>
