@@ -180,11 +180,20 @@ export function LeaderboardScreen() {
       {!loading && entries.length >= 3 && (
         <div className="flex items-end justify-center gap-2 mb-2">
           {/* 2nd */}
-          <PodiumCard entry={entries[1]} place={2} />
+          <PodiumCard entry={entries[1]} place={2} onClick={() => {
+            const t = clubs.find((c) => c.name === entries[1].teamName);
+            if (t) { haptic("light"); setSelectedTeam(t); }
+          }} />
           {/* 1st */}
-          <PodiumCard entry={entries[0]} place={1} />
+          <PodiumCard entry={entries[0]} place={1} onClick={() => {
+            const t = clubs.find((c) => c.name === entries[0].teamName);
+            if (t) { haptic("light"); setSelectedTeam(t); }
+          }} />
           {/* 3rd */}
-          <PodiumCard entry={entries[2]} place={3} />
+          <PodiumCard entry={entries[2]} place={3} onClick={() => {
+            const t = clubs.find((c) => c.name === entries[2].teamName);
+            if (t) { haptic("light"); setSelectedTeam(t); }
+          }} />
         </div>
       )}
 
@@ -288,7 +297,7 @@ export function LeaderboardScreen() {
   );
 }
 
-function PodiumCard({ entry, place }: { entry: LeaderboardEntry; place: number }) {
+function PodiumCard({ entry, place, onClick }: { entry: LeaderboardEntry; place: number; onClick?: () => void }) {
   const heights = { 1: "h-28", 2: "h-20", 3: "h-16" };
   const colors = {
     1: "bg-amber-500/20 border-amber-400",
@@ -300,7 +309,15 @@ function PodiumCard({ entry, place }: { entry: LeaderboardEntry; place: number }
 
   return (
     <div className={cn("flex-1 flex flex-col items-center", place === 1 ? "order-2" : place === 2 ? "order-1" : "order-3")}>
-      <div className={cn("rounded-lg border-2 p-2 w-full flex flex-col items-center gap-1", colors[place], heights[place])}>
+      <button
+        onClick={onClick}
+        disabled={!onClick}
+        className={cn(
+          "rounded-lg border-2 p-2 w-full flex flex-col items-center gap-1 tm-tap transition-colors",
+          colors[place], heights[place],
+          onClick && "hover:bg-accent/30 cursor-pointer"
+        )}
+      >
         <Icon size={place === 1 ? 20 : 16} className={cn(place === 1 ? "text-amber-400" : "text-slate-400")} />
         <div
           className="w-8 h-8 rounded-md flex items-center justify-center text-[9px] font-bold text-white"
@@ -310,7 +327,7 @@ function PodiumCard({ entry, place }: { entry: LeaderboardEntry; place: number }
         </div>
         <div className="text-[10px] font-bold truncate w-full text-center">{entry.managerName}</div>
         <div className="text-xs font-bold tabular-nums">{entry.points.toLocaleString("tr-TR")}</div>
-      </div>
+      </button>
     </div>
   );
 }
