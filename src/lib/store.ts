@@ -2573,6 +2573,52 @@ export const useAppStore = create<AppState>()(
           }
           const winnerId = hs > as ? m.homeId : m.awayId;
 
+          // v2.9.76 FIX 3.1: CL maçında oyuncu stat'ları dağıt — gol/asist/cupGoals/clGoals/apperances/hat-trick
+          // Sadece kullanıcının takımı için (bot oyuncular generate edilir, kalıcı değil)
+          const isUserHome = m.homeId === myTeamId;
+          const isUserAway = m.awayId === myTeamId;
+          if (isUserHome || isUserAway) {
+            const userTeam = clubs.find(c => c.id === myTeamId);
+            if (userTeam) {
+              const userXI = pickXI(userTeam.players);
+              const userScore = isUserHome ? hs : as;
+              const clMatchGoals: Record<string, number> = {};
+
+              const pickCLScorer = (players: any[]) => {
+                const attackers = players.filter(p => p.specificPosition !== "GK" && isPlayerAvailable(p));
+                if (attackers.length === 0) return null;
+                const forwards = attackers.filter(p => ["ST","CF","LW","RW","LM","RM","CAM"].includes(p.specificPosition));
+                const pool = forwards.length > 0 && Math.random() > 0.3 ? forwards : attackers;
+                return pool[Math.floor(Math.random() * pool.length)];
+              };
+
+              for (let i = 0; i < userScore; i++) {
+                const scorer = pickCLScorer(userXI);
+                if (scorer) {
+                  scorer.goals = (scorer.goals ?? 0) + 1;
+                  scorer.cupGoals = (scorer.cupGoals ?? 0) + 1;
+                  scorer.clGoals = (scorer.clGoals ?? 0) + 1;
+                  clMatchGoals[scorer.id] = (clMatchGoals[scorer.id] ?? 0) + 1;
+                  const assistPool = userXI.filter(p => p.id !== scorer?.id);
+                  if (assistPool.length > 0 && Math.random() > 0.4) {
+                    const assister = assistPool[Math.floor(Math.random() * assistPool.length)];
+                    assister.assists = (assister.assists ?? 0) + 1;
+                    assister.clAssists = (assister.clAssists ?? 0) + 1;
+                  }
+                }
+              }
+              // appearances +1
+              for (const p of userXI) p.appearances = (p.appearances ?? 0) + 1;
+              // Hat-trick kontrolü
+              for (const [pid, count] of Object.entries(clMatchGoals)) {
+                if (count >= 3) {
+                  const p = userXI.find(p => p.id === pid);
+                  if (p) p.careerHatTricks = (p.careerHatTricks ?? 0) + 1;
+                }
+              }
+            }
+          }
+
           return {
             ...m,
             homeScore: hs,
@@ -2897,11 +2943,14 @@ export const useAppStore = create<AppState>()(
             }
           }
           // P0 FIX: appearances SADECE ilk 11'e +1
+          // v2.9.76: leagueAppearances da +1 (iron_man için, sadece lig maçları)
           for (const p of homeXI) {
             p.appearances = (p.appearances ?? 0) + 1;
+            p.leagueAppearances = (p.leagueAppearances ?? 0) + 1;
           }
           for (const p of awayXI) {
             p.appearances = (p.appearances ?? 0) + 1;
+            p.leagueAppearances = (p.leagueAppearances ?? 0) + 1;
           }
         }
 
@@ -3692,14 +3741,27 @@ export const useAppStore = create<AppState>()(
               }
             }
 
-            // iron_man — sezon boyunca sakatlanmadan her maçta oyna
-            const totalMatches = fixtures.filter(f => f.homeId === team.id || f.awayId === team.id).length;
-            const playedAll = (p.appearances ?? 0) >= totalMatches && !(p as any).wasInjuredThisSeason;
-            if (playedAll && totalMatches > 0) {
+            // iron_man — sezon boyunca sakatlanmadan her LIG maçında oyna
+            // v2.9.76 Fix 2.3: leagueAppearances kullan (kupa/CL maçları sayılmaz)
+            const totalLeagueMatches = fixtures.filter(f => f.homeId === team.id || f.awayId === team.id).length;
+            const playedAllLeague = (p.leagueAppearances ?? 0) >= totalLeagueMatches && !p.wasInjuredThisSeason;
+            if (playedAllLeague && totalLeagueMatches > 0) {
               const ironKey = "iron_man";
-              // Mevcut iron_man ödüllerini say (kaç sezon üst üste)
-              const ironAwards = existingAwards.filter(a => a.awardType === ironKey);
-              const consecutiveSeasons = ironAwards.length + 1; // bu sezon dahil
+              // v2.9.76 Fix 2.4: Üst üste sezon doğrulaması — seasonNumber'a göre sırala,
+              // ardışık olmayan sezon varsa sayacı sıfırla
+              const ironAwards = existingAwards
+                .filter(a => a.awardType === ironKey)
+                .sort((a, b) => b.seasonNumber - a.seasonNumber);
+              let consecutiveSeasons = 1; // bu sezon dahil
+              let lastSeason = oldSeasonNumber;
+              for (const a of ironAwards) {
+                if (a.seasonNumber === lastSeason - 1) {
+                  consecutiveSeasons++;
+                  lastSeason = a.seasonNumber;
+                } else {
+                  break; // ardışıklık bozuldu
+                }
+              }
               const ironThresholds = [5, 3, 1]; // gold, silver, bronze
               for (let t = 0; t < 3; t++) {
                 if (consecutiveSeasons >= ironThresholds[t]) {
@@ -3835,6 +3897,8 @@ export const useAppStore = create<AppState>()(
               cupGoals: 0,
               clGoals: 0,
               clAssists: 0,
+              // v2.9.76: leagueAppearances sıfırla (iron_man için)
+              leagueAppearances: 0,
               _loaned: false,
               _loanWeeks: 0,
               // P0 FIX BUG #2: suspended_until sezon sonunda sıfırlanmalı

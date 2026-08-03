@@ -641,9 +641,11 @@ Deno.serve(async (req: Request) => {
     let expense = 0;
 
     // Ev sahibi takım — bilet geliri
-    // Bilet fiyatı 60€ varsayılan (kullanıcı ayarlayabilir)
+    // v2.9.76: Tier bazlı bilet fiyatı (kullanıcı tarafında facilities.tsx ile uyumlu)
+    // T1=80, T2=60, T3=40, T4=25 — TODO kaldırıldı, tier bazlı sabit değer
+    const tierPrices: Record<number, number> = { 1: 80, 2: 60, 3: 40, 4: 25 };
+    const ticketPrice = tierPrices[team.league_tier as number] ?? 60;
     // Doluluk oranı %60-90 arası rastgele
-    const ticketPrice = 60; // TODO: teams tablosundan oku
     const fillRate = 0.6 + Math.random() * 0.3;
     const matchIncome = Math.floor(team.stadium_capacity * ticketPrice * fillRate);
 

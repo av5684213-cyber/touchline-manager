@@ -250,6 +250,7 @@ export type Player = {
   clAssists?: number;              // sadece Şampiyonlar Ligi asist sayısı
   careerHatTricks?: number;        // kariyer hat-trick sayısı (per-match 3+ gol)
   wasInjuredThisSeason?: boolean;  // bu sezon sakatlandı mı (iron_man için)
+  leagueAppearances?: number;      // v2.9.76: sadece lig maçları (iron_man için)
 
   // ── Transfer/durum ─────────────────────────────────────
   is_for_sale?: boolean;

@@ -639,12 +639,8 @@ function catchUpAllLeagues(allLeagues: any, targetMatchday: number): void {
   if (targetMatchday <= 1) return;
   if (!allLeagues) return;
 
-  // v2.9.74 O6: require() → await import() yapmak için fonksiyon async olmalı.
-  // Ama catchUpAllLeagues sync — caller'lar sync bekliyor. Şimdilik require()
-  // korunuyor (circular dependency önlemek için). Webpack tree-shaking kırılır
-  // ama çalışıyor. İleride refactor: catchUpAllLeagues async yapılıp dynamic
-  // import kullanılabilir.
-  const { simulateBotMatch } = require("@/lib/botAI");
+  // v2.9.76 Fix 5.1: Dead require() kaldırıldı — simulateBotMatch burada
+  // kullanılmıyor, simulateBotMatchSeeded kendi require'ını yapıyor (satır 748).
 
   for (const key of Object.keys(allLeagues)) {
     const league = allLeagues[key];
