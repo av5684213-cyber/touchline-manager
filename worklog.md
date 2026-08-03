@@ -4068,3 +4068,74 @@ Deployment:
 3. Supabase Secrets: GOOGLE_PLAY_PACKAGE_NAME = "com.touchline.manager"
 4. pg_cron extension kurulu mu kontrol et (chat cleanup job için)
 5. Google Play Console → Data Safety formunu güncelle (8 veri kategorisi)
+
+---
+Task ID: v2.9.75
+Agent: main (Super Z)
+Task: 8 fazlı denetim düzeltme — 42 bulgu
+
+Work Log:
+8 fazda 42 bulgu düzeltildi (5 Kritik + 12 Yüksek + 10 Orta + 15 Düşük).
+
+Faz 1 (K1): APK arka plan path'leri absolute → relative
+  - tab-background.tsx: 20 path /backgrounds/... → ./backgrounds/...
+  - WebView file://'da absolute path filesystem root'a resolve olur → 404
+
+Faz 2 (K2): Math.random global override kaldırıldı (güvenlik)
+  - botAI.ts: simulateBotMatch'e opsiyonel rng?: () => number parametresi
+  - cloud-save.ts: Math.random override kaldırıldı, rng parametresi geçiriliyor
+  - Eski: 1.9 sn pencerede crypto/UUID seeded RNG kullanıyordu → token tahmin
+
+Faz 3 (K3): Credits çift kaynak race (kredi kaybı)
+  - verify-purchase: hem user_game_state HEM de app_state güncelle
+  - addCredits: triggerTacticsSave() ile immediate cloud-save
+
+Faz 4 (K4+K5+Y1+Y3): Kart sayacı + endSeason mutation + transfer
+  - applyCardToPlayer: trait_negative_removal + arketip sayılmaz
+  - endSeason: updatedClubs.length = 0 → immutable re-assignment
+  - transfer-negotiation-modal: too-low ölü kod kaldırıldı
+  - makeTransferOffer: marketValue=0 ve fee<0 kontrolleri
+
+Faz 5 (Y6+Y7+Y8+Y9): Forum edit + rate-limit + offline queue + token
+  - forum.tsx: edit butonu (10 dk pencere) + edit mode UI
+  - verify-purchase: fail-open → fail-closed (503)
+  - cloud-save.ts: flushPendingSyncQueue (login'de queue'yu oku)
+  - auth-context: SIGNED_OUT'ta flushGameState (immediate save)
+
+Faz 6 (Y10+Y11+Y12+O6): Dead code + re-render + i18n
+  - multiplayer-transfer.ts silindi (291 satır dead code)
+  - leaderboard.tsx + weekly-challenges.tsx: selektorsuz → ayrı selector'lar
+  - error-boundary.tsx: locale prop ile i18n (class component)
+  - cloud-save.ts: require() yorum eklendi (sync fonksiyon)
+
+Faz 7 (O1+O3+O8+O10): Forum admin + sponsor + deep merge + tactics
+  - Migration 037: rpc_list_forum_reports + rpc_resolve_forum_report
+  - store.ts: sponsor gelirine tierMultiplier (T1: 1.5x, T4: 0.5x)
+  - cloud-save.ts: shallow → deep merge (nested objeler korunur)
+  - tactics.tsx: lineup max-w 60→90px, bench 50→80px
+
+Faz 8 (D2+D6+D11): Cleanup
+  - privacy: 9 → 8 kategori (cihaz/oturum → hesap bilgileri)
+  - dict.ts: es/de/fr/pt orphan translations silindi
+  - forum.tsx: "0 title" → "0 başlık" (i18n key eklendi)
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- 42 bulgudan 38'i düzeltildi (4 yanlış pozitif veya çok küçük)
+- 1 yeni migration: 037 (forum admin RPC)
+- Version: 2.9.74 → 2.9.75 (versionCode 974 → 975)
+
+Test senaryoları:
+1. APK: arka plan görselleri artık görünecek (relative path)
+2. Crypto: Math.random override yok → token güvenliği korundu
+3. Credits: satın alma sonrası cloud sync tutarlı
+4. Kart: negatif trait giderme sayaca eklenmez
+5. endSeason: immutable re-assignment → re-render doğru
+6. Forum: edit butonu (10 dk pencere)
+7. Leaderboard: sadece ilgili state değişince re-render
+8. Sponsor: T1 takım 3x T4 takım gelir
+
+Deployment:
+1. Migration 037'yi Supabase SQL editor'da çalıştır
+2. Edge Function verify-purchase'i yeniden deploy et (fail-closed)
+3. APK build al (tag v2.9.75)
