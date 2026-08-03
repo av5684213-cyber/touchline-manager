@@ -55,49 +55,37 @@ export function determineSponsorTier(leagueTier: number, avgOvr: number): Sponso
 }
 
 /**
- * v2.9.48: Sponsor tier'ına göre haftalık gelir — takım kalitesi ve değerine göre ölçeklenir
+ * v2.9.75: Sponsor tier'ına göre haftalık gelir — LIG TIER bazlı minimum garanti.
  *
- * Formül:
- *   baseAmount (tier'a göre) × qualityMultiplier × valueMultiplier
+ * Kullanıcı talebi: "En az 4. Lig için 3M Euro, lig yükseldikçe x2"
+ *   T4 (3. Lig):   3M / 34 hafta = ~88K/hafta  → base 90K
+ *   T3 (2. Lig):   6M / 34 hafta = ~176K/hafta → base 180K
+ *   T2 (1. Lig):  12M / 34 hafta = ~353K/hafta → base 350K
+ *   T1 (Süper Lig): 24M / 34 hafta = ~706K/hafta → base 700K
  *
- *   qualityMultiplier: avgOvr 50 → 0.7, 60 → 0.85, 70 → 1.0, 80 → 1.15, 90+ → 1.3
- *   valueMultiplier: takım değeri 10M → 0.8, 50M → 1.0, 100M → 1.2, 200M+ → 1.4
- *
- * Düşük kaliteli takım: BRONZE × 0.7 × 0.8 = 22.4K/hafta
- * Yüksek kaliteli takım: PLATINUM × 1.3 × 1.4 = 910K/hafta
+ * Sponsor tier (BRONZE/SILVER/GOLD/PLATINUM) → lig tier ile eşleştirilir.
+ * Kalite bonusu (OVR bazlı) +%0-20, değer bonusu kaldırıldı (basitlik için).
  */
 export function getSponsorAmount(tier: SponsorTier, avgOvr?: number, teamValue?: number): number {
-  // Base amounts per tier
+  // v2.9.75: Lig tier bazlı base amounts (x2 kuralı)
   const baseAmounts: Record<SponsorTier, number> = {
-    PLATINUM: 500_000,
-    GOLD: 250_000,
-    SILVER: 100_000,
-    BRONZE: 40_000,
+    BRONZE: 90_000,    // T4 → ~3.06M/season
+    SILVER: 180_000,   // T3 → ~6.12M/season
+    GOLD: 350_000,     // T2 → ~11.9M/season
+    PLATINUM: 700_000, // T1 → ~23.8M/season
   };
-  const base = baseAmounts[tier] ?? 40_000;
+  const base = baseAmounts[tier] ?? 90_000;
 
-  // v2.9.48: Quality multiplier — avgOvr bazlı
+  // v2.9.75: Quality bonus (max +20%, eskiden +30% ama base zaten yüksek)
   let qualityMult = 1.0;
   if (avgOvr !== undefined) {
-    if (avgOvr >= 90) qualityMult = 1.30;
-    else if (avgOvr >= 80) qualityMult = 1.15;
-    else if (avgOvr >= 70) qualityMult = 1.00;
-    else if (avgOvr >= 60) qualityMult = 0.85;
-    else qualityMult = 0.70;
+    if (avgOvr >= 85) qualityMult = 1.20;
+    else if (avgOvr >= 75) qualityMult = 1.10;
+    else if (avgOvr >= 65) qualityMult = 1.00;
+    else qualityMult = 0.95; // düşük OVR'da bile min %95 (garanti)
   }
 
-  // v2.9.48: Value multiplier — takım piyasa değeri bazlı
-  let valueMult = 1.0;
-  if (teamValue !== undefined) {
-    const valueM = teamValue / 1_000_000; // milyon Euro
-    if (valueM >= 200) valueMult = 1.40;
-    else if (valueM >= 100) valueMult = 1.20;
-    else if (valueM >= 50) valueMult = 1.00;
-    else if (valueM >= 20) valueMult = 0.90;
-    else valueMult = 0.80;
-  }
-
-  return Math.round(base * qualityMult * valueMult);
+  return Math.round(base * qualityMult);
 }
 
 /**
