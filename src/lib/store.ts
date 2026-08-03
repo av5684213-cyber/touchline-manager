@@ -455,6 +455,8 @@ export type SeasonSummary = {
   topScorer: { name: string; goals: number } | null;
   retiredPlayers: string[];
   newRegens: number;
+  // v2.9.75: Oyuncu stat kazançları (sezon başına göre fark)
+  statGains?: Array<{ name: string; gains: Array<{ stat: string; delta: number }> }>;
 };
 
 // Kısa Euro formatı — haber mesajları için
@@ -4049,6 +4051,25 @@ export const useAppStore = create<AppState>()(
           })(),
         });
 
+        // v2.9.75: Oyuncu stat kazançlarını hesapla (sezon başına göre fark)
+        const seasonStart = get().seasonStartStats ?? {};
+        const STAT_KEYS_FOR_GAINS = ["finishing", "dribbling", "passing", "tackling", "heading", "technique", "crossing", "longShots", "marking", "firstTouch", "pace", "shooting", "defending", "physical", "dribbling"];
+        const statGains: Array<{ name: string; gains: Array<{ stat: string; delta: number }> }> = [];
+        for (const p of team.players) {
+          const start = seasonStart[p.id];
+          if (!start) continue;
+          const gains: Array<{ stat: string; delta: number }> = [];
+          for (const key of STAT_KEYS_FOR_GAINS) {
+            const currentVal = (p as any)[key] ?? 0;
+            const startVal = start[key] ?? 0;
+            const delta = Math.round(currentVal - startVal);
+            if (delta > 0) gains.push({ stat: key, delta });
+          }
+          if (gains.length > 0) {
+            statGains.push({ name: `${p.firstName} ${p.lastName}`, gains });
+          }
+        }
+
         const summary: SeasonSummary = {
           season: newSeasonNumber,
           finalPosition: myIdx + 1,
@@ -4062,6 +4083,7 @@ export const useAppStore = create<AppState>()(
           topScorer,
           retiredPlayers: retiredNames,
           newRegens: retiredNames.length,
+          statGains,
         };
 
         // Şampiyon belirle + bildirim ekle + achievement kontrolü

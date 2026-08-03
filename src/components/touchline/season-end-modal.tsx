@@ -132,6 +132,27 @@ export function SeasonEndModal({
             </div>
           )}
 
+          {/* v2.9.75: Oyuncu stat kazançları */}
+          {summary.statGains && summary.statGains.length > 0 && (
+            <div className="tm-card p-2.5 mb-3">
+              <div className="text-[10px] text-muted-foreground uppercase mb-2">📈 Stat Gelişimleri</div>
+              <div className="space-y-1.5 max-h-[200px] overflow-y-auto tm-thin-scrollbar">
+                {summary.statGains.map((player, i) => (
+                  <div key={i} className="text-[11px]">
+                    <div className="font-bold text-foreground truncate">{player.name}</div>
+                    <div className="flex flex-wrap gap-1 mt-0.5">
+                      {player.gains.map((g, j) => (
+                        <span key={j} className="px-1 py-0.5 rounded bg-emerald-500/15 text-emerald-300 text-[10px] font-bold">
+                          {g.stat} +{g.delta}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Devam butonu — "Yeni Sezona Hazırlan" */}
           <button
             onClick={() => { haptic("success"); setPhase("transition"); }}
