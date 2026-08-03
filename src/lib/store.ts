@@ -3442,22 +3442,26 @@ export const useAppStore = create<AppState>()(
             }
           }
 
-          // Yardımcı: ilk 3 oyuncuya ödül yaz
+          // v2.9.76: Yardımcı — ilk 3 oyuncuya ödül yaz (tier + rank ile)
+          const TIERS = ["gold", "silver", "bronze"] as const;
           const awardTop3 = (
             sortedPlayers: Array<{ player: Player; club: Team; country: string; statValue: number }>,
-            awardType: SeasonAward["awardType"]
+            awardType: string
           ) => {
             sortedPlayers.slice(0, 3).forEach((entry, idx) => {
               const rank = idx + 1;
+              const tier = TIERS[idx] ?? "bronze";
               const award: SeasonAward = {
                 seasonNumber: oldSeasonNumber,
                 seasonLabel,
                 awardType,
+                tier,
                 rank,
                 statValue: entry.statValue,
                 country: entry.country,
                 leagueTier: entry.club.leagueTier ?? 2,
                 clubName: entry.club.name,
+                awardedAt: Date.now(),
               };
               const existing = seasonAwardsForPlayers.get(entry.player.id) ?? [];
               existing.push(award);
@@ -3465,39 +3469,81 @@ export const useAppStore = create<AppState>()(
             });
           };
 
-          // Gol kralı
-          const byGoals = [...allPlayersWithClub]
+          // v2.9.76: 11 sezon sonu kategorisi (her lig seviyesi için ayrı hesaplanır)
+          // Sadece (appearances ?? 0) > 0 olan oyuncular değerlendirmeye alınır
+          const eligible = allPlayersWithClub.filter(e => (e.player.appearances ?? 0) > 0);
+
+          // 1. golden_boot — Gol Kralı
+          const byGoals = [...eligible]
             .map(e => ({ ...e, statValue: e.player.goals ?? 0 }))
-            .sort((a, b) => b.statValue - a.statValue);
-          awardTop3(byGoals, "top_scorer");
+            .sort((a, b) => b.statValue - a.statValue || (a.player.appearances ?? 0) - (b.player.appearances ?? 0));
+          awardTop3(byGoals, "golden_boot");
 
-          // Asist kralı
-          const byAssists = [...allPlayersWithClub]
+          // 2. playmaker — Asist Kralı
+          const byAssists = [...eligible]
             .map(e => ({ ...e, statValue: e.player.assists ?? 0 }))
-            .sort((a, b) => b.statValue - a.statValue);
-          awardTop3(byAssists, "top_assist");
+            .sort((a, b) => b.statValue - a.statValue || (a.player.appearances ?? 0) - (b.player.appearances ?? 0));
+          awardTop3(byAssists, "playmaker");
 
-          // MVP — formRating bazlı
-          const byForm = [...allPlayersWithClub]
+          // 3. player_of_season — Sezonun Oyuncusu (formRating, min %60 maç)
+          const minApps = Math.ceil(34 * 0.6); // ~21 maç
+          const byForm = [...eligible]
+            .filter(e => (e.player.appearances ?? 0) >= minApps)
             .map(e => ({ ...e, statValue: e.player.formRating ?? 0 }))
             .sort((a, b) => b.statValue - a.statValue);
-          awardTop3(byForm, "mvp");
+          awardTop3(byForm, "player_of_season");
 
-          // En iyi kaleci — saves bazlı
-          const goalkeepers = allPlayersWithClub.filter(e => e.player.specificPosition === "GK");
-          const bySaves = goalkeepers
-            .map(e => ({ ...e, statValue: e.player.saves ?? 0 }))
-            .sort((a, b) => b.statValue - a.statValue);
-          awardTop3(bySaves, "best_goalkeeper");
-
-          // En çok MOTM
-          const byMotm = [...allPlayersWithClub]
+          // 4. motm — En Çok Maçın Adamı
+          const byMotm = [...eligible]
             .map(e => ({ ...e, statValue: e.player.motmAwards ?? 0 }))
-            .sort((a, b) => b.statValue - a.statValue);
-          awardTop3(byMotm, "most_motm");
+            .sort((a, b) => b.statValue - a.statValue || (a.player.appearances ?? 0) - (b.player.appearances ?? 0));
+          awardTop3(byMotm, "motm");
 
-          // En çok maç oynayan
-          const byApps = [...allPlayersWithClub]
+          // 5. golden_glove — Altın Eldiven (sadece kaleci, saves + clean sheet)
+          const goalkeepers = eligible.filter(e => e.player.specificPosition === "GK");
+          const byGlove = goalkeepers
+            .map(e => ({ ...e, statValue: (e.player.saves ?? 0) + ((e.player as any).cleanSheets ?? 0) }))
+            .sort((a, b) => b.statValue - a.statValue);
+          awardTop3(byGlove, "golden_glove");
+
+          // 6. defender_of_season — Sezonun Savunmacısı (DEF, rating + tackling + marking)
+          const defenders = eligible.filter(e => POSITION_GROUP[e.player.specificPosition] === "DEF");
+          const byDef = defenders
+            .map(e => ({ ...e, statValue: Math.round(((e.player.formRating ?? 0) + (e.player.tackling ?? 50) + (e.player.marking ?? 50)) / 3) }))
+            .sort((a, b) => b.statValue - a.statValue);
+          awardTop3(byDef, "defender_of_season");
+
+          // 7. midfielder_of_season — Sezonun Orta Sahası (MID, passing + assists + vision)
+          const midfielders = eligible.filter(e => POSITION_GROUP[e.player.specificPosition] === "MID");
+          const byMid = midfielders
+            .map(e => ({ ...e, statValue: Math.round(((e.player.passing ?? 50) + (e.player.assists ?? 0) * 5 + (e.player.vision ?? 50)) / 3) }))
+            .sort((a, b) => b.statValue - a.statValue);
+          awardTop3(byMid, "midfielder_of_season");
+
+          // 8. wonderkid — Yılın Yeteneği (21 yaş ve altı, en yüksek rating)
+          const youngPlayers = eligible.filter(e => (e.player.age ?? 20) <= 21);
+          const byWonder = youngPlayers
+            .map(e => ({ ...e, statValue: e.player.formRating ?? 0 }))
+            .sort((a, b) => b.statValue - a.statValue);
+          awardTop3(byWonder, "wonderkid");
+
+          // 9. veteran_of_season — Sezonun Veteramı (30 yaş ve üzeri, en yüksek rating)
+          const veterans = eligible.filter(e => (e.player.age ?? 20) >= 30);
+          const byVet = veterans
+            .map(e => ({ ...e, statValue: e.player.formRating ?? 0 }))
+            .sort((a, b) => b.statValue - a.statValue);
+          awardTop3(byVet, "veteran_of_season");
+
+          // 10. cup_top_scorer — Kupa Gol Kralı (yaklaşık: toplam gol kullanılır, kupa ayrımı yok)
+          // TODO: Kupa-specific gol takibi eklenince burayı güncelle
+          awardTop3(byGoals, "cup_top_scorer");
+
+          // 11. intl_player_of_tournament — Turnuvanın Yıldızı (yaklaşık: en yüksek rating)
+          // TODO: CL-specific rating takibi eklenince burayı güncelle
+          awardTop3(byForm, "intl_player_of_tournament");
+
+          // Eski: most_appearances (geri uyumluluk)
+          const byApps = [...eligible]
             .map(e => ({ ...e, statValue: e.player.appearances ?? 0 }))
             .sort((a, b) => b.statValue - a.statValue);
           awardTop3(byApps, "most_appearances");
