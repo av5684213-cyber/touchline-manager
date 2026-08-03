@@ -244,6 +244,13 @@ export type Player = {
   // ── Sakatlık geçmişi ───────────────────────────────────
   injury_history?: { date: string; duration_days: number; type: string }[];
 
+  // v2.9.76: Ödül sistemi için gerçek takip alanları
+  cupGoals?: number;               // kupa + CL gol sayısı (lig dışı)
+  clGoals?: number;                // sadece Şampiyonlar Ligi gol sayısı
+  clAssists?: number;              // sadece Şampiyonlar Ligi asist sayısı
+  careerHatTricks?: number;        // kariyer hat-trick sayısı (per-match 3+ gol)
+  wasInjuredThisSeason?: boolean;  // bu sezon sakatlandı mı (iron_man için)
+
   // ── Transfer/durum ─────────────────────────────────────
   is_for_sale?: boolean;
   sale_price?: number;

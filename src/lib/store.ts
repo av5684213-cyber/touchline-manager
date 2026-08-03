@@ -2276,10 +2276,13 @@ export const useAppStore = create<AppState>()(
           for (const p of awayXI) p.appearances = (p.appearances ?? 0) + 1;
 
           // Home goals dağıt
+          const cupMatchGoals: Record<string, number> = {};
           for (let i = 0; i < (m.homeScore ?? 0); i++) {
             const scorer = pickScorerCup(homeTeam.players);
             if (scorer) {
               scorer.goals = (scorer.goals ?? 0) + 1;
+              scorer.cupGoals = (scorer.cupGoals ?? 0) + 1;
+              cupMatchGoals[scorer.id] = (cupMatchGoals[scorer.id] ?? 0) + 1;
               const assistPool = homeTeam.players.filter(p => p.id !== scorer?.id && p.specificPosition !== "GK");
               if (assistPool.length > 0 && Math.random() > 0.4) {
                 const assister = assistPool[Math.floor(Math.random() * assistPool.length)];
@@ -2292,11 +2295,20 @@ export const useAppStore = create<AppState>()(
             const scorer = pickScorerCup(awayTeam.players);
             if (scorer) {
               scorer.goals = (scorer.goals ?? 0) + 1;
+              scorer.cupGoals = (scorer.cupGoals ?? 0) + 1;
+              cupMatchGoals[scorer.id] = (cupMatchGoals[scorer.id] ?? 0) + 1;
               const assistPool = awayTeam.players.filter(p => p.id !== scorer?.id && p.specificPosition !== "GK");
               if (assistPool.length > 0 && Math.random() > 0.4) {
                 const assister = assistPool[Math.floor(Math.random() * assistPool.length)];
                 assister.assists = (assister.assists ?? 0) + 1;
               }
+            }
+          }
+          // v2.9.76: Kupa maçında hat-trick kontrolü
+          for (const [pid, count] of Object.entries(cupMatchGoals)) {
+            if (count >= 3) {
+              const player = [...homeTeam.players, ...awayTeam.players].find(p => p.id === pid);
+              if (player) player.careerHatTricks = (player.careerHatTricks ?? 0) + 1;
             }
           }
         }
@@ -2845,11 +2857,15 @@ export const useAppStore = create<AppState>()(
           const homeXI = pickStartingXI(homeTeam.players, f.homeId);
           const awayXI = pickStartingXI(awayTeam.players, f.awayId);
 
+          // v2.9.76: Per-match gol takibi — hat-trick tespiti için
+          const matchGoalCount: Record<string, number> = {};
+
           // Home goals dağıt
           for (let i = 0; i < (f.homeScore ?? 0); i++) {
             const scorer = pickScorer(homeXI);
             if (scorer) {
               scorer.goals = (scorer.goals ?? 0) + 1;
+              matchGoalCount[scorer.id] = (matchGoalCount[scorer.id] ?? 0) + 1;
               const assistPool = homeXI.filter(p => p.id !== scorer?.id);
               if (assistPool.length > 0 && Math.random() > 0.4) {
                 const assister = assistPool[Math.floor(Math.random() * assistPool.length)];
@@ -2862,10 +2878,21 @@ export const useAppStore = create<AppState>()(
             const scorer = pickScorer(awayXI);
             if (scorer) {
               scorer.goals = (scorer.goals ?? 0) + 1;
+              matchGoalCount[scorer.id] = (matchGoalCount[scorer.id] ?? 0) + 1;
               const assistPool = awayXI.filter(p => p.id !== scorer?.id);
               if (assistPool.length > 0 && Math.random() > 0.4) {
                 const assister = assistPool[Math.floor(Math.random() * assistPool.length)];
                 assister.assists = (assister.assists ?? 0) + 1;
+              }
+            }
+          }
+
+          // v2.9.76: Hat-trick kontrolü — bu maçta 3+ gol atan oyuncuya careerHatTricks +1
+          for (const [pid, count] of Object.entries(matchGoalCount)) {
+            if (count >= 3) {
+              const player = [...homeXI, ...awayXI].find(p => p.id === pid);
+              if (player) {
+                player.careerHatTricks = (player.careerHatTricks ?? 0) + 1;
               }
             }
           }
@@ -3534,13 +3561,19 @@ export const useAppStore = create<AppState>()(
             .sort((a, b) => b.statValue - a.statValue);
           awardTop3(byVet, "veteran_of_season");
 
-          // 10. cup_top_scorer — Kupa Gol Kralı (yaklaşık: toplam gol kullanılır, kupa ayrımı yok)
-          // TODO: Kupa-specific gol takibi eklenince burayı güncelle
-          awardTop3(byGoals, "cup_top_scorer");
+          // 10. cup_top_scorer — Kupa Gol Kralı (GERÇEK cupGoals: kupa + CL golleri)
+          const byCupGoals = [...eligible]
+            .map(e => ({ ...e, statValue: e.player.cupGoals ?? 0 }))
+            .filter(e => e.statValue > 0)
+            .sort((a, b) => b.statValue - a.statValue);
+          awardTop3(byCupGoals, "cup_top_scorer");
 
-          // 11. intl_player_of_tournament — Turnuvanın Yıldızı (yaklaşık: en yüksek rating)
-          // TODO: CL-specific rating takibi eklenince burayı güncelle
-          awardTop3(byForm, "intl_player_of_tournament");
+          // 11. intl_player_of_tournament — Turnuvanın Yıldızı (cupGoals + formRating)
+          const byIntlImpact = [...eligible]
+            .map(e => ({ ...e, statValue: Math.round((e.player.cupGoals ?? 0) * 3 + (e.player.formRating ?? 0)) }))
+            .filter(e => (e.player.cupGoals ?? 0) > 0)
+            .sort((a, b) => b.statValue - a.statValue);
+          awardTop3(byIntlImpact, "intl_player_of_tournament");
 
           // Eski: most_appearances (geri uyumluluk)
           const byApps = [...eligible]
@@ -3685,10 +3718,8 @@ export const useAppStore = create<AppState>()(
               }
             }
 
-            // hattrick_hero — yaklaşık: sezon başına 3+ gol = 1 hat-trick
-            // (gerçek per-match takibi olmadığı için yaklaşık hesaplama)
-            const seasonHatTricks = Math.floor((p.goals ?? 0) / 3);
-            const careerHatTricks = (p.seasonHistory ?? []).reduce((s, st) => s + Math.floor(st.goals / 3), 0) + seasonHatTricks;
+            // hattrick_hero — GERÇEK careerHatTricks sayacı (per-match 3+ gol)
+            const careerHatTricks = p.careerHatTricks ?? 0;
             if (careerHatTricks > 0) {
               const htKey = "hattrick_hero";
               const htThresholds = [5, 3, 1]; // gold, silver, bronze
@@ -3798,6 +3829,12 @@ export const useAppStore = create<AppState>()(
               // v2.9.68: Sakatlık sıfırla ama injury_history KORU (kariyer geçmişi)
               is_injured: false,
               injury: undefined,
+              // v2.9.76: iron_man için yeni sezonda sıfırla
+              wasInjuredThisSeason: false,
+              // v2.9.76: Kupa gol takibi yeni sezonda sıfırla
+              cupGoals: 0,
+              clGoals: 0,
+              clAssists: 0,
               _loaned: false,
               _loanWeeks: 0,
               // P0 FIX BUG #2: suspended_until sezon sonunda sıfırlanmalı

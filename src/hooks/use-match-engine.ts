@@ -888,6 +888,12 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
         is_injured: isInjured,
         injury,
         injury_history: updatedInjuryHistory,
+        // v2.9.76: iron_man ödülü için — sakatlandıysa wasInjuredThisSeason = true
+        wasInjuredThisSeason: isInjured ? true : p.wasInjuredThisSeason,
+        // v2.9.76: careerHatTricks — bu maçta 3+ gol attıysa +1
+        careerHatTricks: (matchStats?.goals ?? 0) >= 3
+          ? (p.careerHatTricks ?? 0) + 1
+          : p.careerHatTricks,
         // P0 FIX BUG #1: Hazırlık maçı sezon statlarını KİRLETMESİN
         // Friendly iken sadece cond/form/morale güncellenir, gol/asist/appearance/seasonStats/suspended_until ATLANIR
         goals: isFriendly ? p.goals : (p.goals ?? 0) + (matchStats?.goals ?? 0),
