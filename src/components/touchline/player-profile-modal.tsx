@@ -7,6 +7,8 @@ import { useI18n } from "@/lib/i18n/locale-provider";
 import { POSITION_GROUP, ARKETIPLER, type Player, type SeasonStat, type SeasonAward } from "@/lib/mock/data";
 import { TIER_TEAM_NAMES, TEAM_NAME_BANK } from "@/lib/match/engine/constants";
 import { getArketipEtkiOzet, getOvrFactorPercent } from "@/lib/match/engine/arketipEffects";
+// v2.9.75: Trait level renkleri için (MOR/ALTIN/LACIVERT/BEYAZ)
+import { TRAITS_DATA, TRAIT_LEVELS, type TraitLevel } from "@/lib/match/engine/traitsData";
 import { SEASON_INFO, isTransferWindowOpen } from "@/lib/mock/season";
 import { useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline";
 // v2.9.48: Takım detay modal'ı için
@@ -304,6 +306,24 @@ export function PlayerProfileModal({
   );
 }
 
+// v2.9.75: Trait ismi → level lookup (MOR/ALTIN/LACIVERT/BEYAZ)
+// TRAITS_DATA'da trait'ler kategori bazında gruplanmış. Tüm kategorilerde
+// ara, ilk eşleşmeyi döndür. Renk/render için kullanılır.
+const _traitLevelMap = new Map<string, TraitLevel>();
+(function buildTraitLevelMap() {
+  for (const cat of Object.values(TRAITS_DATA)) {
+    const catData = cat as { pozitif?: Array<{ name: string; level: TraitLevel }> };
+    if (catData.pozitif && Array.isArray(catData.pozitif)) {
+      for (const t of catData.pozitif) {
+        if (!_traitLevelMap.has(t.name)) _traitLevelMap.set(t.name, t.level);
+      }
+    }
+  }
+})();
+function getTraitLevel(traitName: string): TraitLevel | undefined {
+  return _traitLevelMap.get(traitName);
+}
+
 function OverviewTab({
   player,
   teamColor,
@@ -498,11 +518,26 @@ function OverviewTab({
             )}
           </div>
           <div className="flex flex-wrap gap-1">
-            {player.traits?.map((tr) => (
-              <span key={tr} className="px-1.5 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                ✅ {tr}
-              </span>
-            ))}
+            {/* v2.9.75: Trait level'a göre renk (MOR=mor, ALTIN=altın, LACIVERT=mavi, BEYAZ=gri)
+                Level bulunamazsa eski yeşil renge fallback. */}
+            {player.traits?.map((tr) => {
+              const level = getTraitLevel(tr);
+              const levelInfo = level ? TRAIT_LEVELS[level] : null;
+              return (
+                <span
+                  key={tr}
+                  className={cn(
+                    "px-1.5 py-0.5 rounded text-[11px] font-semibold border",
+                    levelInfo
+                      ? levelInfo.color
+                      : "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                  )}
+                  title={levelInfo ? `${levelInfo.icon} ${levelInfo.label}` : "Pozitif trait"}
+                >
+                  {levelInfo ? `${levelInfo.icon}` : "✅"} {tr}
+                </span>
+              );
+            })}
             {player.negTraits?.map((tr) => (
               <span key={tr} className="px-1.5 py-0.5 rounded text-[11px] font-semibold bg-red-500/20 text-red-300 border border-red-500/30">
                 ❌ {tr}
