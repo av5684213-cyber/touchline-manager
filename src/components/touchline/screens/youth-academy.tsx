@@ -74,6 +74,13 @@ export function YouthAcademyScreen() {
         return;
       }
     }
+    // v2.9.75: Terfi 1 krediye mâl olur
+    if (!state.spendCredits(1)) {
+      haptic("error");
+      setFeedback("✗ Yetersiz kredi! Terfi için 1 kredi gerek.");
+      setTimeout(() => setFeedback(null), 2500);
+      return;
+    }
     haptic("success");
     // Oyuncuyu A takıma ekle — immutable update
     const updatedClubs = state.clubs.map((c) =>
@@ -87,7 +94,7 @@ export function YouthAcademyScreen() {
       clubs: updatedClubs,
       youthAcademy: { seasonNumber, players: updatedYouth },
     });
-    setFeedback(`✓ ${player.firstName} ${player.lastName} A takıma terfi etti`);
+    setFeedback(`✓ ${player.firstName} ${player.lastName} A takıma terfi etti (1 kredi harcandı)`);
     setTimeout(() => setFeedback(null), 2500);
   };
 
