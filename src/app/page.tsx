@@ -57,7 +57,7 @@ const TAB_ORDER: TabKey[] = [
 ];
 
 export default function Home() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [tab, setTab] = useState<TabKey>("dashboard");
   const [otherOpen, setOtherOpen] = useState(false);
 
@@ -132,7 +132,7 @@ export default function Home() {
           {isMatch && <TopBar compact />}
           {!isMatch && <StickyQuickBar activeTab={tab} onChange={setTab} />}
           <main className="flex-1 overflow-y-auto tm-thin-scrollbar">
-            <ErrorBoundary resetKey={tab}>
+            <ErrorBoundary resetKey={tab} locale={locale}>
               {renderScreen()}
             </ErrorBoundary>
           </main>

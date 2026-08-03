@@ -31,7 +31,13 @@ const TIER_DEPTS: Record<LeagueTier, number> = { 1: 1, 2: 1, 3: 1, 4: 1 };
  * Puan = takım OVR × 10 + bütçe(M) + sezon bonusu
  */
 export function LeaderboardScreen() {
-  const { clubs, myTeamId, managerName, seasonNumber } = useAppStore();
+  // v2.9.74 FIX Y11: Selektorsuz useAppStore() re-render fırtınası yaratıyordu.
+  // Her state değişiminde (tactics, transfer, news, matchday) re-render olurdu.
+  // Ayrı selector'lara bölündü.
+  const clubs = useAppStore((s) => s.clubs);
+  const myTeamId = useAppStore((s) => s.myTeamId);
+  const managerName = useAppStore((s) => s.managerName);
+  const seasonNumber = useAppStore((s) => s.seasonNumber);
   const myTeam = useMyTeam();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);

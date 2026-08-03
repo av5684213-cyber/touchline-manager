@@ -18,6 +18,7 @@ type Props = {
   children: ReactNode;
   fallback?: ReactNode;
   resetKey?: string; // bu değer değişince boundary reset olur
+  locale?: "tr" | "en"; // v2.9.74: i18n için
 };
 
 type State = {
@@ -60,20 +61,23 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="px-4 py-8 text-center space-y-3">
           <div className="text-4xl mb-2">⚠️</div>
           <div className="text-sm font-bold text-red-400">
-            Bir hata oluştu
+            {/* v2.9.74 FIX Y12: i18n — class component olduğu için useI18n kullanılamaz.
+                props.locale üzerinden al, fallback TR. */}
+            {this.props.locale === "en" ? "An error occurred" : "Bir hata oluştu"}
           </div>
           <div className="text-[11px] text-muted-foreground max-w-[280px] mx-auto leading-relaxed">
-            Bu ekran yüklenirken bir sorun yaşandı. Uygulama verileri korunuyor.
-            Aşağıdaki butona basıp tekrar deneyin.
+            {this.props.locale === "en"
+              ? "A problem occurred while loading this screen. App data is preserved. Press the button below to retry."
+              : "Bu ekran yüklenirken bir sorun yaşandı. Uygulama verileri korunuyor. Aşağıdaki butona basıp tekrar deneyin."}
           </div>
           <div className="text-[10px] text-muted-foreground/60 max-w-[280px] mx-auto break-all bg-muted/30 rounded p-2 mt-2">
-            {this.state.error?.message ?? "Bilinmeyen hata"}
+            {this.state.error?.message ?? (this.props.locale === "en" ? "Unknown error" : "Bilinmeyen hata")}
           </div>
           <button
             onClick={this.reset}
             className="tm-tap mt-3 px-5 py-2 rounded-md bg-primary text-primary-foreground text-xs font-bold"
           >
-            Tekrar Dene
+            {this.props.locale === "en" ? "Retry" : "Tekrar Dene"}
           </button>
         </div>
       );

@@ -24,7 +24,9 @@ type WeeklyChallenge = {
  * Haftalık reset (Pazartesi).
  */
 export function WeeklyChallengesCard() {
-  const { credits, seasonMatchday } = useAppStore();
+  // v2.9.74 FIX Y11: Selektorsuz useAppStore() → ayrı selector'lar
+  const credits = useAppStore((s) => s.credits);
+  const seasonMatchday = useAppStore((s) => s.seasonMatchday);
   const [challenges, setChallenges] = useState<WeeklyChallenge[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
 

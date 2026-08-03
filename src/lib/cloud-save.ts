@@ -623,7 +623,11 @@ function catchUpAllLeagues(allLeagues: any, targetMatchday: number): void {
   if (targetMatchday <= 1) return;
   if (!allLeagues) return;
 
-  // store.ts'teki simulateBotMatch'i dinamik import et (circular dependency önle)
+  // v2.9.74 O6: require() → await import() yapmak için fonksiyon async olmalı.
+  // Ama catchUpAllLeagues sync — caller'lar sync bekliyor. Şimdilik require()
+  // korunuyor (circular dependency önlemek için). Webpack tree-shaking kırılır
+  // ama çalışıyor. İleride refactor: catchUpAllLeagues async yapılıp dynamic
+  // import kullanılabilir.
   const { simulateBotMatch } = require("@/lib/botAI");
 
   for (const key of Object.keys(allLeagues)) {
