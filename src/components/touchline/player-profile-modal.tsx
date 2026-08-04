@@ -2911,30 +2911,30 @@ function AchievementsTab({
         </div>
       )}
 
-      {/* v2.9.76: Ödül Vitrini — WebP görseller ile seasonAwards gösterimi */}
+      {/* v2.9.76: Ödül Vitrini — tıklayınca açıklama modal'ı */}
       {(() => {
         const awards = (player as any).seasonAwards as SeasonAward[] | undefined;
         if (!awards || awards.length === 0) return null;
 
-        // Eski awardType'ları migrate et
         const migratedAwards = awards.map(a => ({
           ...a,
           awardType: AWARD_MIGRATION_MAP[a.awardType] ?? a.awardType,
           tier: (a.tier ?? (a.rank === 1 ? "gold" : a.rank === 2 ? "silver" : "bronze")) as AwardTier,
         }));
 
-        // En yeni en üstte
         const sorted = [...migratedAwards].sort((a, b) =>
           (b.awardedAt ?? b.seasonNumber * 1e10) - (a.awardedAt ?? a.seasonNumber * 1e10)
         );
 
-        // Eski takım ödülleri için emoji fallback
         const EMOJI_FALLBACK: Record<string, { icon: string; label: string }> = {
           most_appearances: { icon: "📋", label: "En Çok Maç Oynayan" },
           league_champion: { icon: "👑", label: "Lig Şampiyonu" },
           cup_champion: { icon: "🏆", label: "Kupa Şampiyonu" },
           champions_league_winner: { icon: "🌍", label: "Şampiyonlar Ligi" },
         };
+
+        const TIER_LABEL: Record<string, string> = { gold: "Altın", silver: "Gümüş", bronze: "Bronz" };
+        const TIER_EMOJI: Record<string, string> = { gold: "🥇", silver: "🥈", bronze: "🥉" };
 
         return (
           <div>
@@ -2946,30 +2946,24 @@ function AchievementsTab({
                 const cat = AWARD_CATEGORIES[a.awardType as keyof typeof AWARD_CATEGORIES];
                 const imgPath = getAwardImagePath(a.awardType, a.tier as AwardTier);
                 const name = cat ? (locale === "en" ? cat.enName : cat.trName) : (EMOJI_FALLBACK[a.awardType]?.label ?? a.awardType);
+                const desc = cat ? (locale === "en" ? cat.enDesc : cat.trDesc) : "";
+                const tierLabel = TIER_LABEL[a.tier as string] ?? "";
+                const tierEmoji = TIER_EMOJI[a.tier as string] ?? "";
 
                 return (
-                  <div key={i} className="tm-card p-1.5 flex flex-col items-center text-center gap-1">
-                    {imgPath ? (
-                      <img
-                        src={imgPath}
-                        alt={name}
-                        className="w-12 h-12 object-contain rounded-md"
-                        loading="lazy"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      />
-                    ) : (
-                      <span className="text-2xl">{EMOJI_FALLBACK[a.awardType]?.icon ?? "🏅"}</span>
-                    )}
-                    <div className="text-[9px] font-bold truncate w-full" title={name}>
-                      {name}
-                    </div>
-                    <div className="text-[8px] text-muted-foreground">
-                      {a.seasonLabel?.split("/")[0] ?? `S${a.seasonNumber}`}
-                      {a.tier === "gold" && " 🥇"}
-                      {a.tier === "silver" && " 🥈"}
-                      {a.tier === "bronze" && " 🥉"}
-                    </div>
-                  </div>
+                  <AwardCard
+                    key={i}
+                    imgPath={imgPath}
+                    emojiFallback={EMOJI_FALLBACK[a.awardType]?.icon ?? "🏅"}
+                    name={name}
+                    tierEmoji={tierEmoji}
+                    tierLabel={tierLabel}
+                    seasonLabel={a.seasonLabel ?? `S${a.seasonNumber}`}
+                    clubName={a.clubName}
+                    statValue={a.statValue}
+                    desc={desc}
+                    locale={locale}
+                  />
                 );
               })}
             </div>
@@ -2977,5 +2971,111 @@ function AchievementsTab({
         );
       })()}
     </div>
+  );
+}
+
+// v2.9.76: AwardCard — tıklanınca açıklama modal'ı açan ödül kartı
+function AwardCard({
+  imgPath,
+  emojiFallback,
+  name,
+  tierEmoji,
+  tierLabel,
+  seasonLabel,
+  clubName,
+  statValue,
+  desc,
+  locale,
+}: {
+  imgPath: string | null;
+  emojiFallback: string;
+  name: string;
+  tierEmoji: string;
+  tierLabel: string;
+  seasonLabel: string;
+  clubName?: string;
+  statValue: number;
+  desc: string;
+  locale: Locale;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        onClick={() => { haptic("light"); setOpen(true); }}
+        className="tm-card p-1.5 flex flex-col items-center text-center gap-1 tm-tap hover:bg-accent/20 transition-colors"
+      >
+        {imgPath ? (
+          <img
+            src={imgPath}
+            alt={name}
+            className="w-12 h-12 object-contain rounded-md"
+            loading="lazy"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
+        ) : (
+          <span className="text-2xl">{emojiFallback}</span>
+        )}
+        <div className="text-[9px] font-bold truncate w-full" title={name}>
+          {name}
+        </div>
+        <div className="text-[8px] text-muted-foreground">
+          {seasonLabel.split("/")[0]} {tierEmoji}
+        </div>
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4" onClick={() => setOpen(false)}>
+          <div
+            className="tm-card w-full max-w-[300px] p-4 space-y-3 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setOpen(false)}
+              className="tm-tap absolute top-2 right-2 p-1 text-muted-foreground hover:text-foreground"
+            >
+              <X size={16} />
+            </button>
+
+            {/* Büyük ödül görseli */}
+            <div className="flex justify-center pt-2">
+              {imgPath ? (
+                <img
+                  src={imgPath}
+                  alt={name}
+                  className="w-20 h-20 object-contain drop-shadow-lg"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              ) : (
+                <span className="text-5xl">{emojiFallback}</span>
+              )}
+            </div>
+
+            {/* Tier rozet */}
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30">
+              {tierEmoji} {tierLabel}
+            </div>
+
+            {/* Ödül adı */}
+            <div className="text-sm font-bold text-amber-300">{name}</div>
+
+            {/* Açıklama */}
+            {desc && (
+              <div className="text-[11px] text-muted-foreground leading-relaxed">
+                {desc}
+              </div>
+            )}
+
+            {/* Detaylar */}
+            <div className="text-[10px] text-muted-foreground space-y-0.5 pt-1 border-t border-border">
+              <div>📅 {seasonLabel}</div>
+              {clubName && <div>🏟️ {clubName}</div>}
+              {statValue > 0 && <div>📊 {statValue}</div>}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
