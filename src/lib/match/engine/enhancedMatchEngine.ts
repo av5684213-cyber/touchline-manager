@@ -2244,6 +2244,27 @@ export function simulateEnhancedMatch(
       // Kaleci trait'leri probs.save'i, defans trait'leri probs.tackle'ı artırır
       applyDefenderTraitEffects(probs, opponentGK, opponentDefender);
 
+      // v2.9.76: 🎭 ARKETİP ETKİLERİ — shotChance, assistChance, interceptionChance
+      // 3 etki alanı tanımlıydı ama motor hiç okumuyordu. Artık okuyor.
+
+      // shotChance: Saldıran oyuncunun arketibi şut olasılığını (probs.shot) artırır
+      const attackerArchetype = (selectedPlayer.player as any).archetype ?? "";
+      const attackerOvr = selectedPlayer.player.rating ?? 50;
+      const attackerShotEtkisi = getArketipEtki(attackerArchetype, attackerOvr, "shotChance");
+      if (attackerShotEtkisi > 0) {
+        probs.shot *= (1 + attackerShotEtkisi);
+        probs.shot = clamp(probs.shot, 0, 0.15);
+      }
+
+      // interceptionChance: Savunan defans oyuncusunun arketibi interception olasılığını artırır
+      const defInterceptArchetype = (opponentDefender?.player as any)?.archetype ?? "";
+      const defInterceptOvr = opponentDefender?.player?.rating ?? 50;
+      const defInterceptEtkisi = getArketipEtki(defInterceptArchetype, defInterceptOvr, "interceptionChance");
+      if (defInterceptEtkisi > 0) {
+        probs.tackle *= (1 + defInterceptEtkisi * 0.5); // interception → tackle bonus
+        probs.tackle = clamp(probs.tackle, 0, PROB_CAPS.tackle);
+      }
+
       // ── Attempt a shot / chance ──────────────────────────────────────
       const shotRoll = Math.random();
       const baseGoalChance = GOAL_CHANCE.base; // 3% base goal per attacking minute
@@ -2494,7 +2515,24 @@ export function simulateEnhancedMatch(
       const midfielders = getByPosition(attackingTeam, 'MID');
       const otherForwards = getByPosition(attackingTeam, 'FWD').filter(p => p.player.id !== selectedPlayer.player.id);
       const assistCandidates = [...midfielders, ...otherForwards].filter(p => p.player.id !== selectedPlayer.player.id);
-      const assister = assistCandidates.length > 0 && Math.random() < ASSIST_CHANCE
+
+      // v2.9.76: assistChance — arketibe göre asist olasılığı artır
+      // Eğer saldıran oyuncunun takımında assistChance yüksek arketipe sahip oyuncu varsa
+      // ASSIST_CHANCE (0.65) üzerinde bonus uygula
+      let adjustedAssistChance = ASSIST_CHANCE;
+      if (assistCandidates.length > 0) {
+        // En yüksek assistChance'e sahip adayı bul
+        let bestAssistBonus = 0;
+        for (const candidate of assistCandidates) {
+          const candArchetype = (candidate.player as any).archetype ?? "";
+          const candOvr = candidate.player.rating ?? 50;
+          const candAssistEtki = getArketipEtki(candArchetype, candOvr, "assistChance");
+          if (candAssistEtki > bestAssistBonus) bestAssistBonus = candAssistEtki;
+        }
+        adjustedAssistChance = Math.min(0.90, ASSIST_CHANCE + bestAssistBonus);
+      }
+
+      const assister = assistCandidates.length > 0 && Math.random() < adjustedAssistChance
         ? pick(assistCandidates)
         : undefined;
 
