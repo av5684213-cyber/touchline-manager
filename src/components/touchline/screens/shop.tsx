@@ -25,13 +25,12 @@ import { CardInventoryView } from "../card-inventory-view";
 import { CardApplyModal } from "../card-apply-modal";
 // v2.9.46 Görev 1: Kozmetik Market
 import {
-  fetchCosmeticsCatalog,
-  COSMETIC_CATEGORY_META,
   RARITY_COLORS,
   RARITY_LABELS,
   SEED_COSMETICS,
   type CosmeticItem,
   type CosmeticCategory,
+  COSMETIC_CATEGORY_META,
 } from "@/lib/cosmetics";
 // v2.9.46 Görev 2: Google Play Billing
 import {
@@ -44,7 +43,7 @@ import {
 import { useI18n } from "@/lib/i18n/locale-provider";
 
 type PackType = "bronze" | "silver" | "gold" | "platinum";
-type ShopTab = "packs" | "cards" | "market" | "credits" | "inventory";
+type ShopTab = "packs" | "cards" | "credits" | "inventory";
 
 const PACKS: Record<PackType, {
   name: string;
@@ -284,16 +283,7 @@ export function ShopScreen() {
           <Layers size={14} />
           {t("shop.cards")}
         </button>
-        <button
-          onClick={() => { haptic("light"); setTab("market"); }}
-          className={cn(
-            "tm-tap flex-1 min-w-[80px] flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-colors",
-            tab === "market" ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground"
-          )}
-        >
-          <ShoppingBag size={14} />
-          {t("shop.market")}
-        </button>
+        {/* v2.9.76: "market" (kozmetik) tab KALDIRILDI — etkisi olmayan öğeler satılıyordu */}
         <button
           onClick={() => { haptic("light"); setTab("credits"); }}
           className={cn(
@@ -394,14 +384,8 @@ export function ShopScreen() {
         <CardsTab onBuyCard={handleBuyCard} onApplyCard={(card) => setApplyCard(card)} />
       )}
 
-      {/* ===== KOZMETİK MARKET TAB (v2.9.46 Görev 1) ===== */}
-      {tab === "market" && (
-        <CosmeticMarketTab
-          onFeedback={(msg) => { setFeedback(msg); setTimeout(() => setFeedback(null), 3000); }}
-        />
-      )}
-
-      {/* ===== KREDİ SATIN AL TAB (v2.9.46 Görev 2) ===== */}
+      {/* v2.9.76: Kozmetik market tab KALDIRILDI — etkisi olmayan öğeler */}
+      {/* ===== KREDİ SATIN AL TAB ===== */}
       {tab === "credits" && (
         <CreditsPurchaseTab
           onFeedback={(msg) => { setFeedback(msg); setTimeout(() => setFeedback(null), 3000); }}
@@ -412,7 +396,7 @@ export function ShopScreen() {
       {tab === "inventory" && (
         <>
           <CardInventoryView onApplyCard={(card) => setApplyCard(card)} />
-          <CosmeticInventoryView />
+          {/* v2.9.76: CosmeticInventoryView KALDIRILDI — etkisi olmayan öğeler */}
         </>
       )}
 
@@ -750,280 +734,13 @@ function PackOpeningAnimation({
 }
 
 // ============================================================================
-// v2.9.46 Görev 1: Kozmetik Market Tab — forma, rozet, tema, stadyum, top
+// v2.9.76: CosmeticMarketTab VE CosmeticInventoryView KALDIRILDI
+// Neden: kit/badge/stadium/ball kategorilerinin oyuna hiçbir etkisi yoktu.
+// Theme kategorisi CSS değişkeni uyguluyordu ama bu "oyun mekanik etkisi" değil.
+// Kullanıcı kredi harcayıp etkisiz öğeler alıyordu — kaldırıldı.
+// Mevcut equipped cosmetics state'i korunur (CosmeticsApplier çalışmaya devam eder).
 // ============================================================================
 
-function CosmeticMarketTab({ onFeedback }: { onFeedback: (msg: string) => void }) {
-  const { t, locale } = useI18n();
-  const credits = useAppStore((s) => s.credits);
-  const buyCosmetic = useAppStore((s) => s.buyCosmetic);
-  const equipCosmetic = useAppStore((s) => s.equipCosmetic);
-  const cosmeticsOwned = useAppStore((s) => s.cosmetics.owned);
-  const cosmeticsEquipped = useAppStore((s) => s.cosmetics.equipped);
-
-  const [catalog, setCatalog] = useState<CosmeticItem[]>(SEED_COSMETICS);
-  const [loading, setLoading] = useState(true);
-  const [usingSeed, setUsingSeed] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<CosmeticCategory | "all">("all");
-  // v2.9.65: Satın alma sırasında butonu disable et — race condition önle
-  const [purchasingId, setPurchasingId] = useState<string | null>(null);
-
-  // Kataloğu yükle (Supabase bağlıysa oradan, değilse seed)
-  useEffect(() => {
-    let mounted = true;
-    fetchCosmeticsCatalog().then(result => {
-      if (mounted) {
-        setCatalog(result.items);
-        setUsingSeed(result.usingSeed);
-        setLoading(false);
-      }
-    });
-    return () => { mounted = false; };
-  }, []);
-
-  const filteredCatalog = selectedCategory === "all"
-    ? catalog
-    : catalog.filter(c => c.category === selectedCategory);
-
-  const handleBuy = (item: CosmeticItem) => {
-    // v2.9.65: Çift tıklama önle — zaten satın alınıyorsa iptal
-    if (purchasingId) return;
-    haptic("medium");
-    setPurchasingId(item.id);
-    const result = buyCosmetic(item.id, item.creditPrice);
-    setPurchasingId(null);
-    if (result.success) {
-      haptic("success");
-      onFeedback(`✓ ${locale === "tr" ? item.nameTr : item.nameEn} satın alındı!`);
-      // Satın alınınca otomatik giy
-      equipCosmetic(item.category, item.id);
-    } else {
-      haptic("error");
-      onFeedback(`✗ ${result.reason ?? "Satın alma başarısız"}`);
-    }
-  };
-
-  const handleEquip = (item: CosmeticItem) => {
-    haptic("light");
-    equipCosmetic(item.category, item.id);
-    onFeedback(`✓ ${locale === "tr" ? item.nameTr : item.nameEn} giyildi`);
-  };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
-      </div>
-    );
-  }
-
-  const categories: Array<CosmeticCategory | "all"> = ["all", "kit", "badge", "theme", "stadium", "ball"];
-
-  return (
-    <div className="space-y-3">
-      {/* Bilgi kartı */}
-      <div className="tm-card p-3 border-purple-500/20 bg-purple-500/5">
-        <div className="flex items-center gap-2 mb-1.5">
-          <ShoppingBag size={13} className="text-purple-400" />
-          <span className="text-[11px] font-bold text-purple-300 uppercase">Kozmetik Market</span>
-        </div>
-        <p className="text-[10px] text-muted-foreground leading-relaxed">
-          Forma, rozet, tema, stadyum ve top kozmetiklerini kredi ile satın al. Satın aldığın kozmetikler kalıcıdır ve envanterinde birikir.
-        </p>
-      </div>
-
-      {/* v2.9.52: Seed veri kullanılıyorsa uyarı */}
-      {usingSeed && (
-        <div className="tm-card p-2 bg-amber-500/10 border-amber-500/30 text-center">
-          <span className="text-[10px] text-amber-400 font-semibold">
-            ⚠️ {t("shop.offline_data")} — katalog sunucudan yüklenemedi, örnek içerik gösteriliyor
-          </span>
-        </div>
-      )}
-
-      {/* Kategori filtre */}
-      <div className="flex gap-1.5 overflow-x-auto tm-no-scrollbar">
-        {categories.map(cat => {
-          const meta = cat === "all" ? null : COSMETIC_CATEGORY_META[cat];
-          const label = cat === "all"
-            ? (locale === "tr" ? "Tümü" : "All")
-            : (locale === "tr" ? meta!.labelTr : meta!.labelEn);
-          return (
-            <button
-              key={cat}
-              onClick={() => { haptic("light"); setSelectedCategory(cat); }}
-              className={cn(
-                "tm-tap px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap border flex items-center gap-1",
-                selectedCategory === cat
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card border-border text-muted-foreground"
-              )}
-            >
-              {meta && <span>{meta.icon}</span>}
-              {label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Katalog grid */}
-      <div className="grid grid-cols-2 gap-2">
-        {filteredCatalog.map(item => {
-          const meta = COSMETIC_CATEGORY_META[item.category];
-          const owned = cosmeticsOwned.includes(item.id);
-          const equipped = cosmeticsEquipped[item.category] === item.id;
-          const canAfford = credits >= item.creditPrice;
-          const name = locale === "tr" ? item.nameTr : item.nameEn;
-          const rarityLabel = locale === "tr"
-            ? RARITY_LABELS[item.rarity].tr
-            : RARITY_LABELS[item.rarity].en;
-
-          return (
-            <div
-              key={item.id}
-              className={cn(
-                "tm-tap relative rounded-xl p-3 flex flex-col gap-1.5 border-2 transition-all",
-                RARITY_COLORS[item.rarity],
-                equipped && "ring-2 ring-emerald-400"
-              )}
-            >
-              {/* Owned/Equipped badge */}
-              {equipped && (
-                <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-emerald-500/30 text-emerald-300 text-[9px] font-bold">
-                  ✓ {t("shop.equipped")}
-                </div>
-              )}
-              {!equipped && owned && (
-                <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-sky-500/30 text-sky-300 text-[9px] font-bold">
-                  {t("shop.owned")}
-                </div>
-              )}
-
-              {/* İkon */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-2xl">{meta.icon}</span>
-                <span className={cn("text-[9px] uppercase font-bold", `text-${item.rarity === "legendary" ? "amber" : item.rarity === "epic" ? "purple" : item.rarity === "rare" ? "sky" : "slate"}-400`)}>
-                  {rarityLabel}
-                </span>
-              </div>
-
-              {/* İsim */}
-              <div className="text-xs font-bold leading-tight">{name}</div>
-
-              {/* Açıklama */}
-              <div className="text-[9px] text-muted-foreground leading-tight line-clamp-2 flex-1">
-                {locale === "tr" ? (item.descTr ?? meta.descTr) : (item.descEn ?? meta.descEn)}
-              </div>
-
-              {/* Fiyat + Aksiyon */}
-              {owned ? (
-                <button
-                  onClick={() => handleEquip(item)}
-                  disabled={equipped}
-                  className={cn(
-                    "tm-tap w-full flex items-center justify-center gap-1 py-1.5 rounded-md text-[10px] font-bold transition-colors",
-                    equipped
-                      ? "bg-emerald-500/20 text-emerald-300 cursor-default"
-                      : "bg-sky-500/20 text-sky-300 border border-sky-400/40"
-                  )}
-                >
-                  {equipped ? `✓ ${t("shop.equipped")}` : t("shop.equip")}
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleBuy(item)}
-                  disabled={!canAfford || purchasingId !== null}
-                  className={cn(
-                    "tm-tap w-full flex items-center justify-center gap-1 py-1.5 rounded-md text-[10px] font-bold transition-colors",
-                    canAfford
-                      ? "bg-amber-500/20 text-amber-300 border border-amber-400/40"
-                      : "bg-muted/30 text-muted-foreground/50 cursor-not-allowed"
-                  )}
-                >
-                  <Coins size={10} />
-                  {item.creditPrice}
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {filteredCatalog.length === 0 && (
-        <div className="tm-card p-6 text-center text-xs text-muted-foreground">
-          Bu kategoride kozmetik yok.
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ============================================================================
-// Kozmetik Envanter Görünümü — sahip olunan + giyili kozmetikler
-// ============================================================================
-
-function CosmeticInventoryView() {
-  const { t, locale } = useI18n();
-  const cosmeticsOwned = useAppStore((s) => s.cosmetics.owned);
-  const cosmeticsEquipped = useAppStore((s) => s.cosmetics.equipped);
-  const equipCosmetic = useAppStore((s) => s.equipCosmetic);
-  const unequipCosmetic = useAppStore((s) => s.unequipCosmetic);
-
-  // Sahip olunan kozmetikleri katalogdan bul
-  const ownedItems = SEED_COSMETICS.filter(c => cosmeticsOwned.includes(c.id));
-
-  if (ownedItems.length === 0) {
-    return null; // kozmetik yoksa bölümü gizle
-  }
-
-  return (
-    <div className="mt-4 pt-4 border-t border-border">
-      <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-2">
-        🎨 Kozmetiklerim ({ownedItems.length})
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        {ownedItems.map(item => {
-          const meta = COSMETIC_CATEGORY_META[item.category];
-          const equipped = cosmeticsEquipped[item.category] === item.id;
-          const name = locale === "tr" ? item.nameTr : item.nameEn;
-          return (
-            <div
-              key={item.id}
-              className={cn(
-                "tm-card p-2 flex items-center gap-2",
-                equipped && "ring-2 ring-emerald-400"
-              )}
-            >
-              <span className="text-xl shrink-0">{meta.icon}</span>
-              <div className="flex-1 min-w-0">
-                <div className="text-[11px] font-bold truncate">{name}</div>
-                <div className="text-[9px] text-muted-foreground">{meta.labelTr}</div>
-              </div>
-              <button
-                onClick={() => {
-                  haptic("light");
-                  if (equipped) {
-                    unequipCosmetic(item.category);
-                  } else {
-                    equipCosmetic(item.category, item.id);
-                  }
-                }}
-                className={cn(
-                  "tm-tap px-2 py-1 rounded text-[9px] font-bold",
-                  equipped
-                    ? "bg-red-500/20 text-red-400 border border-red-400/40"
-                    : "bg-emerald-500/20 text-emerald-300 border border-emerald-400/40"
-                )}
-              >
-                {equipped ? t("shop.unequip") : t("shop.equip")}
-              </button>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 // ============================================================================
 // v2.9.46 Görev 2: Kredi Satın Al Tab — Google Play Billing
