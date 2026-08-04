@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { PlayerProfileModal } from "../player-profile-modal";
+import { haptic } from "@/hooks/touchline";
 import { type Locale } from "@/lib/i18n/types";
 import {
   Activity,
@@ -516,6 +518,9 @@ function PerformanceReport({
   fixtures: FixtureRow[];
   locale: Locale;
 }) {
+  // v2.9.76: Oyuncu profili modal'ı için state
+  const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
+  const onPlayerClick = (p: Player) => setProfilePlayer(p);
   // v2.9.66 Faz 6: i18n — hardcoded string'leri t() ile değiştir
   const { t } = useI18n();
   const players = team.players;
@@ -659,7 +664,7 @@ function PerformanceReport({
           </div>
           <div className="space-y-0.5">
             {topScorers.map((p, i) => (
-              <PlayerStatRow key={p.id} rank={i + 1} name={`${p.firstName} ${p.lastName}`} pos={p.specificPosition} value={p.goals ?? 0} valueLabel="G" color="emerald" />
+              <PlayerStatRow key={p.id} rank={i + 1} name={`${p.firstName} ${p.lastName}`} pos={p.specificPosition} value={p.goals ?? 0} valueLabel="G" color="emerald" player={p} onClickPlayer={onPlayerClick} />
             ))}
             {topScorers.length === 0 && (
               <div className="text-[11px] text-muted-foreground text-center py-1">Gol yok</div>
@@ -673,7 +678,7 @@ function PerformanceReport({
           </div>
           <div className="space-y-0.5">
             {topAssists.map((p, i) => (
-              <PlayerStatRow key={p.id} rank={i + 1} name={`${p.firstName} ${p.lastName}`} pos={p.specificPosition} value={p.assists ?? 0} valueLabel="A" color="sky" />
+              <PlayerStatRow key={p.id} rank={i + 1} name={`${p.firstName} ${p.lastName}`} pos={p.specificPosition} value={p.assists ?? 0} valueLabel="A" color="sky" player={p} onClickPlayer={onPlayerClick} />
             ))}
             {topAssists.length === 0 && (
               <div className="text-[11px] text-muted-foreground text-center py-1">Asist yok</div>
@@ -690,7 +695,7 @@ function PerformanceReport({
         </div>
         <div className="space-y-0.5">
           {topForm.map((p, i) => (
-            <PlayerStatRow key={p.id} rank={i + 1} name={`${p.firstName} ${p.lastName}`} pos={p.specificPosition} value={p.formRating ?? 0} valueLabel="form" color="emerald" decimals={1} extra={`${p.goals ?? 0}G ${p.assists ?? 0}A`} />
+            <PlayerStatRow key={p.id} rank={i + 1} name={`${p.firstName} ${p.lastName}`} pos={p.specificPosition} value={p.formRating ?? 0} valueLabel="form" color="emerald" decimals={1} extra={`${p.goals ?? 0}G ${p.assists ?? 0}A`} player={p} onClickPlayer={onPlayerClick} />
           ))}
         </div>
       </div>
@@ -703,7 +708,7 @@ function PerformanceReport({
         </div>
         <div className="space-y-0.5">
           {bottomForm.map((p, i) => (
-            <PlayerStatRow key={p.id} rank={i + 1} name={`${p.firstName} ${p.lastName}`} pos={p.specificPosition} value={p.formRating ?? 0} valueLabel="form" color="red" decimals={1} extra={`${p.cond ?? 0}% kond.`} />
+            <PlayerStatRow key={p.id} rank={i + 1} name={`${p.firstName} ${p.lastName}`} pos={p.specificPosition} value={p.formRating ?? 0} valueLabel="form" color="red" decimals={1} extra={`${p.cond ?? 0}% kond.`} player={p} onClickPlayer={onPlayerClick} />
           ))}
         </div>
       </div>
@@ -739,10 +744,19 @@ function PerformanceReport({
           </div>
           <div className="space-y-0.5">
             {lowCondPlayers.map((p, i) => (
-              <PlayerStatRow key={p.id} rank={i + 1} name={`${p.firstName} ${p.lastName}`} pos={p.specificPosition} value={p.cond ?? 0} valueLabel="kond." color="amber" />
+              <PlayerStatRow key={p.id} rank={i + 1} name={`${p.firstName} ${p.lastName}`} pos={p.specificPosition} value={p.cond ?? 0} valueLabel="kond." color="amber" player={p} onClickPlayer={onPlayerClick} />
             ))}
           </div>
         </div>
+      )}
+
+      {/* v2.9.76: Oyuncu profili modal'ı */}
+      {profilePlayer && (
+        <PlayerProfileModal
+          player={profilePlayer}
+          teamColor={team.primaryColor}
+          onClose={() => setProfilePlayer(null)}
+        />
       )}
     </div>
   );
@@ -1287,6 +1301,8 @@ function PlayerStatRow({
   color,
   decimals = 0,
   extra,
+  player,
+  onClickPlayer,
 }: {
   rank: number;
   name: string;
@@ -1296,6 +1312,8 @@ function PlayerStatRow({
   color: "emerald" | "red" | "amber" | "sky";
   decimals?: number;
   extra?: string;
+  player?: Player;
+  onClickPlayer?: (p: Player) => void;
 }) {
   const colors = {
     emerald: "text-emerald-400",
@@ -1304,7 +1322,14 @@ function PlayerStatRow({
     sky: "text-sky-400",
   };
   return (
-    <div className="flex items-center gap-2 py-1 px-1.5 rounded bg-muted/20">
+    <button
+      onClick={() => { if (player && onClickPlayer) { haptic("light"); onClickPlayer(player); } }}
+      className={cn(
+        "flex items-center gap-2 py-1 px-1.5 rounded bg-muted/20 w-full text-left",
+        player && onClickPlayer && "tm-tap hover:bg-accent/30 transition-colors"
+      )}
+      disabled={!player || !onClickPlayer}
+    >
       <span className="text-[11px] text-muted-foreground w-4">{rank}</span>
       <div className="flex-1 min-w-0">
         <div className="text-[10px] font-semibold truncate">{name}</div>
@@ -1315,7 +1340,7 @@ function PlayerStatRow({
         {value.toFixed(decimals)}
         <span className="text-[10px] opacity-70 ml-0.5">{valueLabel}</span>
       </span>
-    </div>
+    </button>
   );
 }
 

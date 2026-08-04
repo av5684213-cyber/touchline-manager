@@ -150,9 +150,10 @@ export function calculatePlayerValue(player: Player, seasonPerformanceModifier?:
   const moraleMult = morale > 80 ? 1.05 : 1.00;
   const perfMult = seasonPerformanceModifier ?? 1.0;
 
-  // v2.9.76: Ödül çarpanı — sadece en yüksek tier uygulanır (kümülatif değil)
-  // Sezon ödülü: gold=%12, silver=%6, bronze=%3
-  // Milestone ödülü: gold=%6, silver=%3, bronze=%1
+  // v2.9.76: Ödül çarpanı — en yüksek sezon tier + en yüksek milestone tier AYRI AYRI uygulanır
+  // Sezon ödülü: gold=%12, silver=%6, bronze=%3 (en yüksek tek bir sezon ödülü)
+  // Milestone ödülü: gold=%6, silver=%3, bronze=%1 (en yüksek tek bir milestone ödülü)
+  // İki grup ayrı çarpanlar — kümülatif DEĞİL, her gruptan en yüksek tier
   let awardMult = 1.0;
   try {
     const awards = (player as any).seasonAwards as any[] | undefined;

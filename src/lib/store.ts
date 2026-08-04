@@ -1105,7 +1105,7 @@ export const useAppStore = create<AppState>()(
         if (!team) return { success: false, reason: "no-team" };
 
         // P1 FIX: Transfer penceresi kontrolü
-        if (!isTransferWindowOpen()) {
+        if (!isTransferWindowOpen(get().seasonMatchday ?? 1)) {
           return { success: false, reason: "window-closed" };
         }
 
@@ -1166,7 +1166,7 @@ export const useAppStore = create<AppState>()(
         if (!myTeam) return { success: false, reason: "no-team" };
 
         // P1 FIX: Transfer penceresi kontrolü
-        if (!isTransferWindowOpen()) {
+        if (!isTransferWindowOpen(get().seasonMatchday ?? 1)) {
           return { success: false, reason: "window-closed" };
         }
 
@@ -1553,7 +1553,7 @@ export const useAppStore = create<AppState>()(
 
         // v2.9.64 FIX: Transfer penceresi kontrolü (C5)
         // Eski kod: makeLoanOffer pencere kontrolü yapmıyordu — 30-34. haftada kiralama yapılabilirdi
-        if (!isTransferWindowOpen()) {
+        if (!isTransferWindowOpen(get().seasonMatchday ?? 1)) {
           return { success: false, reason: "window-closed" };
         }
 
@@ -4595,6 +4595,8 @@ export const useAppStore = create<AppState>()(
         const { credits } = get();
         if (credits < amount) return false;
         set({ credits: credits - amount });
+        // v2.9.76 Fix D6: addCredits ile simetri — immediate cloud-save
+        try { triggerTacticsSave(); } catch { /* cloud-save yüklenmemiş olabilir */ }
         return true;
       },
 
