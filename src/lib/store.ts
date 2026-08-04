@@ -2419,6 +2419,16 @@ export const useAppStore = create<AppState>()(
             // Şampiyon
             const champion = winners[0];
             const champTeam = cl.participants.find(p => p.teamId === champion);
+            // v2.9.76: ŞL şampiyonuna 50M Euro ödül
+            if (champion === myTeamId) {
+              const myClub = clubs.find(c => c.id === myTeamId);
+              if (myClub) myClub.budget += 50_000_000;
+            }
+            // v2.9.76: Tüm katılımlara 5M Euro (kullanıcının takımı katılımışsa)
+            if (cl.participants.some(p => p.teamId === myTeamId && p.teamId !== champion)) {
+              const myClub = clubs.find(c => c.id === myTeamId);
+              if (myClub) myClub.budget += 5_000_000;
+            }
             set({
               championsLeague: {
                 ...cl,

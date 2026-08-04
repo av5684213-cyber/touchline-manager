@@ -8,7 +8,9 @@ import { SpecialCupPanel } from "../special-cup-panel";
 // v2.9.41: Şampiyonlar Ligi paneli
 import { ChampionsLeaguePanel } from "../champions-league-panel";
 import { useAppStore, useMyTeam } from "@/lib/store";
+import type { Team } from "@/lib/mock/data";
 import { ClubBadge } from "../ui-bits";
+import { TeamDetailModal } from "../team-detail-modal";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 import { formatEuro } from "@/lib/format";
@@ -40,6 +42,8 @@ export function CupScreen() {
   const cup = useAppStore((s) => s.cup);
   const playCupRound = useAppStore((s) => s.playCupRound);
   const [lastResult, setLastResult] = useState<string | null>(null);
+  // v2.9.76: Takım detay modal'ı için
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
 
   // v2.9.59: Canlı saat için tick state — her dakika güncelle
   const [, setTick] = useState(0);
@@ -167,7 +171,12 @@ export function CupScreen() {
       {cup.champion && (
         <div className="tm-card p-3 text-center bg-amber-500/15 border-amber-500/40">
           <div className="text-2xl mb-1">🏆</div>
-          <div className="text-sm font-bold text-amber-300">{t("cup.champion_label")} {getTeam(cup.champion)?.name}</div>
+          <button
+            onClick={() => { haptic("light"); const ct = cup.champion ? getTeam(cup.champion) : null; if (ct) setSelectedTeam(ct); }}
+            className="text-sm font-bold text-amber-300 tm-tap hover:underline"
+          >
+            {t("cup.champion_label")} {getTeam(cup.champion)?.name}
+          </button>
           {cup.champion === team.id && (
             <div className="text-[10px] text-emerald-400 mt-1">+{formatEuro(CHAMPION_REWARD)} ödül kazandınız!</div>
           )}
@@ -308,7 +317,7 @@ export function CupScreen() {
                 )}
               >
                 <div className="flex-1 flex items-center gap-2 justify-end min-w-0">
-                  <span className={cn("text-[10px] truncate", isMine && m.homeId === team.id && "font-bold")}>{home.name}</span>
+                  <button onClick={() => { haptic("light"); setSelectedTeam(home); }} className={cn("text-[10px] truncate tm-tap hover:text-primary hover:underline", isMine && m.homeId === team.id && "font-bold")}>{home.name}</button>
                   <ClubBadge short={home.shortName} primaryColor={home.primaryColor} size={20} />
                 </div>
                 <span className="text-[10px] text-muted-foreground font-bold px-1">
@@ -316,7 +325,7 @@ export function CupScreen() {
                 </span>
                 <div className="flex-1 flex items-center gap-2 min-w-0">
                   <ClubBadge short={away.shortName} primaryColor={away.primaryColor} size={20} />
-                  <span className={cn("text-[10px] truncate", isMine && m.awayId === team.id && "font-bold")}>{away.name}</span>
+                  <button onClick={() => { haptic("light"); setSelectedTeam(away); }} className={cn("text-[10px] truncate tm-tap hover:text-primary hover:underline", isMine && m.awayId === team.id && "font-bold")}>{away.name}</button>
                 </div>
               </div>
             );
@@ -344,13 +353,13 @@ export function CupScreen() {
                   )}
                 >
                   <div className="flex-1 flex items-center gap-2 justify-end min-w-0">
-                    <span className={cn("text-[10px] truncate", homeWon ? "font-bold" : "text-muted-foreground")}>{home.shortName}</span>
+                    <button onClick={() => { haptic("light"); setSelectedTeam(home); }} className={cn("text-[10px] truncate tm-tap hover:text-primary hover:underline", homeWon ? "font-bold" : "text-muted-foreground")}>{home.shortName}</button>
                   </div>
                   <span className="text-[10px] text-muted-foreground font-bold px-1">
                     {m.homeScore} - {m.awayScore}
                   </span>
                   <div className="flex-1 flex items-center gap-2 min-w-0">
-                    <span className={cn("text-[10px] truncate", !homeWon ? "font-bold" : "text-muted-foreground")}>{away.shortName}</span>
+                    <button onClick={() => { haptic("light"); setSelectedTeam(away); }} className={cn("text-[10px] truncate tm-tap hover:text-primary hover:underline", !homeWon ? "font-bold" : "text-muted-foreground")}>{away.shortName}</button>
                   </div>
                 </div>
               );
@@ -375,6 +384,16 @@ export function CupScreen() {
       <div className="pt-2 border-t border-border">
         <SpecialCupPanel />
       </div>
+
+      {/* v2.9.76: Takım detay modal'ı — takım ismine tıklayınca açılır */}
+      {selectedTeam && (
+        <TeamDetailModal
+          team={selectedTeam}
+          isMyTeam={selectedTeam.id === team?.id}
+          onClose={() => setSelectedTeam(null)}
+          onMessage={() => setSelectedTeam(null)}
+        />
+      )}
     </div>
   );
 }
