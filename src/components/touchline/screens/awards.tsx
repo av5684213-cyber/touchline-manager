@@ -8,6 +8,9 @@ import { computeStandings, SEASON_INFO } from "@/lib/mock/season";
 import { cn } from "@/lib/utils";
 // ADDED: Profil modalı için import
 import { PlayerProfileModal } from "../player-profile-modal";
+import { TeamDetailModal } from "../team-detail-modal";
+import { ChevronRight } from "lucide-react";
+import { haptic } from "@/hooks/touchline";
 import type { Player } from "@/lib/mock/data";
 
 export function AwardsScreen() {
@@ -19,6 +22,7 @@ export function AwardsScreen() {
   const seasonNumber = useAppStore((s) => s.seasonNumber);
   // ADDED: Seçili oyuncu profili state
   const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
+  const [selectedTeam, setSelectedTeam] = useState<any>(null);
 
   const awards = useMemo(() => {
     if (!team) return null;
@@ -139,6 +143,7 @@ export function AwardsScreen() {
             name={awards.champion?.teamName ?? "—"}
             sub={`${awards.champion?.points ?? 0} puan`}
             highlight={awards.isChampion}
+            onClickPlayer={awards.champion ? () => { haptic("light"); const t = clubs.find(c => c.name === awards.champion!.teamName); if (t) setSelectedTeam(t); } : undefined}
           />
           <AwardRow
             icon={<Goal size={16} className="text-emerald-400" />}
@@ -200,10 +205,13 @@ export function AwardsScreen() {
           <span className="text-xs font-bold">{t("awards.cup_champion")}</span>
         </div>
         {awards.cupChampion ? (
-          <div className={cn(
-            "flex items-center gap-2.5 p-2 rounded-md",
-            awards.cupChampion.id === team.id ? "bg-amber-500/10 border border-amber-500/30" : "bg-muted/30"
-          )}>
+          <button
+            onClick={() => { haptic("light"); setSelectedTeam(awards.cupChampion); }}
+            className={cn(
+              "flex items-center gap-2.5 p-2 rounded-md w-full text-left tm-tap hover:bg-accent/30 transition-colors",
+              awards.cupChampion.id === team.id ? "bg-amber-500/10 border border-amber-500/30" : "bg-muted/30"
+            )}
+          >
             <div className="shrink-0">🏆</div>
             <div className="flex-1 min-w-0">
               <div className="text-[10px] text-muted-foreground">Kupa Şampiyonu</div>
@@ -212,7 +220,8 @@ export function AwardsScreen() {
             {awards.cupChampion.id === team.id && (
               <div className="text-[11px] text-emerald-400 font-bold">+1M €</div>
             )}
-          </div>
+            <ChevronRight size={14} className="text-muted-foreground shrink-0" />
+          </button>
         ) : (
           <div className="text-[11px] text-muted-foreground text-center py-2">
             Kupa devam ediyor veya henüz şampiyon belirlenmedi.
@@ -227,7 +236,10 @@ export function AwardsScreen() {
             <Star size={14} className="text-amber-400" />
             <span className="text-xs font-bold">{t("awards.last_motm")}</span>
           </div>
-          <div className="flex items-center gap-2.5 p-2 rounded-md bg-amber-500/10 border border-amber-500/30">
+          <button
+            onClick={() => { haptic("light"); setProfilePlayer(awards.motm!.player); }}
+            className="flex items-center gap-2.5 p-2 rounded-md bg-amber-500/10 border border-amber-500/30 w-full text-left tm-tap hover:bg-accent/30 transition-colors"
+          >
             <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
               style={{ background: team.primaryColor }}>
               {awards.motm.player.specificPosition}
@@ -239,7 +251,8 @@ export function AwardsScreen() {
               </div>
             </div>
             <div className="text-lg">⭐</div>
-          </div>
+            <ChevronRight size={14} className="text-muted-foreground shrink-0" />
+          </button>
         </div>
       )}
 
@@ -249,6 +262,16 @@ export function AwardsScreen() {
           player={profilePlayer}
           teamColor={team?.primaryColor ?? "#1a3a2a"}
           onClose={() => setProfilePlayer(null)}
+        />
+      )}
+
+      {/* v2.9.76: Takım detay modal'ı — şampiyon/şampiyon takıma tıklayınca */}
+      {selectedTeam && (
+        <TeamDetailModal
+          team={selectedTeam}
+          isMyTeam={selectedTeam.id === team?.id}
+          onClose={() => setSelectedTeam(null)}
+          onMessage={() => setSelectedTeam(null)}
         />
       )}
     </div>
@@ -291,6 +314,7 @@ function AwardRow({
         )}
       </div>
       <div className="text-[11px] text-muted-foreground text-right shrink-0">{sub}</div>
+      {onClickPlayer && <ChevronRight size={12} className="text-muted-foreground shrink-0" />}
     </div>
   );
 }

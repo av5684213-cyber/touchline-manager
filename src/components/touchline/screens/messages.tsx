@@ -6,6 +6,8 @@ import { useAppStore, useMyTeam } from "@/lib/store";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
+import { TeamDetailModal } from "../team-detail-modal";
+import { ChevronRight } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 
 const KIND_STYLE: Record<string, { bg: string; text: string; label: string; icon: string }> = {
@@ -29,12 +31,14 @@ function relativeTime(ts: number): string {
 export function MessagesScreen() {
   const { t } = useI18n();
   const team = useMyTeam();
+  const clubs = useAppStore((s) => s.clubs);
   const transfer = useAppStore((s) => s.transfer);
   const markMessageRead = useAppStore((s) => s.markMessageRead);
   const markAllMessagesRead = useAppStore((s) => s.markAllMessagesRead);
   const clearMessage = useAppStore((s) => s.clearMessage);
   const respondToIncomingMessage = useAppStore((s) => s.respondToIncomingMessage);
   const [filter, setFilter] = useState<"ALL" | "unread">("ALL");
+  const [selectedTeam, setSelectedTeam] = useState<any>(null);
 
   const messages = transfer?.messages ?? [];
   const unreadCount = messages.filter((m) => !m.read).length;
@@ -105,7 +109,7 @@ export function MessagesScreen() {
             return (
               <div
                 key={m.id}
-                className={cn("p-3 transition-colors", !m.read && "bg-primary/5")}
+                className={cn("p-3 transition-colors cursor-pointer tm-tap hover:bg-accent/30", !m.read && "bg-primary/5")}
                 onClick={() => { haptic("light"); markMessageRead(m.id); }}
               >
                 <div className="flex items-start gap-2.5">
@@ -117,7 +121,16 @@ export function MessagesScreen() {
                       <span className={cn("text-[11px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded", style.bg, style.text)}>
                         {style.label}
                       </span>
-                      <span className="text-[11px] text-muted-foreground truncate">{m.fromTeamName}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const t = clubs.find(c => c.name === m.fromTeamName);
+                          if (t) { haptic("light"); setSelectedTeam(t); }
+                        }}
+                        className="text-[11px] text-muted-foreground truncate hover:text-primary hover:underline"
+                      >
+                        {m.fromTeamName}
+                      </button>
                       {!m.read && <span className="w-1.5 h-1.5 rounded-full bg-red-500 ml-auto shrink-0" />}
                     </div>
                     <p className="text-[11px] leading-relaxed mb-1.5">{m.message}</p>
@@ -218,6 +231,16 @@ export function MessagesScreen() {
             );
           })}
         </div>
+      )}
+
+      {/* v2.9.76: Takım detay modal'ı */}
+      {selectedTeam && (
+        <TeamDetailModal
+          team={selectedTeam}
+          isMyTeam={selectedTeam.id === team?.id}
+          onClose={() => setSelectedTeam(null)}
+          onMessage={() => setSelectedTeam(null)}
+        />
       )}
     </div>
   );

@@ -264,7 +264,7 @@ export function StandingsScreen() {
                   if (teamData) setSelectedTeam(teamData);
                 }}
                 className={cn(
-                  "grid grid-cols-[28px_1fr_24px_24px_24px_24px_28px_32px_70px] gap-0.5 px-2 py-1.5 text-[11px] items-center border-l-2 border-b border-border/40 last:border-b-0 w-full text-left transition-colors",
+                  "grid grid-cols-[28px_1fr_24px_24px_24px_24px_28px_32px_70px] gap-0.5 px-2 py-1.5 text-[11px] items-center border-l-2 border-b border-border/40 last:border-b-0 w-full text-left transition-colors tm-tap hover:bg-accent/30",
                   ZONE_COLORS[zone]
                 )}
               >

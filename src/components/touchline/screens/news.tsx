@@ -119,10 +119,9 @@ export function NewsScreen() {
               <div
                 key={article.id}
                 className={cn(
-                  "tm-card w-full text-left p-3 border-l-4 transition-colors",
+                  "tm-card w-full text-left p-3 border-l-4 transition-colors tm-tap cursor-pointer hover:bg-accent/20",
                   style.bg,
-                  !article.read && "ring-1 ring-primary/20",
-                  hasPlayer && player && "cursor-pointer hover:bg-accent/20"
+                  !article.read && "ring-1 ring-primary/20"
                 )}
                 style={{ borderLeftColor: "currentColor" }}
                 onClick={() => {

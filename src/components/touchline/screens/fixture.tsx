@@ -122,7 +122,12 @@ export function FixtureScreen() {
                   <span className={cn("inline-flex items-center justify-center w-7 h-7 rounded text-[10px] font-bold text-white", cls)}>
                     {outcome === "W" ? "G" : outcome === "D" ? "B" : "M"}
                   </span>
-                  <span className="text-[11px] text-muted-foreground truncate max-w-[60px]">{opp?.name ?? "—"}</span>
+                  <button
+                    onClick={() => { if (opp) { haptic("light"); setSelectedTeam(opp); } }}
+                    className="text-[11px] text-muted-foreground truncate max-w-[60px] tm-tap hover:text-primary hover:underline"
+                  >
+                    {opp?.name ?? "—"}
+                  </button>
                 </div>
               );
             })}
@@ -148,13 +153,16 @@ export function FixtureScreen() {
             {(() => {
               const opp = getTeam(nextMatch.homeId === team.id ? nextMatch.awayId : nextMatch.homeId);
               return opp ? (
-                <div className="flex flex-col items-center gap-1">
+                <button
+                  onClick={() => { haptic("light"); setSelectedTeam(opp); }}
+                  className="flex flex-col items-center gap-1 tm-tap hover:opacity-80 transition-opacity"
+                >
                   <ClubBadge short={opp.shortName} primaryColor={opp.primaryColor} size={36} />
-                  <span className="text-[10px] font-semibold truncate max-w-[100px]">{opp.name}</span>
+                  <span className="text-[10px] font-semibold truncate max-w-[100px] hover:text-primary hover:underline">{opp.name}</span>
                   <span className="text-[10px] text-muted-foreground">
                     {nextMatch.awayId === opp.id ? t("fixture.away") : t("fixture.home")}
                   </span>
-                </div>
+                </button>
               ) : null;
             })()}
           </div>
