@@ -71,6 +71,8 @@ import { checkAndAwardBadges, checkAchievements } from "@/components/touchline/a
 import { simulateBotMatch, findWeakestPosition, shouldBotBuy, shouldBotSell } from "@/lib/botAI";
 // v2.9.61: Global persistent leagues — tüm ligler store'da tutulur
 import { generateAllLeagues, makeLeagueKey, type AllLeaguesState, type PersistentLeague } from "@/lib/global-leagues";
+// v2.9.77: award-system — proper top-level import (eskiden require() kullanılıyordu)
+import { AWARD_CATEGORIES, AWARD_MIGRATION_MAP, getAwardImagePath } from "@/lib/award-system";
 
 /**
  * v2.9.27 G1: Taktik değişikliklerinde debounce'lu cloud-save tetikleyicisi.
@@ -457,7 +459,8 @@ export type SeasonSummary = {
   newRegens: number;
   statGains?: Array<{ name: string; gains: Array<{ stat: string; delta: number }> }>;
   // v2.9.76: Kullanıcının takımının kazandığı ödüller
-  playerAwards?: Array<{ playerName: string; awardKey: string; tier: string; awardName: string }>;
+  // v2.9.77: awardDesc eklendi (statue açıklaması modal'da gösterilir)
+  playerAwards?: Array<{ playerName: string; awardKey: string; tier: string; awardName: string; awardDesc?: string }>;
 };
 
 // Kısa Euro formatı — haber mesajları için
@@ -4328,25 +4331,36 @@ export const useAppStore = create<AppState>()(
           }
         }
 
-        // v2.9.76: Kullanıcının oyuncularının kazandığı ödülleri topla
-        const playerAwards: Array<{ playerName: string; awardKey: string; tier: string; awardName: string }> = [];
+        // v2.9.77: Kullanıcının oyuncularının kazandığı STATUE ödüllerini topla
+        // Sadece statue görseli olan 14 bireysel ödülü dahil et — takım ödülleri
+        // (league_champion, cup_champion, champions_league_winner, most_appearances)
+        // statue görseli olmadığından ve her oyuncuya verildiğinde listede gürültü
+        // yarattığından hariç tutulur. Bu ödüller oyuncu.seasonAwards[] içinde zaten kalıcı.
+        const playerAwards: Array<{ playerName: string; awardKey: string; tier: string; awardName: string; awardDesc: string }> = [];
         try {
-          const { AWARD_CATEGORIES, AWARD_MIGRATION_MAP } = require("@/lib/award-system");
           for (const p of team.players) {
             const awards = seasonAwardsForPlayers.get(p.id) ?? [];
             for (const a of awards) {
               const migratedKey = AWARD_MIGRATION_MAP[a.awardType] ?? a.awardType;
+              const tier: "gold" | "silver" | "bronze" = a.tier ?? (a.rank === 1 ? "gold" : a.rank === 2 ? "silver" : "bronze");
+              // Sadece statue görseli olan ödülleri dahil et
+              const imgPath = getAwardImagePath(migratedKey, tier);
+              if (!imgPath) continue;
               const cat = AWARD_CATEGORIES[migratedKey];
               if (cat) {
                 playerAwards.push({
                   playerName: `${p.firstName} ${p.lastName}`,
                   awardKey: migratedKey,
-                  tier: a.tier ?? (a.rank === 1 ? "gold" : a.rank === 2 ? "silver" : "bronze"),
+                  tier,
                   awardName: cat.trName,
+                  awardDesc: cat.trDesc,
                 });
               }
             }
           }
+          // v2.9.77: Statue'leri öncelik sırasına göre diz — altın önce, sonra gümüş, bronz
+          const TIER_ORDER: Record<string, number> = { gold: 0, silver: 1, bronze: 2 };
+          playerAwards.sort((a, b) => (TIER_ORDER[a.tier] ?? 9) - (TIER_ORDER[b.tier] ?? 9));
         } catch (e) {
           console.warn("[endSeason] playerAwards toplama hatası:", e);
         }

@@ -4139,3 +4139,39 @@ Deployment:
 1. Migration 037'yi Supabase SQL editor'da çalıştır
 2. Edge Function verify-purchase'i yeniden deploy et (fail-closed)
 3. APK build al (tag v2.9.75)
+
+---
+Task ID: v2.9.77-season-end-statues
+Agent: main (GLM)
+Task: Sezon sonu (34. hafta) ekranını redesign et — şampiyonluk kupası + konfeti, diğer takımlar için OVR artışları + statue kazanan futbolcular tek tek (kocaman statue foto + açıklama + isim). Statue'ler oyuncu başarılarına işlensin.
+
+Work Log:
+- ARAŞTIRMA: endSeason fonksiyonundaki playerAwards toplama bloğu zaten doğru çalışıyor (önceki turlarda "typo" sanılan şey aslında terminal escape artifact'imiş — bayt düzeyinde doğrulandı)
+- ARAŞTIRMA: seasonAwards zaten oyuncu.seasonAwards[]'a kalıcı yazılıyor (line 3861: mergedAwards = [...existingAwards, ...newAwards]) ve player-profile-modal'da "Ödül Vitrini" sekmesiyla gösteriliyor — yani "başarılarına işlensin" kısmı halihazırda çalışıyor
+- store.ts: SeasonSummary.playerAwards tipine awardDesc alanı eklendi
+- store.ts: playerAwards toplama bloğunda:
+  * getAwardImagePath() ile sadece statue görseli olan 14 bireysel ödül filtrelendi (league_champion/cup_champion/champions_league_winner/most_appearances artık listede değil — bunlar statue görseli olmadığından ve şampiyon takımda 18+ oyuncuya verildiğinde gürültü yaratıyordu)
+  * awardDesc (trDesc) eklendi
+  * Ödüller tier'a göre sıralandı: altın önce, sonra gümüş, bronz
+- store.ts: require("@/lib/award-system") → top-level import'a çevrildi (lint hatası giderildi)
+- season-end-modal.tsx: TAMAMEN redesign edildi
+  * FAZ 0 (yeni): champion_celebration — sadece şampiyonsa sezon sonu ekranı BÜYÜK 🏆 + 24 parça konfeti + altın gradient ile açılır. "ŞAMPİYON!" text-5xl, puan özeti, "Devam Et" → summary fazına
+  * FAZ 1 (summary): statGains kartları artık OVR artışlarını her oyuncu için ayrı kart + toplam artış rozetiyle gösteriyor (başlık: "Oyuncu Gelişimleri (OVR Artışları)")
+  * FAZ 2 (awards): kocaman statue görseli (w-56 h-56 = 224px, eskiden 128px), tier renkli çerçeve + parlama efekti, altında açıklama (awardDesc italic), altında "Kazanan" rozeti içinde futbolcu ismi, ilerleme noktaları, "İleri (X/Y)" butonu
+  * FAZ 3 (ready): awards.length > 0 ise "X statue oyuncu başarılarına işlendi" kontrol listesi öğesi eklendi
+  * Eski transition fazı kaldırıldı (işlevi champion_celebration'a devredildi)
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz, eslint temiz)
+- 34. hafta sonu → endSeason → SeasonEndModal akışı:
+  * Şampiyonsa: champion_celebration → summary → awards (varsa) → ready
+  * Şampiyon değilse: summary → awards (varsa) → ready
+- Statue kazanan her oyuncu tek tek, BÜYÜK görsel + açıklama + ismiyle gösteriliyor
+- Statue'ler oyuncu.seasonAwards[]'a zaten kalıcı kaydediliyordu (önceki turlarda eklenmiş) — player profile'da "Ödül Vitrini" sekmesinde görülebilir
+- Takım ödülleri (league_champion vb.) statue listesinden filtrelendi — sadece 14 bireysel statue gösteriliyor
+- Version: 2.9.76 → 2.9.77
+
+Test senaryoları:
+1. Şampiyon bitir: 34. hafta sonu → BÜYÜK kupa + konfeti ekranı → devam → özet → (statue'ler varsa) her statue tek tek büyük gösterim → yeni sezon
+2. Şampiyon olmayan bitir: 34. hafta sonu → özet (OVR artışları kartları) → (statue'ler varsa) her statue tek tek → yeni sezon
+3. Player profile → Ödül Vitrini sekmesi → kazanılan statue'lerin kalıcı kaydı görülebilir
