@@ -5,7 +5,7 @@ import { Check, Trophy, TrendingDown, TrendingUp, X, Sparkles, PartyPopper, Arro
 import { useI18n } from "@/lib/i18n/locale-provider";
 import type { SeasonSummary } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { haptic, useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline"  // P0: escape + scroll lock;
+import { haptic, useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline";
 
 export function SeasonEndModal({
   summary,
@@ -15,11 +15,11 @@ export function SeasonEndModal({
   onClose: () => void;
 }) {
   const { t } = useI18n();
-  const [phase, setPhase] = useState<"summary" | "transition" | "ready">("summary");
+  const [phase, setPhase] = useState<"summary" | "awards" | "transition" | "ready">("summary");
+  const [awardIndex, setAwardIndex] = useState(0);
   useEscapeToClose(onClose);
   useBodyScrollLock(true);
 
-  // P2: Faz geçişlerinde titreşim
   useEffect(() => {
     haptic("medium");
   }, [phase]);
@@ -28,21 +28,39 @@ export function SeasonEndModal({
   const isPromoted = summary.promoted;
   const isRelegated = summary.relegated;
 
-  // FAZ 1: Sezon Özeti
+  const awards = summary.playerAwards ?? [];
+
+  // Summary fazından "Devam Et" → eğer ödül varsa "awards" fazına, yoksa "transition"
+  const handleSummaryContinue = () => {
+    haptic("success");
+    if (awards.length > 0) {
+      setPhase("awards");
+      setAwardIndex(0);
+    } else {
+      setPhase("transition");
+    }
+  };
+
+  // Awards fazında "İleri" → sonraki ödül veya transition
+  const handleNextAward = () => {
+    haptic("success");
+    if (awardIndex < awards.length - 1) {
+      setAwardIndex(awardIndex + 1);
+    } else {
+      setPhase("transition");
+    }
+  };
+
+  // ═══ FAZ 1: Sezon Özeti ═══
   if (phase === "summary") {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-black/85" />
         <div className="relative w-full max-w-[360px] bg-background rounded-2xl border border-border p-5 max-h-[90vh] overflow-y-auto tm-thin-scrollbar">
-          {/* Close */}
-          <button
-            onClick={onClose}
-            className="tm-tap absolute top-3 right-3 p-1 text-muted-foreground"
-          >
+          <button onClick={onClose} className="tm-tap absolute top-3 right-3 p-1 text-muted-foreground">
             <X size={16} />
           </button>
 
-          {/* Şampiyonluk kutlaması */}
           {isChampion && (
             <div className="text-center mb-4 -mt-2">
               <div className="text-6xl mb-2 animate-bounce">🏆</div>
@@ -52,7 +70,6 @@ export function SeasonEndModal({
             </div>
           )}
 
-          {/* Title */}
           <div className="text-center mb-4">
             <div className="text-3xl mb-2">
               {isChampion ? "🏆" : isPromoted ? "⬆️" : isRelegated ? "📉" : "⚽"}
@@ -63,13 +80,9 @@ export function SeasonEndModal({
             <p className="text-[11px] text-muted-foreground">{summary ? `${summary.season - 1}–${String(summary.season).slice(-2)} sezonu tamamlandı` : "Sezon tamamlandı"}</p>
           </div>
 
-          {/* Final position */}
           <div className="tm-card p-3 mb-3 text-center">
             <div className="text-[10px] uppercase text-muted-foreground mb-1">Final Sıralama</div>
-            <div className={cn(
-              "text-4xl font-bold tabular-nums",
-              isChampion && "text-amber-300"
-            )}>
+            <div className={cn("text-4xl font-bold tabular-nums", isChampion && "text-amber-300")}>
               {summary.finalPosition}
             </div>
             <div className="text-[10px] text-muted-foreground">/ 18 takım</div>
@@ -85,7 +98,6 @@ export function SeasonEndModal({
             )}
           </div>
 
-          {/* Stats grid */}
           <div className="grid grid-cols-4 gap-2 mb-3">
             <StatBox label="O" value={summary.played} />
             <StatBox label="G" value={summary.won} color="text-emerald-400" />
@@ -93,13 +105,11 @@ export function SeasonEndModal({
             <StatBox label="M" value={summary.lost} color="text-red-400" />
           </div>
 
-          {/* Points */}
           <div className="tm-card p-2.5 mb-3 flex items-center justify-between">
             <span className="text-xs text-muted-foreground">Toplam Puan</span>
             <span className="text-xl font-bold tabular-nums text-primary">{summary.points}</span>
           </div>
 
-          {/* Top scorer */}
           {summary.topScorer && (
             <div className="tm-card p-2.5 mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -113,7 +123,6 @@ export function SeasonEndModal({
             </div>
           )}
 
-          {/* Retired players */}
           {summary.retiredPlayers.length > 0 && (
             <div className="tm-card p-2.5 mb-3">
               <div className="text-[10px] text-muted-foreground uppercase mb-1">Emekli Olan Oyuncular</div>
@@ -132,7 +141,6 @@ export function SeasonEndModal({
             </div>
           )}
 
-          {/* v2.9.75: Oyuncu stat kazançları */}
           {summary.statGains && summary.statGains.length > 0 && (
             <div className="tm-card p-2.5 mb-3">
               <div className="text-[10px] text-muted-foreground uppercase mb-2">📈 Stat Gelişimleri</div>
@@ -153,59 +161,110 @@ export function SeasonEndModal({
             </div>
           )}
 
-          {/* v2.9.76: Oyuncu ödülleri — kutlama ekranında göster */}
-          {summary.playerAwards && summary.playerAwards.length > 0 && (
-            <div className="tm-card p-2.5 mb-3">
-              <div className="text-[10px] text-muted-foreground uppercase mb-2 flex items-center gap-1">
-                <Trophy size={11} className="text-amber-400" />
-                Oyuncu Ödülleri ({summary.playerAwards.length})
-              </div>
-              <div className="space-y-1.5 max-h-[250px] overflow-y-auto tm-thin-scrollbar">
-                {summary.playerAwards.map((award, i) => (
-                  <div key={i} className="flex items-center gap-2 p-1.5 rounded-md bg-muted/30">
-                    {/* Ödül görseli */}
-                    <img
-                      src={`./awards/award_${award.awardKey}_${award.tier}.webp`}
-                      alt={award.awardName}
-                      className="w-8 h-8 object-contain shrink-0 rounded"
-                      loading="lazy"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                        const fallback = (e.target as HTMLImageElement).nextElementSibling;
-                        if (fallback) (fallback as HTMLElement).style.display = "block";
-                      }}
-                    />
-                    <span className="text-xl shrink-0 hidden">🏅</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[11px] font-bold truncate text-amber-300">
-                        {award.awardName}
-                      </div>
-                      <div className="text-[9px] text-muted-foreground truncate">
-                        {award.playerName}
-                      </div>
-                    </div>
-                    <span className="text-sm shrink-0">
-                      {award.tier === "gold" ? "🥇" : award.tier === "silver" ? "🥈" : "🥉"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Devam butonu — "Yeni Sezona Hazırlan" */}
+          {/* Ödül varsa "Ödülleri Gör" butonu, yoksa direkt "Devam Et" */}
           <button
-            onClick={() => { haptic("success"); setPhase("transition"); }}
+            onClick={handleSummaryContinue}
             className="tm-tap w-full py-3 rounded-lg bg-primary text-primary-foreground text-sm font-bold mt-2 flex items-center justify-center gap-2"
           >
-            Devam Et <ArrowRight size={14} />
+            {awards.length > 0 ? (
+              <>🏆 Ödülleri Gör ({awards.length}) <ArrowRight size={14} /></>
+            ) : (
+              <>Devam Et <ArrowRight size={14} /></>
+            )}
           </button>
         </div>
       </div>
     );
   }
 
-  // FAZ 2: Geçiş animasyonu — şampiyonluk kutlaması / yükseilme / düşme
+  // ═══ FAZ 2: Ödül Gösterimi — her ödül tek tek BÜYÜK ekranda ═══
+  if (phase === "awards" && awards.length > 0) {
+    const award = awards[awardIndex];
+    const isLast = awardIndex === awards.length - 1;
+    const tierColor = award.tier === "gold" ? "from-amber-600/30 to-amber-900/20 border-amber-500/40"
+      : award.tier === "silver" ? "from-slate-400/20 to-slate-700/20 border-slate-400/40"
+      : "from-orange-700/20 to-orange-900/20 border-orange-600/40";
+    const tierEmoji = award.tier === "gold" ? "🥇" : award.tier === "silver" ? "🥈" : "🥉";
+    const tierLabel = award.tier === "gold" ? "ALTIN" : award.tier === "silver" ? "GÜMÜŞ" : "BRONZ";
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className={cn("absolute inset-0 bg-gradient-to-b", tierColor, "to-black/95")} />
+        <div className="relative w-full max-w-[340px] text-center">
+          {/* Konfeti efekti */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            {[...Array(8)].map((_, i) => (
+              <span
+                key={i}
+                className="absolute text-xl animate-ping"
+                style={{
+                  left: `${10 + i * 11}%`,
+                  top: `${15 + (i % 4) * 18}%`,
+                  animationDelay: `${i * 0.15}s`,
+                  animationDuration: "2.5s",
+                }}
+              >
+                {["🎉", "✨", "🎊", "⭐"][i % 4]}
+              </span>
+            ))}
+          </div>
+
+          {/* Tier rozet */}
+          <div className="text-5xl mb-2 animate-bounce">{tierEmoji}</div>
+          <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/10 text-white text-[10px] font-bold border border-white/20 mb-4">
+            {tierLabel} ÖDÜL
+          </div>
+
+          {/* BÜYÜK ödül görseli */}
+          <div className="mb-4 flex justify-center">
+            <img
+              src={`./awards/award_${award.awardKey}_${award.tier}.webp`}
+              alt={award.awardName}
+              className="w-32 h-32 object-contain drop-shadow-2xl"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
+          </div>
+
+          {/* Ödül adı — BÜYÜK */}
+          <h2 className="text-2xl font-bold mb-1 text-white drop-shadow-lg">
+            {award.awardName}
+          </h2>
+
+          {/* Oyuncu adı */}
+          <p className="text-sm text-white/80 mb-1">
+            {award.playerName}
+          </p>
+
+          {/* İlerleme göstergesi */}
+          <div className="flex items-center justify-center gap-1.5 mb-6">
+            {awards.map((_, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "w-2 h-2 rounded-full transition-colors",
+                  i === awardIndex ? "bg-white" : i < awardIndex ? "bg-white/50" : "bg-white/20"
+                )}
+              />
+            ))}
+          </div>
+
+          {/* İleri butonu */}
+          <button
+            onClick={handleNextAward}
+            className="tm-tap px-8 py-3 rounded-lg bg-white text-black text-sm font-bold flex items-center justify-center gap-2 mx-auto"
+          >
+            {isLast ? (
+              <><PartyPopper size={16} /> Devam Et</>
+            ) : (
+              <>İleri ({awardIndex + 1}/{awards.length}) <ArrowRight size={16} /></>
+            )}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══ FAZ 3: Geçiş animasyonu ═══
   if (phase === "transition") {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -217,12 +276,9 @@ export function SeasonEndModal({
           "bg-black/90"
         )} />
         <div className="relative text-center max-w-[320px]">
-          {/* Büyük emoji animasyon */}
           <div className="text-8xl mb-4 animate-bounce">
             {isChampion ? "🏆" : isPromoted ? "⬆️" : isRelegated ? "📉" : "⚽"}
           </div>
-
-          {/* Başlık */}
           <h2 className="text-2xl font-bold mb-2 text-white">
             {isChampion ? "ŞAMPİYON!" : isPromoted ? "YÜKSELDİ!" : isRelegated ? "DÜŞTÜ" : "SEZON BİTTİ"}
           </h2>
@@ -235,8 +291,6 @@ export function SeasonEndModal({
               ? "Sezon hayal kırıklığı oldu. Önümüzdeki sezon geri döneceğiz."
               : "Sezon tamamlandı. Yeni sezona hazır ol."}
           </p>
-
-          {/* Konfeti efekti — basit CSS */}
           {isChampion && (
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
               {[...Array(12)].map((_, i) => (
@@ -255,8 +309,6 @@ export function SeasonEndModal({
               ))}
             </div>
           )}
-
-          {/* Devam butonu */}
           <button
             onClick={() => { haptic("success"); setPhase("ready"); }}
             className="tm-tap px-8 py-3 rounded-lg bg-white text-black text-sm font-bold flex items-center justify-center gap-2 mx-auto"
@@ -268,7 +320,7 @@ export function SeasonEndModal({
     );
   }
 
-  // FAZ 3: Yeni sezon hazır ekranı
+  // ═══ FAZ 4: Yeni sezon hazır ═══
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-gradient-to-b from-primary/20 to-black/90" />
@@ -278,8 +330,6 @@ export function SeasonEndModal({
         <p className="text-[11px] text-muted-foreground mb-4">
           {summary ? `${summary.season - 1}–${String(summary.season).slice(-2)}` : "Yeni"} sezonuna hazır mısın? Kadro yenilendi, taktikleri gözden geçir.
         </p>
-
-        {/* Hazırlık listesi */}
         <div className="space-y-2 mb-5 text-left">
           <div className="flex items-center gap-2 text-[11px]">
             <Check size={12} className="text-emerald-400 shrink-0" />
@@ -300,8 +350,6 @@ export function SeasonEndModal({
             </div>
           )}
         </div>
-
-        {/* Başla butonu */}
         <button
           onClick={() => { haptic("success"); onClose(); }}
           className="tm-tap w-full py-3 rounded-lg bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center gap-2"
