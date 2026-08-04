@@ -90,9 +90,10 @@ export function DashboardScreen() {
   const fixtures = useAppStore((s) => s.fixtures);
   const team = useMyTeam();
   // v2.9.73 FIX: Hook'lar component top level'da çağrılmalı (Rules of Hooks).
-  // Eski kod useEffect içinde useAppStore çağırıyordu — kırılgan, ESLint uyarır.
   const transferNewsCount = useAppStore((s) => s.news.filter(n => n.category === "transfer").length);
   const tactics = useAppStore((s) => s.tactics);
+  // v2.9.76 FIX: seasonMatchday'yi store'dan reaktif oku — SEASON_INFO.matchday stale
+  const seasonMatchday = useAppStore((s) => s.seasonMatchday ?? 1);
 
   const [notifs] = useState<Notification[]>(() => seedNotifications(clubs, team?.id ?? ""));
   const [target] = useState(() => nextMatchTarget());
@@ -217,11 +218,20 @@ export function DashboardScreen() {
     return myNextMatch(fixtures, team.id);
   }, [fixtures, team]);
 
-  if (!team || !myStat) return null;
+  if (!team || !myStat) {
+    return (
+      <div className="px-4 py-16 text-center text-sm text-muted-foreground">
+        {t("common.loading")}
+      </div>
+    );
+  }
 
-  const teamQuality = Math.round(
-    [...team.players].sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11
-  );
+  // v2.9.76 FIX: team.players boş olabilir — guard
+  const sortedPlayers = [...(team.players ?? [])].sort((a, b) => (b.rating ?? 50) - (a.rating ?? 50));
+  const top11 = sortedPlayers.slice(0, 11);
+  const teamQuality = top11.length > 0
+    ? Math.round(top11.reduce((s, p) => s + (p.rating ?? 50), 0) / top11.length)
+    : 0;
   const goalsScored = recent.reduce(
     (s, f) =>
       s +
@@ -229,9 +239,9 @@ export function DashboardScreen() {
     0
   );
   const moraleAvg = Math.round(
-    team.players.length > 0
-      ? team.players.reduce((s, p) => s + p.morale, 0) / team.players.length
-      : 70 // v2.9.47 Faz 3: boş kadro için default moral
+    (team.players ?? []).length > 0
+      ? (team.players ?? []).reduce((s, p) => s + (p.morale ?? 70), 0) / (team.players ?? []).length
+      : 70
   );
   const moraleLabel =
     moraleAvg >= 80 ? t("dash.morale.great")
@@ -246,14 +256,8 @@ export function DashboardScreen() {
   // v2.9.58: Yardım modal'ı açma
   const setHelpModalOpen = useAppStore((s) => s.setHelpModalOpen);
 
-  // v2.9.67: team null ise loading göster — React error #130 önle
-  if (!team) {
-    return (
-      <div className="px-4 py-16 text-center text-sm text-muted-foreground">
-        {t("common.loading")}
-      </div>
-    );
-  }
+  // v2.9.76: team null guard yukarıda yapıldı (satır 221)
+  // Bu ikinci kontrol kaldırıldı — unreachable code
 
   return (
     <div className="px-4 py-4 space-y-4 pb-24">
@@ -296,7 +300,7 @@ export function DashboardScreen() {
                 .filter((f: any) => f.played && (f.homeId === team?.id || f.awayId === team?.id))
                 .sort((a: any, b: any) => b.matchday - a.matchday);
               const lastPlayed = myPlayed[0]?.matchday ?? 0;
-              const nextToPlay = SEASON_INFO.matchday;
+              const nextToPlay = seasonMatchday;
               // Eğer nextToPlay haftasının maçı oynanmadıysa, lastPlayed'i göster
               return lastPlayed > 0 && lastPlayed < nextToPlay
                 ? `${lastPlayed}/${SEASON_INFO.totalMatchdays}`
@@ -355,7 +359,7 @@ export function DashboardScreen() {
       <StreakIndicator fixtures={fixtures} teamId={team?.id ?? ""} />
 
       {/* Sezon Hedefleri */}
-      <SeasonGoals team={team} myStat={myStat} standings={standings} />
+      <SeasonGoals team={team} myStat={myStat} standings={standings} matchday={seasonMatchday} />
 
       {/* Günlük Görevler */}
       <DailyTasks />
@@ -668,11 +672,10 @@ function InflationIndicator() {
 }
 
 // ===== Sezon Hedefleri =====
-function SeasonGoals({ team, myStat, standings }: { team: any; myStat: any; standings: any[] }) {
+function SeasonGoals({ team, myStat, standings, matchday }: { team: any; myStat: any; standings: any[]; matchday: number }) {
   const { t } = useI18n();
   const pos = standings.findIndex((s) => s.teamId === team?.id);
   const tier = team?.leagueTier ?? 2;
-  const matchday = SEASON_INFO.matchday;
   const totalMatchdays = SEASON_INFO.totalMatchdays;
 
   // Hedefler lig tier'ına göre belirlenir
@@ -773,12 +776,13 @@ function DailyTasks() {
   }, [dailyTasks, today]);
 
   const toggleTask = (id: string) => {
-    // v2.9.67 FIX: Fresh state'ten oku — stale closure race condition önle
-    // Eski kod: tasks.find() closure'dan okuyordu → çift tıklamada stale "done=false" görürdü
+    // v2.9.76 FIX: freshDailyTasks?.tasks bir task array — t.date yok.
+    // Eski kod: filter(t => t.date === freshToday) → hep boş döner → task hiç tetiklenmez.
+    // Doğru: dailyTasks.date === today kontrolü yap, sonra tasks içinden id ile bul.
     const freshDailyTasks = useAppStore.getState().dailyTasks;
     const freshToday = todayKey();
-    const freshTasks = freshDailyTasks?.tasks?.filter((t: any) => t.date === freshToday) ?? [];
-    const freshTask = freshTasks.find((tt: any) => tt.id === id);
+    if (!freshDailyTasks || freshDailyTasks.date !== freshToday) return;
+    const freshTask = (freshDailyTasks.tasks ?? []).find((tt: any) => tt.id === id);
     if (!freshTask || freshTask.done) return;
 
     haptic("success");
