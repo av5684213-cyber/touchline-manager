@@ -3294,16 +3294,22 @@ export const useAppStore = create<AppState>()(
         // Matchday'i ilerlet
         const nextMd = currentMd + 1;
         if (nextMd > SEASON_INFO.totalMatchdays) {
-          // P0 FIX: Önce state'i set et (son haftanın bot maçları/transferleri kaybolmasın), SONRA endSeason
+          // v2.9.76 FIX: Sezon atlama sorunu — advanceMatchday içinde endSeason çağrılırken
+          // seasonMatchday 35'e set ediliyordu (nextMd = 35), sonra endSeason seasonMatchday=1
+          // yapıyordu. Ama advanceMatchday'in kalan kodu (satır 3462) nextMd=35 ile set()
+          // yapıyordu — bu sezonMatchday'i tekrar 35'e çekiyordu.
+          // Çözüm: endSeason çağrısından SONRA return yap — kalan kod çalışmasın.
+          // (Eski kodda return yoktu — set() sonra endSeason çağrılıyordu ama
+          //  endSeason sonrası kod da çalışıyordu → çift set → seasonMatchday karışıyordu)
+          
+          // Önce son haftanın bot maçları/transferleri kaydet
           SEASON_INFO.matchday = SEASON_INFO.totalMatchdays;
-          // P0 FIX: updatedTransferFinal oluştur (aşağıdaki stale incomingOffers temizliği ile)
           const myCurrentTeamPre = updatedClubs.find((c) => c.id === myTeamId);
           const currentPlayerIdsPre = new Set(myCurrentTeamPre?.players.map((p) => p.id) ?? []);
           const validOffersPre = transfer.incomingOffers.filter((o) => currentPlayerIdsPre.has(o.myPlayerId));
           let finalOffersPre = validOffersPre;
           if (myCurrentTeamPre && validOffersPre.length < 2) {
             try {
-              
               const freshOffers = generateIncomingOffers(myCurrentTeamPre.players, get().transfer.myListedPlayers ?? []);
               const existingIds = new Set(validOffersPre.map((o) => o.id));
               const newOffers = freshOffers.filter((o) => !existingIds.has(o.id));
@@ -3311,13 +3317,19 @@ export const useAppStore = create<AppState>()(
             } catch (e) { /* ignore */ }
           }
           const updatedTransferFinalPre = { ...updatedTransfer, incomingOffers: finalOffersPre };
-          set({ fixtures: updatedFixtures, clubs: updatedClubs, transfer: updatedTransferFinalPre });
-          // Şimdi endSeason çağır — güncel state'i okuyacak
+          
+          // v2.9.76: Global leagues de bu hafta oynansın
+          const allLeaguesForEnd = simulateAllOtherLeagues(get().allLeagues, currentMd, updatedClubs, updatedFixtures);
+          
+          // Tek set: fixtures + clubs + transfer + seasonMatchday + allLeagues
+          set({ fixtures: updatedFixtures, clubs: updatedClubs, transfer: updatedTransferFinalPre, news: [...newNewsItems, ...news], seasonMatchday: SEASON_INFO.totalMatchdays, allLeagues: allLeaguesForEnd });
+          
+          // SONRA endSeason çağır — güncel state'i okuyacak
           const endResult = get().endSeason();
           if (endResult.success) {
             console.log(`[advanceMatchday] Sezon ${get().seasonNumber - 1} bitti, yeni sezon başladı.`);
           }
-          return;
+          return; // v2.9.76: ERKEN RETURN — kalan kod (satır 3462) çalışmasın
         }
         // v2.9.17: SEASON_INFO.matchday'i de senkronize et (eski kod uyumluluğu için)
         SEASON_INFO.matchday = nextMd;
