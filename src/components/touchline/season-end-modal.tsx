@@ -153,6 +153,46 @@ export function SeasonEndModal({
             </div>
           )}
 
+          {/* v2.9.76: Oyuncu ödülleri — kutlama ekranında göster */}
+          {summary.playerAwards && summary.playerAwards.length > 0 && (
+            <div className="tm-card p-2.5 mb-3">
+              <div className="text-[10px] text-muted-foreground uppercase mb-2 flex items-center gap-1">
+                <Trophy size={11} className="text-amber-400" />
+                Oyuncu Ödülleri ({summary.playerAwards.length})
+              </div>
+              <div className="space-y-1.5 max-h-[250px] overflow-y-auto tm-thin-scrollbar">
+                {summary.playerAwards.map((award, i) => (
+                  <div key={i} className="flex items-center gap-2 p-1.5 rounded-md bg-muted/30">
+                    {/* Ödül görseli */}
+                    <img
+                      src={`./awards/award_${award.awardKey}_${award.tier}.webp`}
+                      alt={award.awardName}
+                      className="w-8 h-8 object-contain shrink-0 rounded"
+                      loading="lazy"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                        const fallback = (e.target as HTMLImageElement).nextElementSibling;
+                        if (fallback) (fallback as HTMLElement).style.display = "block";
+                      }}
+                    />
+                    <span className="text-xl shrink-0 hidden">🏅</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[11px] font-bold truncate text-amber-300">
+                        {award.awardName}
+                      </div>
+                      <div className="text-[9px] text-muted-foreground truncate">
+                        {award.playerName}
+                      </div>
+                    </div>
+                    <span className="text-sm shrink-0">
+                      {award.tier === "gold" ? "🥇" : award.tier === "silver" ? "🥈" : "🥉"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Devam butonu — "Yeni Sezona Hazırlan" */}
           <button
             onClick={() => { haptic("success"); setPhase("transition"); }}

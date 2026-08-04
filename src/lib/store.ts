@@ -455,8 +455,9 @@ export type SeasonSummary = {
   topScorer: { name: string; goals: number } | null;
   retiredPlayers: string[];
   newRegens: number;
-  // v2.9.75: Oyuncu stat kazançları (sezon başına göre fark)
   statGains?: Array<{ name: string; gains: Array<{ stat: string; delta: number }> }>;
+  // v2.9.76: Kullanıcının takımının kazandığı ödüller
+  playerAwards?: Array<{ playerName: string; awardKey: string; tier: string; awardName: string }>;
 };
 
 // Kısa Euro formatı — haber mesajları için
@@ -4305,6 +4306,29 @@ export const useAppStore = create<AppState>()(
           }
         }
 
+        // v2.9.76: Kullanıcının oyuncularının kazandığı ödülleri topla
+        const playerAwards: Array<{ playerName: string; awardKey: string; tier: string; awardName: string }> = [];
+        try {
+          const { AWARD_CATEGORIES, AWARD_MIGRATION_MAP } = require("@/lib/award-system");
+          for (const p of team.players) {
+            const awards = seasonAwardsForPlayers.get(p.id) ?? [];
+            for (const a of awards) {
+              const migratedKey = AWARD_MIGRATION_MAP[a.awardType] ?? a.awardType;
+              const cat = AWARD_CATEGORIES[migratedKey];
+              if (cat) {
+                playerAwards.push({
+                  playerName: `${p.firstName} ${p.lastName}`,
+                  awardKey: migratedKey,
+                  tier: a.tier ?? (a.rank === 1 ? "gold" : a.rank === 2 ? "silver" : "bronze"),
+                  awardName: cat.trName,
+                });
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("[endSeason] playerAwards toplama hatası:", e);
+        }
+
         const summary: SeasonSummary = {
           season: newSeasonNumber,
           finalPosition: myIdx + 1,
@@ -4319,6 +4343,7 @@ export const useAppStore = create<AppState>()(
           retiredPlayers: retiredNames,
           newRegens: retiredNames.length,
           statGains,
+          playerAwards,
         };
 
         // Şampiyon belirle + bildirim ekle + achievement kontrolü
