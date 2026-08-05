@@ -2692,6 +2692,15 @@ export const useAppStore = create<AppState>()(
 
       // ===== Season actions =====
       advanceMatchday: () => {
+        // v2.9.82: CL aktifse ve şampiyon belirlenmediyse lig DURUR.
+        // Kullanıcı önce CL'yi bitirmeli (ChampionsLeaguePanel'den manuel).
+        // CL ligle paralel oynanmaz — 34. hafta bitince CL moduna geçilir.
+        const clCheck = get().championsLeague;
+        if (clCheck.active && !clCheck.champion && clCheck.currentRound > 0) {
+          console.log("[advanceMatchday] CL aktif — lig durdu. Önce CL'yi bitir.");
+          return;
+        }
+
         const { fixtures, clubs, myTeamId, transfer, news, seasonMatchday } = get();
         // v2.9.17: SEASON_INFO.matchday YERİNE seasonMatchday state'ini kullan
         // Eski kod SEASON_INFO.matchday kullanıyordu — bu global obje
@@ -3453,16 +3462,10 @@ export const useAppStore = create<AppState>()(
           }
         }
 
-        // v2.9.50: CL aktifken her tur CL maçı oyna (sezon sonu başlar, bitene kadar her tur)
-        const cl = get().championsLeague;
-        const shouldPlayCL = cl.active && !cl.champion && cl.currentRound > 0;
-        if (shouldPlayCL) {
-          try {
-            get().playChampionsLeagueRound();
-          } catch (e) {
-            console.warn("[advanceMatchday] CL round hatası:", e);
-          }
-        }
+        // v2.9.82: CL artık ligle paralel OYNAMAZ.
+        // Eski kod: advanceMatchday çağrılınca CL turu otomatik oynanıyordu (ligle paralel).
+        // Yeni: CL ayrı modda oynanır — lig 34. haftada bitince CL moduna geçilir,
+        // CL bitince yeni sezon başlar. CL oynama ChampionsLeaguePanel'den manuel tetiklenir.
 
         // v2.9.49: Kupa turları sabit haftalarda — tur 7, 14, 21, 28
         const shouldPlayCup = [7, 14, 21, 28].includes(currentMd);

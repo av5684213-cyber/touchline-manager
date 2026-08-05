@@ -4481,3 +4481,26 @@ Stage Summary:
   * Sadece şampiyon 3. Lig'e yükselir
   * 3. Lig'den son 4 rastgele departmana düşer
 - CL/Kupa: sadece tier 1-4, amatör katılamaz
+
+---
+Task ID: v2.9.82-cl-parallel-removal
+Agent: main (GLM)
+Task: Şampiyonlar Ligi ligle paralel olmayacak — 34. hafta bitince CL başlar, CL bitince lig
+
+Work Log:
+- advanceMatchday başına CL kontrolü eklendi:
+  * CL aktif + champion yok + currentRound > 0 → advanceMatchday RETURN (lig durur)
+  * Kullanıcı önce CL'yi bitirmeli (ChampionsLeaguePanel'den manuel)
+- advanceMatchday içindeki otomatik CL oynama kaldırıldı:
+  * Eski kod: shouldPlayCL → playChampionsLeagueRound() otomatik çağrılıyordu
+  * Yeni: CL sadece ChampionsLeaguePanel'den manuel oynanır
+- Build: BAŞARILI
+
+Stage Summary:
+- CL artık ligle paralel değil:
+  * 34. hafta bitince endSeason çağrılır → CL başlatılır (active=true)
+  * CL aktifken "Advance Round" butonu çalışmaz (lig durur)
+  * Kullanıcı Cup sekmesinden CL turlarını manuel oynar
+  * CL şampiyonu belirlenince (champion set) → advanceMatchday tekrar çalışır
+  * Yeni sezon başlar (seasonMatchday: 1)
+- 30 katılımcı (10 ülke × 3), tek maç eleme — değişmedi
