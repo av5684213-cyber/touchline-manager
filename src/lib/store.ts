@@ -4495,7 +4495,41 @@ export const useAppStore = create<AppState>()(
               console.warn("[endSeason] achievement check failed:", e);
             }
           }
-          set({ news: [championNews, ...get().news] });
+          // v2.9.81: Yükselme/Düşme haberleri ekle
+          const seasonEndNews: NewsItem[] = [championNews];
+          if (summary.promoted) {
+            // v2.9.81: Yükselme haberi — kullanıcı hangi ligden hangi lige çıktı
+            const newTierPromoted = (team.leagueTier ?? 2) - 1;
+            const tierNames: Record<number, string> = { 1: "Süper Lig", 2: "1. Lig", 3: "2. Lig", 4: "3. Lig" };
+            const upperLeagueName = tierNames[newTierPromoted] ?? `Tier ${newTierPromoted}`;
+            seasonEndNews.push({
+              id: `news-promoted-${Date.now()}`,
+              category: "milestone",
+              headline: `⬆️ ${team.name} Üst Lige Yükseldi!`,
+              body: `Sezon ${oldSeasonNumber} sonunda ${tierNames[team.leagueTier ?? 2] ?? "lig"}'nde ${myIdx + 1}. sırada tamamlayarak ${upperLeagueName}'ne yükselmeye hak kazandın! Yeni sezonda daha güçlü rakipler seni bekliyor.`,
+              timestamp: Date.now(),
+              importance: 9,
+              read: false,
+              relatedTeamId: myTeamId,
+            });
+          }
+          if (summary.relegated) {
+            // v2.9.81: Düşme haberi — kullanıcı hangi ligden hangi lige düştü
+            const newTierRelegated = (team.leagueTier ?? 2) + 1;
+            const tierNames: Record<number, string> = { 1: "Süper Lig", 2: "1. Lig", 3: "2. Lig", 4: "3. Lig" };
+            const lowerLeagueName = tierNames[newTierRelegated] ?? `Tier ${newTierRelegated}`;
+            seasonEndNews.push({
+              id: `news-relegated-${Date.now()}`,
+              category: "milestone",
+              headline: `📉 ${team.name} Alt Lige Düştü`,
+              body: `Sezon ${oldSeasonNumber} sonunda ${tierNames[team.leagueTier ?? 2] ?? "lig"}'nde ${myIdx + 1}. sırada tamamlayarak ${lowerLeagueName}'ne düştün. Önümüzdeki sezon geri dönmek için kadroyu güçlendir.`,
+              timestamp: Date.now(),
+              importance: 8,
+              read: false,
+              relatedTeamId: myTeamId,
+            });
+          }
+          set({ news: [...seasonEndNews, ...get().news] });
         } catch (e) {
           console.warn("[endSeason] achievement/news failed:", e);
         }
@@ -5719,6 +5753,55 @@ function resetAllLeaguesForNewSeason(
 
   const updated: AllLeaguesState = {};
 
+  // v2.9.81: Bot liglerinde yükselme/düşme — her ülkenin tier 1↔2↔3↔4 arasında
+  // takım transferi. Her ligden ilk 3 takım bir üst lige, son 3 takım bir alt lige.
+  // Tier 1'den yükselme yok, tier 4'e düşme yok.
+  // Kullanıcının liginde (hasUser=true) bu mantık ATLANIR — kullanıcı yukarıda
+  // endSeason içinde kendi lig değiştirme akışında (line 4037+).
+  // Önce her ülke için "transfer map" oluştur: {ligKey → {promoted: Team[], relegated: Team[]}}
+  const transferMap: Record<string, { promoted: Team[]; relegated: Team[] }> = {};
+
+  for (const key of Object.keys(allLeagues)) {
+    const league = allLeagues[key];
+    // Kullanıcının liginde transfer yapma — o yukarıda halledildi
+    if (league.hasUser) continue;
+    if (!league.clubs || league.clubs.length === 0) continue;
+
+    try {
+      const standings = computeStandings(league.clubs, league.fixtures);
+      const tier = league.tier;
+      const country = league.country;
+
+      // İlk 3 (promoted) — tier 1'de yükselme yok
+      if (tier > 1) {
+        const promotedClubs = standings.slice(0, PROMOTION_COUNT).map(s =>
+          league.clubs.find(c => c.id === s.teamId)!
+        ).filter(Boolean);
+        if (promotedClubs.length > 0) {
+          const upperKey = makeLeagueKey(country, (tier - 1) as LeagueTier);
+          if (!transferMap[upperKey]) transferMap[upperKey] = { promoted: [], relegated: [] };
+          // Bu takımların leagueTier'ını güncelle
+          transferMap[upperKey].promoted.push(...promotedClubs.map(c => ({ ...c, leagueTier: (tier - 1) as LeagueTier })));
+        }
+      }
+
+      // Son 3 (relegated) — tier 4'e düşme yok
+      if (tier < 4) {
+        const relegatedClubs = standings.slice(TEAMS_PER_LEAGUE - RELEGATION_COUNT).map(s =>
+          league.clubs.find(c => c.id === s.teamId)!
+        ).filter(Boolean);
+        if (relegatedClubs.length > 0) {
+          const lowerKey = makeLeagueKey(country, (tier + 1) as LeagueTier);
+          if (!transferMap[lowerKey]) transferMap[lowerKey] = { promoted: [], relegated: [] };
+          // Bu takımların leagueTier'ını güncelle
+          transferMap[lowerKey].relegated.push(...relegatedClubs.map(c => ({ ...c, leagueTier: (tier + 1) as LeagueTier })));
+        }
+      }
+    } catch (e) {
+      console.warn(`[resetAllLeaguesForNewSeason] transfer map hatası ${key}:`, e);
+    }
+  }
+
   for (const key of Object.keys(allLeagues)) {
     const league = allLeagues[key];
 
@@ -5734,7 +5817,53 @@ function resetAllLeaguesForNewSeason(
     }
 
     // Diğer ligler — oyuncu stats'larını sıfırla + yaşlandır + yeni fixture
-    const resetClubs = league.clubs.map((c) => ({
+    // v2.9.81: Yükselme/düşme transferlerini uygula
+    const transfers = transferMap[key];
+    // Mevcut takımlardan promoted/relegated olanları ÇIKAR
+    const promotedIds = new Set<string>();
+    const relegatedIds = new Set<string>();
+
+    // Bu lige GELEN takımlar (üst ligden düşen + alt ligden yükselen)
+    const incomingClubs = transfers
+      ? [...transfers.promoted, ...transfers.relegated]
+      : [];
+
+    // Bu ligin kendi standings'ini hesapla — ayrılacak takımları belirle
+    let remainingClubs = league.clubs;
+    try {
+      const standings = computeStandings(league.clubs, league.fixtures);
+      const tier = league.tier;
+      // Bu ligden ayrılacak takımların ID'leri
+      if (tier > 1) {
+        standings.slice(0, PROMOTION_COUNT).forEach(s => promotedIds.add(s.teamId));
+      }
+      if (tier < 4) {
+        standings.slice(TEAMS_PER_LEAGUE - RELEGATION_COUNT).forEach(s => relegatedIds.add(s.teamId));
+      }
+      // Ayrılanları çıkar
+      remainingClubs = league.clubs.filter(c => !promotedIds.has(c.id) && !relegatedIds.has(c.id));
+    } catch (e) {
+      console.warn(`[resetAllLeaguesForNewSeason] standings hatası ${key}:`, e);
+    }
+
+    // Yeni takım listesi: kalanlar + gelenler
+    // Eğer 18'den azsa yeni bot üret (genellikle 18 olmalı: 12 kalan + 3 üst ligden + 3 alt ligden)
+    let newClubs = [...remainingClubs, ...incomingClubs];
+    if (newClubs.length < TEAMS_PER_LEAGUE) {
+      // Eksik takım varsa bot üret — nadiren olur (sınır liglerde)
+      const deficit = TEAMS_PER_LEAGUE - newClubs.length;
+      try {
+        const newBots = generateClubsForLeague(league.tier, 1 as any, league.country).slice(0, deficit);
+        newClubs = [...newClubs, ...newBots];
+      } catch (e) { /* ignore */ }
+    }
+    // 18'den fazlaysa kes (nadiren olur)
+    if (newClubs.length > TEAMS_PER_LEAGUE) {
+      newClubs = newClubs.slice(0, TEAMS_PER_LEAGUE);
+    }
+
+    // Oyuncu stats'larını sıfırla + yaşlandır
+    const resetClubs = newClubs.map((c) => ({
       ...c,
       players: c.players.map((p) => ({
         ...p,
