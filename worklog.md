@@ -4291,3 +4291,48 @@ Test senaryoları:
 Kullanıcıya bildirilecek:
 1. trophy_league_champion.webp (Süper Lig şampiyonu) hala eksik — lütfen yükleyin
 2. Supabase env (NEXT_PUBLIC_SUPABASE_URL + ANON_KEY) .env.local'a eklenmeli — cloud özellikler test edilemedi
+
+---
+Task ID: v2.9.81-trophy-image-mapping-fix
+Agent: main (GLM)
+Task: Trophy görsellerini dosya adlarına göre doğru ödüllere eşle (kullanıcı talimatı)
+
+Work Log:
+- Kullanıcı netleştirdi: dosya adındaki sayı = Türkiye'deki lig seviyesi
+  * trophy_league_champion.webp → Süper Lig (tier 1) — sayısız dosya = ana lig
+  * trophy_league2_champion.png → 2. Lig (tier 3) — üzerinde "2 LEAGUE CHAMPIONSHIP"
+  * trophy_league3_champion.png → 3. Lig (tier 4) — üzerinde "3RD LEAGUE CHAMPIONSHIP"
+  * trophy_league4_champion.png → 1. Lig (tier 2) — üzerinde "4th LEAGUE CHAMPIONSHIP"
+- trophy-system.ts güncellendi (SADECE imagePath + isimler, hesaplama mantığına DOKUNULMADI):
+  * TROPHY_METADATA: her TrophyKey için doğru trName/enName/desc/imagePath
+    - league_champion → "Süper Lig Şampiyonu" → trophy_league_champion.webp (EKSİK)
+    - league2_champion → "2. Lig Şampiyonu" → trophy_league2_champion.png ✅
+    - league3_champion → "3. Lig Şampiyonu" → trophy_league3_champion.png ✅
+    - league4_champion → "1. Lig Şampiyonu" → trophy_league4_champion.png ✅
+  * getChampionTrophyKey(tier) güncellendi:
+    - tier 1 → "league_champion" (Süper Lig)
+    - tier 2 → "league4_champion" (1. Lig)
+    - tier 3 → "league2_champion" (2. Lig)
+    - tier 4 → "league3_champion" (3. Lig)
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- HTTP doğrulama: 7/8 görsel HTTP 200 döndü
+  * ✅ trophy_league2_champion.png (1920×1920)
+  * ✅ trophy_league3_champion.png (1920×1920)
+  * ✅ trophy_league4_champion.png (1920×1920)
+  * ✅ trophy_league_runnerup.webp (1024×1024)
+  * ✅ trophy_league_third.webp (1024×1024)
+  * ✅ trophy_champions_league.webp (1024×1024)
+  * ✅ trophy_special_cup.webp (1024×1024)
+  * ❌ trophy_league_champion.webp — 404 (Süper Lig kupası)
+- Browser doğrulama: her 7 görsel için naturalWidth > 0 teyit edildi (gerçek render)
+
+Stage Summary:
+- 7/8 kupa artık gerçek görselle render olacak (emoji fallback görünmeyecek)
+- Sadece Süper Lig (tier 1) şampiyonu kupası eksik — trophy_league_champion.webp
+  gönderilmedi. Bu kupada emoji fallback 🏆 görünecek.
+- Dosya adı ↔ TrophyKey eşleştirmesi:
+  Tier 1 (Süper Lig) → league_champion → trophy_league_champion.webp ❌
+  Tier 2 (1. Lig) → league4_champion → trophy_league4_champion.png ✅
+  Tier 3 (2. Lig) → league2_champion → trophy_league2_champion.png ✅
+  Tier 4 (3. Lig) → league3_champion → trophy_league3_champion.png ✅
+- Kullanıcıya bildir: trophy_league_champion.webp (Süper Lig) hala eksik
