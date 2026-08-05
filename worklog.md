@@ -4336,3 +4336,29 @@ Stage Summary:
   Tier 3 (2. Lig) → league2_champion → trophy_league2_champion.png ✅
   Tier 4 (3. Lig) → league3_champion → trophy_league3_champion.png ✅
 - Kullanıcıya bildir: trophy_league_champion.webp (Süper Lig) hala eksik
+
+---
+Task ID: v2.9.81-trophy-league-champion-asset
+Agent: main (GLM)
+Task: trophy_league_champion.webp (Süper Lig kupası) eksikti — kullanıcı gönderdi, ekle.
+
+Work Log:
+- upload/trophy_league_champion.webp (94144 byte, 1024×1024 WebP) → public/trophies/ kopyalandı
+- HTTP doğrulama: 8/8 trophy görseli HTTP 200
+- Browser render doğrulama: Süper Lig kupası naturalWidth=1024, loaded=true
+- Kullanıcı netleştirdi: trophy_league_champion.webp tüm ülkelerin Süper Lig (tier 1) şampiyonluğu için
+- getChampionTrophyKey(1) = "league_champion" → imagePath = trophy_league_champion.webp ✅
+  (Tüm 10 ülke — TR/GB/ES/DE/IT/FR/NL/PT/BR/AR — tier 1 şampiyonu bu kupayı alır)
+
+Stage Summary:
+- 8/8 trophy görseli tamamen yüklü ve render olacak
+- Hiçbir kupa için emoji fallback görünmeyecek
+- Trophy eşleştirmesi TAMAMLANDI:
+  Tier 1 (Süper Lig) → league_champion → trophy_league_champion.webp ✅
+  Tier 2 (1. Lig) → league4_champion → trophy_league4_champion.png ✅
+  Tier 3 (2. Lig) → league2_champion → trophy_league2_champion.png ✅
+  Tier 4 (3. Lig) → league3_champion → trophy_league3_champion.png ✅
+  Lig 2.si → league_runnerup → trophy_league_runnerup.webp ✅
+  Lig 3.sü → league_third → trophy_league_third.webp ✅
+  Şampiyonlar Ligi → champions_league → trophy_champions_league.webp ✅
+  Ulusal Kupa → special_cup → trophy_special_cup.webp ✅
