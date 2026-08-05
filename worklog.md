@@ -4362,3 +4362,32 @@ Stage Summary:
   Lig 3.sü → league_third → trophy_league_third.webp ✅
   Şampiyonlar Ligi → champions_league → trophy_champions_league.webp ✅
   Ulusal Kupa → special_cup → trophy_special_cup.webp ✅
+
+---
+Task ID: v2.9.81-trophy-all-countries-verification
+Agent: main (GLM)
+Task: Diğer ülkelerde de aynı kupalar olacak — doğrulama
+
+Work Log:
+- Kullanıcı netleştirdi: trophy_league_champion.webp tüm ülkelerin Süper Lig (tier 1) şampiyonluğu için
+- getChampionTrophyKey(tier) zaten ülkeye bakmıyor — sadece tier'a göre TrophyKey döndürüyor
+  Yani tüm 10 ülke (TR/GB/ES/DE/IT/FR/NL/PT/BR/AR) için aynı kupa kullanılıyor
+- Doğrulama: 1 sezon simülasyon + sezon 2'ye geçiş + 5 hafta oyna
+  * endSeason çağrısında: awardLeagueTrophiesToAllLeagues 40/40 lig'e kupa ekledi ✅
+  * resetAllLeaguesForNewSeason sonrası: 40/40 lig'de kupa korundu ✅
+  * RETURN öncesi get().allLeagues: 40/40 ✅
+  * Sezon 2, 5. hafta sonrası: 121 kupa 121 kulüpte (40 lig × 3 kupa = 120 + 1 CL/cup) ✅
+- Debug log'lar temizlendi
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+
+Stage Summary:
+- Tüm ülkelerin tüm tier'ları için doğru kupa veriliyor:
+  * Süper Lig (tier 1) → league_champion → trophy_league_champion.webp ✅
+  * 1. Lig (tier 2) → league4_champion → trophy_league4_champion.png ✅
+  * 2. Lig (tier 3) → league2_champion → trophy_league2_champion.png ✅
+  * 3. Lig (tier 4) → league3_champion → trophy_league3_champion.png ✅
+  * Lig 2.si → league_runnerup → trophy_league_runnerup.webp ✅
+  * Lig 3.sü → league_third → trophy_league_third.webp ✅
+- 10 ülke × 4 tier = 40 lig, her sezonda 40 × 3 = 120 kupa dağıtılıyor
+- Kupalar kalıcı — sezon 2'ye geçişte korunuyor (shallow copy + ...spread)
+- Kod değişikliği GEREKMEDİ — sistem zaten ülkeye bakmıyordu, sadece tier'a bakıyordu
