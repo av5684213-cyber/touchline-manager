@@ -304,6 +304,28 @@ export type SeasonAward = {
 export type LeagueTier = 1 | 2 | 3 | 4;
 export type Department = 1 | 2 | 3 | 4;
 
+// v2.9.78: Takım/Kulüp seviyesinde kupa kaydı — oyuncu.seasonAwards'tan AYRI.
+// Lig/turnuva sonunda ilgili takıma kalıcı olarak verilir.
+// trophyKey değerleri:
+//   - "league_champion"  : Lig şampiyonu (1.)
+//   - "league_runnerup"  : Lig 2.si
+//   - "league_third"     : Lig 3.sü
+//   - "champions_league" : Şampiyonlar Ligi (MLCL) şampiyonu
+//   - "special_cup"      : Ulusal Kupa (Kupa turnuvası) şampiyonu
+export type TrophyKey =
+  | "league_champion"
+  | "league_runnerup"
+  | "league_third"
+  | "champions_league"
+  | "special_cup";
+
+export type Trophy = {
+  trophyKey: TrophyKey;
+  season: number;            // kazanılan sezon numarası (seasonNumber ile aynı)
+  division: string;          // lig/turnuva kimliği — örn "super_lig", "1_lig", "2_lig", "3_lig", "champions_league", "national_cup"
+  awardedAt: number;         // timestamp (Date.now())
+};
+
 export type Team = {
   id: string;
   name: string;
@@ -319,6 +341,9 @@ export type Team = {
   is_bot?: boolean;
   facilities?: any; // P0 FIX: Bot takımları için facility levels
   logoUrl?: string | null; // v2.9.48: Kullanıcı yüklenen takım logosu (base64)
+  // v2.9.78: Kulübün kazandığı kupalar — en son kazanılan önce olacak şekilde
+  // ters kronolojik sıralanır (UI'da en üstte gösterilir).
+  trophies?: Trophy[];
 };
 
 export const LEAGUE_NAMES: Record<LeagueTier, { tr: string; en: string }> = {

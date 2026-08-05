@@ -31,6 +31,7 @@ import { MatchReplayModal } from "../match-replay-modal";
 import type { SeasonSummary } from "@/lib/store";
 import type { Player as PlayerT } from "@/lib/mock/data";
 import { SeasonEndModal } from "../season-end-modal";
+import { TrophyShowcase } from "../trophy-showcase";
 import { todayKey } from "@/lib/training/engine";
 import { TeamDetailModal } from "../team-detail-modal";
 import { TeamMessageModal } from "../team-message-modal";
@@ -354,6 +355,10 @@ export function DashboardScreen() {
 
       {/* Hoşgeldin kartı */}
       <WelcomeBanner teamName={team.name} />
+
+      {/* v2.9.78: Kulüp Kupa Vitrini — takım kupaları varsa yatay şerit olarak gösterilir.
+          trophies boşsa (henüz kupa yok) component hiç render edilmez. */}
+      <TrophyShowcase trophies={team?.trophies ?? []} />
 
       {/* Galibiyet serisi göstergesi */}
       <StreakIndicator fixtures={fixtures} teamId={team?.id ?? ""} />

@@ -73,6 +73,12 @@ import { simulateBotMatch, findWeakestPosition, shouldBotBuy, shouldBotSell } fr
 import { generateAllLeagues, makeLeagueKey, type AllLeaguesState, type PersistentLeague } from "@/lib/global-leagues";
 // v2.9.77: award-system — proper top-level import (eskiden require() kullanılıyordu)
 import { AWARD_CATEGORIES, AWARD_MIGRATION_MAP, getAwardImagePath } from "@/lib/award-system";
+// v2.9.78: Takım kupaları sistemi (kulüp seviyesi — oyuncu.seasonAwards'tan ayrı)
+import {
+  awardTrophyToClub,
+  awardLeagueTrophiesToUserClubs,
+  awardLeagueTrophiesToAllLeagues,
+} from "@/lib/trophy-system";
 
 /**
  * v2.9.27 G1: Taktik değişikliklerinde debounce'lu cloud-save tetikleyicisi.
@@ -2261,7 +2267,8 @@ export const useAppStore = create<AppState>()(
           return pool[Math.floor(Math.random() * pool.length)];
         };
 
-        const allClubsForCup = [...clubs];
+        const allClubsForCupInit = [...clubs];
+        let allClubsForCup = allClubsForCupInit;
         for (const m of updatedMatches) {
           if (m.round !== cup.currentRound || !m.played) continue;
           const homeTeam = allClubsForCup.find(c => c.id === m.homeId);
@@ -2366,6 +2373,14 @@ export const useAppStore = create<AppState>()(
             const t2 = allClubsForCup.find(c => c.id === myTeamId);
             if (t2) t2.budget += reward;
           }
+          // v2.9.78: Ulusal Kupa şampiyonuna special_cup trophy ver
+          // Cup katılımcılarının hepsi clubs[] içinde gerçek kulüp objeleri
+          // (buildCupFixtures clubs[]'tan ilk 16'yi seçer) — bot şampiyonlara
+          // da trophy verilebilir (CL'den farklı olarak).
+          if (champion) {
+            const currentSeason = get().seasonNumber ?? 1;
+            allClubsForCup = awardTrophyToClub(allClubsForCup, champion, "special_cup", currentSeason, "national_cup");
+          }
         }
 
         // P1 FIX: Tur ödülü — tur atladıkça ödül ver (kullanıcı için)
@@ -2432,7 +2447,17 @@ export const useAppStore = create<AppState>()(
               const myClub = clubs.find(c => c.id === myTeamId);
               if (myClub) myClub.budget += 5_000_000;
             }
+            // v2.9.78: Şampiyonlar Ligi kupası — şampiyon kulübe kalıcı trophy ekle
+            // Sadece kullanıcın takımı clubs[] içinde mevcut; bot takımları sadece
+            // cl.participants metadata'sında (kalıcı kulüp objeleri yok).
+            // Bot şampiyonlar için cl.champion state yeterli — trophy vermeye gerek yok.
+            let updatedClubs = clubs;
+            if (champion && champion === myTeamId) {
+              const currentSeason = get().seasonNumber ?? 1;
+              updatedClubs = awardTrophyToClub(clubs, champion, "champions_league", currentSeason, "champions_league");
+            }
             set({
+              clubs: updatedClubs,
               championsLeague: {
                 ...cl,
                 champion,
@@ -4216,10 +4241,29 @@ export const useAppStore = create<AppState>()(
         const clFirstRound = generateFirstRoundMatches(clParticipants);
         const clMatches: ChampionsLeagueState["matches"] = clFirstRound.matches;
 
+        // v2.9.78: Takım Kupaları — sezon sonu lig ödülleri
+        // Her lig (kullanıcın + allLeagues'teki tüm diğer ligler) ilk 3 takımına
+        // sırasıyla league_champion / league_runnerup / league_third kupası verir.
+        // Kullanıcın ligi için standings (line ~3506'da hesaplandı) kullanılır.
+        // Diğer ligler için awardLeagueTrophiesToAllLeagues computeStandings'ı kendi çağırır.
+        // ÖNEMLİ: Bu updatedClubs + allLeagues mutasyonu resetAllLeaguesForNewSeason'dan ÖNCE olmalı —
+        // reset sırasındaki `...c` spread'i trophies alanını korur.
+        let allLeaguesForReset = get().allLeagues;
+        try {
+          // (a) Kullanıcın ligi — standings zaten computed
+          const userTier = (team.leagueTier ?? 2) as number;
+          updatedClubs = awardLeagueTrophiesToUserClubs(updatedClubs, standings, oldSeasonNumber, userTier);
+          // (b) Diğer tüm ligler (allLeagues)
+          allLeaguesForReset = awardLeagueTrophiesToAllLeagues(get().allLeagues, oldSeasonNumber);
+        } catch (e) {
+          console.warn("[endSeason] takım kupası ödülleme hatası:", e);
+        }
+
         // v2.9.61: Global leagues — yeni sezon için TÜM ligleri sıfırla
         // Her lig: fixtures yeniden üret, seasonMatchday=1, oyuncu stats sıfırla
         // Kullanıcının ligi updatedClubs + newFixtures ile değiştirildi (yukarıda)
-        const newAllLeagues = resetAllLeaguesForNewSeason(get().allLeagues, updatedClubs, newFixtures);
+        // v2.9.78: allLeaguesForReset kullan — kupalar korunacak (`...c` spread ile)
+        const newAllLeagues = resetAllLeaguesForNewSeason(allLeaguesForReset, updatedClubs, newFixtures);
 
         set({
           clubs: updatedClubs,
