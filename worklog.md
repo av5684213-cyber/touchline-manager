@@ -4175,3 +4175,46 @@ Test senaryoları:
 1. Şampiyon bitir: 34. hafta sonu → BÜYÜK kupa + konfeti ekranı → devam → özet → (statue'ler varsa) her statue tek tek büyük gösterim → yeni sezon
 2. Şampiyon olmayan bitir: 34. hafta sonu → özet (OVR artışları kartları) → (statue'ler varsa) her statue tek tek → yeni sezon
 3. Player profile → Ödül Vitrini sekmesi → kazanılan statue'lerin kalıcı kaydı görülebilir
+
+---
+Task ID: v2.9.79-trophy-showcase-grouping-and-team-modal
+Agent: main (GLM)
+Task: Kupaları isimlerine göre mevkiilerine koy (gruplama modu). Team modallara "Başarılar" sekmesi + "Kupa Vitrini" kutusu ekle. Kupalar kalıcı.
+
+Work Log:
+- trophy-showcase.tsx: TAMAMEN refactor edildi — gruplama modu
+  * Yeni GroupedTrophy tipi: { trophyKey, count, trophies[], lastSeason, divisions }
+  * groupTrophiesByKey helper: aynı trophyKey'den tüm örnekleri tek grupta toplar
+  * Showcase artık her kupa türü için TEK slot gösterir (ör: "Lig Şampiyonu" 1 slot)
+  * Çoklu kazanım "3x" rozeti ile gösterilir (sağ üst köşe, amber renk)
+  * Slot altında son kazanılan sezon (S7)
+  * Başlık: "X kupa · Y tür" (toplam kupa sayısı + tür sayısı)
+- trophy-showcase.tsx: TrophyDetailModal güncellendi
+  * "Nx KAZANILDI" rozeti (1'den fazla ise)
+  * Meta bilgi: son sezon + lig
+  * Tüm kazanım sezonları listesi (ters kronolojik) — her sezon için "S{season} · {division}" chip'i
+  * Konfeti + tier gradient korunmuş
+- team-detail-modal.tsx: 4. sekme "Başarılar" eklendi
+  * detailTab state'ine "achievements" türü eklendi
+  * Tab navigasyonuna Award ikonlu "Başarılar" sekmesi
+  * Kupa sayısı badge'i: achievements tab'ında ve kupalar varsa gösterilir (amber, "3" gibi)
+  * İçerik alanı:
+    - TrophyShowcase (team.trophies ile)
+    - Boş durum: "Henüz kupa yok" ekranı (5xl 🏆 + açıklama)
+    * Bilgi notu: kupaların kalıcılığı vurgulanır (amber kart)
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz, eslint temiz)
+- TrophyShowcase artık "isimlerine göre mevkiilerine koy" yorumuna uygun:
+  her trophyKey = 1 slot, çoklu kazanım "Nx" rozeti ile
+- TeamDetailModal'a "Başarılar" sekmesi + "Kupa Vitrini" kutusu eklendi
+  (tüm takımlar için — kullanıcı kendi takımı + rakip takımlar)
+- Kupalar kalıcı: club.trophies[] sezon sonunda eklenir, hiç silinmez
+- Dashboard'taki TrophyShowcase de gruplama modunu kullanır (otomatik)
+
+Test senaryoları:
+1. Sezon bitir → takımın kupaları (lig 1./2./3. + kupa/ŞL şampiyonluğu) eklenir
+2. Dashboard → "Kupa Vitrini" şeridinde her kupa türü tek slot, çoklu kazanım "2x" rozeti
+3. Herhangi bir takıma tıkla → "Başarılar" sekmesi → kupaları gör
+4. Trophy kartına tıkla → büyük önizleme + tüm sezonlar listesi
+5. Kupasız takım → "Henüz kupa yok" boş durum ekranı

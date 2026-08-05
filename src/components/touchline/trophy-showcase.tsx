@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Trophy as TrophyIcon, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
-import type { Trophy } from "@/lib/mock/data";
+import type { Trophy, TrophyKey } from "@/lib/mock/data";
 import {
   TROPHY_METADATA,
   getDivisionDisplayName,
@@ -14,24 +14,64 @@ import { useI18n } from "@/lib/i18n/locale-provider";
 /**
  * v2.9.78: TrophyShowcase — Kulübün kazandığı kupaların vitrini.
  *
- * Dashboard'a WelcomeBanner sonrası eklenir. `trophies` boşsa hiç render edilmez.
+ * v2.9.79: Gruplama modu — "isimlerine göre mevkiilerine koy"
+ * Aynı trophyKey'den birden fazla varsa (ör. 3x Lig Şampiyonu) tek slot'ta
+ * "3x" rozetiyle gösterilir. Her kupa türü için ayrı slot.
  *
- * Tasarım dili: oyuncu ödül vitrini (player-profile-modal.tsx AwardCard) ile
- * aynı kart/liste görsel dilini kullanır — tutarlılık için yeni tasarım icat etmez.
+ * Dashboard'a WelcomeBanner sonrası eklenir. `trophies` boşsa hiç render edilmez.
  *
  * Veri akışı: Dashboard `useMyTeam()` ile team objesini reaktif okur, team.trophies
  * prop olarak geçirilir. team.trophies değiştiğinde (sezon sonu kupa eklendiğinde)
  * otomatik re-render olur.
  *
  * Etkileşim: Her kupa kartına tıklanınca büyük önizleme modal'ı açılır
- * (kupa görseli + isim + açıklama + sezon + lig).
+ * (kupa görseli + isim + açıklama + kazanıldığı sezonlar listesi).
  */
+
+type GroupedTrophy = {
+  trophyKey: TrophyKey;
+  count: number;
+  trophies: Trophy[]; // aynı key'den tüm kazanım örnekleri — en yeni önce
+  lastSeason: number;
+  divisions: Set<string>;
+};
+
+function groupTrophiesByKey(trophies: Trophy[]): GroupedTrophy[] {
+  const map = new Map<TrophyKey, GroupedTrophy>();
+  for (const t of trophies) {
+    const existing = map.get(t.trophyKey);
+    if (existing) {
+      existing.count++;
+      existing.trophies.push(t);
+      if (t.season > existing.lastSeason) existing.lastSeason = t.season;
+      existing.divisions.add(t.division);
+    } else {
+      map.set(t.trophyKey, {
+        trophyKey: t.trophyKey,
+        count: 1,
+        trophies: [t],
+        lastSeason: t.season,
+        divisions: new Set([t.division]),
+      });
+    }
+  }
+  // Her grup içindeki kupaları en yeni önce sırala
+  for (const g of map.values()) {
+    g.trophies.sort((a, b) => b.awardedAt - a.awardedAt);
+  }
+  // Grupları sırala: en son kazanılan trophyKey önce
+  return Array.from(map.values()).sort((a, b) => b.lastSeason - a.lastSeason);
+}
+
 export function TrophyShowcase({ trophies }: { trophies: Trophy[] }) {
   const { locale } = useI18n();
-  const [selected, setSelected] = useState<Trophy | null>(null);
+  const [selected, setSelected] = useState<GroupedTrophy | null>(null);
 
   // Boşsa hiç gösterme — kullanıcı henüz kupa kazanmamış
   if (!trophies || trophies.length === 0) return null;
+
+  const grouped = groupTrophiesByKey(trophies);
+  const totalTrophies = trophies.length;
 
   return (
     <section>
@@ -39,25 +79,35 @@ export function TrophyShowcase({ trophies }: { trophies: Trophy[] }) {
         <TrophyIcon size={14} className="text-amber-400" />
         <h3 className="text-sm font-bold">Kupa Vitrini</h3>
         <span className="ml-auto text-[10px] text-muted-foreground tabular-nums">
-          {trophies.length} kupa
+          {totalTrophies} kupa · {grouped.length} tür
         </span>
       </div>
 
-      {/* Yatay kaydırılabilir şerit — mobil dostu */}
+      {/* Yatay kaydırılabilir şerit — her kupa türü = 1 slot */}
       <div className="tm-card p-2 overflow-x-auto tm-thin-scrollbar">
         <div className="flex gap-2 min-w-min">
-          {trophies.map((trophy, i) => {
-            const meta = TROPHY_METADATA[trophy.trophyKey];
+          {grouped.map((group) => {
+            const meta = TROPHY_METADATA[group.trophyKey];
             if (!meta) return null;
-            const divisionName = getDivisionDisplayName(trophy.division, locale as "tr" | "en");
+            const divisionName = getDivisionDisplayName(
+              Array.from(group.divisions)[0] ?? "",
+              locale as "tr" | "en"
+            );
 
             return (
               <button
-                key={`${trophy.trophyKey}-${trophy.season}-${trophy.division}-${i}`}
-                onClick={() => { haptic("light"); setSelected(trophy); }}
-                className="tm-tap shrink-0 w-[88px] flex flex-col items-center text-center gap-1 p-1.5 rounded-lg hover:bg-accent/20 transition-colors"
-                title={`${meta.trName} — ${divisionName} (Sezon ${trophy.season})`}
+                key={group.trophyKey}
+                onClick={() => { haptic("light"); setSelected(group); }}
+                className="tm-tap shrink-0 w-[100px] flex flex-col items-center text-center gap-1 p-1.5 rounded-lg hover:bg-accent/20 transition-colors relative"
+                title={`${meta.trName} — ${group.count}x kazanılan · son: S${group.lastSeason}`}
               >
+                {/* Count badge — sağ üst köşe, sadece 1'den fazla ise */}
+                {group.count > 1 && (
+                  <div className="absolute top-0 right-0 px-1 py-0.5 rounded-full bg-amber-500 text-black text-[9px] font-black tabular-nums leading-none z-10">
+                    {group.count}x
+                  </div>
+                )}
+
                 {/* Kupa görseli — yüklenmezse emoji fallback */}
                 <div className="relative w-14 h-14 flex items-center justify-center">
                   <img
@@ -81,7 +131,7 @@ export function TrophyShowcase({ trophies }: { trophies: Trophy[] }) {
                   {meta.trName}
                 </div>
                 <div className="text-[9px] text-muted-foreground leading-tight">
-                  S{trophy.season} · {divisionName}
+                  S{group.lastSeason}
                 </div>
               </button>
             );
@@ -89,10 +139,10 @@ export function TrophyShowcase({ trophies }: { trophies: Trophy[] }) {
         </div>
       </div>
 
-      {/* Büyük önizleme modal'ı */}
+      {/* Büyük önizleme modal'ı — tüm kazanım örneklerini gösterir */}
       {selected && (
         <TrophyDetailModal
-          trophy={selected}
+          group={selected}
           onClose={() => setSelected(null)}
         />
       )}
@@ -102,15 +152,17 @@ export function TrophyShowcase({ trophies }: { trophies: Trophy[] }) {
 
 /**
  * TrophyDetailModal — kupa kartına tıklanınca açılan büyük önizleme.
- * Player statue modal (season-end-modal awards fazı) ile aynı görsel dili kullanır:
+ * Player statue modal ile aynı görsel dili kullanır:
  * tier renkli gradient arka plan + BÜYÜK görsel + isim + açıklama + meta bilgiler.
+ *
+ * Eğer aynı kupa türünden birden fazla kazanılmışsa, alt kısımda tüm sezonlar
+ * listelenir (ters kronolojik).
  */
-function TrophyDetailModal({ trophy, onClose }: { trophy: Trophy; onClose: () => void }) {
+function TrophyDetailModal({ group, onClose }: { group: GroupedTrophy; onClose: () => void }) {
   const { locale } = useI18n();
-  const meta = TROPHY_METADATA[trophy.trophyKey];
+  const meta = TROPHY_METADATA[group.trophyKey];
   if (!meta) return null;
 
-  const divisionName = getDivisionDisplayName(trophy.division, locale as "tr" | "en");
   const tierGradient = meta.tierColor === "gold"
     ? "from-amber-500/25 via-amber-900/30 to-black/95"
     : meta.tierColor === "silver"
@@ -153,16 +205,23 @@ function TrophyDetailModal({ trophy, onClose }: { trophy: Trophy; onClose: () =>
         })}
       </div>
 
-      <div className="relative w-full max-w-[340px] text-center">
+      <div className="relative w-full max-w-[340px] text-center max-h-[95vh] overflow-y-auto tm-thin-scrollbar">
         <button
           onClick={onClose}
-          className="tm-tap absolute top-0 right-0 p-2 text-white/70 hover:text-white"
+          className="tm-tap absolute top-0 right-0 p-2 text-white/70 hover:text-white z-20"
         >
           <X size={20} />
         </button>
 
+        {/* Count rozeti — 1'den fazla ise */}
+        {group.count > 1 && (
+          <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-500/30 text-amber-200 text-[10px] font-black border border-amber-400/50 mb-3 mt-2 backdrop-blur-sm">
+            {group.count}x KAZANILDI
+          </div>
+        )}
+
         {/* BÜYÜK kupa görseli */}
-        <div className="mb-4 flex justify-center mt-6">
+        <div className="mb-4 flex justify-center mt-3">
           <div className={cn(
             "relative w-48 h-48 rounded-2xl bg-white/5 backdrop-blur-sm border-2 flex items-center justify-center overflow-hidden",
             tierBorderColor
@@ -202,18 +261,44 @@ function TrophyDetailModal({ trophy, onClose }: { trophy: Trophy; onClose: () =>
           {meta.trDesc}
         </p>
 
-        {/* Meta bilgiler — sezon + lig */}
-        <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm mb-5">
+        {/* Meta bilgi — son kazanılan sezon + lig */}
+        <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm mb-4">
           <div className="text-left">
-            <div className="text-[9px] uppercase tracking-wider text-white/50">Sezon</div>
-            <div className="text-sm font-bold text-white tabular-nums">{trophy.season}</div>
+            <div className="text-[9px] uppercase tracking-wider text-white/50">Son Sezon</div>
+            <div className="text-sm font-bold text-white tabular-nums">S{group.lastSeason}</div>
           </div>
           <div className="w-px h-6 bg-white/20" />
           <div className="text-left">
             <div className="text-[9px] uppercase tracking-wider text-white/50">Lig/Turnuva</div>
-            <div className="text-sm font-bold text-white">{divisionName}</div>
+            <div className="text-sm font-bold text-white">
+              {getDivisionDisplayName(Array.from(group.divisions)[0] ?? "", locale as "tr" | "en")}
+            </div>
           </div>
         </div>
+
+        {/* Tüm kazanım örnekleri — ters kronolojik (en yeni en üstte) */}
+        {group.count > 1 && (
+          <div className="mb-5 px-3">
+            <div className="text-[10px] uppercase font-bold text-white/60 mb-2">
+              Tüm Kazanım Sezonları ({group.trophies.length})
+            </div>
+            <div className="flex flex-wrap gap-1.5 justify-center">
+              {group.trophies.map((t, i) => (
+                <div
+                  key={`${t.season}-${t.division}-${i}`}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/10 border border-white/15 text-[10px]"
+                >
+                  <span className="text-white/70">S</span>
+                  <span className="font-bold text-white tabular-nums">{t.season}</span>
+                  <span className="text-white/40">·</span>
+                  <span className="text-white/60">
+                    {getDivisionDisplayName(t.division, locale as "tr" | "en")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Kapat butonu */}
         <button

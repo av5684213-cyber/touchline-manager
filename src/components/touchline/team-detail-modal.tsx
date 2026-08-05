@@ -11,6 +11,7 @@ import {
   Trophy,
   Users,
   Camera,
+  Award,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore } from "@/lib/store";
@@ -19,6 +20,7 @@ import { POSITION_GROUP, type Player, type PositionGroup, type Team } from "@/li
 import { ClubBadge, PlayerAvatar, PositionPill, RatingBadge, GrowthBadge } from "./ui-bits";
 import { PlayerProfileModal } from "./player-profile-modal";
 import { MatchReplayModal } from "./match-replay-modal";
+import { TrophyShowcase } from "./trophy-showcase";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { haptic, useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline"  // P0: escape + scroll lock;
@@ -61,7 +63,7 @@ export function TeamDetailModal({
   useEscapeToClose(onClose);
   useBodyScrollLock(true);
   const [posFilter, setPosFilter] = useState<"ALL" | "GK" | "DEF" | "MID" | "FWD">("ALL");
-  const [detailTab, setDetailTab] = useState<"squad" | "matches" | "stats">("squad");
+  const [detailTab, setDetailTab] = useState<"squad" | "matches" | "stats" | "achievements">("squad");
   const [replayMatch, setReplayMatch] = useState<{ homeId: string; awayId: string; homeScore: number; awayScore: number; matchday: number } | null>(null);
   const clubs = useAppStore((s) => s.clubs);
   const fixtures = useAppStore((s) => s.fixtures);
@@ -271,19 +273,28 @@ export function TeamDetailModal({
           { key: "squad", label: "Kadro", icon: Users },
           { key: "matches", label: "Maçlar", icon: Calendar },
           { key: "stats", label: "İstatistik", icon: TrendingUp },
+          { key: "achievements", label: "Başarılar", icon: Award },
         ] as const).map((tab) => {
           const Icon = tab.icon;
+          // Kupa sayısı badge — sadece achievements tab'ında ve kupalar varsa
+          const trophyCount = team.trophies?.length ?? 0;
+          const showBadge = tab.key === "achievements" && trophyCount > 0;
           return (
             <button
               key={tab.key}
               onClick={() => { haptic("light"); setDetailTab(tab.key); }}
               className={cn(
-                "tm-tap flex-1 py-2 text-xs font-bold flex items-center justify-center gap-1.5",
+                "tm-tap flex-1 py-2 text-xs font-bold flex items-center justify-center gap-1.5 relative",
                 detailTab === tab.key ? "text-primary border-b-2 border-primary" : "text-muted-foreground"
               )}
             >
               <Icon size={12} />
               {tab.label}
+              {showBadge && (
+                <span className="ml-0.5 px-1 py-0.5 rounded-full bg-amber-500 text-black text-[9px] font-black tabular-nums leading-none">
+                  {trophyCount}
+                </span>
+              )}
             </button>
           );
         })}
@@ -508,6 +519,44 @@ export function TeamDetailModal({
             {injuredCount > 0 && (
               <div className="tm-card p-2.5 border-red-500/30 bg-red-500/5">
                 <div className="text-[11px] text-red-400 font-bold uppercase">🤕 Sakat Oyuncular: {injuredCount}</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ===== BAŞARILAR TAB (v2.9.79) ===== */}
+        {/* Takımın kazandığı tüm kupalar — Kupa Vitrini.
+            TrophyShowcase trophies boşsa hiç render edilmez (boş başarım ekranı göster).
+            Kupalar reaktif olarak team.trophies'den okunur — sezon sonu eklendiğinde
+            anında görüntülenir. */}
+        {detailTab === "achievements" && (
+          <div className="p-2 space-y-3">
+            {/* Kupa Vitrini kutusu */}
+            <TrophyShowcase trophies={team.trophies ?? []} />
+
+            {/* Boş durum — takım henüz kupa kazanmamışsa */}
+            {(team.trophies?.length ?? 0) === 0 && (
+              <div className="tm-card p-6 text-center">
+                <div className="text-5xl mb-3 opacity-40">🏆</div>
+                <div className="text-sm font-bold text-muted-foreground mb-1">
+                  Henüz kupa yok
+                </div>
+                <div className="text-[11px] text-muted-foreground leading-relaxed">
+                  Bu takımın henüz kazandığı bir kupa bulunmuyor. Lig şampiyonu,
+                  lig 2.si/3.sü, Ulusal Kupa veya Şampiyonlar Ligi şampiyonu
+                  olduğunda kupalar burada görünecek.
+                </div>
+              </div>
+            )}
+
+            {/* Bilgi notu — kupaların kalıcılığı vurgulanır */}
+            {(team.trophies?.length ?? 0) > 0 && (
+              <div className="tm-card p-2.5 bg-amber-500/5 border-amber-500/20">
+                <div className="text-[10px] text-amber-300/80 leading-relaxed">
+                  💡 Kazanılan kupalar kulüpte kalıcı olarak saklanır. Sezon
+                  sonunda lig 1./2./3.sü, Ulusal Kupa ve Şampiyonlar Ligi
+                  şampiyonlarına otomatik olarak verilir.
+                </div>
               </div>
             )}
           </div>
