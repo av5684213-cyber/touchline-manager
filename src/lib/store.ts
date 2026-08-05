@@ -3769,19 +3769,33 @@ export const useAppStore = create<AppState>()(
             const careerApps = (p.seasonHistory ?? []).reduce((s, st) => s + st.appearances, 0) + (p.appearances ?? 0);
             const careerGoals = (p.seasonHistory ?? []).reduce((s, st) => s + st.goals, 0) + (p.goals ?? 0);
             const careerMax = Math.max(careerApps, careerGoals);
-            const existingAwards = seasonAwardsForPlayers.get(p.id) ?? [];
+            // v2.9.80 FIX: existingAwards = bu sezon yeni hesaplananlar + oyuncunun kariyer boyunca
+            // biriktirdiği p.seasonAwards. Eski kod sadece bu sezonunku kontrol ediyordu →
+            // century_club/iron_man/hattrick_hero her sezon tekrar veriliyordu (oyuncu profilde
+            // "century_club(bronze), century_club(bronze), century_club(bronze)" gibi tekrarlar).
+            const seasonAwardsThisSeason = seasonAwardsForPlayers.get(p.id) ?? [];
+            const careerAwards = p.seasonAwards ?? [];
+            const existingAwards = [...seasonAwardsThisSeason, ...careerAwards];
+            // v2.9.80: newMilestoneAwards — sadece BU SEZON YENİ eklenen milestone'ları topla.
+            // Bu liste aşağıda mergedAwards = [...p.seasonAwards, ...newMilestoneAwards] için
+            // kullanılacak (kariyer ödüllerini tekrar eklememek için).
+            const newMilestoneAwards: SeasonAward[] = [];
 
             // century_club — 50/100/200 (maç veya gol, önce dolan)
             const msKey = "century_club";
             const msThresholds = [200, 100, 50]; // gold, silver, bronze
-            const alreadyHas = existingAwards.some(a => a.awardType === msKey && a.tier === "gold");
-            if (!alreadyHas) {
+            // v2.9.80: Eğer oyuncu zaten bu kategorinin en yüksek tier'ına (gold) sahipse,
+            // tekrar ödül verme. Alt tier'a zaten sahipse ve üst threshold aşılırsa üst tier ver,
+            // ama aynı tier'a tekrar verme.
+            const alreadyHasGold = existingAwards.some(a => a.awardType === msKey && a.tier === "gold");
+            if (!alreadyHasGold) {
               for (let t = 0; t < 3; t++) {
                 const threshold = msThresholds[t];
                 const tier = TIERS_MS[t];
-                const hasLower = existingAwards.some(a => a.awardType === msKey && a.tier === tier);
-                if (careerMax >= threshold && !hasLower) {
-                  existingAwards.push({
+                // v2.9.80: Bu tier'a zaten sahipse tekrar verme
+                const hasThisTier = existingAwards.some(a => a.awardType === msKey && a.tier === tier);
+                if (careerMax >= threshold && !hasThisTier) {
+                  newMilestoneAwards.push({
                     seasonNumber: oldSeasonNumber, seasonLabel, awardType: msKey,
                     tier, rank: 0, statValue: careerMax,
                     country: "INT", leagueTier: team.leagueTier ?? 2, clubName: team.name,
@@ -3819,7 +3833,7 @@ export const useAppStore = create<AppState>()(
                   const tier = TIERS_MS[t];
                   const hasTier = ironAwards.some(a => a.tier === tier);
                   if (!hasTier) {
-                    existingAwards.push({
+                    newMilestoneAwards.push({
                       seasonNumber: oldSeasonNumber, seasonLabel, awardType: ironKey,
                       tier, rank: 0, statValue: consecutiveSeasons,
                       country: "INT", leagueTier: team.leagueTier ?? 2, clubName: team.name,
@@ -3841,7 +3855,7 @@ export const useAppStore = create<AppState>()(
                   const tier = TIERS_MS[t];
                   const hasTier = existingAwards.some(a => a.awardType === htKey && a.tier === tier);
                   if (!hasTier) {
-                    existingAwards.push({
+                    newMilestoneAwards.push({
                       seasonNumber: oldSeasonNumber, seasonLabel, awardType: htKey,
                       tier, rank: 0, statValue: careerHatTricks,
                       country: "INT", leagueTier: team.leagueTier ?? 2, clubName: team.name,
@@ -3853,8 +3867,14 @@ export const useAppStore = create<AppState>()(
               }
             }
 
-            if (existingAwards.length > 0) {
-              seasonAwardsForPlayers.set(p.id, existingAwards);
+            // v2.9.80: seasonAwardsForPlayers'a bu sezonun seasonAwardsThisSeason +
+            // yeni milestone'ları yaz. Kariyer p.seasonAwards'ı BURAYA yazma — aşağıda
+            // mergedAwards = [...p.seasonAwards, ...newAwards] ile birleştirilecek.
+            // Eski kod existingAwards (kariyer dahil) yazıyordu → aşağıda tekrar birleştirince
+            // kariyer ödülleri 2x oluyordu.
+            const allNewThisSeason = [...seasonAwardsThisSeason, ...newMilestoneAwards];
+            if (allNewThisSeason.length > 0) {
+              seasonAwardsForPlayers.set(p.id, allNewThisSeason);
             }
           }
         } catch (e) {
@@ -3896,8 +3916,13 @@ export const useAppStore = create<AppState>()(
             // v2.9.46 GÖREV 3: Bu oyuncuya bu sezonda verilen ödülleri kalıcı seasonAwards'a ekle
             const newAwards = seasonAwardsForPlayers.get(p.id) ?? [];
             const existingAwards = p.seasonAwards ?? [];
+            // v2.9.80 FIX: Sınırsız büyümeyi önle — seasonAwards son 50 kaydı tut.
+            // Eski kod: [...existingAwards, ...newAwards] — her sezon ekleniyor, hiç silinmiyor.
+            // 50 sezon sonra bir oyuncuda 100+ kayıt, state boyutu 50MB'a çıkıyordu.
+            // Son 50 yeterli — eski ödüller oyuncu profilinde zaten "kariyer özeti" olarak gösterilir.
+            const MAX_AWARDS = 50;
             const mergedAwards = newAwards.length > 0
-              ? [...existingAwards, ...newAwards]
+              ? [...existingAwards, ...newAwards].slice(-MAX_AWARDS)
               : existingAwards;
             // v2.9.46 GÖREV 4: Bu sezonun istatistiklerini seasonHistory'e kaydet (kalıcı, kariyerlik)
             // — Sadece en az 1 maç oynamış oyuncular için (regen dahil değil — onlar yeni başladı)
@@ -3916,7 +3941,8 @@ export const useAppStore = create<AppState>()(
                 avgRating: p.last_match_rating ?? 0,
                 minutesPlayed: (oldStats as any).minutesPlayed ?? (p.appearances ?? 0) * 80,
               };
-              newSeasonHistory = [...newSeasonHistory, seasonStat];
+              // v2.9.80 FIX: seasonHistory son 30 sezonu tut — sınırsız büyümeyi önle.
+              newSeasonHistory = [...newSeasonHistory, seasonStat].slice(-30);
             }
             // v2.9.46 GÖREV 5: Sezon sonu piyasa değeri yeniden hesaplama
             // — calculatePlayerValue'a seasonPerformanceModifier verilir
@@ -3991,6 +4017,20 @@ export const useAppStore = create<AppState>()(
           // Relegasyon — bir alt lig
           newTier = (currentTier + 1) as LeagueTier;
           newDept = currentDept;
+        }
+
+        // v2.9.80 FIX: Lig kupalarını BURADA ver — promotion/relegasyon'dan ÖNCE.
+        // Eski kod (v2.9.78): trophy'leri line ~4255'te veriyordu, ama o noktada
+        // updatedClubs zaten YENİ ligin takımlarını içeriyordu (promosyon/relegasyon
+        // sonrası). standings ise ESKİ ligin takım ID'lerine göre hesaplanmıştı →
+        // ID eşleşmesi başarısız → şampiyona league_champion kupası verilmiyordu.
+        // Şimdi: updatedClubs hala ESKİ ligin (yaşlandırılmış) takımlarını içeriyor,
+        // standings de ESKI clubs+fixtures ile hesaplanmış → doğru takımlara doğru kupa.
+        // allLeagues için: ayrı fonksiyon çağrılacak ( aşağıda), o bağımsız çalışır.
+        try {
+          updatedClubs = awardLeagueTrophiesToUserClubs(updatedClubs, standings, oldSeasonNumber, currentTier);
+        } catch (e) {
+          console.warn("[endSeason] kullanıcı ligi takım kupası ödülleme hatası:", e);
         }
 
         // Yeni lig/departman için takımları üret (kullanıcının takımı hariç)
@@ -4242,21 +4282,14 @@ export const useAppStore = create<AppState>()(
         const clMatches: ChampionsLeagueState["matches"] = clFirstRound.matches;
 
         // v2.9.78: Takım Kupaları — sezon sonu lig ödülleri
-        // Her lig (kullanıcın + allLeagues'teki tüm diğer ligler) ilk 3 takımına
-        // sırasıyla league_champion / league_runnerup / league_third kupası verir.
-        // Kullanıcın ligi için standings (line ~3506'da hesaplandı) kullanılır.
-        // Diğer ligler için awardLeagueTrophiesToAllLeagues computeStandings'ı kendi çağırır.
-        // ÖNEMLİ: Bu updatedClubs + allLeagues mutasyonu resetAllLeaguesForNewSeason'dan ÖNCE olmalı —
-        // reset sırasındaki `...c` spread'i trophies alanını korur.
+        // Kullanıcın ligi için kupalar yukarıda (promotion/relegasyon öncesi) verildi.
+        // Burada sadece allLeagues'teki diğer tüm ligler için kupaları veriyoruz.
+        // v2.9.80 FIX: Kullanıcı ligi tekrar ödüllenmiyor (double-award önleme).
         let allLeaguesForReset = get().allLeagues;
         try {
-          // (a) Kullanıcın ligi — standings zaten computed
-          const userTier = (team.leagueTier ?? 2) as number;
-          updatedClubs = awardLeagueTrophiesToUserClubs(updatedClubs, standings, oldSeasonNumber, userTier);
-          // (b) Diğer tüm ligler (allLeagues)
           allLeaguesForReset = awardLeagueTrophiesToAllLeagues(get().allLeagues, oldSeasonNumber);
         } catch (e) {
-          console.warn("[endSeason] takım kupası ödülleme hatası:", e);
+          console.warn("[endSeason] allLeagues takım kupası ödülleme hatası:", e);
         }
 
         // v2.9.61: Global leagues — yeni sezon için TÜM ligleri sıfırla
@@ -4495,17 +4528,22 @@ export const useAppStore = create<AppState>()(
         } catch (e) { /* sponsorSystem yoksa ignore */ }
 
         // P0: Sezon sonu kredi bonusu — performans bazlı
+        // v2.9.80 FIX: Enflasyon kontrolü — kredi bonusunu lig tier'ına göre ölçekle.
+        // Eski kod: her tier için aynı +20-150 kredi → T4 takım T1'den çok daha hızlı gelişiyordu.
+        // Yeni: T1 (Süper Lig) en yüksek bonus, T4 (3. Lig) en düşük — gerçekçi ekonomi.
         try {
           const finalPos = myIdx + 1;
-          let seasonBonus = 20; // temel bonus
-          if (finalPos === 1) seasonBonus += 80; // şampiyon
-          else if (finalPos <= 3) seasonBonus += 40; // ilk 3
-          else if (finalPos <= 6) seasonBonus += 20; // ilk 6
-          if (summary.promoted) seasonBonus += 30; // yükselme
-          if (get().cup.champion === myTeamId) seasonBonus += 50; // kupa şampiyonu
+          // v2.9.80: Tier multiplier — T1: 1.5x, T2: 1.0x, T3: 0.7x, T4: 0.5x
+          const tierMult = currentTier === 1 ? 1.5 : currentTier === 2 ? 1.0 : currentTier === 3 ? 0.7 : 0.5;
+          let seasonBonus = Math.round(20 * tierMult); // temel bonus (tier'a göre ölçekli)
+          if (finalPos === 1) seasonBonus += Math.round(80 * tierMult); // şampiyon
+          else if (finalPos <= 3) seasonBonus += Math.round(40 * tierMult); // ilk 3
+          else if (finalPos <= 6) seasonBonus += Math.round(20 * tierMult); // ilk 6
+          if (summary.promoted) seasonBonus += Math.round(30 * tierMult); // yükselme
+          if (get().cup.champion === myTeamId) seasonBonus += Math.round(50 * tierMult); // kupa şampiyonu
           const currentCredits = get().credits;
           set({ credits: currentCredits + seasonBonus });
-          console.log(`[endSeason] Kredi bonusu: +${seasonBonus} (sezon sonu)`);
+          console.log(`[endSeason] Kredi bonusu: +${seasonBonus} (sezon sonu, tier ${currentTier} ×${tierMult})`);
         } catch (e) { /* ignore */ }
 
         return { success: true, summary };

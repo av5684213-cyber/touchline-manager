@@ -46,15 +46,19 @@ export function StandingsScreen() {
   const clubs = useAppStore((s) => s.clubs);
   const fixtures = useAppStore((s) => s.fixtures);
   const team = useMyTeam();
-  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  // v2.9.80 FIX: selectedTeam'i takım OBJESİ yerine ID olarak sakla.
+  // Eski kod: setSelectedTeam(teamData) — teamData referansı leagueClubs useMemo
+  // re-render'larında değişebiliyor, bu da TeamDetailModal'ın prop değişikliği
+  // algılayıp kapanıp tekrar açılmasına (flicker) sebep oluyordu.
+  // ID + clubs lookup: her zaman güncel takım objesi, stable referans.
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [messageTeam, setMessageTeam] = useState<Team | null>(null);
   // v2.9.21 EK4: Toolbox açılır-kapanır (varsayılan: kapalı)
   const [toolboxOpen, setToolboxOpen] = useState(false);
 
-  // v2.9.55: Null guard
-  if (!team) return null;
-
-  // Seçili lig ve departman — varsayılan kullanıcının ligi
+  // v2.9.80 FIX: Rules of Hooks — tüm hook'lar erken return'den ÖNCE çağrılmalı.
+  // Eski kod: `if (!team) return null` sonrasında useState ve useMemo çağrıyordu → Rules of Hooks ihlali.
+  // Şimdi: team null ise fallback değerlerle hook'ları çağır, sonra early return yap.
   const userTier = (team?.leagueTier ?? 2) as LeagueTier;
   const userDept = (team?.department ?? 1) as Department;
   const [selCountry, setSelCountry] = useState<string>("TR");
@@ -62,7 +66,7 @@ export function StandingsScreen() {
   const [selDept, setSelDept] = useState<Department>(userDept);
 
   // Kullanıcının kendi ligi mi?
-  const isMyLeague = selCountry === "TR" && selTier === userTier && selDept === userDept;
+  const isMyLeague = team != null && selCountry === "TR" && selTier === userTier && selDept === userDept;
 
   // Seçili ligdeki kulüpler — kullanıcı kendi ligi ise store'dan, değilse generate et
   // Sabit seed ile — her açılışta aynı takımlar görünsün
@@ -110,6 +114,9 @@ export function StandingsScreen() {
     () => standings.findIndex((s) => s.teamId === (team?.id ?? "")),
     [standings, team]
   );
+
+  // v2.9.55: Null guard — tüm hook'lar çağrıldıktan SONRA
+  if (!team) return null;
 
   const onTierChange = (newTier: LeagueTier) => {
     haptic("light");
@@ -255,13 +262,13 @@ export function StandingsScreen() {
             const isMe = row.teamId === team?.id;
             const zone = getZone(idx, selTier);
             const gd = row.goal_diff;
-            const teamData = leagueClubs.find((c) => c.id === row.teamId);
             return (
               <button
                 key={row.teamId}
                 onClick={() => {
                   haptic("light");
-                  if (teamData) setSelectedTeam(teamData);
+                  // v2.9.80: ID sakla, obje değil — referans stabilitesi için
+                  setSelectedTeamId(row.teamId);
                 }}
                 className={cn(
                   "grid grid-cols-[28px_1fr_24px_24px_24px_24px_28px_32px_70px] gap-0.5 px-2 py-1.5 text-[11px] items-center border-l-2 border-b border-border/40 last:border-b-0 w-full text-left transition-colors tm-tap hover:bg-accent/30",
@@ -322,18 +329,22 @@ export function StandingsScreen() {
         </div>
       )}
 
-      {/* Team detail modal */}
-      {selectedTeam && team && (
-        <TeamDetailModal
-          team={selectedTeam}
-          isMyTeam={selectedTeam.id === team.id}
-          onClose={() => setSelectedTeam(null)}
-          onMessage={(t) => {
-            setSelectedTeam(null);
-            setMessageTeam(t);
-          }}
-        />
-      )}
+      {/* Team detail modal — v2.9.80: ID'den lookup, stable referans */}
+      {selectedTeamId && team && (() => {
+        const selectedTeam = leagueClubs.find((c) => c.id === selectedTeamId);
+        if (!selectedTeam) return null;
+        return (
+          <TeamDetailModal
+            team={selectedTeam}
+            isMyTeam={selectedTeam.id === team.id}
+            onClose={() => setSelectedTeamId(null)}
+            onMessage={(t) => {
+              setSelectedTeamId(null);
+              setMessageTeam(t);
+            }}
+          />
+        );
+      })()}
 
       {/* Team message modal */}
       {messageTeam && team && (

@@ -10,11 +10,8 @@ const isDev = process.env.NEXT_PUBLIC_BUILD_ENV !== "production" && process.env.
 
 // Production'da hiçbir şey render etme — boş sayfa (404 yerine)
 export default function SupabaseTestPage() {
-  // Production'da hiçbir şey gösterme
-  if (!isDev) {
-    return null;
-  }
-
+  // v2.9.80 FIX: Rules of Hooks — tüm hook'lar erken return'den ÖNCE çağrılmalı.
+  // Eski kod: `if (!isDev) return null` sonrasında useState/useEffect çağrıyordu.
   const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
   const [info, setInfo] = useState<string>("");
 
@@ -46,6 +43,9 @@ export default function SupabaseTestPage() {
     }
     test();
   }, []);
+
+  // v2.9.80: Production'da hiçbir şey render etme — hook'lar çağrıldıktan sonra
+  if (!isDev) return null;
 
   return (
     <div className="p-8 min-h-screen bg-background text-foreground">

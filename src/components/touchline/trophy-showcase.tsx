@@ -64,7 +64,7 @@ function groupTrophiesByKey(trophies: Trophy[]): GroupedTrophy[] {
 }
 
 export function TrophyShowcase({ trophies }: { trophies: Trophy[] }) {
-  const { locale } = useI18n();
+  const { t, locale } = useI18n();
   const [selected, setSelected] = useState<GroupedTrophy | null>(null);
 
   // Boşsa hiç gösterme — kullanıcı henüz kupa kazanmamış
@@ -77,9 +77,9 @@ export function TrophyShowcase({ trophies }: { trophies: Trophy[] }) {
     <section>
       <div className="flex items-center gap-2 mb-2">
         <TrophyIcon size={14} className="text-amber-400" />
-        <h3 className="text-sm font-bold">Kupa Vitrini</h3>
+        <h3 className="text-sm font-bold">{t("common.trophies")}</h3>
         <span className="ml-auto text-[10px] text-muted-foreground tabular-nums">
-          {totalTrophies} kupa · {grouped.length} tür
+          {totalTrophies} {t("common.matches")} · {grouped.length} {locale === "en" ? "types" : "tür"}
         </span>
       </div>
 
@@ -159,7 +159,7 @@ export function TrophyShowcase({ trophies }: { trophies: Trophy[] }) {
  * listelenir (ters kronolojik).
  */
 function TrophyDetailModal({ group, onClose }: { group: GroupedTrophy; onClose: () => void }) {
-  const { locale } = useI18n();
+  const { t, locale } = useI18n();
   const meta = TROPHY_METADATA[group.trophyKey];
   if (!meta) return null;
 
@@ -264,12 +264,12 @@ function TrophyDetailModal({ group, onClose }: { group: GroupedTrophy; onClose: 
         {/* Meta bilgi — son kazanılan sezon + lig */}
         <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm mb-4">
           <div className="text-left">
-            <div className="text-[9px] uppercase tracking-wider text-white/50">Son Sezon</div>
+            <div className="text-[9px] uppercase tracking-wider text-white/50">{t("common.last_season")}</div>
             <div className="text-sm font-bold text-white tabular-nums">S{group.lastSeason}</div>
           </div>
           <div className="w-px h-6 bg-white/20" />
           <div className="text-left">
-            <div className="text-[9px] uppercase tracking-wider text-white/50">Lig/Turnuva</div>
+            <div className="text-[9px] uppercase tracking-wider text-white/50">{t("common.league_tournament")}</div>
             <div className="text-sm font-bold text-white">
               {getDivisionDisplayName(Array.from(group.divisions)[0] ?? "", locale as "tr" | "en")}
             </div>
@@ -280,19 +280,19 @@ function TrophyDetailModal({ group, onClose }: { group: GroupedTrophy; onClose: 
         {group.count > 1 && (
           <div className="mb-5 px-3">
             <div className="text-[10px] uppercase font-bold text-white/60 mb-2">
-              Tüm Kazanım Sezonları ({group.trophies.length})
+              {t("common.all_winning_seasons")} ({group.trophies.length})
             </div>
             <div className="flex flex-wrap gap-1.5 justify-center">
-              {group.trophies.map((t, i) => (
+              {group.trophies.map((tr, i) => (
                 <div
-                  key={`${t.season}-${t.division}-${i}`}
+                  key={`${tr.season}-${tr.division}-${i}`}
                   className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/10 border border-white/15 text-[10px]"
                 >
                   <span className="text-white/70">S</span>
-                  <span className="font-bold text-white tabular-nums">{t.season}</span>
+                  <span className="font-bold text-white tabular-nums">{tr.season}</span>
                   <span className="text-white/40">·</span>
                   <span className="text-white/60">
-                    {getDivisionDisplayName(t.division, locale as "tr" | "en")}
+                    {getDivisionDisplayName(tr.division, locale as "tr" | "en")}
                   </span>
                 </div>
               ))}
@@ -305,7 +305,7 @@ function TrophyDetailModal({ group, onClose }: { group: GroupedTrophy; onClose: 
           onClick={() => { haptic("light"); onClose(); }}
           className="tm-tap px-8 py-3 rounded-lg bg-white text-black text-sm font-bold flex items-center justify-center gap-2 mx-auto shadow-xl"
         >
-          Kapat
+          {t("common.close")}
         </button>
       </div>
     </div>

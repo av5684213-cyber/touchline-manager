@@ -1,10 +1,24 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CheckCircle2, Circle, Trophy, Flame, Coins, Zap } from "lucide-react";
+import { CheckCircle2, Trophy, Flame, Coins, Zap, type LucideIcon } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
+
+// v2.9.80 FIX: Icon'ları string key olarak sakla — JSON.stringify güvenli.
+// Eski kod `icon: Trophy` (React component referansı) kaydediyordu — JSON.stringify
+// ile `{}` (boş obje) oluyor, JSON.parse ile geri yüklenince `<Icon />` çağrısı
+// "Element type is invalid" hatası veriyordu ve WeeklyChallengesCard crash ediyordu.
+// Artık sadece string key saklanıyor, render sırasında lookup yapılıyor.
+const ICON_MAP: Record<string, LucideIcon> = {
+  trophy: Trophy,
+  zap: Zap,
+  flame: Flame,
+  coins: Coins,
+};
+
+type IconKey = keyof typeof ICON_MAP;
 
 type WeeklyChallenge = {
   id: string;
@@ -12,7 +26,7 @@ type WeeklyChallenge = {
   title: string;
   desc: string;
   reward: { type: "credits" | "morale" | "form" | "budget"; amount: number };
-  icon: typeof Trophy;
+  iconKey: IconKey; // v2.9.80: string key — JSON-safe
   done: boolean;
   claimed: boolean;
 };
@@ -46,19 +60,37 @@ export function WeeklyChallengesCard() {
     const saved = typeof window !== "undefined" ? localStorage.getItem(storageKey) : null;
     if (saved) {
       try {
-        setChallenges(JSON.parse(saved));
-        return;
+        const parsed = JSON.parse(saved);
+        // v2.9.80 FIX: Eski kayıtlarda `icon: {}` (React component serialize edilmiş) var.
+        // Yeni formata (`iconKey: string`) migrate et. Eski `icon` alanını yok say.
+        const migrated = (Array.isArray(parsed) ? parsed : []).map((c: any) => {
+          // Eski kayıtta iconKey yoksa, eski icon alanından tahmin et veya default "trophy"
+          if (!c.iconKey) {
+            // Eski icon objesini isimden tahmin edemeyiz — default "trophy" güvenli
+            c.iconKey = "trophy";
+          }
+          delete c.icon; // eski alanı temizle
+          return c;
+        });
+        if (migrated.length === 7) {
+          setChallenges(migrated as WeeklyChallenge[]);
+          // Migrate edilmiş halini localStorage'a geri yaz
+          if (typeof window !== "undefined") {
+            localStorage.setItem(storageKey, JSON.stringify(migrated));
+          }
+          return;
+        }
       } catch {}
     }
-    // Yeni hafta — 7 görev üret
+    // Yeni hafta — 7 görev üret (iconKey string olarak — JSON-safe)
     const fresh: WeeklyChallenge[] = [
-      { id: "d1", day: 1, title: "İlk Maçını Oyna", desc: "1 lig maçı oyna", reward: { type: "credits", amount: 3 }, icon: Trophy, done: false, claimed: false },
-      { id: "d2", day: 2, title: "Gol At", desc: "1 maçta en az 2 gol at", reward: { type: "credits", amount: 3 }, icon: Zap, done: false, claimed: false },
-      { id: "d3", day: 3, title: "Temiz Fikstür", desc: "Mağlubiyet almadan 2 maç oyna", reward: { type: "morale", amount: 5 }, icon: Flame, done: false, claimed: false },
-      { id: "d4", day: 4, title: "Transfer Yap", desc: "1 oyuncu transfer et veya teklif ver", reward: { type: "credits", amount: 3 }, icon: Coins, done: false, claimed: false },
-      { id: "d5", day: 5, title: "Antrenman", desc: "1 antrenman seansı tamamla", reward: { type: "form", amount: 5 }, icon: Flame, done: false, claimed: false },
-      { id: "d6", day: 6, title: "Galibiyet Serisi", desc: "Üst üste 2 galibiyet al", reward: { type: "credits", amount: 5 }, icon: Trophy, done: false, claimed: false },
-      { id: "d7", day: 7, title: "Kupa Maçı", desc: "Kupa turu oyna veya hazırlık maçı yap", reward: { type: "budget", amount: 500000 }, icon: Trophy, done: false, claimed: false },
+      { id: "d1", day: 1, title: "İlk Maçını Oyna", desc: "1 lig maçı oyna", reward: { type: "credits", amount: 3 }, iconKey: "trophy", done: false, claimed: false },
+      { id: "d2", day: 2, title: "Gol At", desc: "1 maçta en az 2 gol at", reward: { type: "credits", amount: 3 }, iconKey: "zap", done: false, claimed: false },
+      { id: "d3", day: 3, title: "Temiz Fikstür", desc: "Mağlubiyet almadan 2 maç oyna", reward: { type: "morale", amount: 5 }, iconKey: "flame", done: false, claimed: false },
+      { id: "d4", day: 4, title: "Transfer Yap", desc: "1 oyuncu transfer et veya teklif ver", reward: { type: "credits", amount: 3 }, iconKey: "coins", done: false, claimed: false },
+      { id: "d5", day: 5, title: "Antrenman", desc: "1 antrenman seansı tamamla", reward: { type: "form", amount: 5 }, iconKey: "flame", done: false, claimed: false },
+      { id: "d6", day: 6, title: "Galibiyet Serisi", desc: "Üst üste 2 galibiyet al", reward: { type: "credits", amount: 5 }, iconKey: "trophy", done: false, claimed: false },
+      { id: "d7", day: 7, title: "Kupa Maçı", desc: "Kupa turu oyna veya hazırlık maçı yap", reward: { type: "budget", amount: 500000 }, iconKey: "trophy", done: false, claimed: false },
     ];
     setChallenges(fresh);
     if (typeof window !== "undefined") {
@@ -170,7 +202,7 @@ export function WeeklyChallengesCard() {
       {/* Challenge list */}
       <div className="space-y-1.5">
         {challenges.map((c) => {
-          const Icon = c.icon;
+          const Icon = ICON_MAP[c.iconKey] ?? Trophy; // v2.9.80: lookup — fallback Trophy
           return (
             <div
               key={c.id}

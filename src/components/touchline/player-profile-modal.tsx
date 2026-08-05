@@ -48,6 +48,8 @@ export function PlayerProfileModal({
   const [photoFeedback, setPhotoFeedback] = useState<string | null>(null);
   // v2.9.48: Takım detay modal'ı için state
   const [showTeamDetail, setShowTeamDetail] = useState(false);
+  // v2.9.80 FIX: myTeamId'yi reaktif oku (TeamDetailModal isMyTeam prop'u için)
+  const myTeamId = useAppStore((s) => s.myTeamId);
 
   // v2.9.69 FIX: player prop'u stale olabilir (useState'ten geliyor)
   // Store'dan reaktif olarak GÜNCEL player'ı oku — kart basıldığında anında güncellensin
@@ -298,7 +300,7 @@ export function PlayerProfileModal({
       {showTeamDetail && playerTeam && (
         <TeamDetailModal
           team={playerTeam}
-          isMyTeam={playerTeam.id === useAppStore((s) => s.myTeamId)}
+          isMyTeam={playerTeam.id === myTeamId}
           onClose={() => setShowTeamDetail(false)}
           onMessage={() => {}}
         />

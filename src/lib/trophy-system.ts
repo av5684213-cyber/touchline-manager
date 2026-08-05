@@ -45,11 +45,41 @@ const TROPHY_IMAGE_BASE = "./trophies/";
 export const TROPHY_METADATA: Record<TrophyKey, TrophyMeta> = {
   league_champion: {
     key: "league_champion",
-    trName: "Lig Şampiyonu",
-    enName: "League Champion",
-    trDesc: "Lig sezonunu 1. sırada tamamlayan takıma verilen şampiyonluk kupası",
-    enDesc: "Championship trophy awarded to the team finishing 1st in the league",
+    trName: "Süper Lig Şampiyonu",
+    enName: "Super Lig Champion",
+    trDesc: "Süper Lig (1. tier) sezonunu 1. sırada tamamlayan takıma verilen şampiyonluk kupası",
+    enDesc: "Championship trophy for the team finishing 1st in Super Lig (tier 1)",
     imagePath: `${TROPHY_IMAGE_BASE}trophy_league_champion.webp`,
+    emojiFallback: "🏆",
+    tierColor: "gold",
+  },
+  league2_champion: {
+    key: "league2_champion",
+    trName: "1. Lig Şampiyonu",
+    enName: "1. Lig Champion",
+    trDesc: "1. Lig (2. tier) sezonunu 1. sırada tamamlayan takıma verilen şampiyonluk kupası",
+    enDesc: "Championship trophy for the team finishing 1st in 1. Lig (tier 2)",
+    imagePath: `${TROPHY_IMAGE_BASE}trophy_league2_champion.png`,
+    emojiFallback: "🏆",
+    tierColor: "gold",
+  },
+  league3_champion: {
+    key: "league3_champion",
+    trName: "2. Lig Şampiyonu",
+    enName: "2. Lig Champion",
+    trDesc: "2. Lig (3. tier) sezonunu 1. sırada tamamlayan takıma verilen şampiyonluk kupası",
+    enDesc: "Championship trophy for the team finishing 1st in 2. Lig (tier 3)",
+    imagePath: `${TROPHY_IMAGE_BASE}trophy_league3_champion.png`,
+    emojiFallback: "🏆",
+    tierColor: "gold",
+  },
+  league4_champion: {
+    key: "league4_champion",
+    trName: "3. Lig Şampiyonu",
+    enName: "3. Lig Champion",
+    trDesc: "3. Lig (4. tier) sezonunu 1. sırada tamamlayan takıma verilen şampiyonluk kupası",
+    enDesc: "Championship trophy for the team finishing 1st in 3. Lig (tier 4)",
+    imagePath: `${TROPHY_IMAGE_BASE}trophy_league4_champion.png`,
     emojiFallback: "🏆",
     tierColor: "gold",
   },
@@ -178,8 +208,14 @@ export function awardTrophyToClub(
       awardedAt: now,
     };
 
-    // Ters kronolojik sırala — en son kazanılan en üstte (UI'da)
-    const updated = [...existing, newTrophy].sort((a, b) => b.awardedAt - a.awardedAt);
+    // Ters kronolojik sırala — en sol kazanılan en üstte (UI'da)
+    // v2.9.80 FIX: Sınırsız büyümeyi önle — son 100 kupayı tut.
+    // Bir kulüp 50 sezon oynarsa 150+ trophy birikebilirdi (her sezon 3 lig + kupa + CL).
+    // 100 yeterli — eski kupalar "kariyer özeti" olarak zaten gösterilir.
+    const MAX_TROPHIES = 100;
+    const updated = [...existing, newTrophy]
+      .sort((a, b) => b.awardedAt - a.awardedAt)
+      .slice(0, MAX_TROPHIES);
 
     return { ...club, trophies: updated };
   });
@@ -228,14 +264,35 @@ export function countTrophiesByType(trophies: Trophy[], key: TrophyKey): number 
 // ═══════════════════════════════════════════════════════════════════
 
 /**
+ * Tier'a göre lig şampiyonu trophyKey döndürür.
+ *   tier 1 → "league_champion"  (Süper Lig — trophy_league_champion.webp)
+ *   tier 2 → "league2_champion" (1. Lig — trophy_league2_champion.png)
+ *   tier 3 → "league3_champion" (2. Lig — trophy_league3_champion.png)
+ *   tier 4 → "league4_champion" (3. Lig — trophy_league4_champion.png)
+ *
+ * v2.9.80: Her lig seviyesinin kendi şampiyonluk kupası var (farklı tasarım).
+ * Runnerup ve third tüm tier'lar için ortak kupa kullanır.
+ */
+export function getChampionTrophyKey(tier: number): TrophyKey {
+  switch (tier) {
+    case 1: return "league_champion";
+    case 2: return "league2_champion";
+    case 3: return "league3_champion";
+    case 4: return "league4_champion";
+    default: return "league_champion";
+  }
+}
+
+/**
  * Tek bir ligin (PersistentLeague) ilk 3 takımına sırasıyla
- * league_champion / league_runnerup / league_third kupalarını verir.
+ * champion / runnerup / third kupalarını verir.
+ * v2.9.80: champion trophyKey tier'a göre değişir (her ligin kendi kupası).
  * Immutable: yeni clubs array'i döndürür.
  *
  * @param leagueClubs Lig içindeki kulüp listesi
  * @param standings Lig'in sıralaması (computeStandings çıktısı)
  * @param season Sezon numarası
- * @param tier Lig seviyesi (1-4) — division string'i üretmek için
+ * @param tier Lig seviyesi (1-4) — champion kupa görseli seçimi için
  * @returns Yeni kulüp listesi (kupalar eklenmiş)
  */
 export function awardLeagueTrophiesToClubs(
@@ -245,7 +302,9 @@ export function awardLeagueTrophiesToClubs(
   tier: number
 ): Team[] {
   const division = getLeagueDivision(tier);
-  const TIERS: TrophyKey[] = ["league_champion", "league_runnerup", "league_third"];
+  const championKey = getChampionTrophyKey(tier); // v2.9.80: tier'a göre doğru kupa
+  // İlk 3: champion (tier-specific), runnerup, third (her zaman ortak)
+  const TIERS: TrophyKey[] = [championKey, "league_runnerup", "league_third"];
   let result = leagueClubs;
   const top3 = standings.slice(0, 3);
   for (let i = 0; i < top3.length; i++) {

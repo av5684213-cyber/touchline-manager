@@ -307,13 +307,19 @@ export type Department = 1 | 2 | 3 | 4;
 // v2.9.78: Takım/Kulüp seviyesinde kupa kaydı — oyuncu.seasonAwards'tan AYRI.
 // Lig/turnuva sonunda ilgili takıma kalıcı olarak verilir.
 // trophyKey değerleri:
-//   - "league_champion"  : Lig şampiyonu (1.)
-//   - "league_runnerup"  : Lig 2.si
-//   - "league_third"     : Lig 3.sü
+//   - "league_champion"  : Süper Lig (tier 1) şampiyonu (1.)
+//   - "league2_champion" : 1. Lig (tier 2) şampiyonu — ayrı kupa görseli
+//   - "league3_champion" : 2. Lig (tier 3) şampiyonu — ayrı kupa görseli
+//   - "league4_champion" : 3. Lig (tier 4) şampiyonu — ayrı kupa görseli
+//   - "league_runnerup"  : Lig 2.si (tüm tier'lar için ortak kupa)
+//   - "league_third"     : Lig 3.sü (tüm tier'lar için ortak kupa)
 //   - "champions_league" : Şampiyonlar Ligi (MLCL) şampiyonu
 //   - "special_cup"      : Ulusal Kupa (Kupa turnuvası) şampiyonu
 export type TrophyKey =
   | "league_champion"
+  | "league2_champion"
+  | "league3_champion"
+  | "league4_champion"
   | "league_runnerup"
   | "league_third"
   | "champions_league"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Bell,
   ChevronDown,
@@ -95,6 +95,9 @@ export function DashboardScreen() {
   const tactics = useAppStore((s) => s.tactics);
   // v2.9.76 FIX: seasonMatchday'yi store'dan reaktif oku — SEASON_INFO.matchday stale
   const seasonMatchday = useAppStore((s) => s.seasonMatchday ?? 1);
+  // v2.9.80 FIX: seasonNumber + setHelpModalOpen top-level'da al (useEffect/callback içinde çağrılamaz)
+  const seasonNumber = useAppStore((s) => s.seasonNumber);
+  const setHelpModalOpen = useAppStore((s) => s.setHelpModalOpen);
 
   const [notifs] = useState<Notification[]>(() => seedNotifications(clubs, team?.id ?? ""));
   const [target] = useState(() => nextMatchTarget());
@@ -198,7 +201,7 @@ export function DashboardScreen() {
       winStreak,
       leaguePosition: myStat.position,
       budget: team.budget,
-      seasonsPlayed: useAppStore((s) => s.seasonNumber) ?? 1,
+      seasonsPlayed: seasonNumber ?? 1,
       tacticScore, // P0 FIX BUG #9: Deha başarımı (90+) için
     });
 
@@ -254,11 +257,9 @@ export function DashboardScreen() {
     ? clubs.find((c) => c.id === (next.homeId === team.id ? next.awayId : next.homeId))
     : null;
 
-  // v2.9.58: Yardım modal'ı açma
-  const setHelpModalOpen = useAppStore((s) => s.setHelpModalOpen);
-
   // v2.9.76: team null guard yukarıda yapıldı (satır 221)
   // Bu ikinci kontrol kaldırıldı — unreachable code
+  // v2.9.80: setHelpModalOpen top-level'da alındı (Rules of Hooks)
 
   return (
     <div className="px-4 py-4 space-y-4 pb-24">
@@ -763,22 +764,35 @@ function DailyTasks() {
 
   // v2.9.50: Günlük görevler artık store'da — cloud-save'e dahil, cihazlar arası senkron
   const dailyTasks = useAppStore((s) => s.dailyTasks);
-  const setDailyTasks = (tasks: any) => useAppStore.setState({ dailyTasks: { date: today, tasks } });
+  // v2.9.80 FIX: setDailyTasks'i useCallback ile stabilize et — ve useMemo içinde
+  // ÇAĞIRMAYALIM (setState-in-render uyarısı + AuthGate crash).
+  const setDailyTasks = useCallback(
+    (tasks: any) => useAppStore.setState({ dailyTasks: { date: today, tasks } }),
+    [today]
+  );
 
-  const tasks = useMemo(() => {
-    // Tarih değişmişse sıfırla
+  // v2.9.80 FIX: Tarih değişmişse fresh tasks üret — ama useMemo içinde setState ÇAĞIRMA.
+  // Sadece computed value döndür. setState'i useEffect içinde yap.
+  const freshTasks = useMemo(() => {
     if (dailyTasks?.date !== today) {
-      const fresh = [
+      return [
         { id: "train", icon: "🏋️", label: "1 antrenman yap", reward: "+5 moral +2 kredi", done: false, credits: 2 },
         { id: "tactics", icon: "📋", label: "Taktik düzenle", reward: "+3 kondisyon +2 kredi", done: false, credits: 2 },
         { id: "transfer", icon: "💰", label: "Transfer/teklif yap", reward: "+10K € +2 kredi", done: false, credits: 2 },
         { id: "match", icon: "⚽", label: "Maçını izle", reward: "+5 form +2 kredi", done: false, credits: 2 },
       ];
-      setDailyTasks(fresh);
-      return fresh;
     }
-    return dailyTasks.tasks ?? [];
+    return null;
   }, [dailyTasks, today]);
+
+  // v2.9.80: freshTasks varsa (tarih değişti) useEffect içinde store'a yaz — render dışında.
+  useEffect(() => {
+    if (freshTasks) {
+      setDailyTasks(freshTasks);
+    }
+  }, [freshTasks, setDailyTasks]);
+
+  const tasks = freshTasks ?? dailyTasks?.tasks ?? [];
 
   const toggleTask = (id: string) => {
     // v2.9.76 FIX: freshDailyTasks?.tasks bir task array — t.date yok.
@@ -955,9 +969,16 @@ function InfoBadge({ text }: { text: string }) {
 }
 
 // ===== Tanıtıcı hoşgeldin kartı =====
+// v2.9.80 FIX: dismissed state'i localStorage'a yaz — sayfa yenilenince geri gelmesin.
 function WelcomeBanner({ teamName }: { teamName: string }) {
   const { t } = useI18n();
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(() => {
+    // v2.9.80: localStorage'dan oku — sayfa yenilenince kapatılmış halde kalsın
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("tm_welcome_banner_dismissed") === "true";
+    }
+    return false;
+  });
   if (dismissed) return null;
   return (
     <div className="tm-card p-3 bg-gradient-to-r from-emerald-500/10 to-sky-500/10 border-emerald-500/20">
@@ -969,7 +990,19 @@ function WelcomeBanner({ teamName }: { teamName: string }) {
             {t("dash.welcome.body")}
           </div>
         </div>
-        <button onClick={() => setDismissed(true)} aria-label="Kapat" className="tm-tap text-muted-foreground text-xs">✕</button>
+        <button
+          onClick={() => {
+            setDismissed(true);
+            // v2.9.80: localStorage'a yaz — kalıcı kapatma
+            if (typeof window !== "undefined") {
+              localStorage.setItem("tm_welcome_banner_dismissed", "true");
+            }
+          }}
+          aria-label="Kapat"
+          className="tm-tap text-muted-foreground text-xs"
+        >
+          ✕
+        </button>
       </div>
     </div>
   );

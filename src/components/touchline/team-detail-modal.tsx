@@ -270,10 +270,10 @@ export function TeamDetailModal({
       {/* ===== Tab navigation ===== */}
       <div className="flex border-b border-border shrink-0">
         {([
-          { key: "squad", label: "Kadro", icon: Users },
-          { key: "matches", label: "Maçlar", icon: Calendar },
-          { key: "stats", label: "İstatistik", icon: TrendingUp },
-          { key: "achievements", label: "Başarılar", icon: Award },
+          { key: "squad", label: t("common.squad"), icon: Users },
+          { key: "matches", label: t("common.matches"), icon: Calendar },
+          { key: "stats", label: t("common.stats"), icon: TrendingUp },
+          { key: "achievements", label: t("common.awards"), icon: Award },
         ] as const).map((tab) => {
           const Icon = tab.icon;
           // Kupa sayısı badge — sadece achievements tab'ında ve kupalar varsa
@@ -539,12 +539,10 @@ export function TeamDetailModal({
               <div className="tm-card p-6 text-center">
                 <div className="text-5xl mb-3 opacity-40">🏆</div>
                 <div className="text-sm font-bold text-muted-foreground mb-1">
-                  Henüz kupa yok
+                  {t("common.no_trophies")}
                 </div>
                 <div className="text-[11px] text-muted-foreground leading-relaxed">
-                  Bu takımın henüz kazandığı bir kupa bulunmuyor. Lig şampiyonu,
-                  lig 2.si/3.sü, Ulusal Kupa veya Şampiyonlar Ligi şampiyonu
-                  olduğunda kupalar burada görünecek.
+                  {t("common.no_trophies_desc")}
                 </div>
               </div>
             )}
@@ -553,9 +551,7 @@ export function TeamDetailModal({
             {(team.trophies?.length ?? 0) > 0 && (
               <div className="tm-card p-2.5 bg-amber-500/5 border-amber-500/20">
                 <div className="text-[10px] text-amber-300/80 leading-relaxed">
-                  💡 Kazanılan kupalar kulüpte kalıcı olarak saklanır. Sezon
-                  sonunda lig 1./2./3.sü, Ulusal Kupa ve Şampiyonlar Ligi
-                  şampiyonlarına otomatik olarak verilir.
+                  💡 {t("common.trophies_persistent")}
                 </div>
               </div>
             )}

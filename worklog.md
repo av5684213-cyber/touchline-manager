@@ -4218,3 +4218,76 @@ Test senaryoları:
 3. Herhangi bir takıma tıkla → "Başarılar" sekmesi → kupaları gör
 4. Trophy kartına tıkla → büyük önizleme + tüm sezonlar listesi
 5. Kupasız takım → "Henüz kupa yok" boş durum ekranı
+
+---
+Task ID: v2.9.80-audit-fixes
+Agent: main (GLM)
+Task: Denetim raporundaki bulguları sırayla düzelt (KRİTİK → YÜKSEK → ORTA → DÜŞÜK)
+
+Work Log:
+- KRİTİK 1: WeeklyChallengesCard crash (icon serialization) — FIX
+  * icon: Trophy (React component) → iconKey: "trophy" (string) — JSON-safe
+  * ICON_MAP lookup tablosu eklendi (trophy/zap/flame/coins)
+  * localStorage migration: eski kayıtlardaki `icon: {}` → `iconKey: "trophy"`
+- KRİTİK 2: trophy_league_champion.webp asset eksik — KISMENİ FIX
+  * trophy_league2_champion.png, trophy_league3_champion.png, trophy_league4_champion.png (upload/) → public/trophies/ kopyalandı
+  * TrophyKey tipine league2_champion/league3_champion/league4_champion eklendi
+  * TROPHY_METADATA genişletildi — her lig için ayrı kupa görseli + açıklama
+  * getChampionTrophyKey(tier) helper — tier'a göre doğru trophyKey döndürür
+  * awardLeagueTrophiesToClubs: champion trophyKey artık tier-specific
+  * NOT: trophy_league_champion.webp (Süper Lig için) hala eksik — emoji fallback 🏆 kullanılıyor
+- KRİTİK 3: TeamDetailModal açılıp kapanıyor — FIX
+  * selectedTeam objesi yerine selectedTeamId (string) sakla
+  * leagueClubs.find() ile render sırasında lookup — stable referans
+- KRİTİK 4: Supabase env eksik — KULLANICIYA BİLDİR (kod değişikliği yok)
+- YÜKSEK 5: setState-in-render (DailyTasks/AuthGate) — FIX
+  * useMemo içinde setDailyTasks() çağrısı → freshTasks computed value + useEffect içinde setDailyTasks
+  * useCallback ile setDailyTasks stabilize edildi
+- YÜKSEK 6: league_champion kupası promosyon/relegasyon senaryosunda eksik — FIX
+  * Trophy ödülleme promotion/relegasyon'dan ÖNCE yapılıyor (updatedClubs hala eski lig)
+  * allLeagues için ayrı blok korundu
+- YÜKSEK 7: Aynı milestone ödülü tekrar tekrar (century_club) — FIX
+  * existingAwards = [...seasonAwardsThisSeason, ...p.seasonAwards] (kariyer dahil)
+  * hasThisTier kontrolü — aynı tier'a tekrar verme
+  * newMilestoneAwards ayrı toplama → double-counting önle
+  * Test: 3 sezon simülasyon → 0 duplicate ✅
+- YÜKSEK 8: ESLint hataları (51 → 35) — KISMEN FIX
+  * standings.tsx: 8 → 0 (Rules of Hooks — hook'lar erken return'den önce)
+  * supabase-test/page.tsx: 3 → 0 (if (!isDev) return null sonraya taşındı)
+  * player-profile-modal.tsx: 1 → 0 (useAppStore top-level'a)
+  * dashboard.tsx: 3 → 1 (seasonNumber + setHelpModalOpen top-level)
+  * facilities.tsx: 1 → 0 (calcUpgradeCost helper seasonNumber parametre)
+  * match.tsx: 1 → 0 (storeTactics erken return'den önce)
+  * Kalan 35: setState-in-effect (kasıtlı davranış) + memoization preservation
+- ORTA 9: Hoş Geldin modalı kalıcı — FIX
+  * WelcomeBanner dismissed state localStorage'a yazıldı
+- ORTA 10: Ekonomi enflasyonu — FIX
+  * seasonBonus tier multiplier: T1=1.5x, T2=1.0x, T3=0.7x, T4=0.5x
+- ORTA 11: seasonAwards/trophies sınırsız büyüme — FIX
+  * seasonAwards: son 50 kaydı tut (slice(-50))
+  * seasonHistory: son 30 sezonu tut (slice(-30))
+  * trophies: son 100 kupayı tut (slice(0, 100))
+- DÜŞÜK 12: Hardcoded TR string'ler — KISMEN FIX
+  * i18n dict'e common.awards/squad/stats/trophies/no_trophies/last_season/league_tournament/all_winning_seasons/winner eklendi
+  * team-detail-modal.tsx: 4 tab label + boş durum + bilgi notu i18n'e çevrildi
+  * trophy-showcase.tsx: başlık + meta bilgi + butonlar i18n'e çevrildi
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- ESLint: 51 → 35 hata (%31 azalma)
+- Simülasyon testi: 3 sezon, 0 duplicate milestone ödülü ✅
+- Trophy sistemi: 5 → 8 trophyKey (her lig seviyesi için ayrı şampiyonluk kupası)
+- State büyümesi: sınırlı (seasonAwards 50, seasonHistory 30, trophies 100)
+- Ekonomi: tier multiplier ile enflasyon kontrolü
+- Lokalizasyon: trophy-showcase + team-detail-modal i18n'e çevrildi
+
+Test senaryoları:
+1. Dashboard aç → WeeklyChallengesCard artık crash yapmıyor
+2. Standings'te takıma tıkla → TeamDetailModal açılıp kapanmıyor
+3. Sezon bitir → şampiyon takıma doğru league_champion/league2_champion/league3_champion/league4_champion kupası veriliyor
+4. 3+ sezon oyna → milestone ödüllerinde tekrar yok (century_club bronze 1x)
+5. TeamDetailModal → Başarılar sekmesi → kupalar EN locale'de de doğru gösterilir
+
+Kullanıcıya bildirilecek:
+1. trophy_league_champion.webp (Süper Lig şampiyonu) hala eksik — lütfen yükleyin
+2. Supabase env (NEXT_PUBLIC_SUPABASE_URL + ANON_KEY) .env.local'a eklenmeli — cloud özellikler test edilemedi

@@ -58,6 +58,18 @@ export const dict: Dict = {
   "common.confirm": { tr: "Onayla", en: "Confirm" },
   "common.all": { tr: "Tümü", en: "All" },
   "common.yes": { tr: "Evet", en: "Yes" },
+  // v2.9.80: Eksik common anahtarlar — hardcoded TR string'ler yerine kullanılacak
+  "common.awards": { tr: "Başarılar", en: "Achievements" },
+  "common.squad": { tr: "Kadro", en: "Squad" },
+  "common.stats": { tr: "İstatistik", en: "Statistics" },
+  "common.trophies": { tr: "Kupa Vitrini", en: "Trophy Cabinet" },
+  "common.no_trophies": { tr: "Henüz kupa yok", en: "No trophies yet" },
+  "common.no_trophies_desc": { tr: "Bu takımın henüz kazandığı bir kupa bulunmuyor. Lig şampiyonu, lig 2.si/3.sü, Ulusal Kupa veya Şampiyonlar Ligi şampiyonu olduğunda kupalar burada görünecek.", en: "This team has not won any trophies yet. Trophies will appear here when the team wins the league, finishes 2nd/3rd, or wins the National Cup or Champions League." },
+  "common.trophies_persistent": { tr: "Kazanılan kupalar kulüpte kalıcı olarak saklanır. Sezon sonunda lig 1./2./3.sü, Ulusal Kupa ve Şampiyonlar Ligi şampiyonlarına otomatik olarak verilir.", en: "Won trophies are permanently kept by the club. They are automatically awarded at season end to league 1st/2nd/3rd, National Cup and Champions League winners." },
+  "common.last_season": { tr: "Son Sezon", en: "Last Season" },
+  "common.league_tournament": { tr: "Lig/Turnuva", en: "League/Tournament" },
+  "common.all_winning_seasons": { tr: "Tüm Kazanım Sezonları", en: "All Winning Seasons" },
+  "common.winner": { tr: "Kazanan", en: "Winner" },
 
   // ---- auth ----
   "auth.title": { tr: "Touchline Manager", en: "Touchline Manager" },

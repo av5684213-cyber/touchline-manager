@@ -62,9 +62,9 @@ const STAFF_TYPE_ORDER: StaffMember["type"][] = [
 // stadiumMatrix.ts calculateUpgradeCost (per-facility baseCost + inflation)
 import { calculateUpgradeCost as calcCostFromMatrix } from "@/lib/stadiumMatrix";
 
-function calcUpgradeCost(facilityId: string, currentLevel: number): number {
-  // v2.9.70 FIX: Reaktif seasonNumber — getState() değil
-  const seasonNumber = useAppStore((s) => s.seasonNumber) ?? 1;
+// v2.9.80 FIX: Rules of Hooks — helper function hook çağıramaz.
+// seasonNumber parametre olarak alınır, caller (component) reaktif olarak pass eder.
+function calcUpgradeCost(facilityId: string, currentLevel: number, seasonNumber: number = 1): number {
   return calcCostFromMatrix(facilityId, currentLevel, seasonNumber);
 }
 function calcUpgradeDays(currentLevel: number): number {
@@ -162,6 +162,8 @@ export function FacilitiesScreen() {
   const cancelUpgrade = useAppStore((s) => s.cancelUpgrade);
   const completeUpgradeIfDue = useAppStore((s) => s.completeUpgradeIfDue);
   const setTicketPrice = useAppStore((s) => s.setTicketPrice);
+  // v2.9.80 FIX: seasonNumber reaktif oku — calcUpgradeCost helper'a parametre olarak pass
+  const seasonNumber = useAppStore((s) => s.seasonNumber) ?? 1;
   const [staffModal, setStaffModal] = useState<StaffMember["type"] | null>(null);
   const [ticketInput, setTicketInput] = useState(facilities.ticketPrice);
   const [, force] = useState(0);
@@ -301,7 +303,7 @@ export function FacilitiesScreen() {
           const level = facilities.levels[key];
           const isMax = level >= meta.maxLevel;
           const isUpgrading = activeUpgrade?.facilityId === key;
-          const cost = calcUpgradeCost(key, level);
+          const cost = calcUpgradeCost(key, level, seasonNumber);
           const days = calcUpgradeDays(level);
           const canUpgrade = !activeUpgrade && !isMax && team.budget >= cost;
           return (

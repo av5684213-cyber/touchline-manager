@@ -1191,10 +1191,12 @@ function TacticsDrawer({
   const [subInId, setSubInId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
 
+  // v2.9.70 FIX: Reaktif tactics okuma — getState() değil
+  // v2.9.80 FIX: Rules of Hooks — erken return'den ÖNCE çağrılmalı
+  const storeTactics = useAppStore((s) => s.tactics);
+
   if (!open) return null;
 
-  // v2.9.70 FIX: Reaktif tactics okuma — getState() değil
-  const storeTactics = useAppStore((s) => s.tactics);
   const lineupPlayers = storeTactics.lineup.filter((p): p is PlayerT => p !== null);
   const lineupIds = new Set(lineupPlayers.map(p => p.id));
   const lineup = lineupPlayers.length === 11 ? lineupPlayers : myTeam.players.slice(0, 11);
