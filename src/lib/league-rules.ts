@@ -1,62 +1,103 @@
 /**
  * v2.9.21 GÖREV 1 — Küme düşme/terfi kuralları (TEK KANONİK KAYNAK).
+ * v2.9.82: Tier 5 (Amatör Lig) eklendi — 4 departmanlı.
  *
  * 18 takımlık ligde:
  *   - Üst 3 takım (idx 0,1,2) → bir üst lige terfi
  *   - Alt 3 takım (idx 15,16,17) → bir alt lige düşme
  *   - Tier 1 (Süper Lig): terfi yok (zaten en üst)
- *   - Tier 4 (en alt): düşme yok (zaten en alt)
+ *   - Tier 4 (3. Lig): son 4 takım düşer → Amatör Lig'in 4 departmanına rastgele dağıtılır
+ *   - Tier 5 (Amatör Lig): 4 departman (D1-D4), her departmanın şampiyonu 3. Lig'e çıkar
  *
- * Bu sabit sayı tüm UI + backend'de kullanılır — tek yerden değiştirilebilir.
- *
- * Backend'de: store.ts'te myIdx < PROMOTION_COUNT → promoted, myIdx >= (TEAMS_PER_LEAGUE - RELEGATION_COUNT) → relegated
- * UI'da: LeagueStandings getZone() ile aynı sayılar kullanılır
+ * v2.9.82 Amatör Lig yapısı:
+ *   - 4 departman × 18 takım = 72 takım
+ *   - Her departman bağımsız lig (kendi fikstürü, kendi şampiyonu)
+ *   - 3. Lig'den düşen 4 takım: 15., 16., 17., 18. → rastgele departmana (her departmana 1)
+ *   - 4 departmanın şampiyonları → 3. Lig'e yükselir (4 takım)
+ *   - Amatör Lig'den düşme yok (en alt)
+ *   - CL/Kupa katılımı yok (sadece tier 1)
  */
 
 export const TEAMS_PER_LEAGUE = 18;
 export const PROMOTION_COUNT = 3;
 export const RELEGATION_COUNT = 3;
 
+// v2.9.82: Amatör Lig (tier 5) — 4 departman
+export const AMATEUR_TIER = 5;
+export const AMATEUR_DEPARTMENTS = 4; // D1, D2, D3, D4
+// v2.9.82: 3. Lig'den Amatör Lig'e düşen takım sayısı (4 departmana 1'er = 4)
+export const TIER4_RELEGATION_COUNT = 4;
+// v2.9.82: Amatör Lig'den 3. Lig'e yükselen takım sayısı (4 departman şampiyonu)
+export const AMATEUR_PROMOTION_COUNT = 4;
+
 /**
  * Bir takımın idx'ine göre zone belirle.
  *
  * @param idx 0-based sıra (standings'de)
- * @param tier 1-4 (tier 1 terfi yok, tier 4 düşme yok)
+ * @param tier 1-5 (tier 1 terfi yok, tier 5 düşme yok)
  */
 export function getLeagueZone(
   idx: number,
   tier: number = 2
 ): "promotion" | "relegation" | "middle" {
-  // Tier 1 (Süper Lig) — terfi yok, sadece düşme
+  // Tier 1 (Süper Lig) — terfi yok, sadece düşme (3 takım)
   if (tier === 1) {
     if (idx >= TEAMS_PER_LEAGUE - RELEGATION_COUNT) return "relegation";
     return "middle";
   }
-  // Tier 4 (en alt) — düşme yok, sadece terfi
-  if (tier === 4) {
-    if (idx < PROMOTION_COUNT) return "promotion";
+  // Tier 5 (Amatör Lig) — düşme yok, sadece şampiyon terfi (1 takım per departman)
+  if (tier === 5) {
+    if (idx === 0) return "promotion"; // Sadece şampiyon
     return "middle";
   }
-  // Tier 2-3 — hem terfi hem düşme
+  // Tier 4 (3. Lig) — son 4 takım düşer (Amatör Lig'e)
+  if (tier === 4) {
+    if (idx < PROMOTION_COUNT) return "promotion"; // İlk 3 yükselir (2. Lig'e)
+    if (idx >= TEAMS_PER_LEAGUE - TIER4_RELEGATION_COUNT) return "relegation"; // Son 4 düşer
+    return "middle";
+  }
+  // Tier 2-3 — hem terfi (3) hem düşme (3)
   if (idx < PROMOTION_COUNT) return "promotion";
   if (idx >= TEAMS_PER_LEAGUE - RELEGATION_COUNT) return "relegation";
   return "middle";
 }
 
+
 /**
  * Bir takım terfi eder mi?
+ * v2.9.82: Tier 5 (Amatör) — sadece şampiyon (idx 0) terfi eder.
+ *          Tier 4 (3. Lig) — ilk 3 terfi eder (2. Lig'e).
  */
 export function isPromotionZone(idx: number, tier: number): boolean {
-  if (tier === 1) return false;
-  return idx < PROMOTION_COUNT;
+  if (tier === 1) return false; // Süper Lig zaten en üst
+  if (tier === 5) return idx === 0; // Amatör: sadece şampiyon
+  return idx < PROMOTION_COUNT; // Tier 2-4: ilk 3
 }
 
 /**
  * Bir takım düşer mi?
+ * v2.9.82: Tier 4 (3. Lig) — son 4 düşer (Amatör Lig'e).
+ *          Tier 5 (Amatör) — düşme yok (en alt).
  */
 export function isRelegationZone(idx: number, tier: number): boolean {
-  if (tier === 4) return false;
-  return idx >= TEAMS_PER_LEAGUE - RELEGATION_COUNT;
+  if (tier === 5) return false; // Amatör en alt
+  if (tier === 4) return idx >= TEAMS_PER_LEAGUE - TIER4_RELEGATION_COUNT; // 3. Lig: son 4
+  return idx >= TEAMS_PER_LEAGUE - RELEGATION_COUNT; // Tier 1-3: son 3
+}
+
+/**
+ * v2.9.82: Verilen tier için departman sayısı.
+ * Sadece tier 5 (Amatör) 4 departmanlı, diğerleri tek departman.
+ */
+export function getDepartmentCount(tier: number): number {
+  return tier === AMATEUR_TIER ? AMATEUR_DEPARTMENTS : 1;
+}
+
+/**
+ * v2.9.82: Verilen tier'da departman var mı?
+ */
+export function hasDepartments(tier: number): boolean {
+  return tier === AMATEUR_TIER;
 }
 
 // ============================================================================

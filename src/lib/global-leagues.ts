@@ -30,37 +30,46 @@ export type LeagueKey = string; // format: "{country}_{tier}" örnek: "TR_1", "E
 
 export type PersistentLeague = {
   country: string;     // "TR", "ES", "DE", "BR"
-  tier: LeagueTier;    // 1-4
+  tier: LeagueTier;    // 1-5 (5 = Amatör)
   clubs: Team[];       // 18 takım (kullanıcı yoksa hepsi bot)
   fixtures: FixtureRow[];
   seasonMatchday: number;
   hasUser: boolean;    // kullanıcının takımı bu ligde mi?
+  department?: Department; // v2.9.82: Sadece tier 5 (Amatör) için — D1, D2, D3, D4
 };
 
 export type AllLeaguesState = Record<LeagueKey, PersistentLeague>;
 
 /**
  * Lig key'i üret: "TR_1", "ES_2" gibi.
+ * v2.9.82: Departman bilgisi opsiyonel — tier 5 (Amatör) için "TR_5_D1" formatı.
+ *           Diğer tier'lar için departman yok, "TR_1" formatı korunur.
  */
-export function makeLeagueKey(country: string, tier: LeagueTier): LeagueKey {
+export function makeLeagueKey(country: string, tier: LeagueTier, department?: Department): LeagueKey {
+  // v2.9.82: Sadece tier 5 (Amatör) departman bilgisini key'e dahil eder
+  if (tier === 5 && department) {
+    return `${country}_${tier}_D${department}`;
+  }
   return `${country}_${tier}`;
 }
 
 /**
- * Tüm ligleri üret: 4 ülke × 4 tier = 16 lig × 18 takım = 288 takım.
- * Kullanıcının ligi hariç — o zaten store.clubs'ta olacak.
+ * Tüm ligleri üret: 10 ülke × (4 tier + tier 5'in 4 departmanı) = 10 × 8 = 80 lig.
+ * v2.9.82: Tier 5 (Amatör Lig) 4 departmanlı — her departman bağımsız lig.
  *
  * @param userCountry Kullanıcın ülkesi (bu ligin kullanıcı kontrolünde olduğu işaretlenir)
  * @param userTier Kullanıcın tier'ı
- * @param userDept Kullanıcın departmanı (şu an sadece D1 kullanılıyor)
+ * @param userDept Kullanıcın departmanı (tier 5 için)
  */
 export function generateAllLeagues(
   userCountry: string = "TR",
-  userTier: LeagueTier = 2
+  userTier: LeagueTier = 2,
+  userDept: Department = 1 as Department
 ): AllLeaguesState {
   const all: AllLeaguesState = {};
 
   for (const country of COUNTRIES) {
+    // Tier 1-4: tek departman
     for (const tier of [1, 2, 3, 4] as LeagueTier[]) {
       const key = makeLeagueKey(country.code, tier);
       const clubs = generateClubsForLeague(tier, 1 as Department, country.code);
@@ -77,6 +86,26 @@ export function generateAllLeagues(
         fixtures,
         seasonMatchday: 1,
         hasUser,
+      };
+    }
+    // v2.9.82: Tier 5 (Amatör Lig) — 4 departman, her biri bağımsız lig
+    for (const dept of [1, 2, 3, 4] as Department[]) {
+      const key = makeLeagueKey(country.code, 5 as LeagueTier, dept);
+      const clubs = generateClubsForLeague(5 as LeagueTier, dept, country.code);
+      const fixtures = playFixturesUpTo(
+        generateFixtures(clubs),
+        1
+      );
+      const hasUser = country.code === userCountry && userTier === 5 && userDept === dept;
+
+      all[key] = {
+        country: country.code,
+        tier: 5 as LeagueTier,
+        clubs,
+        fixtures,
+        seasonMatchday: 1,
+        hasUser,
+        department: dept, // v2.9.82: departman bilgisi
       };
     }
   }

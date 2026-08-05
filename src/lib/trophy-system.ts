@@ -140,12 +140,13 @@ export const TROPHY_METADATA: Record<TrophyKey, TrophyMeta> = {
  *   tier 3 → "2_lig"
  *   tier 4 → "3_lig"
  */
-export function getLeagueDivision(tier: number): string {
+export function getLeagueDivision(tier: number, department?: number): string {
   switch (tier) {
     case 1: return "super_lig";
     case 2: return "1_lig";
     case 3: return "2_lig";
     case 4: return "3_lig";
+    case 5: return department ? `amateur_d${department}` : "amateur";
     default: return `tier_${tier}`;
   }
 }
@@ -159,6 +160,11 @@ export function getDivisionDisplayName(division: string, locale: "tr" | "en" = "
     "1_lig": { tr: "1. Lig", en: "1. Lig" },
     "2_lig": { tr: "2. Lig", en: "2. Lig" },
     "3_lig": { tr: "3. Lig", en: "3. Lig" },
+    amateur: { tr: "Amatör Lig", en: "Amateur League" },
+    amateur_d1: { tr: "Amatör Lig D1", en: "Amateur D1" },
+    amateur_d2: { tr: "Amatör Lig D2", en: "Amateur D2" },
+    amateur_d3: { tr: "Amatör Lig D3", en: "Amateur D3" },
+    amateur_d4: { tr: "Amatör Lig D4", en: "Amateur D4" },
     champions_league: { tr: "Şampiyonlar Ligi", en: "Champions League" },
     national_cup: { tr: "Ulusal Kupa", en: "National Cup" },
   };
@@ -285,6 +291,7 @@ export function getChampionTrophyKey(tier: number): TrophyKey {
     case 2: return "league4_champion";  // 1. Lig
     case 3: return "league2_champion";  // 2. Lig
     case 4: return "league3_champion";  // 3. Lig
+    case 5: return "league3_champion";  // Amatör Lig — 3. Lig kupası (fallback, ayrı görsel yok)
     default: return "league_champion";
   }
 }
@@ -305,13 +312,23 @@ export function awardLeagueTrophiesToClubs(
   leagueClubs: Team[],
   standings: StandingRow[],
   season: number,
-  tier: number
+  tier: number,
+  department?: number
 ): Team[] {
-  const division = getLeagueDivision(tier);
-  const championKey = getChampionTrophyKey(tier); // v2.9.80: tier'a göre doğru kupa
-  // İlk 3: champion (tier-specific), runnerup, third (her zaman ortak)
-  const TIERS: TrophyKey[] = [championKey, "league_runnerup", "league_third"];
+  const division = getLeagueDivision(tier, department);
+  const championKey = getChampionTrophyKey(tier);
   let result = leagueClubs;
+
+  // v2.9.82: Tier 5 (Amatör) — sadece şampiyon (idx 0) kupa alır
+  if (tier === 5) {
+    if (standings[0]) {
+      result = awardTrophyToClub(result, standings[0].teamId, championKey, season, division);
+    }
+    return result;
+  }
+
+  // Tier 1-4: İlk 3 takıma champion/runnerup/third kupaları
+  const TIERS: TrophyKey[] = [championKey, "league_runnerup", "league_third"];
   const top3 = standings.slice(0, 3);
   for (let i = 0; i < top3.length; i++) {
     result = awardTrophyToClub(result, top3[i].teamId, TIERS[i], season, division);
@@ -347,7 +364,8 @@ export function awardLeagueTrophiesToAllLeagues(
     }
     try {
       const standings = computeStandings(league.clubs, league.fixtures);
-      const updatedClubs = awardLeagueTrophiesToClubs(league.clubs, standings, season, league.tier);
+      // v2.9.82: Tier 5 (Amatör) — department bilgisini geçir
+      const updatedClubs = awardLeagueTrophiesToClubs(league.clubs, standings, season, league.tier, league.department);
       updated[key] = { ...league, clubs: updatedClubs };
     } catch (e) {
       // Hata olursa bu lig'e dokunma — diğerlerine devam et

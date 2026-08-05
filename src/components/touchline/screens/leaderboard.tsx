@@ -21,7 +21,7 @@ type LeaderboardEntry = {
   isBot?: boolean;
 };
 
-const TIER_DEPTS: Record<LeagueTier, number> = { 1: 1, 2: 1, 3: 1, 4: 1 };
+const TIER_DEPTS: Record<LeagueTier, number> = { 1: 1, 2: 1, 3: 1, 4: 1, 5: 4 }; // v2.9.82: tier 5 (Amatör) 4 departman
 
 /**
  * Liderlik Tablosu — global + lokal sıralama.

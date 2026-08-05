@@ -55,7 +55,7 @@ import { DEFAULT_TACTIC, FORMATION_SLOTS, type ActiveTactic } from "@/lib/tactic
 // P1: require() → top-level ES import (circular dependency riski yok, Next.js 16 Turbopack)
 import { TIER_BASE_BUDGETS } from "@/lib/match/engine/constants";
 // v2.9.21 GÖREV 1: Küme düşme/terfi kuralları — TEK KANONİK KAYNAK
-import { TEAMS_PER_LEAGUE, PROMOTION_COUNT, RELEGATION_COUNT, getLeagueZone } from "@/lib/league-rules";
+import { TEAMS_PER_LEAGUE, PROMOTION_COUNT, RELEGATION_COUNT, TIER4_RELEGATION_COUNT, AMATEUR_DEPARTMENTS, getLeagueZone } from "@/lib/league-rules";
 // v2.9.46 GÖREV 2: CL bracket üretici
 import { generateFirstRoundMatches, generateNextRoundMatches } from "@/lib/cl-bracket";
 // v2.9.30 T-10: Tesis yükseltme maliyeti tek kaynak
@@ -801,7 +801,9 @@ export const useAppStore = create<AppState>()(
 
         // Kupa fikstürünü üret — top 7 + kullanıcının takımı (zorunlu dahil)
         // P0 FIX: Kullanıcının takımı her zaman kupada olsun
-        const cupMatches = buildCupFixtures(clubs, myTeamId);
+        // v2.9.82: Amatör Lig (tier 5) kupa'ya katılmaz — sadece tier 1-4
+        const userTeamTier = clubs.find(c => c.id === myTeamId)?.leagueTier ?? 2;
+        const cupMatches = userTeamTier === 5 ? [] : buildCupFixtures(clubs, myTeamId);
 
         set({
           isAuthed: true,
@@ -4008,8 +4010,19 @@ export const useAppStore = create<AppState>()(
         const currentDept = team.department ?? 1;
         let newTier = currentTier;
         let newDept = currentDept;
-        // v2.9.25 K1: league-rules.ts'teki sabitleri kullan (hardcoded 3/15 değil)
-        if (myFinalIdx < PROMOTION_COUNT && currentTier > 1) {
+        // v2.9.82: Tier 5 (Amatör) — sadece şampiyon (idx 0) 3. Lig'e yükselir
+        if (currentTier === 5 && myFinalIdx === 0) {
+          newTier = 4 as LeagueTier;
+          newDept = 1 as Department; // 3. Lig tek departman
+        }
+        // v2.9.82: Tier 4 (3. Lig) — son 4 takım Amatör Lig'e düşer (rastgele departman)
+        else if (currentTier === 4 && myFinalIdx >= TEAMS_PER_LEAGUE - TIER4_RELEGATION_COUNT) {
+          newTier = 5 as LeagueTier;
+          // v2.9.82: Rastgele departman (D1-D4) — kullanıcı rastgele bir amatör departmana düşer
+          newDept = (Math.floor(Math.random() * AMATEUR_DEPARTMENTS) + 1) as Department;
+        }
+        // v2.9.25 K1: league-rules.ts'teki sabitleri kullan (tier 1-4 normal akış)
+        else if (myFinalIdx < PROMOTION_COUNT && currentTier > 1) {
           // Promosyon — bir üst lig
           newTier = (currentTier - 1) as LeagueTier;
           newDept = currentDept; // aynı departman
@@ -4067,10 +4080,10 @@ export const useAppStore = create<AppState>()(
           updatedClubs = [...newLeagueClubs] as Team[];
 
           // v2.9.62 FIX: Hardcoded "TR" yerine kullanıcının ülkesini kullan
-          // Eski kod (v2.9.61): makeLeagueKey("TR", currentTier) — TR dışı kullanıcılar için lig bozulurdu
+          // v2.9.82: Tier 5 (Amatör) için departman bilgisini key'e dahil et
           const userCountry = get().userCountryCode || "TR";
-          const oldKey = makeLeagueKey(userCountry, currentTier);
-          const newKey = makeLeagueKey(userCountry, newTier);
+          const oldKey = makeLeagueKey(userCountry, currentTier, currentTier === 5 ? currentDept : undefined);
+          const newKey = makeLeagueKey(userCountry, newTier, newTier === 5 ? newDept : undefined);
           if (get().allLeagues && Object.keys(get().allLeagues).length > 0) {
             const updatedAllLeagues = { ...get().allLeagues };
             // v2.9.64 FIX: Eski lig clubs'ından kullanıcı takımını ÇIKAR
@@ -4112,7 +4125,8 @@ export const useAppStore = create<AppState>()(
         // v2.9.61: Terfi/küme düşme olduysa, yeni ligde fixtures senkronize et
         if (newTier !== currentTier || newDept !== currentDept) {
           const userCountryForSync = get().userCountryCode || "TR";
-          const newKey = makeLeagueKey(userCountryForSync, newTier);
+          // v2.9.82: Tier 5 için departman bilgisini key'e dahil et
+          const newKey = makeLeagueKey(userCountryForSync, newTier, newTier === 5 ? newDept : undefined);
           if (get().allLeagues?.[newKey]) {
             const updatedAllLeagues = { ...get().allLeagues };
             updatedAllLeagues[newKey] = {
@@ -4197,7 +4211,9 @@ export const useAppStore = create<AppState>()(
 
         // Yeni sezon kupa fikstürünü üret — kullanıcı her zaman kupada
         // P0 FIX: buildCupFixtures kullan — kullanıcı zorunlu dahil
-        const newCupMatches = buildCupFixtures(updatedClubs, myTeamId);
+        // v2.9.82: Amatör Lig (tier 5) kupa'ya katılmaz — yeni tier kontrolü
+        const newTeamTier = updatedClubs.find(c => c.id === myTeamId)?.leagueTier ?? 2;
+        const newCupMatches = newTeamTier === 5 ? [] : buildCupFixtures(updatedClubs, myTeamId);
 
         // v2.9.34 F3: Sezon sonu — pendingGains'i kalıcı stata ekle
         get().applyPendingGains();
@@ -5753,9 +5769,8 @@ function resetAllLeaguesForNewSeason(
 
   const updated: AllLeaguesState = {};
 
-  // v2.9.81: Bot liglerinde yükselme/düşme — her ülkenin tier 1↔2↔3↔4 arasında
-  // takım transferi. Her ligden ilk 3 takım bir üst lige, son 3 takım bir alt lige.
-  // Tier 1'den yükselme yok, tier 4'e düşme yok.
+  // v2.9.81: Bot liglerinde yükselme/düşme — her ülkenin tier 1↔2↔3↔4↔5 arasında
+  // takım transferi. v2.9.82: Tier 4↔5 özel mantık (4 takım düşer, 4 şampiyon çıkar).
   // Kullanıcının liginde (hasUser=true) bu mantık ATLANIR — kullanıcı yukarıda
   // endSeason içinde kendi lig değiştirme akışında (line 4037+).
   // Önce her ülke için "transfer map" oluştur: {ligKey → {promoted: Team[], relegated: Team[]}}
@@ -5772,29 +5787,64 @@ function resetAllLeaguesForNewSeason(
       const tier = league.tier;
       const country = league.country;
 
-      // İlk 3 (promoted) — tier 1'de yükselme yok
-      if (tier > 1) {
+      // v2.9.82: Tier 5 (Amatör) — sadece şampiyon (idx 0) 3. Lig'e yükselir
+      if (tier === 5) {
+        const champion = standings[0];
+        const champClub = league.clubs.find(c => c.id === champion?.teamId);
+        if (champClub) {
+          // 3. Lig'e (tier 4) yükselenler listesine ekle
+          const upperKey = makeLeagueKey(country, 4 as LeagueTier);
+          if (!transferMap[upperKey]) transferMap[upperKey] = { promoted: [], relegated: [] };
+          transferMap[upperKey].promoted.push({ ...champClub, leagueTier: 4 as LeagueTier, department: 1 as Department });
+        }
+      }
+      // v2.9.82: Tier 4 (3. Lig) — son 4 takım Amatör Lig'e düşer (rastgele departmana)
+      else if (tier === 4) {
+        // İlk 3 yükselir (2. Lig'e) — normal akış
         const promotedClubs = standings.slice(0, PROMOTION_COUNT).map(s =>
           league.clubs.find(c => c.id === s.teamId)!
         ).filter(Boolean);
         if (promotedClubs.length > 0) {
-          const upperKey = makeLeagueKey(country, (tier - 1) as LeagueTier);
+          const upperKey = makeLeagueKey(country, 3 as LeagueTier);
           if (!transferMap[upperKey]) transferMap[upperKey] = { promoted: [], relegated: [] };
-          // Bu takımların leagueTier'ını güncelle
-          transferMap[upperKey].promoted.push(...promotedClubs.map(c => ({ ...c, leagueTier: (tier - 1) as LeagueTier })));
+          transferMap[upperKey].promoted.push(...promotedClubs.map(c => ({ ...c, leagueTier: 3 as LeagueTier })));
         }
-      }
-
-      // Son 3 (relegated) — tier 4'e düşme yok
-      if (tier < 4) {
-        const relegatedClubs = standings.slice(TEAMS_PER_LEAGUE - RELEGATION_COUNT).map(s =>
+        // Son 4 düşer — rastgele amatör departmana (her departmana 1)
+        const relegatedClubs = standings.slice(TEAMS_PER_LEAGUE - TIER4_RELEGATION_COUNT).map(s =>
           league.clubs.find(c => c.id === s.teamId)!
         ).filter(Boolean);
-        if (relegatedClubs.length > 0) {
-          const lowerKey = makeLeagueKey(country, (tier + 1) as LeagueTier);
+        // 4 takımı 4 departmana rastgele dağıt (her departmana 1)
+        const shuffledDepts = [1, 2, 3, 4].sort(() => Math.random() - 0.5);
+        relegatedClubs.forEach((club, idx) => {
+          const dept = shuffledDepts[idx] as Department;
+          const lowerKey = makeLeagueKey(country, 5 as LeagueTier, dept);
           if (!transferMap[lowerKey]) transferMap[lowerKey] = { promoted: [], relegated: [] };
-          // Bu takımların leagueTier'ını güncelle
-          transferMap[lowerKey].relegated.push(...relegatedClubs.map(c => ({ ...c, leagueTier: (tier + 1) as LeagueTier })));
+          transferMap[lowerKey].relegated.push({ ...club, leagueTier: 5 as LeagueTier, department: dept });
+        });
+      }
+      // Tier 1-3: normal akış (ilk 3 yükselir, son 3 düşer)
+      else {
+        // İlk 3 (promoted) — tier 1'de yükselme yok
+        if (tier > 1) {
+          const promotedClubs = standings.slice(0, PROMOTION_COUNT).map(s =>
+            league.clubs.find(c => c.id === s.teamId)!
+          ).filter(Boolean);
+          if (promotedClubs.length > 0) {
+            const upperKey = makeLeagueKey(country, (tier - 1) as LeagueTier);
+            if (!transferMap[upperKey]) transferMap[upperKey] = { promoted: [], relegated: [] };
+            transferMap[upperKey].promoted.push(...promotedClubs.map(c => ({ ...c, leagueTier: (tier - 1) as LeagueTier })));
+          }
+        }
+        // Son 3 (relegated)
+        if (tier < 4) {
+          const relegatedClubs = standings.slice(TEAMS_PER_LEAGUE - RELEGATION_COUNT).map(s =>
+            league.clubs.find(c => c.id === s.teamId)!
+          ).filter(Boolean);
+          if (relegatedClubs.length > 0) {
+            const lowerKey = makeLeagueKey(country, (tier + 1) as LeagueTier);
+            if (!transferMap[lowerKey]) transferMap[lowerKey] = { promoted: [], relegated: [] };
+            transferMap[lowerKey].relegated.push(...relegatedClubs.map(c => ({ ...c, leagueTier: (tier + 1) as LeagueTier })));
+          }
         }
       }
     } catch (e) {
@@ -5834,11 +5884,23 @@ function resetAllLeaguesForNewSeason(
       const standings = computeStandings(league.clubs, league.fixtures);
       const tier = league.tier;
       // Bu ligden ayrılacak takımların ID'leri
-      if (tier > 1) {
-        standings.slice(0, PROMOTION_COUNT).forEach(s => promotedIds.add(s.teamId));
+      // v2.9.82: Tier 5 — sadece şampiyon (idx 0) ayrılır
+      if (tier === 5) {
+        if (standings[0]) promotedIds.add(standings[0].teamId);
       }
-      if (tier < 4) {
-        standings.slice(TEAMS_PER_LEAGUE - RELEGATION_COUNT).forEach(s => relegatedIds.add(s.teamId));
+      // v2.9.82: Tier 4 — ilk 3 yükselir + son 4 düşer
+      else if (tier === 4) {
+        standings.slice(0, PROMOTION_COUNT).forEach(s => promotedIds.add(s.teamId));
+        standings.slice(TEAMS_PER_LEAGUE - TIER4_RELEGATION_COUNT).forEach(s => relegatedIds.add(s.teamId));
+      }
+      // Tier 1-3: ilk 3 yükselir, son 3 düşer
+      else {
+        if (tier > 1) {
+          standings.slice(0, PROMOTION_COUNT).forEach(s => promotedIds.add(s.teamId));
+        }
+        if (tier < 4) {
+          standings.slice(TEAMS_PER_LEAGUE - RELEGATION_COUNT).forEach(s => relegatedIds.add(s.teamId));
+        }
       }
       // Ayrılanları çıkar
       remainingClubs = league.clubs.filter(c => !promotedIds.has(c.id) && !relegatedIds.has(c.id));
@@ -5847,13 +5909,16 @@ function resetAllLeaguesForNewSeason(
     }
 
     // Yeni takım listesi: kalanlar + gelenler
-    // Eğer 18'den azsa yeni bot üret (genellikle 18 olmalı: 12 kalan + 3 üst ligden + 3 alt ligden)
+    // Eğer 18'den azsa yeni bot üret (genellikle 18 olmalı)
+    // v2.9.82: Tier 5 (Amatör) — 4 departman, her departman: 17 kalan + 1 gelen (3. Lig'den düşen) = 18
+    //          3. Lig: 14 kalan + 3 (2. Lig'den düşen) + 4 (amatör şampiyonları) - 4 (amatör'e giden) = 17?
+    //          Aslında: 3. Lig = 18 - 3 (yükselen) - 4 (düşen) + 3 (üst ligden) + 4 (amatörden) = 18 ✅
     let newClubs = [...remainingClubs, ...incomingClubs];
     if (newClubs.length < TEAMS_PER_LEAGUE) {
-      // Eksik takım varsa bot üret — nadiren olur (sınır liglerde)
+      // Eksik takım varsa bot üret
       const deficit = TEAMS_PER_LEAGUE - newClubs.length;
       try {
-        const newBots = generateClubsForLeague(league.tier, 1 as any, league.country).slice(0, deficit);
+        const newBots = generateClubsForLeague(league.tier, (league.department ?? 1) as Department, league.country).slice(0, deficit);
         newClubs = [...newClubs, ...newBots];
       } catch (e) { /* ignore */ }
     }

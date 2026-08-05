@@ -19,7 +19,7 @@ import { haptic } from "@/hooks/touchline";
 import type { FormResult } from "@/lib/mock/season";
 
 // Lig başına 18 takım; 3. Lig (tier 4) 5 departman
-const TIER_DEPTS: Record<LeagueTier, number> = { 1: 1, 2: 1, 3: 1, 4: 1 };
+const TIER_DEPTS: Record<LeagueTier, number> = { 1: 1, 2: 1, 3: 1, 4: 1, 5: 4 }; // v2.9.82: tier 5 (Amatör) 4 departman
 
 // v2.9.21 GÖREV 1: getZone artık league-rules.ts'teki getLeagueZone fonksiyonu
 // - 18 takım: idx 0-2 promotion (3 takım), idx 15-17 relegation (3 takım)

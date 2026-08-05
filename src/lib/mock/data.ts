@@ -301,7 +301,8 @@ export type SeasonAward = {
   awardedAt?: number;            // v2.9.76: milestone ödülleri için timestamp
 };
 
-export type LeagueTier = 1 | 2 | 3 | 4;
+// v2.9.82: Tier 5 (Amatör Lig) eklendi — 4 departmanlı, 3. Lig ile bağlantılı.
+export type LeagueTier = 1 | 2 | 3 | 4 | 5;
 export type Department = 1 | 2 | 3 | 4;
 
 // v2.9.78: Takım/Kulüp seviyesinde kupa kaydı — oyuncu.seasonAwards'tan AYRI.
@@ -357,6 +358,7 @@ export const LEAGUE_NAMES: Record<LeagueTier, { tr: string; en: string }> = {
   2: { tr: "1. Lig", en: "1. Lig" },
   3: { tr: "2. Lig", en: "2. Lig" },
   4: { tr: "3. Lig", en: "3. Lig" },
+  5: { tr: "Amatör Lig", en: "Amateur League" },
 };
 
 // ===== Sahte takım isimleri (kurgusal, hiçbiri gerçek değil) =====
@@ -1171,8 +1173,8 @@ export function generateTeam(
   countryCode?: string
 ): Team {
   const players: Player[] = [];
-  // Lig seviyesine göre OVR aralıkları
-  const ovrMult: Record<LeagueTier, number> = { 1: 1.15, 2: 1.0, 3: 0.85, 4: 0.7 };
+  // Lig seviyesine göre OVR aralıkları (v2.9.82: tier 5 amatör — en düşük)
+  const ovrMult: Record<LeagueTier, number> = { 1: 1.15, 2: 1.0, 3: 0.85, 4: 0.7, 5: 0.55 };
   const mult = ovrMult[leagueTier];
   for (const slot of ROSTER_SHAPE) {
     for (let i = 0; i < slot.count; i++) {
@@ -1181,12 +1183,13 @@ export function generateTeam(
       players.push(generatePlayer(slot.pos, { min: adjustedMin, max: adjustedMax }, countryCode));
     }
   }
-  // Lig seviyesine göre bütçe
+  // Lig seviyesine göre bütçe (v2.9.82: tier 5 amatör — en düşük bütçe)
   const budgetRanges: Record<LeagueTier, [number, number]> = {
     1: [10_000_000, 50_000_000],
     2: [2_000_000, 8_000_000],
     3: [500_000, 2_000_000],
     4: [100_000, 500_000],
+    5: [20_000, 100_000],
   };
   const [minBudget, maxBudget] = budgetRanges[leagueTier];
   return {

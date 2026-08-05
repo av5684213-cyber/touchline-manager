@@ -4429,3 +4429,55 @@ Stage Summary:
 - Bot liglerinde yükselme/düşme: çalışıyor (11/12 transfer)
 - 40 lig × 3 takım = 120 takım sezon başı transfer oluyor
 - Takım sayısı sabit (18), duplicate yok
+
+---
+Task ID: v2.9.82-amateur-league-tier5
+Agent: main (GLM)
+Task: Amatör Lig (tier 5) ekle — 4 departman, 3. Lig ile bağlantılı
+
+Work Log:
+- league-rules.ts:
+  * AMATEUR_TIER=5, AMATEUR_DEPARTMENTS=4, TIER4_RELEGATION_COUNT=4, AMATEUR_PROMOTION_COUNT=4
+  * getLeagueZone: tier 5 — sadece şampiyon (idx 0) promotion; tier 4 — son 4 relegation
+  * isPromotionZone: tier 5 idx===0, tier 4 ilk 3
+  * isRelegationZone: tier 5 yok, tier 4 son 4
+  * getDepartmentCount(tier), hasDepartments(tier) helper'ları
+- mock/data.ts:
+  * LeagueTier = 1 | 2 | 3 | 4 | 5
+  * LEAGUE_NAMES[5] = { tr: "Amatör Lig", en: "Amateur League" }
+  * ovrMult[5] = 0.55 (en düşük)
+  * budgetRanges[5] = [20K, 100K] (en düşük)
+- global-leagues.ts:
+  * PersistentLeague'e department? alanı eklendi
+  * makeLeagueKey(country, tier, department?) — tier 5 için "TR_5_D1" formatı
+  * generateAllLeagues: 10 ülke × (4 tier + 4 amatör departman) = 80 lig
+- store.ts:
+  * Kullanıcı promotion: tier 5 idx===0 → tier 4; tier 4 son 4 → tier 5 (rastgele dept)
+  * makeLeagueKey çağrılarında tier 5 için departman bilgisi
+  * resetAllLeaguesForNewSeason: bot transferi tier 4↔5
+    - Tier 5: sadece şampiyon (idx 0) → tier 4
+    - Tier 4: ilk 3 yükselir + son 4 düşer (rastgele amatör departmana)
+    - Transfer map: her amatör departmana 1 düşen, tier 4'e 4 şampiyon
+  * Kupa (Ulusal Kupa): tier 5 katılamaz (cupMatches = [])
+  * CL: zaten sadece tier 1 (değişiklik yok)
+- trophy-system.ts:
+  * getLeagueDivision(5, dept) → "amateur_d1" vb.
+  * getDivisionDisplayName: amateur, amateur_d1-d4 eklendi
+  * getChampionTrophyKey(5) → "league3_champion" (3. Lig kupası, fallback)
+  * awardLeagueTrophiesToClubs: tier 5 sadece şampiyona kupa
+- standings.tsx + leaderboard.tsx:
+  * TIER_DEPTS = { 1: 1, 2: 1, 3: 1, 4: 1, 5: 4 }
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- 80 lig × 18 takım = 1440 takım
+- Test: 2 sezon simülasyon
+  * Amatör → 3. Lig: 4/4 ✅
+  * 3. Lig → Amatör: 4/4 ✅
+  * Tüm liglerde 18 takım sabit ✅
+- Amatör lig yapısı:
+  * 10 ülke × 4 departman = 40 amatör lig
+  * Her departmanda 18 takım
+  * Sadece şampiyon 3. Lig'e yükselir
+  * 3. Lig'den son 4 rastgele departmana düşer
+- CL/Kupa: sadece tier 1-4, amatör katılamaz
