@@ -180,6 +180,7 @@ export function MatchScreen() {
       });
 
     return (
+      <>
       <PreMatchScreen
         homeTeam={homeTeam}
         awayTeam={awayTeam}
@@ -197,7 +198,23 @@ export function MatchScreen() {
         onBack={() => setShowPreMatch(false)}
         onPlayerClick={(p) => { haptic("light"); setPitchProfilePlayer(p); }}
       />
-    );
+      {/* v2.9.85 FIX: PreMatch ekranında da oyuncu profil modal'ını göster.
+          Eski kod: modal sadece showPreMatch=false olduktan sonra render ediliyordu.
+          Kullanıcı oyuncuya tıkladığında modal açılmıyordu, "Maçı Başlat" tuşuna basınca
+          hem modal açılıyor hem maç başlıyordu (stale state). */}
+      {pitchProfilePlayer && (
+        <PlayerProfileModal
+          player={pitchProfilePlayer}
+          teamColor={
+            homeTeam.players.some((p) => p.id === pitchProfilePlayer.id)
+              ? homeTeam.primaryColor
+              : awayTeam.primaryColor
+          }
+          onClose={() => setPitchProfilePlayer(null)}
+        />
+      )}
+    </>
+  );
   }
 
   return (

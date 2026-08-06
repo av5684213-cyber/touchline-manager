@@ -324,7 +324,7 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
           className="tm-tap flex flex-col items-center gap-1 p-3 rounded-lg bg-emerald-600 text-white text-xs font-bold active:scale-[0.98] transition-transform disabled:opacity-50"
         >
           <Users size={20} />
-          {queueStatus === "searching" ? "Hazırlanıyor..." : "Bot Rakiple Oyna"}
+          {queueStatus === "searching" ? "Hazırlanıyor..." : "Sıraya Gir"}
         </button>
         <button
           onClick={handleInstantMatch}
@@ -341,9 +341,9 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
         </button>
       </div>
 
-      {/* v2.9.26 T2: Dürüst açıklama — bot rakiple pratik maçı */}
+      {/* v2.9.85: Dürüst açıklama — gerçek kullanıcı ile hazırlık maçı */}
       <div className="tm-card p-2.5 bg-sky-500/5 border-sky-500/20 text-[10px] text-muted-foreground leading-relaxed">
-        ℹ️ <strong className="text-foreground">Bot Rakiple Oyna:</strong> Rakibinin OVR'sine yakın bir <strong className="text-foreground">bot takıma</strong> karşı dostluk maçı oynarsın. Sonuç kaydedilmez, sadece pratik. Maç sırasında rakip ile sohbet edebilirsin.
+        ℹ️ <strong className="text-foreground">Sıraya Gir:</strong> Sıradaki gerçek kullanıcı ile dostluk maçı oynarsın. Sonuç kaydedilmez, sadece pratik. Maç sırasında rakip ile sohbet edebilirsin.
       </div>
 
       {/* Queue searching indicator */}

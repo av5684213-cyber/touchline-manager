@@ -3472,9 +3472,12 @@ export const useAppStore = create<AppState>()(
                   const [stat1, stat2] = posStats[p.specificPosition] ?? ["passing", "dribbling"];
                   newStats[stat1] = Math.min(99, Math.round((newStats[stat1] + gain) * 10) / 10);
                   newStats[stat2] = Math.min(99, Math.round((newStats[stat2] + gain * 0.5) * 10) / 10);
-                  const newRating = Math.min(99, Math.round(
-                    (newStats.pace + newStats.shooting + newStats.passing + newStats.defending + newStats.physical + newStats.dribbling) / 6
-                  ));
+                  // v2.9.85 FIX: Rating'i stats'ın ortalamasından RECALCULATE ETME!
+                  // Eski kod: (pace+shooting+passing+defending+physical+dribbling)/6 yapıyordu
+                  // Ama generateStats spread/boost ile stats üretiyor → ortalama OVR'dan farklı
+                  // → training sonrası rating DÜŞÜYORDU (45→38 gibi).
+                  // Yeni: rating'i sadece küçük miktar artır (gain * 0.3) — stats'la recalculate etme.
+                  const newRating = Math.min(99, Math.round((p.rating + gain * 0.3) * 10) / 10);
                   return {
                     ...p,
                     stats: newStats,
