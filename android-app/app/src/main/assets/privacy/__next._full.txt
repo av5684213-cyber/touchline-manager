@@ -1,0 +1,108 @@
+1:"$Sreact.fragment"
+7:I[68027,["./_next/static/chunks/2f236954d6a65e12.js"],"default"]
+:HL["./_next/static/chunks/a2fe234bc9d0df55.css","style"]
+:HL["./_next/static/chunks/5d7716bd1e746f90.css","style"]
+:HL["./_next/static/media/1bffadaabf893a1e-s.p.7cd81963.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["./_next/static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+2:Tf4a,
+          (function() {
+            // Native'e hazır sinyali gönder
+            function notifyNativeReady() {
+              try {
+                if (window.AndroidNative && window.AndroidNative.onAppReady) {
+                  window.AndroidNative.onAppReady();
+                }
+              } catch(e) {}
+            }
+            // JS app yüklendiğinde native'e haber ver
+            window.addEventListener('load', function() {
+              setTimeout(notifyNativeReady, 200);
+            });
+
+            // Global error handler — JS hatalarını native'e ilet
+            window.addEventListener('error', function(e) {
+              try {
+                if (window.AndroidNative && window.AndroidNative.reportError) {
+                  var msg = e.message + ' @ ' + (e.filename || '') + ':' + (e.lineno || 0);
+                  window.AndroidNative.reportError(msg);
+                }
+              } catch(err) {}
+            });
+
+            // Unhandled promise rejection handler
+            window.addEventListener('unhandledrejection', function(e) {
+              try {
+                if (window.AndroidNative && window.AndroidNative.reportError) {
+                  var reason = e.reason ? (e.reason.message || String(e.reason)) : 'Unknown rejection';
+                  window.AndroidNative.reportError('Promise rejection: ' + reason);
+                }
+              } catch(err) {}
+            });
+
+            // v2.9.14 MADDE 1: Native geri tuşu handler — JS navigation'ı yönetir
+            // Native → JS: evaluateJavascript("window.handleNativeBack()")
+            // JS → Native: AndroidNative.onBackResult(true/false)
+            //   true = JS handled etti (modal kapandı, sekme değişti)
+            //   false = JS ana ekranda, çıkış gerekli
+            window.handleNativeBack = function() {
+              // 1. Modal açıksa kapat (oyuncu profili, takım detayı, vb.)
+              var openModal = document.querySelector('[role="dialog"], [data-modal="true"]');
+              if (openModal) {
+                var closeBtn = openModal.querySelector('[aria-label="Kapat"], [aria-label="close"], button[aria-label]');
+                if (closeBtn) { closeBtn.click(); return true; }
+                // Kapat butonu yoksa Escape simüle et
+                var escEvent = new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27 });
+                document.dispatchEvent(escEvent);
+                return true;
+              }
+              // 2. Drawer açıksa kapat (Diğer sekmesi drawer'ı)
+              var openDrawer = document.querySelector('[data-drawer-open="true"], [data-state="open"]');
+              if (openDrawer) {
+                var backdrop = document.querySelector('[data-drawer-backdrop="true"]');
+                if (backdrop) { backdrop.click(); return true; }
+                // Backdrop yoksa state'i kapat
+                openDrawer.click();
+                return true;
+              }
+              // 3. Alt menü sekmesi — ana ekranda değilse ana ekrana dön
+              // Ana ekran = Dashboard sekmesi
+              var activeTab = document.querySelector('[data-active-tab="true"]');
+              if (activeTab && activeTab.getAttribute('data-tab') !== 'dashboard') {
+                // Dashboard sekmesine geç
+                var dashboardBtn = document.querySelector('[data-tab="dashboard"]');
+                if (dashboardBtn) { dashboardBtn.click(); return true; }
+              }
+              // 4. Maç ekranındaysa — çıkış engellenmeli (ilerleme kaybı)
+              var matchScreen = document.querySelector('[data-screen="match"]');
+              if (matchScreen) {
+                return true; // Maç sırasında geri tuşu ile çıkış yasak
+              }
+              // 5. Ana ekrandayız — native'e "handled=false" gönder
+              return false;
+            };
+          })();
+        0:{"P":null,"b":"lFj4JnYlSkIbP09QzNs_l","c":["","privacy"],"q":"","i":false,"f":[[["",{"children":["privacy",{"children":["__PAGE__",{}]}]},"$undefined","$undefined",true],[["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"./_next/static/chunks/a2fe234bc9d0df55.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","link","1",{"rel":"stylesheet","href":"./_next/static/chunks/5d7716bd1e746f90.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"./_next/static/chunks/7b77f951eaf4e155.js","async":true,"nonce":"$undefined"}],["$","script","script-1",{"src":"./_next/static/chunks/ea98b7f9490d626b.js","async":true,"nonce":"$undefined"}],["$","script","script-2",{"src":"./_next/static/chunks/39fa3fcc78c0fe1b.js","async":true,"nonce":"$undefined"}],["$","script","script-3",{"src":"./_next/static/chunks/0e9143fe23daf8ea.js","async":true,"nonce":"$undefined"}],["$","script","script-4",{"src":"./_next/static/chunks/05e1445b8934d6f1.js","async":true,"nonce":"$undefined"}],["$","script","script-5",{"src":"./_next/static/chunks/e1a1c1c62b642533.js","async":true,"nonce":"$undefined"}],["$","script","script-6",{"src":"./_next/static/chunks/a5fd08b034e44593.js","async":true,"nonce":"$undefined"}]],["$","html",null,{"lang":"tr","suppressHydrationWarning":true,"children":[["$","head",null,{"children":[["$","meta",null,{"name":"apple-mobile-web-app-capable","content":"yes"}],["$","meta",null,{"name":"apple-mobile-web-app-status-bar-style","content":"black-translucent"}],["$","meta",null,{"name":"apple-mobile-web-app-title","content":"Touchline Manager"}],["$","meta",null,{"name":"mobile-web-app-capable","content":"yes"}],["$","link",null,{"rel":"apple-touch-icon","href":"/icons/icon-192.png"}],["$","link",null,{"rel":"apple-touch-startup-image","href":"/icons/icon-512.png"}],["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$2"}}]]}],"$L3"]}]]}],{"children":["$L4",{"children":["$L5",{},null,false,false]},null,false,false]},null,false,false],"$L6",false]],"m":"$undefined","G":["$7",[]],"S":true}
+8:I[38306,["./_next/static/chunks/7b77f951eaf4e155.js","./_next/static/chunks/ea98b7f9490d626b.js","./_next/static/chunks/39fa3fcc78c0fe1b.js","./_next/static/chunks/0e9143fe23daf8ea.js","./_next/static/chunks/05e1445b8934d6f1.js","./_next/static/chunks/e1a1c1c62b642533.js","./_next/static/chunks/a5fd08b034e44593.js"],"LocaleProvider"]
+9:I[27643,["./_next/static/chunks/7b77f951eaf4e155.js","./_next/static/chunks/ea98b7f9490d626b.js","./_next/static/chunks/39fa3fcc78c0fe1b.js","./_next/static/chunks/0e9143fe23daf8ea.js","./_next/static/chunks/05e1445b8934d6f1.js","./_next/static/chunks/e1a1c1c62b642533.js","./_next/static/chunks/a5fd08b034e44593.js"],"AuthProvider"]
+a:I[39756,["./_next/static/chunks/2f236954d6a65e12.js"],"default"]
+b:I[37457,["./_next/static/chunks/2f236954d6a65e12.js"],"default"]
+c:I[77855,["./_next/static/chunks/7b77f951eaf4e155.js","./_next/static/chunks/ea98b7f9490d626b.js","./_next/static/chunks/39fa3fcc78c0fe1b.js","./_next/static/chunks/0e9143fe23daf8ea.js","./_next/static/chunks/05e1445b8934d6f1.js","./_next/static/chunks/e1a1c1c62b642533.js","./_next/static/chunks/a5fd08b034e44593.js"],"Toaster"]
+d:I[62551,["./_next/static/chunks/7b77f951eaf4e155.js","./_next/static/chunks/ea98b7f9490d626b.js","./_next/static/chunks/39fa3fcc78c0fe1b.js","./_next/static/chunks/0e9143fe23daf8ea.js","./_next/static/chunks/05e1445b8934d6f1.js","./_next/static/chunks/e1a1c1c62b642533.js","./_next/static/chunks/a5fd08b034e44593.js"],"ServiceWorkerRegistrar"]
+14:I[97367,["./_next/static/chunks/2f236954d6a65e12.js"],"ViewportBoundary"]
+16:I[97367,["./_next/static/chunks/2f236954d6a65e12.js"],"MetadataBoundary"]
+17:"$Sreact.suspense"
+3:["$","body",null,{"className":"inter_6f63e4fe-module__BMM7va__variable font-sans antialiased","children":["$","$L8",null,{"children":[["$","$L9",null,{"children":["$","$La",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$Lb",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]}],["$","$Lc",null,{}],["$","$Ld",null,{}]]}]}]
+4:["$","$1","c",{"children":[null,["$","$La",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$Lb",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}]
+5:["$","$1","c",{"children":[["$","div",null,{"className":"min-h-screen bg-background px-4 py-8 max-w-2xl mx-auto","children":[["$","h1",null,{"className":"text-2xl font-bold mb-4","children":"Gizlilik Politikası"}],["$","p",null,{"className":"text-xs text-muted-foreground mb-6","children":"Son güncelleme: 29 Haziran 2026"}],["$","div",null,{"className":"prose prose-sm dark:prose-invert max-w-none space-y-4","children":[["$","section",null,{"children":[["$","h2",null,{"className":"text-base font-bold mb-2","children":"1. Genel Bakış"}],["$","p",null,{"className":"text-sm text-muted-foreground","children":"Touchline Manager (\"uygulama\"), çok oyunculu bir futbol menajerlik oyunudur. Bu gizlilik politikası, uygulamayı kullanırken hangi verilerin toplandığını ve nasıl kullanıldığını açıklar."}]]}],["$","section",null,{"children":[["$","h2",null,{"className":"text-base font-bold mb-2","children":"2. Toplanan Veriler"}],["$","p",null,{"className":"text-sm text-muted-foreground mb-2","children":"Uygulama aşağıdaki veri kategorilerini toplar:"}],["$","ul",null,{"className":"text-sm text-muted-foreground list-disc pl-5 space-y-1","children":[["$","li",null,{"children":[["$","strong",null,{"children":"Hesap bilgileri:"}]," E-posta adresi (Google OAuth veya e-posta/şifre ile giriş için), şifre hash'i (Supabase Auth tarafından yönetilir, düz metin olarak saklanmaz), tarayıcı tipi, ekran boyutu, uygulama sürümü (hata ayıklama ve analitik amaçlı)"]}],["$","li",null,{"children":[["$","strong",null,{"children":"Profil bilgileri:"}]," Ülke kodu (kullanıcının seçtiği lig ülkesi — TR/GB/ES/DE), takım adı, menajer adı"]}],["$","li",null,{"children":[["$","strong",null,{"children":"Oyun verileri:"}]," Takım kadrosu, taktikler, maç sonuçları, transfer geçmişi, tesis seviyeleri, antrenman programı, kart envanteri, kozmetikler"]}],["$","li",null,{"children":[["$","strong",null,{"children":"Forum içeriği:"}]," Açtığınız konular, yazdığınız cevaplar (kalıcı olarak saklanır, hesap silme sonrası \"Silinmiş kullanıcı\" olarak anonimleştirilir)"]}],["$","li",null,{"children":[["$","strong",null,{"children":"Sohbet mesajları:"}]," Hazırlık maçı sohbet mesajları (24 saat saklanır, sonra otomatik silinir; kötüye kullanım incelemesi için)"]}],["$","li",null,{"children":[["$","strong",null,{"children":"Bildirim token'ı:"}]," Push bildirimleri için FCM token (cihaz bazında, bildirimler kapalıysa toplanmaz)"]}],["$","li",null,{"children":[["$","strong",null,{"children":"Ödeme kayırları:"}]," Google Play purchase token (replay attack önleme için, yasal yükümlülük gereği saklanır)"]}],["$","li",null,{"children":[["$","strong",null,{"children":"Engelleme/Raporlar:"}]," Engellediğiniz kullanıcı ID'leri, raporladığınız mesajlar (topluluk moderasyonu için)"]}]]}],["$","p",null,{"className":"text-sm text-muted-foreground mt-2","children":"Tüm bulut verileri Supabase (Frankfurt, EU) bulut sunucularında saklanır. Oyun state'i aynı zamanda cihazınızın localStorage'ında da saklanır (offline erişim için). Push bildirim token'ları Google Firebase Cloud Messaging (FCM) üzerinden iletilir."}]]}],["$","section",null,{"children":[["$","h2",null,{"className":"text-base font-bold mb-2","children":"3. Verilerin Kullanımı"}],["$","ul",null,{"className":"text-sm text-muted-foreground list-disc pl-5 space-y-1","children":[["$","li",null,{"children":"Hesap doğrulama ve oturum yönetimi"}],["$","li",null,{"children":"Oyun deneyiminin sağlanması (maç simülasyonu, transfer, lig sıralaması)"}],["$","li",null,{"children":"Çok oyunculu özelliklerin çalıştırılması (diğer kullanıcılarla aynı lig)"}],["$","li",null,{"children":"Hata ayıklama ve uygulama iyileştirme"}]]}]]}],["$","section",null,{"children":[["$","h2",null,{"className":"text-base font-bold mb-2","children":"4. Veri Paylaşımı"}],["$","p",null,{"className":"text-sm text-muted-foreground","children":"Kişisel verileriniz üçüncü taraflarla paylaşılmaz. Oyun içi verileriniz (takım adı, oyuncu isimleri, maç sonuçları) diğer kullanıcılar tarafından görülebilir çünkü bu çok oyunculu bir oyundur. E-posta adresiniz asla diğer kullanıcılara gösterilmez."}]]}],"$Le","$Lf","$L10","$L11"]}],"$L12"]}],null,"$L13"]}]
+6:["$","$1","h",{"children":[null,["$","$L14",null,{"children":"$L15"}],["$","div",null,{"hidden":true,"children":["$","$L16",null,{"children":["$","$17",null,{"name":"Next.Metadata","children":"$L18"}]}]}],["$","meta",null,{"name":"next-size-adjust","content":""}]]}]
+19:I[97367,["./_next/static/chunks/2f236954d6a65e12.js"],"OutletBoundary"]
+e:["$","section",null,{"children":[["$","h2",null,{"className":"text-base font-bold mb-2","children":"5. Veri Güvenliği"}],["$","p",null,{"className":"text-sm text-muted-foreground","children":"Veriler Supabase'in güvenli bulut altyapısında saklanır. Row Level Security (RLS) politikaları sayesinde her kullanıcı yalnızca kendi verilerini değiştirebilir. Tüm iletişim HTTPS üzerinden şifrelidir."}]]}]
+f:["$","section",null,{"children":[["$","h2",null,{"className":"text-base font-bold mb-2","children":"6. Çocuk Gizliliği"}],["$","p",null,{"className":"text-sm text-muted-foreground","children":"Uygulama 13 yaş altı çocuklara yönelik değildir. 13 yaş altı çocukların kullanması durumunda ebeveyn onayı gereklidir."}]]}]
+10:["$","section",null,{"children":[["$","h2",null,{"className":"text-base font-bold mb-2","children":"7. Veri Silme Hakkı"}],["$","p",null,{"className":"text-sm text-muted-foreground","children":"Hesabınızı ve tüm verilerinizi silmek için iki seçeneğiniz vardır:"}],["$","ul",null,{"className":"text-sm text-muted-foreground list-disc pl-5 space-y-1 mt-2","children":[["$","li",null,{"children":[["$","strong",null,{"children":"Uygulama içinden:"}]," Ana Panel → \"Hesap\" bölümü → \"Hesabımı Sil\" butonu ile anında silme."]}],["$","li",null,{"children":[["$","strong",null,{"children":"Web üzerinden:"}]," ",["$","a",null,{"href":"/delete-account","className":"text-primary font-bold underline","children":"Hesap Silme Talebi sayfasından"}]," ","form doldurarak talep gönderme (en geç 30 gün içinde işleme alınır, genellikle anında silinir)."]}]]}],["$","p",null,{"className":"text-sm text-muted-foreground mt-2","children":"Forum gönderileriniz \"Silinmiş kullanıcı\" olarak anonimleştirilir ve içeriği korunur. Ödeme kayıtları yasal yükümlülükler gereği saklanır."}]]}]
+11:["$","section",null,{"children":[["$","h2",null,{"className":"text-base font-bold mb-2","children":"8. İletişim"}],["$","p",null,{"className":"text-sm text-muted-foreground","children":"Gizlilik politikası hakkında sorularınız için: support@touchline-manager.com"}]]}]
+12:["$","div",null,{"className":"mt-8 pt-4 border-t border-border","children":["$","a",null,{"href":"/","className":"text-sm text-primary font-bold","children":"← Ana sayfaya dön"}]}]
+13:["$","$L19",null,{"children":["$","$17",null,{"name":"Next.MetadataOutlet","children":"$@1a"}]}]
+15:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover, user-scalable=yes"}],["$","meta","2",{"name":"theme-color","content":"#1a3a2a"}]]
+1b:I[27201,["./_next/static/chunks/2f236954d6a65e12.js"],"IconMark"]
+18:[["$","title","0",{"children":"Gizlilik Politikası — Touchline Manager"}],["$","meta","1",{"name":"description","content":"Futbol kulübü yönetim oyunu - Online multiplayer"}],["$","meta","2",{"name":"application-name","content":"Touchline Manager"}],["$","meta","3",{"name":"author","content":"Touchline"}],["$","link","4",{"rel":"manifest","href":"/manifest.json","crossOrigin":"$undefined"}],["$","meta","5",{"name":"mobile-web-app-capable","content":"yes"}],["$","meta","6",{"name":"apple-mobile-web-app-title","content":"Touchline Manager"}],["$","meta","7",{"name":"apple-mobile-web-app-status-bar-style","content":"black-translucent"}],["$","link","8",{"rel":"icon","href":"/icons/icon-72.png","sizes":"72x72","type":"image/png"}],["$","link","9",{"rel":"icon","href":"/icons/icon-96.png","sizes":"96x96","type":"image/png"}],["$","link","10",{"rel":"icon","href":"/icons/icon-128.png","sizes":"128x128","type":"image/png"}],["$","link","11",{"rel":"icon","href":"/icons/icon-144.png","sizes":"144x144","type":"image/png"}],["$","link","12",{"rel":"icon","href":"/icons/icon-152.png","sizes":"152x152","type":"image/png"}],["$","link","13",{"rel":"icon","href":"/icons/icon-192.png","sizes":"192x192","type":"image/png"}],["$","link","14",{"rel":"icon","href":"/icons/icon-384.png","sizes":"384x384","type":"image/png"}],["$","link","15",{"rel":"icon","href":"/icons/icon-512.png","sizes":"512x512","type":"image/png"}],["$","link","16",{"rel":"apple-touch-icon","href":"/icons/icon-192.png","sizes":"192x192","type":"image/png"}],["$","$L1b","17",{}]]
+1a:null
