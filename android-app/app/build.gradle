@@ -8,8 +8,8 @@ android {
         applicationId "com.touchline.manager"
         minSdk 24
         targetSdk 35
-        versionCode 987
-        versionName "2.9.87"
+        versionCode 988
+        versionName "2.9.88"
     }
     sourceSets {
         main {
@@ -101,7 +101,7 @@ task verifyProductionApk {
 
 // Release build sonrası otomatik doğrulama
 afterEvaluate {
-    // assembleRelease.finalizedBy verifyProductionApk // v2.9.84
+    // // assembleRelease.finalizedBy verifyProductionApk // v2.9.88 // v2.9.84
 }
 
 // =============================================================================

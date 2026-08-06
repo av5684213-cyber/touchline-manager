@@ -28,6 +28,9 @@ import type { TabKey } from "../bottom-nav";
 import { MatchChatPanel } from "../match-chat";
 // v2.9.57: Maçı İzle — MatchReplayModal stored events ile açılır
 import { MatchReplayModal } from "../match-replay-modal";
+// v2.9.87: Resmi maçın EventFeed'i (spiker yorumları + event ikonları) — friendly'de de kullan
+import { EventFeed } from "./match";
+import type { Locale } from "@/lib/i18n/types";
 
 /**
  * Hazırlık Maçı sekmesi.
@@ -462,7 +465,7 @@ function FriendlyLiveView({
   onFinish: (home: number, away: number, replayData?: { events?: any[]; motmId?: string; stats?: any }) => void;
   onCancel: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const s = engine.state;
   const { user } = useSupabaseAuth();
   const [showChat, setShowChat] = useState(false);
@@ -653,28 +656,15 @@ function FriendlyLiveView({
         </div>
       )}
 
-      {/* Olaylar sekmesi */}
+      {/* v2.9.87: Olaylar sekmesi — resmi maçtaki spiker/event feed kullanılır */}
       {matchTab === "feed" && (
-        <div className="tm-card p-2">
-          <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-2 px-1">
-            Olaylar
-          </div>
-          <div className="space-y-1 max-h-72 overflow-y-auto tm-thin-scrollbar">
-            {s.events.length === 0 && (
-              <div className="text-[10px] text-muted-foreground text-center py-4">
-                Maç başlıyor...
-              </div>
-            )}
-            {s.events.map((ev: any, i: number) => (
-              <div key={i} className="flex items-center gap-2 p-1.5 rounded-md text-[10px]">
-                <span className="text-muted-foreground tabular-nums w-7">{ev.minute}'</span>
-                <span className="flex-1">{ev.text ?? ev.type}</span>
-                {ev.teamSide === "home" && <span className="text-xs">{team.shortName}</span>}
-                {ev.teamSide === "away" && <span className="text-xs">{opponent.shortName}</span>}
-              </div>
-            ))}
-          </div>
-        </div>
+        <EventFeed
+          events={s.events}
+          emptyText="Maç başlıyor..."
+          locale={locale as Locale}
+          homeTeam={team}
+          awayTeam={opponent}
+        />
       )}
 
       {/* İstatistik sekmesi — v2.9.57: Resmi maçlar gibi detaylı (goller, kartlar, MOTM, istatistikler) */}

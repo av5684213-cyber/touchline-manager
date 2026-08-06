@@ -791,7 +791,8 @@ function InfoBanner({ state }: { state: MatchState }) {
 }
 
 // ---- Event feed ----
-function EventFeed({
+// v2.9.87: EventFeed export edildi — friendly.tsx de kullanır
+export function EventFeed({
   events,
   emptyText,
   locale,
