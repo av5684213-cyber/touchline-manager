@@ -448,6 +448,10 @@ type AppState = {
   // v2.9.58: Yardım modal'ı görüntüleme flag'i
   helpModalOpen: boolean;
   setHelpModalOpen: (open: boolean) => void;
+  // v2.9.86: advanceMatchday otomatik endSeason çağırınca summary buraya yazılır
+  // Dashboard bu alanı okuyup SeasonEndModal gösterir
+  pendingSeasonSummary?: SeasonSummary | null;
+  clearPendingSeasonSummary: () => void;
 };
 
 export type SeasonSummary = {
@@ -635,6 +639,8 @@ export const useAppStore = create<AppState>()(
       seasonMatchday: 1,
       // v2.9.58: Yardım modal'ı default kapalı
       helpModalOpen: false,
+      // v2.9.86: advanceMatchday otomatik sezon sonu summary
+      pendingSeasonSummary: null,
       // v2.9.61: Global persistent leagues — başlangıçta boş, init sırasında doldurulur
       allLeagues: {},
       // v2.9.62: Kullanıcının ülke kodu — default TR
@@ -3427,6 +3433,10 @@ export const useAppStore = create<AppState>()(
           const endResult = get().endSeason();
           if (endResult.success) {
             console.log(`[advanceMatchday] Sezon ${get().seasonNumber - 1} bitti, yeni sezon başladı.`);
+            // v2.9.86: Özet'i store'a yaz — Dashboard okuyup SeasonEndModal gösterir
+            if (endResult.summary) {
+              set({ pendingSeasonSummary: endResult.summary });
+            }
           }
           return; // v2.9.76: ERKEN RETURN — kalan kod (satır 3462) çalışmasın
         }
@@ -3582,15 +3592,8 @@ export const useAppStore = create<AppState>()(
           }
         }
 
-        // v2.9.49: Otomatik sponsor teklifleri — kupa haftalarında (7, 14, 21, 28)
-        // "Teklif Getir" butonu kaldırıldı, artık otomatik geliyor
-        if (currentMd === 1) {
-          try {
-            get().generateSponsorOffers();
-          } catch (e) {
-            console.warn("[advanceMatchday] auto sponsor offers hatası:", e);
-          }
-        }
+        // v2.9.86: Sponsor teklifleri artık SADECE sezon başında (endSeason içinde) üretilir.
+        // Eski kod: matchday 1'de tekrar üretiyordu → endSeason'dan gelen teklifleri eziyordu.
       },
 
       endSeason: () => {
@@ -5620,6 +5623,11 @@ export const useAppStore = create<AppState>()(
       // v2.9.58: Yardım modal'ı açma/kapama
       setHelpModalOpen: (open) => {
         set({ helpModalOpen: open });
+      },
+
+      // v2.9.86: pendingSeasonSummary temizle (modal kapatılınca)
+      clearPendingSeasonSummary: () => {
+        set({ pendingSeasonSummary: null });
       },
     })
 );

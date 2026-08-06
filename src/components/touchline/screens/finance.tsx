@@ -19,6 +19,7 @@ import { useAppStore, useMyTeam } from "@/lib/store";
 import { haptic } from "@/hooks/touchline";
 import { formatEuro } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { SPONSOR_CATEGORIES, type SponsorCategory } from "@/lib/sponsorSystem";
 
 export function FinanceScreen() {
   const { t, locale } = useI18n();
@@ -26,8 +27,9 @@ export function FinanceScreen() {
   const facilities = useAppStore((s) => s.facilities);
   const sponsors = useAppStore((s) => s.sponsors);
   const setTicketPrice = useAppStore((s) => s.setTicketPrice);
-  // ADDED: Aktif sponsor — useMemo dışında hesapla ki render'da erişilebilsin
-  const activeSponsor = sponsors?.active?.find((s: any) => s.isActive) ?? null;
+  // v2.9.86: Tüm aktif sponsorların toplam geliri (5 kategori)
+  const activeSponsorsList = (sponsors?.active ?? []).filter((s: any) => s.isActive);
+  const totalSponsorIncome = activeSponsorsList.reduce((sum: number, s: any) => sum + (s.amount ?? 0), 0);
 
   const computed = useMemo(() => {
     if (!team) return null;
@@ -50,7 +52,8 @@ export function FinanceScreen() {
     const ticketRevenue = Math.round(
       stadiumCapacity * fillRate * facilities.ticketPrice * stadiumMult
     );
-    const dynamicSponsorIncome = activeSponsor?.amount ?? 0;
+    // v2.9.86: Tüm aktif sponsorların geliri (5 kategori toplamı)
+    const dynamicSponsorIncome = totalSponsorIncome;
     const baseSponsor = 50_000 + facilities.levels.stadium * 10_000;
     const sponsor = baseSponsor + dynamicSponsorIncome;
     // v2.9.49: TV geliri tier'a göre
@@ -81,7 +84,7 @@ export function FinanceScreen() {
       health,
       fillRate,
     };
-  }, [team, facilities, activeSponsor]);
+  }, [team, facilities, totalSponsorIncome]);
 
   if (!team || !computed) return null;
 
@@ -219,69 +222,95 @@ export function FinanceScreen() {
         />
       </div>
 
-      {/* ADDED: Sponsor Sistemi — teklifler + aktif sponsor */}
+      {/* v2.9.86: Sponsor Sistemi — 5 kategori, sezon başı teklifler */}
       <div className="tm-card p-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-bold">🤝 {t("finance.sponsor_system")}</span>
-          {/* v2.9.48: "Teklif Getir" butonu kaldırıldı — artık otomatik her 5 turda geliyor */}
-          <span className="text-[9px] text-muted-foreground">Otomatik (her 5 tur)</span>
+          <span className="text-[9px] text-muted-foreground">Sezon başı teklif edilir</span>
         </div>
 
-        {/* Aktif sponsor */}
-        {activeSponsor && (
-          <div className="mb-2 p-2 rounded-md bg-emerald-500/10 border border-emerald-500/30">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[10px] text-muted-foreground">{t("finance.sponsor.active")}</div>
-                <div className="text-xs font-bold">{activeSponsor.name}</div>
-                <div className="text-[11px] text-muted-foreground">
-                  {activeSponsor.tier} · {activeSponsor.durationWeeks} hafta
+        {/* Aktif sponsorlar — 5 kategori */}
+        {(() => {
+          const activeSponsorsList = (sponsors?.active ?? []).filter((s: any) => s.isActive);
+          if (activeSponsorsList.length === 0) return null;
+          const totalWeekly = activeSponsorsList.reduce((sum: number, s: any) => sum + (s.amount ?? 0), 0);
+          const totalSeason = totalWeekly * 34;
+          return (
+            <div className="mb-2 space-y-1">
+              <div className="flex items-center justify-between p-2 rounded-md bg-emerald-500/10 border border-emerald-500/30">
+                <div>
+                  <div className="text-[10px] text-muted-foreground">{t("finance.sponsor.active")} ({activeSponsorsList.length}/5)</div>
+                  <div className="text-sm font-bold text-emerald-400 tabular-nums">
+                    Toplam: +{totalWeekly.toLocaleString("tr-TR")} €/hafta
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">~{totalSeason.toLocaleString("tr-TR")} €/sezon</div>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-sm font-bold text-emerald-400 tabular-nums">
-                  +{activeSponsor.amount.toLocaleString("tr-TR")} €
-                </div>
-                <div className="text-[10px] text-muted-foreground">/hafta</div>
-              </div>
+              {activeSponsorsList.map((s: any) => {
+                const catMeta = SPONSOR_CATEGORIES[s.category as SponsorCategory];
+                return (
+                  <div key={s.id} className="flex items-center justify-between p-1.5 rounded-md bg-card border border-border">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-base shrink-0">{catMeta?.icon ?? "🏢"}</span>
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-semibold truncate">{s.name}</div>
+                        <div className="text-[9px] text-muted-foreground truncate">{catMeta?.trName ?? s.category}</div>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-[11px] font-bold text-emerald-400 tabular-nums">
+                        +{s.amount?.toLocaleString("tr-TR") ?? 0} €
+                      </div>
+                      <div className="text-[9px] text-muted-foreground">/hafta</div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
-        {/* Bekleyen teklifler */}
+        {/* Bekleyen teklifler — 5 kategori */}
         {(sponsors?.offers ?? []).length > 0 && (
           <div className="space-y-1.5">
             <div className="text-[10px] text-muted-foreground uppercase font-bold">{t("finance.sponsor.offers")} ({sponsors.offers.length})</div>
-            {sponsors.offers.map((offer: any) => (
-              <div key={offer.id} className="flex items-center justify-between p-2 rounded-md bg-card border border-border">
-                <div>
-                  <div className="text-[11px] font-semibold">{offer.name}</div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {offer.tier} · {offer.amount.toLocaleString("tr-TR")} €/hafta · {offer.durationWeeks} hafta
+            {sponsors.offers.map((offer: any) => {
+              const catMeta = SPONSOR_CATEGORIES[offer.category as SponsorCategory];
+              return (
+                <div key={offer.id} className="flex items-center justify-between p-2 rounded-md bg-card border border-border">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-base shrink-0">{catMeta?.icon ?? "🏢"}</span>
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-semibold truncate">{offer.name}</div>
+                      <div className="text-[9px] text-muted-foreground truncate">{catMeta?.trName ?? offer.category}</div>
+                      <div className="text-[11px] text-emerald-400 font-bold tabular-nums">
+                        {offer.amount?.toLocaleString("tr-TR")} €/hafta
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <button
+                      onClick={() => { haptic("success"); useAppStore.getState().acceptSponsor(offer.id); }}
+                      className="tm-tap text-[10px] px-2 py-1 rounded-md bg-emerald-600 text-white font-bold"
+                    >
+                      Kabul
+                    </button>
+                    <button
+                      onClick={() => { haptic("light"); useAppStore.getState().rejectSponsor(offer.id); }}
+                      className="tm-tap text-[10px] px-2 py-1 rounded-md bg-muted text-muted-foreground font-bold border border-border"
+                    >
+                      Reddet
+                    </button>
                   </div>
                 </div>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => { haptic("success"); useAppStore.getState().acceptSponsor(offer.id); }}
-                    className="tm-tap text-[10px] px-2 py-1 rounded-md bg-emerald-600 text-white font-bold"
-                  >
-                    Kabul Et
-                  </button>
-                  <button
-                    onClick={() => { haptic("light"); useAppStore.getState().rejectSponsor(offer.id); }}
-                    className="tm-tap text-[10px] px-2 py-1 rounded-md bg-muted text-muted-foreground font-bold border border-border"
-                  >
-                    Reddet
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
-        {!activeSponsor && (sponsors?.offers ?? []).length === 0 && (
+        {(sponsors?.active ?? []).filter((s: any) => s.isActive).length === 0 && (sponsors?.offers ?? []).length === 0 && (
           <div className="text-[10px] text-muted-foreground text-center py-2">
-            Henüz sponsor yok. Sponsor teklifleri her 5 turda bir otomatik gelir.
+            Henüz sponsor yok. Sezon başında 5 kategoride sponsor teklifi alacaksın.
           </div>
         )}
       </div>

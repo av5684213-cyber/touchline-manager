@@ -211,6 +211,17 @@ export function DashboardScreen() {
   }, [fixtures, clubs, team, myStat, transferNewsCount, tactics]);
 
   // Tüm fikstür oynandı mı?
+  // v2.9.86: advanceMatchday otomatik sezon sonu → pendingSeasonSummary oku
+  const pendingSeasonSummary = useAppStore((s) => s.pendingSeasonSummary);
+  const clearPendingSeasonSummary = useAppStore((s) => s.clearPendingSeasonSummary);
+
+  // v2.9.86: pendingSeasonSummary varsa modal göster (advanceMatchday otomatik bitirdiyse)
+  useEffect(() => {
+    if (pendingSeasonSummary && !seasonSummary) {
+      setSeasonSummary(pendingSeasonSummary);
+    }
+  }, [pendingSeasonSummary, seasonSummary]);
+
   const allPlayed = useMemo(() => {
     if (!team) return false;
     const myFixtures = fixtures.filter((f) => f.homeId === team.id || f.awayId === team.id);
@@ -544,7 +555,10 @@ export function DashboardScreen() {
       {seasonSummary && (
         <SeasonEndModal
           summary={seasonSummary}
-          onClose={() => setSeasonSummary(null)}
+          onClose={() => {
+            setSeasonSummary(null);
+            clearPendingSeasonSummary();
+          }}
         />
       )}
 

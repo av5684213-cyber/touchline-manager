@@ -1,138 +1,172 @@
-// ADDED: sponsorSystem.ts — Dinamik sponsor sistemi
-// v2.9.48: Lig tier + takım OVR + takım değeri bazlı, otomatik sponsor teklifleri
-// Kalitesi düşük takımdan yüksek takıma doğru sponsorluk ücretleri yükselir
+/**
+ * v2.9.86: Sponsor Sistemi — 5 kategori, max 25M, sezon başı
+ *
+ * Kategoriler:
+ *   1. chest       — Göğüs Sponsorluğu (Ana Sponsor) — en pahalı, en prestijli
+ *   2. sleeve      — Kol Sponsorluğu (Sleeve) — yüksek gelir
+ *   3. back_shorts — Sırt ve Şort Sponsorluğu — orta
+ *   4. socks       — Çorap ve Konç Sponsorluğu — düşük bütçe
+ *   5. kit_supplier — Forma/Ekipman Tedarikçisi — marka anlaşması
+ *
+ * Max gelir: 25M Euro/sezon (Süper Lig, OVR 85+)
+ * Sadece sezon başında teklif gelir. Kullanıcı kabul/reddeder.
+ * Takım kalitesine göre (lig tier + OVR) miktar değişir.
+ */
 
+// v2.9.86: Sponsor kategorileri
+export type SponsorCategory = "chest" | "sleeve" | "back_shorts" | "socks" | "kit_supplier";
+
+// v2.9.86: Eski SponsorTier backward compat için korundu
 export type SponsorTier = "BRONZE" | "SILVER" | "GOLD" | "PLATINUM";
 
 export type Sponsor = {
   id: string;
   name: string;
-  amount: number; // haftalık gelir
-  tier: SponsorTier;
-  durationWeeks: number; // sözleşme süresi (hafta)
-  startDate: number; // timestamp
-  endDate: number; // timestamp
+  amount: number; // haftalık gelir (€)
+  tier: SponsorTier; // backward compat
+  category: SponsorCategory; // v2.9.86: yeni alan
+  durationWeeks: number;
+  startDate: number;
+  endDate: number;
   isActive: boolean;
 };
 
-// Sponsor isim havuzu (kurgusal)
-const SPONSOR_NAMES = [
-  { name: "Anadolu Teknoloji", tier: "BRONZE" as SponsorTier },
-  { name: "Marmara Sigorta", tier: "BRONZE" as SponsorTier },
-  { name: "Ege Lojistik", tier: "BRONZE" as SponsorTier },
-  { name: "Boğaz Enerji", tier: "SILVER" as SponsorTier },
-  { name: "Yıldız Otomotiv", tier: "SILVER" as SponsorTier },
-  { name: "Karadeniz Gıda", tier: "SILVER" as SponsorTier },
-  { name: "İstanbul Havayolları", tier: "GOLD" as SponsorTier },
-  { name: "Anadolu Bank", tier: "GOLD" as SponsorTier },
-  { name: "Türk Telekom Grup", tier: "GOLD" as SponsorTier },
-  { name: "Vodafone Anadolu", tier: "PLATINUM" as SponsorTier },
-  { name: "Nike Türkiye", tier: "PLATINUM" as SponsorTier },
-];
+// Kategori metadata — UI için
+export const SPONSOR_CATEGORIES: Record<SponsorCategory, {
+  trName: string;
+  enName: string;
+  trDesc: string;
+  icon: string;
+  maxShare: number; // max 25M'nin yüzdesi
+}> = {
+  chest: {
+    trName: "Göğüs Sponsorluğu",
+    enName: "Chest Sponsor",
+    trDesc: "Formanın ön yüzünde yer alır. Kulübün en pahalı ve prestijli sponsorluğudur.",
+    icon: "👕",
+    maxShare: 0.40, // 40% = ~10M
+  },
+  sleeve: {
+    trName: "Kol Sponsorluğu",
+    enName: "Sleeve Sponsor",
+    trDesc: "Sol veya sağ kolda yer alır. Yüksek gelir getiren popüler bir alandır.",
+    icon: "💪",
+    maxShare: 0.20, // 20% = ~5M
+  },
+  back_shorts: {
+    trName: "Sırt ve Şort Sponsorluğu",
+    enName: "Back & Shorts Sponsor",
+    trDesc: "Forma numarasının altı/üstü veya şortun ön/arka kısımlarına verilir.",
+    icon: "🎽",
+    maxShare: 0.16, // 16% = ~4M
+  },
+  socks: {
+    trName: "Çorap ve Konç Sponsorluğu",
+    enName: "Socks Sponsor",
+    trDesc: "Daha uygun bütçeli, tamamlayıcı sponsorluk alanı.",
+    icon: "🧦",
+    maxShare: 0.08, // 8% = ~2M
+  },
+  kit_supplier: {
+    trName: "Forma/Ekipman Tedarikçisi",
+    enName: "Kit Supplier",
+    trDesc: "Kulübün formalarını ve antrenman ürünlerini üreten marka. Ödeme + satıştan pay.",
+    icon: "🏷️",
+    maxShare: 0.16, // 16% = ~4M
+  },
+};
 
-/**
- * Lig tier + takım OVR'ına göre sponsor tier belirle
- * Tier 1 (Süper Lig) + OVR 75+ → PLATINUM
- * Tier 1 + OVR 65-74 → GOLD
- * Tier 2 + OVR 70+ → GOLD
- * Tier 2 + OVR 60-69 → SILVER
- * Tier 3-4 → BRONZE/SILVER
- */
+// Sponsor isim havuzu — her kategori için ayrı
+const SPONSOR_NAMES_BY_CATEGORY: Record<SponsorCategory, string[]> = {
+  chest: ["İstanbul Havayolları", "Anadolu Bank", "Türk Telekom Grup", "Boğaz Enerji", "Mega Holding"],
+  sleeve: ["Yıldız Otomotiv", "Vodafone Anadolu", "Marmara Sigorta", "Ege Lojistik", "Pro Teknoloji"],
+  back_shorts: ["Karadeniz Gıda", "Anadolu Teknoloji", "Çelik İnşaat", "Mavi Deniz Turizm", "Star Medya"],
+  socks: ["Yerel Market", "Spor Shop", "Anadolu Textile", "Hızlı Kargo", "Yöresel Üretim"],
+  kit_supplier: ["Nike Türkiye", "Adidas Anadolu", "Puma Türk", "Umbro Sport", "Macron Türkiye"],
+};
+
+// v2.9.86: Lig tier multiplier (max 25M → T1)
+const TIER_MULT: Record<number, number> = {
+  1: 1.0,    // Süper Lig: max 25M
+  2: 0.50,   // 1. Lig: max 12.5M
+  3: 0.25,   // 2. Lig: max 6.25M
+  4: 0.125,  // 3. Lig: max ~3.1M
+  5: 0.05,   // Amatör: max ~1.25M
+};
+
+// v2.9.86: OVR multiplier
+function getOvrMult(avgOvr: number): number {
+  if (avgOvr >= 85) return 1.0;
+  if (avgOvr >= 75) return 0.85;
+  if (avgOvr >= 65) return 0.70;
+  return 0.55;
+}
+
+// v2.9.86: Kategori + tier'a göre haftalık gelir hesapla
+const MAX_SEASON_INCOME = 25_000_000; // 25M Euro
+const SEASON_WEEKS = 34;
+
+function getCategoryAmount(category: SponsorCategory, leagueTier: number, avgOvr: number): number {
+  const catMeta = SPONSOR_CATEGORIES[category];
+  const tierMult = TIER_MULT[leagueTier] ?? 0.05;
+  const ovrMult = getOvrMult(avgOvr);
+  const maxSeasonForCat = MAX_SEASON_INCOME * catMeta.maxShare;
+  const weeklyAmount = (maxSeasonForCat / SEASON_WEEKS) * tierMult * ovrMult;
+  return Math.round(weeklyAmount / 1000) * 1000; // binlik yuvarla
+}
+
+// v2.9.86: backward compat — tier belirleme
 export function determineSponsorTier(leagueTier: number, avgOvr: number): SponsorTier {
-  if (leagueTier === 1) {
-    if (avgOvr >= 75) return "PLATINUM";
-    if (avgOvr >= 65) return "GOLD";
-    return "SILVER";
-  }
-  if (leagueTier === 2) {
-    if (avgOvr >= 70) return "GOLD";
-    if (avgOvr >= 60) return "SILVER";
-    return "BRONZE";
-  }
-  // Tier 3-4
-  if (avgOvr >= 65) return "SILVER";
+  const mult = (TIER_MULT[leagueTier] ?? 0.05) * getOvrMult(avgOvr);
+  if (mult >= 0.8) return "PLATINUM";
+  if (mult >= 0.4) return "GOLD";
+  if (mult >= 0.15) return "SILVER";
   return "BRONZE";
 }
 
-/**
- * v2.9.75: Sponsor tier'ına göre haftalık gelir — LIG TIER bazlı minimum garanti.
- *
- * Kullanıcı talebi: "En az 4. Lig için 3M Euro, lig yükseldikçe x2"
- *   T4 (3. Lig):   3M / 34 hafta = ~88K/hafta  → base 90K
- *   T3 (2. Lig):   6M / 34 hafta = ~176K/hafta → base 180K
- *   T2 (1. Lig):  12M / 34 hafta = ~353K/hafta → base 350K
- *   T1 (Süper Lig): 24M / 34 hafta = ~706K/hafta → base 700K
- *
- * Sponsor tier (BRONZE/SILVER/GOLD/PLATINUM) → lig tier ile eşleştirilir.
- * Kalite bonusu (OVR bazlı) +%0-20, değer bonusu kaldırıldı (basitlik için).
- */
+// v2.9.86: backward compat — tek sponsor için amount
 export function getSponsorAmount(tier: SponsorTier, avgOvr?: number, teamValue?: number): number {
-  // v2.9.75: Lig tier bazlı base amounts (x2 kuralı)
+  const mult = avgOvr ? getOvrMult(avgOvr) : 0.85;
   const baseAmounts: Record<SponsorTier, number> = {
-    BRONZE: 90_000,    // T4 → ~3.06M/season
-    SILVER: 180_000,   // T3 → ~6.12M/season
-    GOLD: 350_000,     // T2 → ~11.9M/season
-    PLATINUM: 700_000, // T1 → ~23.8M/season
+    BRONZE: 90_000,
+    SILVER: 180_000,
+    GOLD: 350_000,
+    PLATINUM: 700_000,
   };
-  const base = baseAmounts[tier] ?? 90_000;
-
-  // v2.9.75: Quality bonus (max +20%, eskiden +30% ama base zaten yüksek)
-  let qualityMult = 1.0;
-  if (avgOvr !== undefined) {
-    if (avgOvr >= 85) qualityMult = 1.20;
-    else if (avgOvr >= 75) qualityMult = 1.10;
-    else if (avgOvr >= 65) qualityMult = 1.00;
-    else qualityMult = 0.95; // düşük OVR'da bile min %95 (garanti)
-  }
-
-  return Math.round(base * qualityMult);
+  return Math.round((baseAmounts[tier] ?? 90_000) * mult);
 }
 
 /**
- * v2.9.48: Takım için sponsor teklifleri üret — lig tier + OVR + takım değeri bazlı
- * 3 teklif: 1 ana tier + 2 alt tier
- * Otomatik: advanceMatchday her 5 turda bir çağrılır (Teklif Getir butonu kaldırıldı)
+ * v2.9.86: Sezon başı sponsor teklifleri üret — 5 kategori, her birinden 1 teklif.
+ * Takım kalitesine göre (lig tier + OVR) miktar belirlenir.
+ * Max 25M/sezon (Süper Lig, OVR 85+).
  */
 export function generateSponsorOffers(leagueTier: number, avgOvr: number, teamValue?: number): Sponsor[] {
-  const mainTier = determineSponsorTier(leagueTier, avgOvr);
-  const tierOrder: SponsorTier[] = ["BRONZE", "SILVER", "GOLD", "PLATINUM"];
-  const mainIdx = tierOrder.indexOf(mainTier);
-  const lowerTier = tierOrder[Math.max(0, mainIdx - 1)];
-
-  // Ana tier'dan 1 sponsor, alt tier'dan 2 sponsor seç
-  const mainPool = SPONSOR_NAMES.filter((s) => s.tier === mainTier);
-  const lowerPool = SPONSOR_NAMES.filter((s) => s.tier === lowerTier);
-
   const offers: Sponsor[] = [];
   const now = Date.now();
-  const seasonWeeks = 34;
+  const categories: SponsorCategory[] = ["chest", "sleeve", "back_shorts", "socks", "kit_supplier"];
+  const usedNames = new Set<string>();
 
-  // Ana sponsor
-  if (mainPool.length > 0) {
-    const picked = mainPool[Math.floor(Math.random() * mainPool.length)];
-    offers.push({
-      id: `sponsor_${now}_1`,
-      name: picked.name,
-      amount: getSponsorAmount(mainTier, avgOvr, teamValue),
-      tier: mainTier,
-      durationWeeks: seasonWeeks,
-      startDate: now,
-      endDate: now + seasonWeeks * 7 * 86400000,
-      isActive: false,
-    });
-  }
+  for (const category of categories) {
+    const namePool = SPONSOR_NAMES_BY_CATEGORY[category];
+    const availableNames = namePool.filter(n => !usedNames.has(n));
+    const pickedName = availableNames.length > 0
+      ? availableNames[Math.floor(Math.random() * availableNames.length)]
+      : namePool[Math.floor(Math.random() * namePool.length)];
+    usedNames.add(pickedName);
 
-  // Alt tier'dan 2 sponsor
-  for (let i = 0; i < 2 && lowerPool.length > 0; i++) {
-    const picked = lowerPool[Math.floor(Math.random() * lowerPool.length)];
+    const amount = getCategoryAmount(category, leagueTier, avgOvr);
+    const tier = determineSponsorTier(leagueTier, avgOvr);
+
     offers.push({
-      id: `sponsor_${now}_${i + 2}`,
-      name: picked.name,
-      amount: getSponsorAmount(lowerTier, avgOvr, teamValue),
-      tier: lowerTier,
-      durationWeeks: seasonWeeks,
+      id: `sponsor_${now}_${category}`,
+      name: pickedName,
+      amount,
+      tier,
+      category,
+      durationWeeks: SEASON_WEEKS,
       startDate: now,
-      endDate: now + seasonWeeks * 7 * 86400000,
+      endDate: now + SEASON_WEEKS * 7 * 86400000,
       isActive: false,
     });
   }
