@@ -2772,6 +2772,9 @@ export const useAppStore = create<AppState>()(
                   ],
                 },
               };
+              // v2.9.84: Tam simülasyon sonucunu sakla — injury event'leri (injurySeverity, injuryDays)
+              // aşağıdaki post-match effect bölümünde kullanılacak
+              (userMatchReplayData as any)._simResult = result;
             } catch (e) {
               console.warn("[advanceMatchday] enhanced sim hatası, basit sim:", e);
               const homeStr = [...homeTeam.players].filter(p => isPlayerAvailable(p)).sort((a, b) => b.rating - a.rating).slice(0, 11).reduce((s, p) => s + p.rating, 0) / 11;
@@ -2788,8 +2791,9 @@ export const useAppStore = create<AppState>()(
 
         // P0 FIX: Kullanıcı maçı sonrası kondisyon/form/morale güncelle
         // (Sadece canlı maçta applyPostMatchEffects çağrılıyordu, Turu İlerlet'te çağrılmıyordu)
+        // v2.9.84 FIX: Turu İlerlet yoluyla oynanan maçta da sakatlık + injury_history KAYDEDİLİR.
+        // Eski kod: sadece kondisyon/form/morale güncelleniyordu, injury event'leri kayboluyordu.
         if (userMatchResult) {
-          // P0 FIX: tacticsLineupIds'i burada tanımla — aşağıda pickStartingXI'da da kullanılıyor
           const _tacticsLineupIds = new Set(
             get().tactics.lineup.filter(p => p !== null).map(p => p!.id)
           );
@@ -2800,27 +2804,83 @@ export const useAppStore = create<AppState>()(
             const oppScore = isHome ? userMatchResult.awayScore : userMatchResult.homeScore;
             const won = myScore > oppScore;
             const lost = myScore < oppScore;
-            // P0 FIX: Kondisyon drain sadece lineup'taki oyunculara, boş lineup'ta TÜM oyunculara değil
             const lineupHasPlayers = _tacticsLineupIds.size > 0;
+
+            // v2.9.84: Maç simülasyonundan injury event'lerini topla
+            // (userMatchReplayData içinde events var)
+            const simResult = (userMatchReplayData as any)?._simResult;
+            const injuryEvents = simResult?.events?.filter((ev: any) => ev.type === "injury") ?? [];
+            const injuredIds = new Set<string>(injuryEvents.map((ev: any) => ev.playerId).filter(Boolean));
+            const injuryDetailsMap = new Map<string, { severity: string; days: number }>();
+            for (const ev of injuryEvents) {
+              if (ev.playerId) {
+                injuryDetailsMap.set(ev.playerId, {
+                  severity: (ev as any).injurySeverity ?? "light",
+                  days: (ev as any).injuryDays ?? 7,
+                });
+              }
+            }
+
             myClub.players = myClub.players.map(p => {
-              // Kullanıcının lineup'ındaki oyunculara kondisyon düş
               const inLineup = lineupHasPlayers ? _tacticsLineupIds.has(p.id) : false;
-              const condDrain = (inLineup && userMatchResult) ? Math.floor(8 + Math.random() * 8) : 0; // v2.9.50: Sadece Turu İlerlet yoluyla oynandıysa drain (canlı maçta zaten yapıldı)
+              const condDrain = (inLineup && userMatchResult) ? Math.floor(8 + Math.random() * 8) : 0;
               const newCond = Math.max(20, Math.min(100, p.cond - condDrain));
               const formChange = won ? 2 : lost ? -3 : 0;
               const moraleChange = won ? 3 : lost ? -3 : 0;
-              // P0 FIX: %10 rastgele sakatlık KALDIRILDI — motorun dinamik sakatlık sistemi zaten çalışıyor
-              // (enhancedMatchEngine.ts:2916-2956 kondisyon+dakika bazlı risk hesaplıyor)
-              // Çift sakatlık üretimini önlemek için burada sakatlık ÜRETME
+
+              // v2.9.84: Sakatlık uygula (maç simülasyonundan gelen injury event'leri)
+              const isInjured = injuredIds.has(p.id);
+              const motorSeverity = injuryDetailsMap.get(p.id)?.severity ?? "light";
+              const injuryDuration = injuryDetailsMap.get(p.id)?.days ?? 7;
+              const injuryType = motorSeverity === "light" ? "light" as const
+                : motorSeverity === "medium" ? "chronic" as const
+                : "risky" as const;
+              const injury = isInjured
+                ? { type: injuryType, remaining_days: injuryDuration, severity: 0.3 }
+                : p.injury;
+              // v2.9.84: injury_history'ye kayıt ekle
+              const updatedInjuryHistory = isInjured
+                ? [...(p.injury_history ?? []), {
+                    date: new Date().toISOString().slice(0, 10),
+                    duration_days: injuryDuration,
+                    type: ["Hamstring", "Diz", "Bilek", "Kasık", "Sırt", "Omuz"][Math.floor(Math.random() * 6)],
+                  }]
+                : p.injury_history;
+
               return {
                 ...p,
                 cond: newCond,
                 condition: newCond,
                 form: Math.max(30, Math.min(100, p.form + formChange)),
                 morale: Math.max(20, Math.min(100, p.morale + moraleChange)),
-                // is_injured ve injury alanlarını DOKUNMA — motor/applyPostMatchEffects yönetir
+                is_injured: isInjured ? true : p.is_injured,
+                injury,
+                injury_history: updatedInjuryHistory,
+                wasInjuredThisSeason: isInjured ? true : p.wasInjuredThisSeason,
               };
             });
+
+            // v2.9.84: Sakatlık haberleri ekle — news array'ine direkt push
+            if (injuryEvents.length > 0) {
+              for (const ev of injuryEvents) {
+                const injuredPlayer = myClub.players.find(p => p.id === ev.playerId);
+                if (injuredPlayer) {
+                  const injuryDur = injuredPlayer.injury?.remaining_days ?? 7;
+                  const injuryType = ["Hamstring", "Diz", "Bilek", "Kasık", "Sırt", "Omuz"][Math.floor(Math.random() * 6)];
+                  news.unshift({
+                    id: `news_injury_${ev.playerId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                    category: "injury" as const,
+                    headline: `🤕 ${injuredPlayer.firstName} ${injuredPlayer.lastName} Sakatlandı`,
+                    body: `${injuredPlayer.firstName} ${injuredPlayer.lastName} maçta ${injuryType} sakatlığı geçirdi. Tahmini iyileşme süresi: ${injuryDur} gün.`,
+                    timestamp: Date.now(),
+                    importance: 4,
+                    read: false,
+                    relatedTeamId: myTeamId ?? undefined,
+                    playerId: ev.playerId ?? undefined,
+                  });
+                }
+              }
+            }
           }
         }
 
