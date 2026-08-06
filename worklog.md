@@ -4504,3 +4504,38 @@ Stage Summary:
   * CL şampiyonu belirlenince (champion set) → advanceMatchday tekrar çalışır
   * Yeni sezon başlar (seasonMatchday: 1)
 - 30 katılımcı (10 ülke × 3), tek maç eleme — değişmedi
+
+---
+Task ID: v2.9.82-transfer-compact-view
+Agent: main (GLM)
+Task: Transfer ekranı — alt-sekme taşma fix + kompakt görünüm
+
+Work Log:
+- 1. Alt-sekme pill taşma fix:
+  * Her pill'e `shrink-0` eklendi — metin artık kırpılmıyor
+  * Badge'e `shrink-0 min-w-[16px] text-center` — rozet metnin üstüne binmiyor
+  * Container'a `pr-2 pb-1` — son pill ekran kenarına yapışmıyor
+  * Pozisyon filtre pill'lerine de `shrink-0` eklendi
+  * Test: "İlanlarım" ve "Tekliflerim" artık tam görünüyor, truncated=false
+
+- 2. Kompakt görünüm:
+  * `compactView` state eklendi (useState, basit toggle)
+  * Toggle butonları: List (kompakt) + LayoutGrid (detaylı) ikonları
+  * CompactPlayerCard component'i oluşturuldu:
+    - Tek satır, min-h-[44px] (mobil erişilebilirlik standardı)
+    - [PositionPill] [isim truncate] [mini stat: 72·67·47·92 renk kodlu] [RatingBadge] [fiyat] [❤] [+]
+    - 4 stat renk kodlaması: 80+ emerald, 65+ amber, <65 red
+    - Avatar yok (yer kazancı), teklif butonu sadece "+" ikonu
+  * Detaylı view: ~88px/satır → Kompakt: ~57px/satır (%35 azalma)
+  * 30 oyuncu aynı anda render edilebilir (eski ~4-5 yerine ~8-10 görünüyor)
+
+- 3. Dar ekran testi (360px):
+  * Pill'ler: shrink-0 + overflow-x-auto ile yatay scroll, metin KIRPILMIYOR
+  * Compact kartlar: 0 overflow (firstRowRight=343 < 360)
+  * Tüm metinler truncate/ellipsis ile kesiliyor, satır taşmıyor
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc temiz)
+- Değişen dosya: src/components/touchline/screens/transfer.tsx
+- Mevcut davranış BOZULMADI: filtreleme, teklif yapma, favorileme aynı çalışıyor
+- Kompakt/Detaylı toggle component state ile (ekran değişince sıfırlanır)

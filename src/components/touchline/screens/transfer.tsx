@@ -10,6 +10,8 @@ import {
   ArrowLeftRight,
   Eye,
   Heart,
+  List,
+  LayoutGrid,
   Plus,
   TrendingUp,
   X,
@@ -50,6 +52,7 @@ export function TransferScreen() {
   const [sub, setSub] = useState<SubTab>("market");
   const [filter, setFilter] = useState<PositionGroup | "ALL">("ALL");
   const [offerModal, setOfferModal] = useState<Player | null>(null);
+  const [compactView, setCompactView] = useState(false);
   const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
   // ADDED: Gelişmiş pazarlık modal'ı state
   const [negotiationModal, setNegotiationModal] = useState<{ player: Player; askingPrice: number } | null>(null);
@@ -162,7 +165,7 @@ export function TransferScreen() {
           - "mylisted" → satılık oyuncular + kiralık listesi (aynı sekmede)
           Yeni 2 sekme: "watchlist" ve "loan" — kullanıcı bunlara erişemiyordu
       */}
-      <div className="flex gap-1.5 overflow-x-auto tm-no-scrollbar">
+      <div className="flex gap-1.5 overflow-x-auto tm-no-scrollbar pr-2 pb-1">
         {(
           [
             { key: "market", label: "🛒 Pazar", count: transfer.freeAgents.length + allClubPlayers.length + (transfer.freeAgentListings?.length ?? 0) },
@@ -177,18 +180,18 @@ export function TransferScreen() {
             key={tab.key}
             onClick={() => { haptic("light"); setSub(tab.key); }}
             className={cn(
-              "tm-tap px-3 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-colors border flex items-center gap-1.5",
+              "tm-tap px-3 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-colors border flex items-center gap-1.5 shrink-0",
               sub === tab.key
                 ? "bg-primary text-primary-foreground border-primary"
                 : "bg-card border-border hover:bg-accent"
             )}
            
           >
-            {tab.label}
+            <span className="shrink-0">{tab.label}</span>
             {tab.count > 0 && (
               <span
                 className={cn(
-                  "px-1 py-0 rounded text-[11px] tabular-nums",
+                  "px-1 py-0 rounded text-[11px] tabular-nums shrink-0 min-w-[16px] text-center",
                   sub === tab.key ? "bg-white/20" : "bg-muted"
                 )}
               >
@@ -249,23 +252,50 @@ export function TransferScreen() {
       {/* Market tab */}
       {sub === "market" && (
         <>
-          {/* Filter */}
-          <div className="flex gap-1.5 overflow-x-auto tm-no-scrollbar">
-            {(["ALL", "GK", "DEF", "MID", "FWD"] as const).map((g) => (
+          {/* Filter + Compact/Detaylı toggle */}
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1.5 overflow-x-auto tm-no-scrollbar flex-1 pr-1">
+              {(["ALL", "GK", "DEF", "MID", "FWD"] as const).map((g) => (
+                <button
+                  key={g}
+                  onClick={() => setFilter(g)}
+                  className={cn(
+                    "tm-tap px-3 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap border shrink-0",
+                    filter === g
+                      ? "bg-foreground text-background border-foreground"
+                      : "bg-card border-border"
+                  )}
+
+                >
+                  {g === "ALL" ? t("transfer.filter.all") : t(`transfer.filter.${g.toLowerCase()}`)}
+                </button>
+              ))}
+            </div>
+            {/* v2.9.82: Compact/Detaylı görünüm toggle */}
+            <div className="flex items-center gap-0.5 shrink-0 bg-muted rounded-lg p-0.5">
               <button
-                key={g}
-                onClick={() => setFilter(g)}
+                onClick={() => { haptic("light"); setCompactView(true); }}
                 className={cn(
-                  "tm-tap px-3 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap border",
-                  filter === g
-                    ? "bg-foreground text-background border-foreground"
-                    : "bg-card border-border"
+                  "tm-tap p-1.5 rounded transition-colors",
+                  compactView ? "bg-primary text-primary-foreground" : "text-muted-foreground"
                 )}
-               
+                aria-label="Kompakt görünüm"
+                title="Kompakt"
               >
-                {g === "ALL" ? t("transfer.filter.all") : t(`transfer.filter.${g.toLowerCase()}`)}
+                <List size={14} />
               </button>
-            ))}
+              <button
+                onClick={() => { haptic("light"); setCompactView(false); }}
+                className={cn(
+                  "tm-tap p-1.5 rounded transition-colors",
+                  !compactView ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+                )}
+                aria-label="Detaylı görünüm"
+                title="Detaylı"
+              >
+                <LayoutGrid size={14} />
+              </button>
+            </div>
           </div>
 
           {/* Player list */}
@@ -276,18 +306,30 @@ export function TransferScreen() {
               </div>
             )}
             {filteredListings.map((listing) => (
-              <PlayerCard
-                key={listing.player.id}
-                player={listing.player}
-                askingPrice={listing.askingPrice}
-                daysListed={listing.daysListed}
-                offers={listing.offers}
-                isWatched={transfer.watchlist.includes(listing.player.id)}
-                onToggleWatch={() => useAppStore.getState().toggleWatchlist(listing.player.id)}
-                onMakeOffer={() => setOfferModal(listing.player)}
-                onOpenProfile={() => setProfilePlayer(listing.player)}
-                onNegotiate={() => setNegotiationModal({ player: listing.player, askingPrice: listing.askingPrice })}
-              />
+              compactView ? (
+                <CompactPlayerCard
+                  key={listing.player.id}
+                  player={listing.player}
+                  askingPrice={listing.askingPrice}
+                  isWatched={transfer.watchlist.includes(listing.player.id)}
+                  onToggleWatch={() => useAppStore.getState().toggleWatchlist(listing.player.id)}
+                  onMakeOffer={() => setOfferModal(listing.player)}
+                  onOpenProfile={() => setProfilePlayer(listing.player)}
+                />
+              ) : (
+                <PlayerCard
+                  key={listing.player.id}
+                  player={listing.player}
+                  askingPrice={listing.askingPrice}
+                  daysListed={listing.daysListed}
+                  offers={listing.offers}
+                  isWatched={transfer.watchlist.includes(listing.player.id)}
+                  onToggleWatch={() => useAppStore.getState().toggleWatchlist(listing.player.id)}
+                  onMakeOffer={() => setOfferModal(listing.player)}
+                  onOpenProfile={() => setProfilePlayer(listing.player)}
+                  onNegotiate={() => setNegotiationModal({ player: listing.player, askingPrice: listing.askingPrice })}
+                />
+              )
             ))}
           </div>
 
@@ -748,6 +790,89 @@ export function TransferScreen() {
 }
 
 // ===== Player card =====
+// ===== Compact Player Card — tek satır, min 44px tap target =====
+function CompactPlayerCard({
+  player,
+  askingPrice,
+  isWatched,
+  onToggleWatch,
+  onMakeOffer,
+  onOpenProfile,
+}: {
+  player: Player;
+  askingPrice: number;
+  isWatched: boolean;
+  onToggleWatch: () => void;
+  onMakeOffer: () => void;
+  onOpenProfile: () => void;
+}) {
+  const { t } = useI18n();
+  const pace = safeStat(player, "pace");
+  const pas = safeStat(player, "passing");
+  const sht = safeStat(player, "shooting");
+  const def = safeStat(player, "defending");
+
+  // Renk kodlaması: 80+ emerald, 65+ amber, <65 red
+  const statColor = (v: number) => v >= 80 ? "text-emerald-400" : v >= 65 ? "text-amber-400" : "text-red-400";
+
+  return (
+    <div className="flex items-center gap-1.5 px-2.5 py-1.5 min-h-[44px] hover:bg-accent/20 transition-colors">
+      {/* Pozisyon rozeti — küçük */}
+      <button onClick={onOpenProfile} className="tm-tap shrink-0">
+        <PositionPill label={player.specificPosition} group={POSITION_GROUP[player.specificPosition]} />
+      </button>
+
+      {/* İsim — tek satır, taşarsa ellipsis */}
+      <button onClick={onOpenProfile} className="tm-tap flex-1 min-w-0 text-left">
+        <span className="text-[11px] font-semibold truncate block">
+          {player.firstName} {player.lastName}
+        </span>
+      </button>
+
+      {/* Mini stat'lar — 4 rakam, renk kodlu, noktayla ayrılmış */}
+      <div className="flex items-center gap-0.5 shrink-0 text-[10px] tabular-nums">
+        <span className={statColor(pace)}>{pace}</span>
+        <span className="text-muted-foreground/50">·</span>
+        <span className={statColor(pas)}>{pas}</span>
+        <span className="text-muted-foreground/50">·</span>
+        <span className={statColor(sht)}>{sht}</span>
+        <span className="text-muted-foreground/50">·</span>
+        <span className={statColor(def)}>{def}</span>
+      </div>
+
+      {/* Rating — küçük rozet */}
+      <RatingBadge value={player.rating} />
+
+      {/* Fiyat — küçük */}
+      <span className="text-[10px] font-bold tabular-nums text-emerald-400 shrink-0 w-[45px] text-right">
+        {formatEuro(askingPrice)}
+      </span>
+
+      {/* Heart — küçük */}
+      <button
+        onClick={onToggleWatch}
+        className={cn(
+          "tm-tap p-1 rounded-full shrink-0",
+          isWatched ? "text-red-500" : "text-muted-foreground"
+        )}
+        aria-label={isWatched ? t("transfer.watchlist.remove") : t("transfer.watchlist.add")}
+      >
+        <Heart size={12} fill={isWatched ? "currentColor" : "none"} />
+      </button>
+
+      {/* Teklif yap — küçük + icon */}
+      <button
+        onClick={onMakeOffer}
+        className="tm-tap p-1.5 rounded bg-primary text-primary-foreground shrink-0"
+        aria-label={t("transfer.make_offer")}
+        title={t("transfer.make_offer")}
+      >
+        <Plus size={12} />
+      </button>
+    </div>
+  );
+}
+
 function PlayerCard({
   player,
   askingPrice,
