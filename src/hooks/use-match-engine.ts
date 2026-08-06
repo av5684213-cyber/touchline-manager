@@ -338,6 +338,12 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
   }));
 
   const [isReplaying, setIsReplaying] = useState(false);
+  // v2.9.83 FIX: snapshot.minute'i ref olarak da tut — tick effect dependency'sinde
+  // snapshot.minute kullanılıyordu, bu her tick'te state değişip effect yeniden çalışıyordu
+  // → interval sürekli temizlenip yeniden kuruluyordu → DONMA.
+  // Ref ile okuyunca effect dependency'si değişmiyor, interval stabil kalıyor.
+  const snapshotMinuteRef = useRef(0);
+  const snapshotStatusRef = useRef<string>("idle");
   const [replayIdx, setReplayIdx] = useState(0);
   const [replayEvents, setReplayEvents] = useState<EnhancedMatchEvent[]>([]);
 
@@ -431,9 +437,14 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
     // aynı anda status'ü değiştirip clearInterval yapacağı için finalization bir sonraki render'da
     // ayrı bir useEffect tarafından yapılmalı. Burada sadece live/halftime set et.
     const isLastEvent = eventCursorRef.current >= allEvents.length;
+    const newStatus = isLastEvent ? "finished" : "live";
+    const newMinute = Math.max(lastMinute, cursor === 0 ? 0 : 1);
+    // v2.9.83 FIX: ref'leri güncelle — tick effect dependency'sinde snapshot kullanmıyoruz artık
+    snapshotStatusRef.current = newStatus;
+    snapshotMinuteRef.current = newMinute;
     setSnapshot({
-      status: isLastEvent ? "finished" : "live",
-      minute: Math.max(lastMinute, cursor === 0 ? 0 : 1),
+      status: newStatus,
+      minute: newMinute,
       homeScore,
       awayScore,
       events: [...shownEvents].reverse(), // en yeni üstte
@@ -1102,6 +1113,10 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
   }, []);
 
   // Tick interval — her 800ms'de bir event göster
+  // v2.9.83 FIX: Dependency'lerden snapshot.status ve snapshot.minute ÇIKARILDI.
+  // Eski kod: her tick'te syncToCursor → setSnapshot → snapshot.minute değişiyor
+  // → effect dependency tetikleniyor → interval temizlenip yeniden kuruluyordu → DONMA.
+  // Yeni: Ref ile status/minute okuyoruz, effect sadece status "live" olduğunda BİR KEZ başlıyor.
   useEffect(() => {
     if (snapshot.status !== "live") return;
     const id = setInterval(() => {
@@ -1112,8 +1127,10 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
       // DEVRE ARASI: 45. dakikaya gelince 30 saniyelik pause
       const nextEvent = allEvents[eventCursorRef.current];
       // P0 FIX BUG #15: Halftime sadece en az 1 event gösterildikten sonra tetiklensin
-      if (nextEvent && nextEvent.minute > 45 && snapshot.minute <= 45 && eventCursorRef.current > 0) {
+      // v2.9.83: snapshot.minute yerine snapshotMinuteRef.current kullan
+      if (nextEvent && nextEvent.minute > 45 && snapshotMinuteRef.current <= 45 && eventCursorRef.current > 0) {
         // Devre arası başlat — 30 saniye geri sayım
+        snapshotStatusRef.current = "halftime";
         setSnapshot((s) => ({ ...s, status: "halftime", halftimeSecondsLeft: 30 }));
         clearInterval(id);
         return;
@@ -1121,6 +1138,7 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
 
       if (eventCursorRef.current >= allEvents.length) {
         // Tüm event'ler gösterildi — bitir + kondisyon/form güncelle + fikstür güncelle
+        snapshotStatusRef.current = "finished";
         setSnapshot((s) => ({ ...s, status: "finished" }));
         clearInterval(id);
         return;
@@ -1129,7 +1147,8 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
       syncToCursor();
     }, TICK_MS);
     return () => clearInterval(id);
-  }, [snapshot.status, snapshot.minute, sortedEvents, syncToCursor, applyPostMatchEffects]);
+    // v2.9.83: Sadece syncToCursor stabil referans — snapshot.status VE snapshot.minute ÇIKARILDI
+  }, [snapshot.status, syncToCursor]);
 
   // FINALIZATION EFFECT — status "finished" olduğunda post-match effect'leri UYGULA
   // Bu ayrı effect, tick effect'inden bağımsız olarak çalışır.
