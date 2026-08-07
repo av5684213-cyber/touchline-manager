@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type Locale } from "@/lib/i18n/types";
 import {
+  ArrowLeft,
   Ban,
   ChevronDown,
   Clock,
@@ -71,7 +72,13 @@ import { MatchChatPanel } from "../match-chat";
 // v2.9.1'de çağrımı kaldırılmıştı (BULGU #2) ama tanımı duruyordu — dead code.
 // İhtiyaç olursa git history'den geri getirilebilir.
 
-export function MatchScreen() {
+// v2.9.92: MatchScreen artık parametre alır — friendly maç da aynı ekranı kullanır
+export function MatchScreen({ friendlyHomeTeam, friendlyAwayTeam, isFriendly = false, onFriendlyFinish }: {
+  friendlyHomeTeam?: any;
+  friendlyAwayTeam?: any;
+  isFriendly?: boolean;
+  onFriendlyFinish?: (homeScore: number, awayScore: number, replayData?: any) => void;
+} = {}) {
   const { t, locale } = useI18n();
   const team = useMyTeam();
   const clubs = useAppStore((s) => s.clubs);
@@ -80,8 +87,9 @@ export function MatchScreen() {
   const tacticsState = useAppStore((s) => s.tactics);
   const seasonMatchday = useAppStore((s) => s.seasonMatchday);
 
-  // Rakip seçimi — bir sonraki oynanmamış maç
+  // v2.9.92: Friendly modda takımlar parametre olarak gelir, resmi modda fixture'dan bulunur
   const opponent = useMemo(() => {
+    if (isFriendly && friendlyAwayTeam) return friendlyAwayTeam;
     if (!team) return null;
     const next = clubs.find(
       (c) =>
@@ -94,10 +102,14 @@ export function MatchScreen() {
         )
     );
     return next ?? clubs.find((c) => c.id !== team.id) ?? null;
-  }, [team, clubs, fixtures]);
+  }, [team, clubs, fixtures, isFriendly, friendlyAwayTeam]);
 
-  // Ev/deplasman yerleşimi: kullanıcının sonraki maçındaki yerine göre
+  // Ev/deplasman yerleşimi
   const { homeTeam, awayTeam, mySide } = useMemo(() => {
+    // v2.9.92: Friendly modda parametre olarak gelen takımları kullan
+    if (isFriendly && friendlyHomeTeam && friendlyAwayTeam) {
+      return { homeTeam: friendlyHomeTeam, awayTeam: friendlyAwayTeam, mySide: "home" as Side };
+    }
     if (!team || !opponent) {
       return { homeTeam: team, awayTeam: opponent, mySide: "home" as Side };
     }
@@ -113,16 +125,18 @@ export function MatchScreen() {
       awayTeam: mySide === "home" ? opponent : team,
       mySide,
     };
-  }, [team, opponent, fixtures]);
+  }, [team, opponent, fixtures, isFriendly, friendlyHomeTeam, friendlyAwayTeam]);
 
   const engine = useMatchEngine(
     homeTeam ?? team!,
     awayTeam ?? opponent!,
-    locale
+    locale,
+    isFriendly
   );
 
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [showPreMatch, setShowPreMatch] = useState(false);
+  // v2.9.92: Friendly modda PreMatch her zaman göster, resmi modda butonla açılır
+  const [showPreMatch, setShowPreMatch] = useState(isFriendly);
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationShown, setCelebrationShown] = useState(false);
   // ADDED: Maç içi sekme — Saha / Akış / İstatistik
@@ -192,10 +206,19 @@ export function MatchScreen() {
         onStart={() => {
           setShowPreMatch(false);
           engine.start();
-          const matchId = currentMatchId ?? `manual-${Date.now()}`;
-          markMatchWatched(matchId);
+          if (!isFriendly) {
+            const matchId = currentMatchId ?? `manual-${Date.now()}`;
+            markMatchWatched(matchId);
+          }
         }}
-        onBack={() => setShowPreMatch(false)}
+        onBack={() => {
+          if (isFriendly && onFriendlyFinish) {
+            // v2.9.92: Friendly modda geri = maç iptal
+            onFriendlyFinish(0, 0, undefined);
+          } else {
+            setShowPreMatch(false);
+          }
+        }}
         onPlayerClick={(p) => { haptic("light"); setPitchProfilePlayer(p); }}
       />
       {/* v2.9.85 FIX: PreMatch ekranında da oyuncu profil modal'ını göster.
@@ -517,18 +540,37 @@ export function MatchScreen() {
               <div className="text-[10px] text-muted-foreground">
                 {homeTeam.name} {engine.state.homeScore} - {engine.state.awayScore} {awayTeam.name}
               </div>
-              <button
-                onClick={() => {
-                  haptic("success");
-                  engine.reset();
-                }}
-                className="tm-tap w-full py-3 rounded-lg bg-emerald-600 text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
-              >
-                <Play size={16} />
-                YENİ MAÇ BAŞLAT
-              </button>
+              {isFriendly ? (
+                <button
+                  onClick={() => {
+                    haptic("success");
+                    if (onFriendlyFinish) {
+                      onFriendlyFinish(engine.state.homeScore, engine.state.awayScore, {
+                        events: (engine as any).events,
+                        motmId: (engine.state as any).motmPlayerId,
+                        stats: engine.state.stats,
+                      });
+                    }
+                  }}
+                  className="tm-tap w-full py-3 rounded-lg bg-emerald-600 text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+                >
+                  <ArrowLeft size={16} />
+                  HAZIRLIK MAÇINA GERİ DÖN
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    haptic("success");
+                    engine.reset();
+                  }}
+                  className="tm-tap w-full py-3 rounded-lg bg-emerald-600 text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+                >
+                  <Play size={16} />
+                  YENİ MAÇ BAŞLAT
+                </button>
+              )}
               <div className="text-[10px] text-emerald-400/70">
-                Sonraki maç için tıkla — taktikleri güncelleyip oyna
+                {isFriendly ? "Hazırlık maçı tamamlandı" : "Sonraki maç için tıkla — taktikleri güncelleyip oyna"}
               </div>
             </div>
           </>

@@ -30,6 +30,7 @@ import { MatchChatPanel } from "../match-chat";
 import { MatchReplayModal } from "../match-replay-modal";
 // v2.9.87: Resmi maçın EventFeed'i (spiker yorumları + event ikonları) — friendly'de de kullan
 import { EventFeed } from "./match";
+import { MatchScreen } from "./match";
 import type { Locale } from "@/lib/i18n/types";
 
 /**
@@ -264,20 +265,22 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
     );
   }
 
-  // Maç başlatıldıysa canlı izleme ekranı
-  if (matchStarted && opponent) {
+  // v2.9.92: Hazırlık maçı artık MatchScreen'i kullanır — resmi maçla aynı ekran
+  if (matchStarted && opponent && team) {
     return (
-      <FriendlyLiveView
-        team={team}
-        opponent={opponent}
-        engine={engine}
-        onFinish={(home, away, replayData) => {
-          setMatchResult({ home, away, replayData });
-          setMatchStarted(false);
-        }}
-        onCancel={() => {
-          engine.reset();
-          setMatchStarted(false);
+      <MatchScreen
+        isFriendly={true}
+        friendlyHomeTeam={team}
+        friendlyAwayTeam={opponent}
+        onFriendlyFinish={(home, away, replayData) => {
+          if (home === 0 && away === 0 && !replayData) {
+            // İptal edildi
+            setMatchStarted(false);
+            engine.reset();
+          } else {
+            setMatchResult({ home, away, replayData });
+            setMatchStarted(false);
+          }
         }}
       />
     );
