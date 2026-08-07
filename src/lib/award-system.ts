@@ -53,6 +53,15 @@ export interface AwardCategory {
   positionRestriction?: "GK" | "DEF" | "MID" | "FWD"; // sadece bu pozisyon grubu
   ageRestriction?: { min?: number; max?: number };     // wonderkid ≤21, veteran ≥30
   scope: "league" | "cup" | "career";  // hesaplama kapsamı
+  // v2.9.90: Tier bazlı ad varyantları — gold/silver/bronze için ayrı isimler.
+  // Tanımlıysa getAwardDisplayName bu değerleri kullanır (oto-türetme yerine).
+  // Sadece sıralama bazlı ödüller (isMilestone: false) için anlamlı.
+  // Milestone ödüller tek isim + tier rozeti yeterli (eşik bazlı).
+  tierVariants?: {
+    gold?: { tr: string; en: string };
+    silver?: { tr: string; en: string };
+    bronze?: { tr: string; en: string };
+  };
 }
 
 /**
@@ -61,63 +70,123 @@ export interface AwardCategory {
  */
 export const AWARD_CATEGORIES: Record<AwardKey, AwardCategory> = {
   // ═══ A) SEZON SONU SIRALAMA ÖDÜLLERİ (11) ═══
+  // v2.9.90: Her ödüle tierVariants eklendi — gold/silver/bronze için ayrı isimler.
+  // Eski sistemde tüm tier'lar aynı trName'i kullanıyordu → mantıksız (Altın Krampon GÜMÜŞ gibi).
   golden_boot: {
     key: "golden_boot", trName: "Altın Krampon", enName: "Golden Boot",
     trDesc: "Lig maçlarında en çok gol atan oyuncu", enDesc: "Top scorer in league matches",
     isMilestone: false, scope: "league",
+    tierVariants: {
+      gold: { tr: "Altın Krampon", en: "Golden Boot" },
+      silver: { tr: "Gümüş Krampon", en: "Silver Boot" },
+      bronze: { tr: "Bronz Krampon", en: "Bronze Boot" },
+    },
   },
   playmaker: {
     key: "playmaker", trName: "Asist Kralı", enName: "Playmaker",
     trDesc: "Lig maçlarında en çok asist yapan oyuncu", enDesc: "Top assist provider in league matches",
     isMilestone: false, scope: "league",
+    tierVariants: {
+      gold: { tr: "Altın Asist Kralı", en: "Golden Playmaker" },
+      silver: { tr: "Gümüş Asist Kralı", en: "Silver Playmaker" },
+      bronze: { tr: "Bronz Asist Kralı", en: "Bronze Playmaker" },
+    },
   },
   player_of_season: {
     key: "player_of_season", trName: "Sezonun Oyuncusu", enName: "Player of the Season",
     trDesc: "Maç başı ortalama rating'de en yüksek (min %60 forma)", enDesc: "Highest avg match rating (min 60% appearances)",
     isMilestone: false, scope: "league",
+    tierVariants: {
+      gold: { tr: "Sezonun Oyuncusu", en: "Player of the Season" },
+      silver: { tr: "Sezonun İkincisi", en: "Runner-Up Player of the Season" },
+      bronze: { tr: "Sezonun Üçüncüsü", en: "Third Player of the Season" },
+    },
   },
   motm: {
-    key: "motm", trName: "Maçın Adamı", enName: "Man of the Match",
+    key: "motm", trName: "Maçın Adamı Kralı", enName: "Man of the Match King",
     trDesc: "En çok Maçın Adamı seçilen oyuncu", enDesc: "Most Man of the Match awards",
     isMilestone: false, scope: "league",
+    tierVariants: {
+      gold: { tr: "Altın Maçın Adamı", en: "Golden Man of the Match" },
+      silver: { tr: "Gümüş Maçın Adamı", en: "Silver Man of the Match" },
+      bronze: { tr: "Bronz Maçın Adamı", en: "Bronze Man of the Match" },
+    },
   },
   golden_glove: {
     key: "golden_glove", trName: "Altın Eldiven", enName: "Golden Glove",
     trDesc: "En çok clean sheet + kurtarış (sadece kaleci)", enDesc: "Most clean sheets + saves (GK only)",
     isMilestone: false, positionRestriction: "GK", scope: "league",
+    tierVariants: {
+      gold: { tr: "Altın Eldiven", en: "Golden Glove" },
+      silver: { tr: "Gümüş Eldiven", en: "Silver Glove" },
+      bronze: { tr: "Bronz Eldiven", en: "Bronze Glove" },
+    },
   },
   defender_of_season: {
     key: "defender_of_season", trName: "Sezonun Savunmacısı", enName: "Defender of the Season",
     trDesc: "Ort. rating + müdahale/top çalma (sadece defans)", enDesc: "Avg rating + tackles/interceptions (DEF only)",
     isMilestone: false, positionRestriction: "DEF", scope: "league",
+    tierVariants: {
+      gold: { tr: "Sezonun Savunmacısı", en: "Defender of the Season" },
+      silver: { tr: "Sezonun İkinci Savunmacısı", en: "Runner-Up Defender of the Season" },
+      bronze: { tr: "Sezonun Üçüncü Savunmacısı", en: "Third Defender of the Season" },
+    },
   },
   midfielder_of_season: {
     key: "midfielder_of_season", trName: "Sezonun Orta Sahası", enName: "Midfielder of the Season",
     trDesc: "Pas isabeti + asist + oyun kurma (sadece orta saha)", enDesc: "Pass accuracy + assists + playmaking (MID only)",
     isMilestone: false, positionRestriction: "MID", scope: "league",
+    tierVariants: {
+      gold: { tr: "Sezonun Orta Sahası", en: "Midfielder of the Season" },
+      silver: { tr: "Sezonun İkinci Orta Sahası", en: "Runner-Up Midfielder of the Season" },
+      bronze: { tr: "Sezonun Üçüncü Orta Sahası", en: "Third Midfielder of the Season" },
+    },
   },
   wonderkid: {
     key: "wonderkid", trName: "Yılın Yeteneği", enName: "Wonderkid",
     trDesc: "En yüksek ort. rating (21 yaş ve altı)", enDesc: "Highest avg rating (21 and under)",
     isMilestone: false, ageRestriction: { max: 21 }, scope: "league",
+    tierVariants: {
+      gold: { tr: "Yılın Altın Yeteneği", en: "Golden Wonderkid" },
+      silver: { tr: "Yılın Gümüş Yeteneği", en: "Silver Wonderkid" },
+      bronze: { tr: "Yılın Bronz Yeteneği", en: "Bronze Wonderkid" },
+    },
   },
   veteran_of_season: {
-    key: "veteran_of_season", trName: "Sezonun Veteramı", enName: "Veteran of the Season",
+    // v2.9.90 FIX: typo düzeltildi — "Veteramı" → "Veteranı"
+    key: "veteran_of_season", trName: "Sezonun Veteranı", enName: "Veteran of the Season",
     trDesc: "En yüksek ort. rating (30 yaş ve üzeri)", enDesc: "Highest avg rating (30 and over)",
     isMilestone: false, ageRestriction: { min: 30 }, scope: "league",
+    tierVariants: {
+      gold: { tr: "Sezonun Veteranı", en: "Veteran of the Season" },
+      silver: { tr: "Sezonun İkinci Veteranı", en: "Runner-Up Veteran of the Season" },
+      bronze: { tr: "Sezonun Üçüncü Veteranı", en: "Third Veteran of the Season" },
+    },
   },
   cup_top_scorer: {
     key: "cup_top_scorer", trName: "Kupa Gol Kralı", enName: "Cup Top Scorer",
     trDesc: "Ulusal Kupa + Şampiyonlar Ligi toplam en çok gol", enDesc: "Most goals in Cup + Champions League combined",
     isMilestone: false, scope: "cup",
+    tierVariants: {
+      gold: { tr: "Altın Kupa Gol Kralı", en: "Golden Cup Top Scorer" },
+      silver: { tr: "Gümüş Kupa Gol Kralı", en: "Silver Cup Top Scorer" },
+      bronze: { tr: "Bronz Kupa Gol Kralı", en: "Bronze Cup Top Scorer" },
+    },
   },
   intl_player_of_tournament: {
     key: "intl_player_of_tournament", trName: "Turnuvanın Yıldızı", enName: "Int'l Player of the Tournament",
     trDesc: "Şampiyonlar Ligi'nde en yüksek rating/MVP", enDesc: "Highest rating/MVP in Champions League",
     isMilestone: false, scope: "cup",
+    tierVariants: {
+      gold: { tr: "Turnuvanın Altın Yıldızı", en: "Golden Tournament Star" },
+      silver: { tr: "Turnuvanın Gümüş Yıldızı", en: "Silver Tournament Star" },
+      bronze: { tr: "Turnuvanın Bronz Yıldızı", en: "Bronze Tournament Star" },
+    },
   },
 
   // ═══ B) MILESTONE ÖDÜLLERİ (3) ═══
+  // Milestone ödüller tek isim + tier rozeti yeterli (eşik bazlı: 1/3/5 kez gibi).
+  // tierVariants yok — getAwardDisplayName orijinal adı döner.
   hattrick_hero: {
     key: "hattrick_hero", trName: "Hat-Trick Kahramanı", enName: "Hat-Trick Hero",
     trDesc: "Bir maçta 3+ gol — Bronz: 1 kez, Gümüş: 3 kez, Altın: 5+ kez (kariyer)", enDesc: "3+ goals in a match — Bronze: 1, Silver: 3, Gold: 5+ (career)",
@@ -135,10 +204,17 @@ export const AWARD_CATEGORIES: Record<AwardKey, AwardCategory> = {
   },
 
   // ═══ C) ESKİ TAKIM ÖDÜLLERİ (geri uyumluluk, görsel yok) ═══
+  // v2.9.90: most_appearances sıralama bazlı → tierVariants eklendi.
+  // league_champion/cup_champion/champions_league_winner takım ödülü, tek tier (gold).
   most_appearances: {
     key: "most_appearances", trName: "En Çok Maç Oynayan", enName: "Most Appearances",
     trDesc: "Sezonda en çok maç oynayan oyuncu", enDesc: "Most appearances in the season",
     isMilestone: false, scope: "league",
+    tierVariants: {
+      gold: { tr: "En Çok Maç Oynayan", en: "Most Appearances" },
+      silver: { tr: "İkinci En Çok Maç Oynayan", en: "Runner-Up Most Appearances" },
+      bronze: { tr: "Üçüncü En Çok Maç Oynayan", en: "Third Most Appearances" },
+    },
   },
   league_champion: {
     key: "league_champion", trName: "Lig Şampiyonu", enName: "League Champion",
@@ -157,10 +233,48 @@ export const AWARD_CATEGORIES: Record<AwardKey, AwardCategory> = {
   },
 
   // ═══ ESKİ BİREYSEL (geri uyumluluk — yeni adlarla eşleştirilir) ═══
-  top_scorer: { key: "top_scorer", trName: "Gol Kralı", enName: "Top Scorer", trDesc: "Eski ad: golden_boot", enDesc: "Legacy: golden_boot", isMilestone: false, scope: "league" },
-  top_assist: { key: "top_assist", trName: "Asist Kralı", enName: "Top Assist", trDesc: "Eski ad: playmaker", enDesc: "Legacy: playmaker", isMilestone: false, scope: "league" },
-  mvp: { key: "mvp", trName: "En Değerli Oyuncu", enName: "MVP", trDesc: "Eski ad: player_of_season", enDesc: "Legacy: player_of_season", isMilestone: false, scope: "league" },
-  best_goalkeeper: { key: "best_goalkeeper", trName: "En İyi Kaleci", enName: "Best Goalkeeper", trDesc: "Eski ad: golden_glove", enDesc: "Legacy: golden_glove", isMilestone: false, scope: "league" },
+  // v2.9.90: top_scorer/top_assist/mvp/best_goalkeeper için tierVariants eklendi.
+  // Bu ödüller AWARD_MIGRATION_MAP ile yeni adlara map edilir, ama eski kayıtlar için de düzgün görünsün.
+  top_scorer: {
+    key: "top_scorer", trName: "Gol Kralı", enName: "Top Scorer",
+    trDesc: "Eski ad: golden_boot", enDesc: "Legacy: golden_boot",
+    isMilestone: false, scope: "league",
+    tierVariants: {
+      gold: { tr: "Altın Gol Kralı", en: "Golden Top Scorer" },
+      silver: { tr: "Gümüş Gol Kralı", en: "Silver Top Scorer" },
+      bronze: { tr: "Bronz Gol Kralı", en: "Bronze Top Scorer" },
+    },
+  },
+  top_assist: {
+    key: "top_assist", trName: "Asist Kralı", enName: "Top Assist",
+    trDesc: "Eski ad: playmaker", enDesc: "Legacy: playmaker",
+    isMilestone: false, scope: "league",
+    tierVariants: {
+      gold: { tr: "Altın Asist Kralı", en: "Golden Top Assist" },
+      silver: { tr: "Gümüş Asist Kralı", en: "Silver Top Assist" },
+      bronze: { tr: "Bronz Asist Kralı", en: "Bronze Top Assist" },
+    },
+  },
+  mvp: {
+    key: "mvp", trName: "En Değerli Oyuncu", enName: "MVP",
+    trDesc: "Eski ad: player_of_season", enDesc: "Legacy: player_of_season",
+    isMilestone: false, scope: "league",
+    tierVariants: {
+      gold: { tr: "En Değerli Oyuncu", en: "MVP" },
+      silver: { tr: "İkinci En Değerli Oyuncu", en: "Runner-Up MVP" },
+      bronze: { tr: "Üçüncü En Değerli Oyuncu", en: "Third MVP" },
+    },
+  },
+  best_goalkeeper: {
+    key: "best_goalkeeper", trName: "En İyi Kaleci", enName: "Best Goalkeeper",
+    trDesc: "Eski ad: golden_glove", enDesc: "Legacy: golden_glove",
+    isMilestone: false, scope: "league",
+    tierVariants: {
+      gold: { tr: "Altın Eldiven", en: "Golden Glove" },
+      silver: { tr: "Gümüş Eldiven", en: "Silver Glove" },
+      bronze: { tr: "Bronz Eldiven", en: "Bronze Glove" },
+    },
+  },
 };
 
 /**
@@ -212,32 +326,34 @@ export function tierToRank(tier: AwardTier): number {
 
 /**
  * v2.9.89 (Madde B): Ödül adını tier'a göre döndür.
+ * v2.9.90: tierVariants opsiyonel alanı eklendi — tanımlıysa onu kullanır.
  *
- * Eski sistemde tüm tier'lar aynı trName'i kullanıyordu:
- *   golden_boot: "Altın Krampon" → 1., 2. VE 3. hep "Altın Krampon" gösteriliyordu.
- *   Sadece "GÜMÜŞ STATUE" / "BRONZ STATUE" rozeti fark ediyordu → mantıksız.
+ * Öncelik sırası:
+ *   1. category.tierVariants[tier] varsa → onu kullan (en güvenilir)
+ *   2. "Altın X" formatı → "Gümüş X" / "Bronz X" oto-türet
+ *   3. Diğer → orijinal ad + parantez içinde tier etiketi
  *
- * Yeni sistem:
- *   - "Altın X" formatındaki ödüller → tier'a göre "Gümüş X" / "Bronz X"
- *     (golden_boot → Altın/Gümüş/Bronz Krampon)
- *     (golden_glove → Altın/Gümüş/Bronz Eldiven)
- *   - "X Kralı" formatındaki ödüller → tier rozeti parantez içinde
- *     (cup_top_scorer → "Kupa Gol Kralı", "Kupa Gol Kralı (Gümüş)", "Kupa Gol Kralı (Bronz)")
- *   - Diğer ödüller → orijinal ad + parantez içinde tier (silver/bronze için)
- *
- * Gold tier her zaman orijinal adı döner (değişiklik yok).
+ * Gold tier her zaman orijinal adı döner (tierVariants gold yoksa).
  */
 export function getAwardDisplayName(key: string, tier: AwardTier, locale: "tr" | "en" = "tr"): string {
   const migratedKey = AWARD_MIGRATION_MAP[key] ?? key;
   const category = AWARD_CATEGORIES[migratedKey as AwardKey];
   if (!category) return key;
 
+  // v2.9.90: tierVariants tanımlıysa ve bu tier için değeri varsa → onu kullan
+  if (category.tierVariants) {
+    const variant = category.tierVariants[tier];
+    if (variant) {
+      return locale === "tr" ? variant.tr : variant.en;
+    }
+  }
+
   const name = locale === "tr" ? category.trName : category.enName;
 
   // Gold tier → orijinal ad (değişiklik yok)
   if (tier === "gold") return name;
 
-  // "Altın X" / "Golden X" formatı → tier'a göre değiştir
+  // "Altın X" / "Golden X" formatı → tier'a göre değiştir (fallback oto-türetme)
   if (locale === "tr") {
     if (name.startsWith("Altın ")) {
       const rest = name.slice(6); // "Altın " sonrası

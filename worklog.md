@@ -4862,3 +4862,67 @@ Stage Summary:
   1. Sezon sonu "Oyuncu Gelişimleri" kutusunda oyunculara tıklanınca profil açılır (playerId ile sağlam lookup).
   2. Ödül adları tier'a göre doğru gösterilir: Altın/Gümüş/Bronz Krampon (eskiden hepsi "Altın Krampon" idi).
   3. Gelişim kutularında maksimum 3 oyuncu + "+N oyuncu daha" özeti.
+
+---
+Task ID: v2.9.90-award-tier-naming-audit
+Agent: main (GLM)
+Task: Altın Krampon ödülündeki gibi tier bazlı ad mantıksızlığını tüm ödüller için denetle ve düzelt.
+
+Work Log:
+
+### Denetim Bulguları
+Tüm 18 ödül kategorisi incelendi. **12 sıralama bazlı ödülün** (isMilestone: false) hepsinde aynı mantıksızlık vardı: tüm tier'lar (gold/silver/bronze) aynı `trName`'i kullanıyordu. Sadece "ALTIN/GÜMÜŞ/BRONZ STATUE" rozeti fark ediyordu.
+
+**Mantıksız ödüller (eski davranış):**
+| Ödül | 1. (gold) | 2. (silver) | 3. (bronze) |
+|------|-----------|-------------|-------------|
+| golden_boot | Altın Krampon | Altın Krampon (GÜMÜŞ) | Altın Krampon (BRONZ) |
+| playmaker | Asist Kralı | Asist Kralı (Gümüş) | Asist Kralı (Bronz) |
+| player_of_season | Sezonun Oyuncusu | Sezonun Oyuncusu (Gümüş) | Sezonun Oyuncusu (Bronz) |
+| motm | Maçın Adamı | Maçın Adamı (Gümüş) | Maçın Adamı (Bronz) |
+| golden_glove | Altın Eldiven | Altın Eldiven (GÜMÜŞ) | Altın Eldiven (BRONZ) |
+| defender_of_season | Sezonun Savunmacısı | Sezonun Savunmacısı (Gümüş) | Sezonun Savunmacısı (Bronz) |
+| midfielder_of_season | Sezonun Orta Sahası | Sezonun Orta Sahası (Gümüş) | Sezonun Orta Sahası (Bronz) |
+| wonderkid | Yılın Yeteneği | Yılın Yeteneği (Gümüş) | Yılın Yeteneği (Bronz) |
+| veteran_of_season | Sezonun Veteramı ❌typo | Veteramı (Gümüş) | Veteramı (Bronz) |
+| cup_top_scorer | Kupa Gol Kralı | Kupa Gol Kralı (Gümüş) | Kupa Gol Kralı (Bronz) |
+| intl_player_of_tournament | Turnuvanın Yıldızı | Turnuvanın Yıldızı (Gümüş) | Turnuvanın Yıldızı (Bronz) |
+| most_appearances | En Çok Maç Oynayan | En Çok Maç Oynayan (Gümüş) | En Çok Maç Oynayan (Bronz) |
+
+**Ek bug:** `veteran_of_season.trName` = "Sezonun Veteramı" — typo ("Veteramı" → "Veteranı" olmalı).
+
+### Düzeltme: tierVariants alanı
+- `AwardCategory` interface'ine opsiyonel `tierVariants?: { gold?, silver?, bronze? }` alanı eklendi.
+- Her sıralama bazlı ödül (12 adet) için manuel tier varyantları tanımlandı.
+- Milestone ödüller (3 adet: hattrick_hero, century_club, iron_man) tierVariants yok — tek isim + tier rozeti yeterli (eşik bazlı).
+- Takım ödülleri (league_champion, cup_champion, champions_league_winner) tierVariants yok — tek tier (gold).
+- `getAwardDisplayName` fonksiyonu güncellendi: önce `tierVariants` kontrol eder, yoksa oto-türetme mantığı çalışır.
+
+### Yeni tier bazlı adlar (TR)
+| Ödül | 1. (gold) | 2. (silver) | 3. (bronze) |
+|------|-----------|-------------|-------------|
+| golden_boot | Altın Krampon | Gümüş Krampon | Bronz Krampon |
+| playmaker | Altın Asist Kralı | Gümüş Asist Kralı | Bronz Asist Kralı |
+| player_of_season | Sezonun Oyuncusu | Sezonun İkincisi | Sezonun Üçüncüsü |
+| motm | Altın Maçın Adamı | Gümüş Maçın Adamı | Bronz Maçın Adamı |
+| golden_glove | Altın Eldiven | Gümüş Eldiven | Bronz Eldiven |
+| defender_of_season | Sezonun Savunmacısı | Sezonun İkinci Savunmacısı | Sezonun Üçüncü Savunmacısı |
+| midfielder_of_season | Sezonun Orta Sahası | Sezonun İkinci Orta Sahası | Sezonun Üçüncü Orta Sahası |
+| wonderkid | Yılın Altın Yeteneği | Yılın Gümüş Yeteneği | Yılın Bronz Yeteneği |
+| veteran_of_season | Sezonun Veteranı ✅ | Sezonun İkinci Veteranı | Sezonun Üçüncü Veteranı |
+| cup_top_scorer | Altın Kupa Gol Kralı | Gümüş Kupa Gol Kralı | Bronz Kupa Gol Kralı |
+| intl_player_of_tournament | Turnuvanın Altın Yıldızı | Turnuvanın Gümüş Yıldızı | Turnuvanın Bronz Yıldızı |
+| most_appearances | En Çok Maç Oynayan | İkinci En Çok Maç Oynayan | Üçüncü En Çok Maç Oynayan |
+
+### Ek düzeltmeler
+- `veteran_of_season.trName`: "Sezonun Veteramı" → "Sezonun Veteranı" (typo fix)
+- Eski bireysel ödüller (top_scorer, top_assist, mvp, best_goalkeeper) için de tierVariants eklendi — geri uyumluluk kayıtları düzgün görünsün.
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- Değişen dosya: src/lib/award-system.ts
+  - AwardCategory interface'ine tierVariants alanı eklendi
+  - 12 sıralama bazlı ödüle tierVariants tanımlandı
+  - veteran_of_season typo düzeltildi (Veteramı → Veteranı)
+  - getAwardDisplayName: tierVariants öncelikli kontrol eder
+- Behavior: Sezon sonu statue gösterimi + oyuncu profil ödül vitrini artık her tier için farklı ad gösterir. "Altın Krampon (GÜMÜŞ)" gibi mantıksız ifadeler yok.
