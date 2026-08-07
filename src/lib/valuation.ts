@@ -161,7 +161,7 @@ export function calculatePlayerValue(player: Player, seasonPerformanceModifier?:
     const awards = (player as any).seasonAwards as any[] | undefined;
     if (awards && awards.length > 0) {
       const TIER_RANK: Record<string, number> = { gold: 3, silver: 2, bronze: 1 };
-      const SEASON_MULT: Record<string, number> = { gold: 1.12, silver: 1.06, bronze: 1.03 };
+      const SEASON_MULT: Record<string, number> = { gold: 1.10, silver: 1.06, bronze: 1.03 }; // v2.9.96: gold %12→%10
       const MILESTONE_MULT: Record<string, number> = { gold: 1.06, silver: 1.03, bronze: 1.01 };
       const MILESTONE_KEYS = new Set(["hattrick_hero", "century_club", "iron_man"]);
 
@@ -184,8 +184,16 @@ export function calculatePlayerValue(player: Player, seasonPerformanceModifier?:
 
       if (bestSeasonTier) awardMult *= SEASON_MULT[bestSeasonTier] ?? 1.0;
       if (bestMilestoneTier) awardMult *= MILESTONE_MULT[bestMilestoneTier] ?? 1.0;
-      // v2.9.95: Her ek ödül için +%1 (efor bazlı)
-      awardMult *= 1 + (awards.length * 0.01);
+      // v2.9.96: Her ek ödül için +%1 (efor bazlı) — azalan etki (diminishing returns)
+      // Her ardışık ödülde etkiyi %85'e çarp (sonsuz büyümeyi önle)
+      const diminishing = 0.85;
+      let bonusMult = 1.0;
+      let currentEffect = 0.01;
+      for (let i = 0; i < awards.length; i++) {
+        bonusMult += currentEffect;
+        currentEffect *= diminishing;
+      }
+      awardMult *= bonusMult;
     }
   } catch { /* seasonAwards yoksa 1.0 kalır */ }
 

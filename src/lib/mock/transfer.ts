@@ -320,7 +320,7 @@ export function generateIncomingOffers(
 }
 
 // ===== Vergi hesaplama =====
-export const TRANSFER_TAX_RATE = 0.025; // satıcıdan %2.5
+export const TRANSFER_TAX_RATE = 0.10; // v2.9.96: %2.5 → %10 (para arzını azalt)
 export const AGENT_FEE_RATE = 0.05; // alıcıya %5
 export const SIGNING_BONUS_RATE = 0.03; // alıcıya %3
 

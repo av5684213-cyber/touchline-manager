@@ -329,7 +329,7 @@ export const PHILOSOPHY_BONUSES = {
 export const MAX_WEEKS_PER_SEASON = 34;
 
 // ─── Enflasyon Sistemi ─────────────────────────────────────────────
-export const BASE_INFLATION_RATE = 0.08;        // yıllık %8 enflasyon
+export const BASE_INFLATION_RATE = 0.025;       // v2.9.96: %8 → %2.5 (ekonomi dengesi)
 export const MAX_INFLATION_MULTIPLIER = 3.0;    // maksimum 3x (Sezon 1 fiyatının 3 katı)
 export const MIN_INFLATION_MULTIPLIER = 1.0;    // Sezon 1'de çarpan 1.0
 

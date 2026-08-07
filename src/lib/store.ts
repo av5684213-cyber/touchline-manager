@@ -1795,7 +1795,7 @@ export const useAppStore = create<AppState>()(
         }
 
         // Satıştan %2.5 vergi düş, kalan bütçeye ekle
-        const tax = Math.round(offer.offerAmount * 0.025);
+        const tax = Math.round(offer.offerAmount * 0.10); // v2.9.96: %2.5 → %10
         const net = offer.offerAmount - tax;
 
         // P0 FIX: Alıcı bot takımını bul
@@ -3151,7 +3151,7 @@ export const useAppStore = create<AppState>()(
               const salePrice = toSell.marketValue;
               // v2.9.62 FIX: Bot satışında da satıcı vergisi %2.5 düş (kullanıcıyla aynı)
               // Eski kod: tam salePrice ekleniyordu → bot %2.5 daha çok kazanıyordu (asimetri)
-              const sellerTax = Math.round(salePrice * 0.025);
+              const sellerTax = Math.round(salePrice * 0.10); // v2.9.96: %2.5 → %10
               const sellerNet = salePrice - sellerTax;
               updatedClubs[botIdx] = {
                 ...updatedClubs[botIdx],
