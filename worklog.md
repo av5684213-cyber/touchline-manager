@@ -4636,3 +4636,69 @@ Stage Summary:
   * Yeni saves: ilk günden itibaren tüm rozetler çalışır.
   * pinned_bench DB kolonu migration 039 ile eklenir — mevcut kullanıcılar için
     default '[]' değeri verilir.
+
+---
+Task ID: v2.9.87-transfer-profile-mini-fixture
+Agent: main (GLM)
+Task: İki sorun: (1) Transfer "Tüm Liglerden" kutusundaki oyunculara tıklayınca profil kartı açılsın, (2) Panel (dashboard) sekmesinin en tepesine 3 satırlık mini fikstür ekranı ekle — maç sekmesi kaldırılacak hazırlığı.
+
+Work Log:
+- Issue 1 analizi (transfer.tsx):
+  * "Pazar" sekmesinin altında "🏟️ Tüm Liglerden" kutusu (satır 341-369) — onClick setOfferModal çağırıyordu → direkt teklif modalı açılıyordu, profil atlanıyordu
+  * "allleagues" sub-tab'i (satır 205-247) — onClick setNegotiationModal çağırıyordu → direkt pazarlık modalı açılıyordu
+  * Her iki yerde de kullanıcı profil görmek istiyor ama kod direkt teklif/pazarlık açıyordu
+  * GlobalMarketToolbox (Küresel sekme) zaten doğru: onOpenProfile → setProfilePlayer
+
+- Issue 1 Fix:
+  * "Pazar" sekmesi "Tüm Liglerden" kutusu: onClick → setProfilePlayer(entry.player)
+    - Kullanıcı profili görür, profil içinde Actions tab'ından teklif yapabilir
+  * "allleagues" sub-tab: onClick → setProfilePlayer(item.player)
+    - Aynı şekilde profil önce, teklif profil içinden
+  * Her iki yere v2.9.87 FIX comment'i eklendi
+
+- Issue 2 analizi (dashboard.tsx):
+  * Mevcut dashboard sıralaması: Help button → Team summary → Inflation → Notifications → Stats → Recent matches → Next match → ...
+  * Kullanıcı maç sekmesini kaldıracak — oynanan maçları izlemek için panel'den erişim lazım
+  * "Recent matches" bölümü zaten var ama 4 maç gösteriyor, büyük, ortada
+  * İhtiyaç: panel'in EN TEPEsinde 3 satırlık kompakt fikstür — anlık erişim
+
+- Issue 2 Fix: MiniFixtureBar component
+  * src/components/touchline/screens/dashboard.tsx:
+    - Eye ikonu import edildi (lucide-react)
+    - MiniFixtureBar component'i eklendi (SectionTitle'dan sonra):
+      * Props: fixtures, team, clubs, seasonMatchday, onReplay, onTeamClick
+      * myFixtures: kullanıcının tüm fikstürleri (matchday sırasına göre)
+      * 3 satır stratejisi:
+        - Normal: 1 oynanmış (son) + 2 yaklaşan
+        - Sezon başı: 3 yaklaşan
+        - Sezon sonu: 3 oynanmış (en son 3)
+        - Yakın sonu (1 yaklaşan): 2 oynanmış + 1 yaklaşan
+      * Her satır: [Hf#] [Ev/Dep] [Rakip badge+isim] [Skor veya vs] [Eye ikonu oynanmışsa]
+      * Oynanmış satıra tıkla → onReplay (MatchReplayModal açar)
+      * Yaklaşan satıra tıkla → onTeamClick (TeamDetailModal açar)
+      * "Sıradaki" maç (matchday === seasonMatchday) primary renkle vurgulanır
+      * "▶ Sıra" etiketi ile bir sonraki maç belirtilir
+    - MiniFixtureBar dashboard return'ün EN BAŞINA eklendi (help button'dan önce)
+    - MatchReplayModal çağrısına storedEvents/storedMotmId/storedStats eklendi
+      (eski kod bunları geçmiyordu — re-simülasyon yapıyordu, şimdi stored events ile açılıyor)
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- Değişen dosyalar:
+  * src/components/touchline/screens/transfer.tsx (2 yerde setOfferModal/setNegotiationModal → setProfilePlayer)
+  * src/components/touchline/screens/dashboard.tsx (Eye import + MiniFixtureBar component + en tepeye yerleştir + replay storedEvents)
+- Behavior değişiklikleri:
+  1. Transfer "Pazar" sekmesinde "Tüm Liglerden" kutusunda oyuncuya tıklayınca profil açılır.
+     Profil içinde Actions tab'ından teklif/pazarlık yapılabilir.
+  2. Transfer "allleagues" sub-tab'inde de aynı şekilde profil açılır.
+  3. Dashboard'un en tepesinde 3 satırlık mini fikstür ekranı:
+     - Son oynanmış maç + 2 yaklaşan maç gösterilir
+     - Oynanmış satıra tıklayınca maç replay'i açılır (stored events ile — aynı spiker yorumları)
+     - Yaklaşan satıra tıklayınca rakip takım detay modal'ı açılır
+     - Sıradaki maç primary renkle vurgulanır, "▶ Sıra" etiketi
+  4. Dashboard replay modal artık stored events kullanıyor — re-simülasyon yok.
+- Maç sekmesi kaldırma hazırlığı:
+  * Mini fikstür bar ile kullanıcı oynanan maçlara anlık erişebilir
+  * Sıradaki maç bilgisi de bar içinde
+  * "Advance Round" butonu hala dashboard'da (satır ~540)
+  * Maç sekmesi tamamen kaldırıldığında, mini fikstür bar + advance butonu yeterli olacak

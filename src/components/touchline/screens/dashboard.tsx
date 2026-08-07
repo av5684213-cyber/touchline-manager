@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
+  Eye,
   Flame,
   Globe,
   Heart,
@@ -277,6 +278,18 @@ export function DashboardScreen() {
 
   return (
     <div className="px-4 py-4 space-y-4 pb-24">
+      {/* v2.9.87: Mini Fikstür Ekranı — panel'in en tepesinde, 3 satırlık.
+          Maç sekmesi kaldırılacak; kullanıcı oynanan maçları buradan izleyebilir.
+          1 oynanmış (replay) + 2 yaklaşan maç gösterilir. Sezon sonunda 3 oynanmış maç. */}
+      <MiniFixtureBar
+        fixtures={fixtures}
+        team={team}
+        clubs={clubs}
+        seasonMatchday={seasonMatchday}
+        onReplay={(f) => { haptic("light"); setDashboardReplay(f); }}
+        onTeamClick={(id) => { haptic("light"); setSelectedTeamId(id); }}
+      />
+
       {/* v2.9.58: Yardım butonu — oyunun amacı + sekmeler + arketip açıklaması */}
       <button
         onClick={() => { haptic("light"); setHelpModalOpen(true); }}
@@ -593,7 +606,7 @@ export function DashboardScreen() {
         />
       )}
 
-      {/* Dashboard maç izleme modal'ı */}
+      {/* Dashboard maç izleme modal'ı — v2.9.87: stored events ile açılır (mini fikstür'den gelenler dahil) */}
       {dashboardReplay && (() => {
         const home = clubs.find((c) => c.id === dashboardReplay.homeId);
         const away = clubs.find((c) => c.id === dashboardReplay.awayId);
@@ -605,6 +618,10 @@ export function DashboardScreen() {
             homeScore={dashboardReplay.homeScore ?? 0}
             awayScore={dashboardReplay.awayScore ?? 0}
             matchday={dashboardReplay.matchday}
+            // v2.9.87: Stored events — aynı maçı izlediğinde aynı spiker yorumları
+            storedEvents={dashboardReplay.events}
+            storedMotmId={dashboardReplay.motmId}
+            storedStats={dashboardReplay.stats}
             onClose={() => setDashboardReplay(null)}
           />
         );
@@ -641,6 +658,162 @@ function SectionTitle({
           {action} <ChevronRight size={12} />
         </button>
       )}
+    </div>
+  );
+}
+
+// v2.9.87: Mini Fikstür Ekranı — panel'in en tepesinde, 3 satırlık kompakt fikstür.
+// Maç sekmesi kaldırılınca kullanıcı oynanan maçları buradan izleyecek.
+// Strateji: 1 oynanmış (replay) + 2 yaklaşan. Sezon sonunda 3 oynanmış. Başlangıçta 3 yaklaşan.
+function MiniFixtureBar({
+  fixtures,
+  team,
+  clubs,
+  seasonMatchday,
+  onReplay,
+  onTeamClick,
+}: {
+  fixtures: any[];
+  team: any;
+  clubs: any[];
+  seasonMatchday: number;
+  onReplay: (f: any) => void;
+  onTeamClick: (id: string) => void;
+}) {
+  const myFixtures = useMemo(() => {
+    if (!team?.id) return [];
+    return fixtures
+      .filter((f) => f.homeId === team.id || f.awayId === team.id)
+      .sort((a, b) => a.matchday - b.matchday);
+  }, [fixtures, team?.id]);
+
+  // 3 satır oluştur: son oynanmış + 2 yaklaşan (veya durumuna göre doldur)
+  const rows = useMemo(() => {
+    const played = myFixtures.filter((f) => f.played);
+    const upcoming = myFixtures.filter((f) => !f.played);
+    const result: { fixture: any; played: boolean }[] = [];
+
+    // Son oynanmış maçı ekle (varsa)
+    if (played.length > 0) {
+      result.push({ fixture: played[played.length - 1], played: true });
+    }
+
+    // Yaklaşan maçları ekle (3 satıra kadar)
+    for (const u of upcoming) {
+      if (result.length >= 3) break;
+      result.push({ fixture: u, played: false });
+    }
+
+    // Hala 3'ten azsa, önceki oynanmışlardan ekle (geriye doğru)
+    let idx = played.length - 2;
+    while (result.length < 3 && idx >= 0) {
+      result.unshift({ fixture: played[idx], played: true });
+      idx--;
+    }
+
+    return result;
+  }, [myFixtures]);
+
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="tm-card overflow-hidden">
+      {/* Header */}
+      <div className="px-3 py-1.5 border-b border-border flex items-center justify-between bg-muted/30">
+        <div className="flex items-center gap-1.5">
+          <ListChecks size={12} className="text-muted-foreground" />
+          <span className="text-[11px] font-bold uppercase tracking-wide">
+            Fikstür
+          </span>
+        </div>
+        <span className="text-[10px] text-muted-foreground tabular-nums">
+          {team.shortName} · H{seasonMatchday}
+        </span>
+      </div>
+
+      {/* 3 satır */}
+      <div className="divide-y divide-border">
+        {rows.map(({ fixture: f, played }) => {
+          const isHome = f.homeId === team.id;
+          const oppId = isHome ? f.awayId : f.homeId;
+          const opp = clubs.find((c) => c.id === oppId);
+          const us = isHome ? f.homeScore : f.awayScore;
+          const them = isHome ? f.awayScore : f.homeScore;
+          const outcome = played
+            ? (us ?? 0) > (them ?? 0) ? "W" : (us ?? 0) < (them ?? 0) ? "L" : "D"
+            : null;
+          const isNext = !played && f.matchday === seasonMatchday;
+
+          return (
+            <button
+              key={f.id}
+              onClick={() => {
+                haptic("light");
+                if (played) {
+                  onReplay(f);
+                } else if (opp) {
+                  onTeamClick(opp.id);
+                }
+              }}
+              className={cn(
+                "tm-tap w-full flex items-center gap-2 py-2 px-3 text-left transition-colors",
+                "hover:bg-accent/30",
+                isNext && "bg-primary/5 border-l-2 border-primary"
+              )}
+            >
+              {/* Matchday */}
+              <div className="w-7 text-center shrink-0">
+                <div className="text-[9px] uppercase text-muted-foreground leading-none">Hf</div>
+                <div className={cn(
+                  "text-xs font-bold tabular-nums leading-tight",
+                  isNext && "text-primary"
+                )}>
+                  {f.matchday}
+                </div>
+              </div>
+
+              {/* Home/Away badge */}
+              <span className={cn(
+                "text-[10px] px-1 py-0.5 rounded font-bold shrink-0 w-7 text-center",
+                isHome ? "bg-emerald-500/20 text-emerald-300" : "bg-sky-500/20 text-sky-300"
+              )}>
+                {isHome ? "Ev" : "Dep"}
+              </span>
+
+              {/* Opponent */}
+              {opp ? (
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  <ClubBadge short={opp.shortName} primaryColor={opp.primaryColor} size={20} />
+                  <span className="text-xs font-semibold truncate">{opp.name}</span>
+                </div>
+              ) : (
+                <div className="flex-1 min-w-0 text-xs text-muted-foreground">—</div>
+              )}
+
+              {/* Score or vs */}
+              <div className="shrink-0 ml-auto flex items-center gap-1">
+                {played ? (
+                  <span className={cn(
+                    "text-sm font-bold tabular-nums",
+                    outcome === "W" ? "text-emerald-400"
+                    : outcome === "L" ? "text-red-400"
+                    : "text-amber-400"
+                  )}>
+                    {us}-{them}
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground font-bold uppercase">
+                    {isNext ? "▶ Sıra" : "vs"}
+                  </span>
+                )}
+                {played && (
+                  <Eye size={12} className="text-emerald-400 shrink-0" />
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

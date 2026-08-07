@@ -214,12 +214,14 @@ export function TransferScreen() {
             </div>
           )}
           <div className="tm-card divide-y divide-border">
+            {/* v2.9.87 FIX: Tüm Ligler tab'inde de oyuncuya tıklayınca profil aç.
+                Eski kod direkt negotiation modal açıyordu — profil modal atlanıyordu. */}
             {allClubPlayers.slice(0, 30).map((item) => {
               const posGroup = getPositionGroup(item.player.specificPosition);
               return (
                 <button
                   key={item.player.id}
-                  onClick={() => { haptic("light"); setNegotiationModal({ player: item.player, askingPrice: item.askingPrice }); }}
+                  onClick={() => { haptic("light"); setProfilePlayer(item.player); }}
                   className="tm-tap w-full flex items-center gap-2 p-2 text-left hover:bg-accent/30 transition-colors"
                 >
                   <ClubBadge short={item.teamShort} primaryColor={item.teamColor} size={32} />
@@ -349,10 +351,12 @@ export function TransferScreen() {
                   {t("transfer.no_other_league_players")}
                 </div>
               )}
+              {/* v2.9.87 FIX: "Tüm Liglerden" kutusunda oyuncuya tıklayınca profil açılır.
+                  Eski kod setOfferModal çağırıyordu — kullanıcı profil görmek istiyor. */}
               {allClubPlayers.slice(0, 20).map((entry) => (
                 <button
                   key={entry.player.id}
-                  onClick={() => { haptic("light"); setOfferModal(entry.player); }}
+                  onClick={() => { haptic("light"); setProfilePlayer(entry.player); }}
                   className="tm-tap w-full flex items-center gap-2 py-1.5 px-3 text-left hover:bg-accent/30 transition-colors"
                 >
                   <RatingBadge value={entry.player.rating} />
