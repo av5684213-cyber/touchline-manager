@@ -151,17 +151,26 @@ export function ForumScreen() {
         </p>
       </div>
 
-      {/* v2.9.47 Faz 2: Geliştirici Modu uyarısı */}
+      {/* v2.9.47 Faz 2: Geliştirici Modu uyarısı
+          v2.9.88 FIX (Madde 5): Production'da env var isimleri ifşa edilmiyor.
+          Eski kod: "Supabase bağlanmadığı için forum kullanılamaz. .env dosyasına
+          NEXT_PUBLIC_SUPABASE_URL ve ANON_KEY ekleyince aktif olur."
+          Bu mesaj son kullanıcıya teknik detay sızdırıyordu + güvenlik açısından riskli.
+          Yeni: NODE_ENV === 'development' ise detaylı mesaj, production'da generic "yakında". */}
       {!supabaseReady && (
         <div className="tm-card p-3 bg-amber-500/10 border-amber-500/30">
           <div className="flex items-start gap-2">
             <WifiOff size={14} className="text-amber-400 shrink-0 mt-0.5" />
             <div>
               <div className="text-[11px] font-bold text-amber-400 mb-0.5">
-                Forum Geliştirici Modu'nda devre dışı
+                {process.env.NODE_ENV === "development"
+                  ? "Forum Geliştirici Modu'nda devre dışı"
+                  : "Forum yakında aktif olacak"}
               </div>
               <p className="text-[10px] text-muted-foreground leading-relaxed">
-                Supabase bağlanmadığı için forum kullanılamaz. .env dosyasına NEXT_PUBLIC_SUPABASE_URL ve ANON_KEY ekleyince aktif olur.
+                {process.env.NODE_ENV === "development"
+                  ? "Supabase bağlanmadığı için forum kullanılamaz. .env dosyasına NEXT_PUBLIC_SUPABASE_URL ve ANON_KEY ekleyince aktif olur."
+                  : "Forum özelliği şu anda bakımda. En kısa sürede tekrar hizmetinizde olacak."}
               </p>
             </div>
           </div>

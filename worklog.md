@@ -4702,3 +4702,96 @@ Stage Summary:
   * Sıradaki maç bilgisi de bar içinde
   * "Advance Round" butonu hala dashboard'da (satır ~540)
   * Maç sekmesi tamamen kaldırıldığında, mini fikstür bar + advance butonu yeterli olacak
+
+---
+Task ID: v2.9.88-ui-ux-8-maddeler
+Agent: main (GLM)
+Task: 8 maddelik UI/UX ve veri tutarsızlığı sorunlarını düzeltme.
+
+Work Log:
+
+### Madde 1: Transfer filtre + görünüm toggle butonları üst üste binmesi
+- **Dosya:** src/components/touchline/screens/transfer.tsx (satır 257-306)
+- **Kök neden:** Filtre pill'leri ve görünüm toggle aynı flex satırında, `flex-1 + overflow-x-auto` + `shrink-0` toggle. Dar ekranlarda filtreler scroll etse bile toggle sabit kalıp pill'lerin üzerine biniyordu.
+- **Düzeltme:** İki elementi ayrı satırlara böldüm: `space-y-1.5` container + filtreler tam genişlikte yatay scroll + toggle alt satırda sağa yaslı (`w-fit ml-auto`).
+- **Test:** 360px dar ekran — "Tümü/Kaleci/Defans/Orta Saha/Forvet" pill'leri yatay scroll, toggle altta sağda, üst üste binme yok.
+
+### Madde 2: İstatistikler vs Başarılar sekmesi veri tutarsızlığı (KRİTİK)
+- **Dosya:** src/components/touchline/player-profile-modal.tsx
+- **Kök neden:** İki ayrı bug:
+  1. `generateFallbackHistory` Math.random() kullanıyordu → her çağrıda farklı sezon geçmişi üretiliyordu. StatsTab ve AchievementsTab her render'da ayrı çağırınca değerler farklı çıkıyordu (12 asist vs 9 asist).
+  2. StatsTab ve AchievementsTab ayrı reduce fonksiyonları yazıyordu, yellow/red için 0 başlangıç değeri kullanıyordu → bu sezonun canlı kartları (seasonStats.yellowCards) eksik kalıyordu.
+- **Düzeltme:**
+  1. `generateFallbackHistory` seeded rand kullanır hale getirildi (player.id bazlı) → aynı oyuncu için hep aynı değerler.
+  2. Ortak helper fonksiyonlar: `getSeasonHistory(player)` + `computeCareerTotals(player)`.
+  3. StatsTab ve AchievementsTab aynı helper'ı kullanır → değerler her zaman uyumlu.
+  4. `computeCareerTotals` yellow/red için `seasonStats.yellowCards/redCards`'ı başlangıç değerine ekler → bu sezon kartları dahil.
+  5. `CurrentSeasonCard` da `yellow = 0, red = 0` hardcoded yerine `seasonStats`'tan okur.
+- **Test:** Aynı oyuncu için İstatistikler ve Başarılar sekmeleri aynı kariyer toplamını gösterir. Sezon içinde kart görüldükçe her iki sekme de güncellenir.
+
+### Madde 3: Sezon geçmişi tablosu metin üst üste binmesi
+- **Dosya:** src/components/touchline/player-profile-modal.tsx (SeasonRow + başlık satırı)
+- **Kök neden:** Sezon yılı `w-9` (9px), lig kodu `w-4` (4px) çok dardı → "2025/26" ile "L Güç1961" üst üste biniyordu. gap `0.5` azdı.
+- **Düzeltme:**
+  - Sezon: `w-9` → `w-12` ("2025/26" sığar)
+  - Lig kodu: `w-4` → `w-6` + text-center
+  - Kulüp: `flex-1 min-w-0 truncate` (ellipsis ile kesilir)
+  - Font: `text-[11px]` → `text-[10px]`
+  - gap: `0.5` → `1`
+  - Rating: `w-6` → `w-7`
+  - Başlık satırı da aynı genişliklerle güncellendi.
+- **Test:** "2025/26  SL  Güç1961spor  18  5  3  2  0  7.2" — tüm hücreler sığar, truncate ile kulüp adı kesilir.
+
+### Madde 4 + 7: Başarılar sekmesi + Hızlı Bilgi alt nav'a biniyor
+- **Dosya:** src/components/touchline/player-profile-modal.tsx (satır 269-273)
+- **Kök neden:** Modal content scroll container `p-3` kullanıyordu → altta safe-area boşluğu yok → içerik ekranın altına kadar uzanıp sistem nav çubuğuna (gesture bar) biniyordu.
+- **Düzeltme:** `p-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]` — safe-area-inset-bottom + 16px ekstra boşluk. Bu hem Başarılar sekmesi (Madde 4) hem de Eylemler sekmesi "Hızlı Bilgi" (Madde 7) için geçerli — ikisi de aynı scroll container'ı kullanıyor.
+- **Test:** iOS/Android cihazlarda modal alt kenarında safe-area + 16px boşluk, içerik taşarsa scroll edilir.
+
+### Madde 5: Forum teknik hata mesajı kullanıcıya sızıyor
+- **Dosya:** src/components/touchline/screens/forum.tsx (satır 154-178)
+- **Kök neden:** `!supabaseReady` durumunda "Supabase bağlanmadığı için forum kullanılamaz. .env dosyasına NEXT_PUBLIC_SUPABASE_URL ve ANON_KEY ekleyince aktif olur." mesajı her ortamda gösteriliyordu → production'da env var isimleri ifşa ediliyordu (güvenlik + UX sorunu).
+- **Düzeltme:** `process.env.NODE_ENV === "development"` kontrolü eklendi:
+  - Dev: eski detaylı mesaj (debug amaçlı)
+  - Production: "Forum yakında aktif olacak" + "Forum özelliği şu anda bakımda. En kısa sürede tekrar hizmetinizde olacak."
+- **Supabase bağlantı durumu:** `.env` dosyasında `NEXT_PUBLIC_SUPABASE_URL` ve `NEXT_PUBLIC_SUPABASE_ANON_KEY` YOK — sadece `DATABASE_URL` var. Bu nedenle forum, match-chat, auth-gate gibi Supabase kullanan özellikler APK/production build'lerinde kapalı kalıyor. **Kullanıcı notu:** Bu değişkenleri `.env`'e eklemek gerekiyor (Supabase dashboard'dan alın).
+- **Test:** Production build'de forum mesajı generic, env var isimleri görünmez. Dev modunda hala detaylı mesaj görünür.
+
+### Madde 6: Alt nav'da fazladan "i" ikonu
+- **Dosya:** src/components/touchline/screen-help-button.tsx
+- **Kök neden:** `ScreenHelpButton` her ortamda render ediliyordu, `bottom-16 right-3` pozisyonu bottom nav'ın hemen üstünde → "Diğer" sekmesiyle çakışıyor gibi görünüyordu. Dashboard'ta zaten "Nasıl Oynanır?" help butonu var → floating FAB gereksiz.
+- **Düzeltme:** `if (process.env.NODE_ENV === "production") return null;` — production'da floating FAB gizlenir. Sadece development'ta gösterilir (debug amaçlı).
+- **Test:** Production build'de alt nav'da sadece 5 ana sekme + "Diğer", floating "i" butonu yok. Dev modunda hala görünür.
+
+### Madde 8: Kiralama ücreti %10 hesaplaması doğrula
+- **Dosya:** src/components/touchline/player-profile-modal.tsx (ActionsTab, satır 1524-1540 + 1854-1891)
+- **Kök neden:** `loanOfferFee = Math.round(player.marketValue * 0.1)` — sabit %10, hafta sayısından bağımsız. 12 haftalık kira için %10 ödeniyordu → sezon boyunca (34 hafta) %28 ödenir → transferden pahalı → kiralama anlamsız. Ayrıca store.ts'teki `minLoanFee = weeklyFee * weeks * 0.9` (weeklyFee = marketValue * 0.0021) ile uyumsuzdu — UI %10 gösteriyor ama bot %2.5 kabul ediyordu.
+- **Ek inceleme:** "Tahmini min. kira ücreti" göstergesi `marketValue * 0.02 * weeks` hesaplıyordu — bu da yanlış (store.ts 0.00189 kullanıyor).
+- **Düzeltme:**
+  1. `loanOfferFee` default: `marketValue * 0.0021 * 12` (≈%2.5) — store.ts minLoanFee ile uyumlu.
+  2. Slider weeks değişince fee otomatik orantılanır (`marketValue * 0.0021 * newWeeks`) — kullanıcı manuel fee değiştirmediyse.
+  3. Kullanıcı manuel fee değişikliği yaparsa `lastUserEditLoanFee` ref ile 5 saniye boyunca otomatik hesaplama devre dışı.
+  4. "Tahmini min ücret" göstergesi düzeltildi: `marketValue * 0.0021 * weeks * 0.9` (bot kabul eşiği) + `marketValue * 0.0021` (haftalık önerilen).
+- **Ekonomi dengesi:**
+  - 12 haftalık kira: marketValue * %2.5 (eskiden %10)
+  - 34 haftalık kira (tam sezon): marketValue * %7.1 (eskiden %10)
+  - Kalıcı transfer: marketValue * %100
+  - Kiralama artık transferden hesaplı → ekonomik olarak dengeli.
+- **Test:** 32.466.420 değerli oyuncu için 12 haftalık kira: 32.466.420 * 0.0021 * 12 = 818.156 (eskiden 3.246.642). Bot min eşiği: 818.156 * 0.9 = 736.340. Slider'ı 34 haftaya çekince fee otomatik 2.318.063 olur.
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- Değişen dosyalar:
+  * src/components/touchline/screens/transfer.tsx (Madde 1: filtre/toggle ayrı satır)
+  * src/components/touchline/player-profile-modal.tsx (Madde 2, 3, 4, 7, 8)
+    - getSeasonHistory + computeCareerTotals helper
+    - generateFallbackHistory seeded rand
+    - StatsTab + AchievementsTab ortak helper
+    - CurrentSeasonCard seasonStats'tan okur
+    - SeasonRow + başlık genişlikleri
+    - Modal scroll container safe-area padding
+    - loanOfferFee hesaplaması + auto-update on weeks change
+    - Min ücret göstergesi düzeltildi
+  * src/components/touchline/screens/forum.tsx (Madde 5: production'da generic mesaj)
+  * src/components/touchline/screen-help-button.tsx (Madde 6: production'da gizle)
+- **Önemli not (Supabase bağlantısı):** `.env` dosyasında NEXT_PUBLIC_SUPABASE_URL ve NEXT_PUBLIC_SUPABASE_ANON_KEY YOK. Forum/match-chat/auth-gate/cosmetics gibi Supabase kullanan özellikler APK/production build'lerinde kapalı kalıyor. Bu değişkenleri Supabase dashboard'dan alıp `.env`'e eklemek gerekiyor.

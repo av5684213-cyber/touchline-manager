@@ -8,6 +8,12 @@
  *
  * Ekran key'i SCREEN_HELP'te yoksa buton render edilmez.
  *
+ * v2.9.88 FIX (Madde 6): Production build'lerinde floating "i" butonu gizlenir.
+ * Eski kod her ortamda render ediyordu → kullanıcı bottom nav'daki "Diğer"
+ * sekmesiyle çakıştığını düşünüyordu (bottom-16 = nav'ın hemen üstünde).
+ * Dashboard'ta zaten "Nasıl Oynanır?" help butonu var → floating FAB gereksiz.
+ * Yeni: sadece development modunda göster (NODE_ENV !== 'production').
+ *
  * Kullanım:
  *   <ScreenHelpButton screen="dashboard" />
  *   <ScreenHelpButton screen={tab} />
@@ -26,10 +32,15 @@ export function ScreenHelpButton({ screen }: { screen: TabKey }) {
   // Bu ekran için yardım içeriği yoksa buton gösterme
   if (!sections || sections.length === 0) return null;
 
+  // v2.9.88: Production'da floating FAB gösterme — dashboard'ta zaten help butonu var.
+  // Sadece development'ta göster (debug amaçlı).
+  if (process.env.NODE_ENV === "production") return null;
+
   return (
     <>
       {/* Floating "i" button — bottom-right (above bottom nav), z-40
-          Mobile FAB pattern: doesn't overlap with top bar or content */}
+          Mobile FAB pattern: doesn't overlap with top bar or content
+          v2.9.88: Sadece dev modunda render edilir */}
       <button
         onClick={() => { haptic("light"); setOpen(true); }}
         className="tm-tap absolute bottom-16 right-3 z-40 w-8 h-8 rounded-full bg-sky-500/30 border border-sky-500/50 text-sky-300 flex items-center justify-center hover:bg-sky-500/40 transition-colors shadow-lg backdrop-blur-sm"

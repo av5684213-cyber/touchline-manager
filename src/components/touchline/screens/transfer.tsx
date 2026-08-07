@@ -254,9 +254,14 @@ export function TransferScreen() {
       {/* Market tab */}
       {sub === "market" && (
         <>
-          {/* Filter + Compact/Detaylı toggle */}
-          <div className="flex items-center gap-2">
-            <div className="flex gap-1.5 overflow-x-auto tm-no-scrollbar flex-1 pr-1">
+          {/* Filter + Compact/Detaylı toggle
+              v2.9.88 FIX (Madde 1): Filtre ve görünüm toggle ayrı satırlarda.
+              Eski kod flex-1 + overflow-x-auto kullanıyordu ama toggle'ı yanında tutmaya
+              çalışıyordu — dar ekranlarda toggle filtre pill'lerinin üzerine biniyordu.
+              Yeni: Filtreler kendi satırında tam genişlikte yatay scroll, toggle altta sağa yaslı. */}
+          <div className="space-y-1.5">
+            {/* Filtre pill'leri — tam genişlikte yatay scroll */}
+            <div className="flex gap-1.5 overflow-x-auto tm-no-scrollbar pb-0.5">
               {(["ALL", "GK", "DEF", "MID", "FWD"] as const).map((g) => (
                 <button
                   key={g}
@@ -273,8 +278,8 @@ export function TransferScreen() {
                 </button>
               ))}
             </div>
-            {/* v2.9.82: Compact/Detaylı görünüm toggle */}
-            <div className="flex items-center gap-0.5 shrink-0 bg-muted rounded-lg p-0.5">
+            {/* v2.9.82: Compact/Detaylı görünüm toggle — alt satırda sağa yaslı */}
+            <div className="flex items-center justify-end gap-0.5 shrink-0 bg-muted rounded-lg p-0.5 w-fit ml-auto">
               <button
                 onClick={() => { haptic("light"); setCompactView(true); }}
                 className={cn(

@@ -266,8 +266,11 @@ export function PlayerProfileModal({
           </button>
         </div>
 
-        {/* Content — scrollable */}
-        <div className="flex-1 overflow-y-auto tm-thin-scrollbar p-3">
+        {/* Content — scrollable
+            v2.9.88 FIX (Madde 4 + 7): safe-area-inset-bottom padding ekle.
+            Eski kod: p-3 → içerik ekranın altına kadar uzanıp sistem nav çubuğuna biniyordu.
+            Yeni: pb-[calc(env(safe-area-inset-bottom)+1rem)] → altta safe-area + 16px boşluk. */}
+        <div className="flex-1 overflow-y-auto tm-thin-scrollbar p-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
           {tab === "overview" && (
             <OverviewTab
               player={player}
@@ -647,27 +650,37 @@ function OverviewTab({
   );
 }
 
-// ===== İstatistikler sekmesi — kariyer sezon sezon =====
-function StatsTab({
-  player,
-  t,
-  locale,
-}: {
-  player: Player;
-  t: (key: string, params?: Record<string, string | number>) => string;
-  locale: Locale;
-}) {
-  const isGK = player.specificPosition === "GK";
-  // v2.9.44: AchievementsTab ile AYNI seasonHistory kaynağı — paralel olmalı
-  // StatsTab de aynı history'yi kullanır → başarılar ve geçmiş istatistikler uyumlu
-  const history: SeasonStat[] = player.seasonHistory ?? generateFallbackHistory(player);
-  const seasonHistory = history; // v2.9.44: alias — achievements ile aynı kaynak
-  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+// ===== v2.9.88 (Madde 2): Tek kaynak — kariyer toplamları hesaplayan ortak helper =====
+// StatsTab ve AchievementsTab aynı fonksiyonu kullanır → değerler her zaman uyumlu.
+// Mevcut sezonun canlı kart verisi (seasonStats.yellowCards/redCards) DA dahil edilir.
+// Eski kod yellow/red için sadece seasonHistory topluyordu → mevsim başındaki 0 ile
+// başlayıp sadece geçmiş sezonları ekliyordu, bu sezonun kartları eksik kalıyordu.
+export type CareerTotals = {
+  apps: number;
+  goals: number;
+  assists: number;
+  yellow: number;
+  red: number;
+  minutes: number;
+  right: number;
+  left: number;
+  head: number;
+  penalty: number;
+  freekick: number;
+};
 
-  // Kariyer toplamları — sezon geçmişi + BU SEZON gerçek stats
-  // v2.9.67 FIX: Bu sezonun gollerini de dahil et (yoksa 0 görünüyordu)
+export function getSeasonHistory(player: Player): SeasonStat[] {
+  return player.seasonHistory ?? generateFallbackHistory(player);
+}
+
+export function computeCareerTotals(player: Player): CareerTotals {
+  const history = getSeasonHistory(player);
   const currentBreakdown = computeGoalBreakdown(player);
-  const totals = history.reduce(
+  // Bu sezonun canlı kartları — p.seasonStats altında accumule ediliyor
+  const currentYellow = (player as any).seasonStats?.yellowCards ?? 0;
+  const currentRed = (player as any).seasonStats?.redCards ?? 0;
+  const currentMinutes = (player as any).seasonStats?.minutesPlayed ?? ((player.appearances ?? 0) * 80);
+  return history.reduce(
     (acc, s) => {
       acc.apps += s.appearances;
       acc.goals += s.goals;
@@ -686,7 +699,9 @@ function StatsTab({
       apps: player.appearances ?? 0,
       goals: player.goals ?? 0,
       assists: player.assists ?? 0,
-      yellow: 0, red: 0, minutes: 0,
+      yellow: currentYellow,
+      red: currentRed,
+      minutes: currentMinutes,
       right: currentBreakdown.right,
       left: currentBreakdown.left,
       head: currentBreakdown.head,
@@ -694,6 +709,26 @@ function StatsTab({
       freekick: currentBreakdown.freekick,
     }
   );
+}
+
+// ===== İstatistikler sekmesi — kariyer sezon sezon =====
+function StatsTab({
+  player,
+  t,
+  locale,
+}: {
+  player: Player;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  locale: Locale;
+}) {
+  const isGK = player.specificPosition === "GK";
+  // v2.9.88: Tek kaynak — getSeasonHistory + computeCareerTotals kullan
+  const history: SeasonStat[] = getSeasonHistory(player);
+  const seasonHistory = history; // alias — achievements ile aynı kaynak
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+
+  // v2.9.88: Kariyer toplamları — ortak helper kullan (AchievementsTab ile birebir aynı)
+  const totals = computeCareerTotals(player);
 
   // v2.9.67 FIX: history boşsa CurrentSeasonCard yine de göster
   if (history.length === 0) {
@@ -746,10 +781,11 @@ function StatsTab({
 
       {/* Sezon sezon listesi — kompakt tek satır */}
       <div className="space-y-0.5">
-        {/* Başlık satırı — sola yaslı, sıkışık */}
-        <div className="flex items-center gap-0.5 text-[11px] uppercase text-muted-foreground font-bold px-1">
-          <span className="shrink-0 w-9">Sezon</span>
-          <span className="shrink-0 w-4 text-center">L</span>
+        {/* Başlık satırı — sola yaslı, sıkışık
+            v2.9.88: SeasonRow genişlikleriyle EŞLEŞMELİ (w-12, w-6, w-4, w-7) */}
+        <div className="flex items-center gap-1 text-[10px] uppercase text-muted-foreground font-bold px-1.5">
+          <span className="shrink-0 w-12">Sezon</span>
+          <span className="shrink-0 w-6 text-center">L</span>
           <span className="flex-1 min-w-0">Kulüp</span>
           <span className="shrink-0 w-4 text-right">M</span>
           {!isGK ? (
@@ -765,7 +801,7 @@ function StatsTab({
           )}
           <span className="shrink-0 w-3 text-right">S</span>
           <span className="shrink-0 w-3 text-right">K</span>
-          <span className="shrink-0 w-6 text-right">Puan</span>
+          <span className="shrink-0 w-7 text-right">Puan</span>
         </div>
         {history.map((s, idx) => (
           <div key={`${s.season}-${idx}`}>
@@ -1022,11 +1058,12 @@ function CurrentSeasonCard({ player, locale }: { player: Player; locale: Locale 
   const breakdown = computeGoalBreakdown(player);
   const hasGoals = !isGK && goals > 0;
 
-  // Dakika tahmini (maç sayısı × ortalama 75 dk)
-  const minutes = (player.appearances ?? 0) * 75;
-  // Sarı/kırmızı kart canlı veri yok — 0 göster
-  const yellow = 0;
-  const red = 0;
+  // Dakika tahmini — seasonStats içinde accumule edilen gerçek değer varsa onu kullan
+  const minutes = (player as any).seasonStats?.minutesPlayed ?? ((player.appearances ?? 0) * 75);
+  // v2.9.88 FIX (Madde 2): Sarı/kırmızı kart canlı verisi seasonStats'tan oku.
+  // Eski kod "yellow = 0, red = 0" hardcoded → bu sezon kartları hiç gösterilmiyordu.
+  const yellow = (player as any).seasonStats?.yellowCards ?? 0;
+  const red = (player as any).seasonStats?.redCards ?? 0;
 
   const segments = [
     { label: "Sağ", value: breakdown.right, color: "bg-sky-500", text: "text-sky-400" },
@@ -1193,6 +1230,16 @@ function generateFallbackHistory(player: Player): SeasonStat[] {
   const freekickRate = isMid ? 0.08 : isAtt ? 0.05 : 0.02;
   const goalMult = arkMod.goals;
 
+  // v2.9.88 FIX (Madde 2): Deterministik seed — oyuncu ID'sine göre sabit.
+  // Eski kod Math.random() kullanıyordu → her çağrıda farklı sezon geçmişi üretiliyordu.
+  // StatsTab ve AchievementsTab her render'da ayrı çağırınca değerler farklı çıkıyordu.
+  // Yeni: seeded rand → aynı oyuncu için hep aynı değerler üretilir.
+  const seed = player.id.split("").reduce((s, c) => s + c.charCodeAt(0), 0);
+  const seededRand = (i: number, offset = 0) => {
+    const x = Math.sin(seed * 31 + i * 17 + offset * 13) * 10000;
+    return x - Math.floor(x);
+  };
+
   const seasons: SeasonStat[] = [];
   for (let i = 0; i < totalSeasons; i++) {
     const seasonAge = careerStartAge + i;
@@ -1204,15 +1251,15 @@ function generateFallbackHistory(player: Player): SeasonStat[] {
     const tierBoost = Math.floor((seasonAge - careerStartAge) / 4);
     const tier = Math.max(1, Math.min(4, baseTier - tierBoost));
 
-    const apps = Math.max(0, Math.round((player.appearances ?? 18) * perf * (0.7 + Math.random() * 0.6)));
+    const apps = Math.max(0, Math.round((player.appearances ?? 18) * perf * (0.7 + seededRand(i, 1) * 0.6)));
     const gMax = isGK ? 0 : isAtt ? 18 : isMid ? 8 : 3;
     const aMax = isGK ? 0 : isAtt ? 10 : isMid ? 12 : 5;
-    const goals = Math.round(Math.random() * gMax * perf * goalMult);
-    const assists = Math.round(Math.random() * aMax * perf);
+    const goals = Math.round(seededRand(i, 2) * gMax * perf * goalMult);
+    const assists = Math.round(seededRand(i, 3) * aMax * perf);
 
     // Gol türü dağılımı
-    let goalsPenalty = Math.round(goals * penaltyRate * (0.5 + Math.random()));
-    let goalsFreekick = Math.round(goals * freekickRate * (0.3 + Math.random()));
+    let goalsPenalty = Math.round(goals * penaltyRate * (0.5 + seededRand(i, 4)));
+    let goalsFreekick = Math.round(goals * freekickRate * (0.3 + seededRand(i, 5)));
     const setPieces = Math.min(goalsPenalty + goalsFreekick, goals);
     goalsPenalty = Math.min(goalsPenalty, setPieces);
     goalsFreekick = setPieces - goalsPenalty;
@@ -1226,14 +1273,17 @@ function generateFallbackHistory(player: Player): SeasonStat[] {
     if (goalsRight < 0) { goalsLeft += goalsRight; goalsRight = 0; }
     if (goalsLeft < 0) { goalsHead += goalsLeft; goalsLeft = 0; }
 
-    const yellowCards = Math.round(Math.random() * 8 * perf);
-    const redCards = Math.random() < 0.15 ? 1 : 0;
-    const avgRating = Math.max(4.5, Math.min(9.5, Math.round((5.8 + Math.random() * 2.5 + (player.rating - 60) * 0.02) * 10) / 10));
-    const minutesPlayed = apps * Math.round(60 + Math.random() * 30);
+    const yellowCards = Math.round(seededRand(i, 6) * 8 * perf);
+    const redCards = seededRand(i, 7) < 0.15 ? 1 : 0;
+    const avgRating = Math.max(4.5, Math.min(9.5, Math.round((5.8 + seededRand(i, 8) * 2.5 + (player.rating - 60) * 0.02) * 10) / 10));
+    const minutesPlayed = apps * Math.round(60 + seededRand(i, 9) * 30);
+
+    // Kulüp adı da deterministik — FALLBACK_CLUBS'dan seeded index seç
+    const clubIdx = Math.floor(seededRand(i, 10) * FALLBACK_CLUBS.length) % FALLBACK_CLUBS.length;
 
     seasons.push({
       season: `${startYear}/${String(startYear + 1).slice(-2)}`,
-      club: FALLBACK_CLUBS[Math.floor(Math.random() * FALLBACK_CLUBS.length)],
+      club: FALLBACK_CLUBS[clubIdx],
       leagueTier: tier,
       appearances: apps,
       goals,
@@ -1279,22 +1329,29 @@ function SeasonRow({
   // Sadece gol atan saha oyuncuları genişletilebilir
   const canExpand = !isGK && season.goals > 0;
 
+  // v2.9.88 FIX (Madde 3): Sezon yılı "2025/26" + lig kodu + kulüp adı dar ekranlarda
+  // üst üste biniyordu. Çözüm:
+  // 1. Sezon yılı w-12 (9px → 12px daha geniş)
+  // 2. Lig kodu w-6 + text-center (w-4 çok dardı)
+  // 3. Kulüp adı: min-w-0 + truncate + flex-1 (ellipsis ile kesilir)
+  // 4. Font boyutu text-[10px]'e düşürüldü (11px→10px)
+  // 5. Satır gap'i 0.5'ten 1'e çıkarıldı
   return (
     <button
       type="button"
       onClick={canExpand ? onToggle : undefined}
       disabled={!canExpand}
       className={cn(
-        "tm-card px-1 py-1 flex items-center gap-0.5 text-[11px] w-full text-left transition-colors",
+        "tm-card px-1.5 py-1 flex items-center gap-1 text-[10px] w-full text-left transition-colors",
         canExpand && "tm-tap hover:bg-accent/50",
         expanded && "bg-amber-500/5 border-amber-500/30"
       )}
     >
-      {/* Sezon */}
-      <span className="font-bold tabular-nums shrink-0 w-9">{season.season}</span>
-      {/* Lig kodu */}
-      <span className={cn("font-bold shrink-0 w-4 text-center", tierColor)}>{tierLabel}</span>
-      {/* Kulüp — esnek genişlik */}
+      {/* Sezon — 12px genişlik, "2025/26" sığar */}
+      <span className="font-bold tabular-nums shrink-0 w-12">{season.season}</span>
+      {/* Lig kodu — 6px genişlik + center */}
+      <span className={cn("font-bold shrink-0 w-6 text-center", tierColor)}>{tierLabel}</span>
+      {/* Kulüp — esnek genişlik + truncate (ellipsis ile kesilir, taşma yok) */}
       <span className="text-muted-foreground truncate flex-1 min-w-0">{season.club}</span>
       {/* Stats — sabit genişlik */}
       <span className="text-sky-400 font-bold tabular-nums shrink-0 w-4 text-right">{season.appearances}</span>
@@ -1313,7 +1370,7 @@ function SeasonRow({
       )}
       <span className="text-yellow-400 font-bold tabular-nums shrink-0 w-3 text-right">{season.yellowCards}</span>
       <span className="text-red-400 font-bold tabular-nums shrink-0 w-3 text-right">{season.redCards}</span>
-      <span className={cn("font-bold tabular-nums shrink-0 w-6 text-right", ratingColor)}>{season.avgRating.toFixed(1)}</span>
+      <span className={cn("font-bold tabular-nums shrink-0 w-7 text-right", ratingColor)}>{season.avgRating.toFixed(1)}</span>
     </button>
   );
 }
@@ -1465,8 +1522,22 @@ function ActionsTab({
   const [offerYears, setOfferYears] = useState(3);
 
   // Kiralama teklifi state (başka takımın oyuncusu için)
-  const [loanOfferFee, setLoanOfferFee] = useState(Math.round(player.marketValue * 0.1));
-  const [loanOfferWeeks, setLoanOfferWeeks] = useState(12);
+  // v2.9.88 FIX (Madde 8): Kiralama ücreti hesaplaması düzeltildi.
+  // Eski kod: loanOfferFee = marketValue * 0.1 (sabit %10, hafta sayısından bağımsız)
+  //   → 12 haftalık kira için %10 ödeniyordu → sezon boyunca (34 hafta) %28 ödenir
+  //   → transferden pahalı → kiralama anlamsız.
+  // Yeni: loanOfferFee = weeklyFee * defaultWeeks
+  //   weeklyFee = marketValue * 0.0021 (günlük 0.0003 × 7 gün, store.ts makeLoanOffer ile uyumlu)
+  //   12 hafta için: marketValue * 0.0252 (≈%2.5) — minLoanFee formülüyle birebir uyumlu.
+  //   Bu sayede kiralama transferden hesaplı olur (12 hafta %2.5 vs kalıcı transfer %100).
+  const DEFAULT_LOAN_WEEKS = 12;
+  const [loanOfferFee, setLoanOfferFee] = useState(Math.round(player.marketValue * 0.0021 * DEFAULT_LOAN_WEEKS));
+  const [loanOfferWeeks, setLoanOfferWeeks] = useState(DEFAULT_LOAN_WEEKS);
+
+  // v2.9.88: weeks değişince fee'yi otomatik yeniden hesapla (kullanıcı manuel değiştirmediyse)
+  // — minLoanFee = weeklyFee * weeks * 0.9 olduğu için, weeks değişince fee de orantılı değişmeli
+  const loanOfferFeeSeed = useRef(Math.round(player.marketValue * 0.0021 * DEFAULT_LOAN_WEEKS));
+  const lastUserEditLoanFee = useRef<number | null>(null);
 
   const isListed = transfer.myListedPlayers.some((l) => l.playerId === player.id);
   // v2.9.67: Kendi oyuncum mu? — myTeam.players VE youthAcademy.players kontrol et
@@ -1764,17 +1835,17 @@ function ActionsTab({
               <div className="text-[10px] text-muted-foreground mb-1">Toplam Kira Ücreti (€)</div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setLoanOfferFee(Math.max(0, loanOfferFee - 25000))}
+                  onClick={() => { lastUserEditLoanFee.current = Date.now(); setLoanOfferFee(Math.max(0, loanOfferFee - 25000)); }}
                   className="tm-tap w-7 h-7 rounded-md border border-border text-sm font-bold"
                 >−</button>
                 <input
                   type="number"
                   value={loanOfferFee}
-                  onChange={(e) => setLoanOfferFee(Number(e.target.value))}
+                  onChange={(e) => { lastUserEditLoanFee.current = Date.now(); setLoanOfferFee(Number(e.target.value)); }}
                   className="flex-1 bg-card border border-border rounded-md px-2 py-1 text-xs font-bold tabular-nums text-center"
                 />
                 <button
-                  onClick={() => setLoanOfferFee(loanOfferFee + 25000)}
+                  onClick={() => { lastUserEditLoanFee.current = Date.now(); setLoanOfferFee(loanOfferFee + 25000); }}
                   className="tm-tap w-7 h-7 rounded-md border border-border text-sm font-bold"
                 >+</button>
               </div>
@@ -1788,16 +1859,34 @@ function ActionsTab({
                 min={4}
                 max={34}
                 value={loanOfferWeeks}
-                onChange={(e) => setLoanOfferWeeks(Number(e.target.value))}
+                onChange={(e) => {
+                  const newWeeks = Number(e.target.value);
+                  setLoanOfferWeeks(newWeeks);
+                  // v2.9.88: Kullanıcı fee'yi manuel değiştirmediyse, weeks değişince
+                  // fee'yi orantılı olarak yeniden hesapla (weeklyFee * newWeeks).
+                  // Kullanıcı manuel fee değişikliği yaptıysa (lastUserEdit recent),
+                  // otomatik hesaplama yapma — kullanıcının değeri korunsun.
+                  const recentEdit = lastUserEditLoanFee.current && (Date.now() - lastUserEditLoanFee.current < 5000);
+                  if (!recentEdit) {
+                    setLoanOfferFee(Math.round(player.marketValue * 0.0021 * newWeeks));
+                  }
+                }}
                 className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-muted accent-primary tm-tap"
               />
             </div>
 
-            {/* Tahmini min ücret bilgisi */}
+            {/* Tahmini min ücret bilgisi
+                v2.9.88: store.ts makeLoanOffer ile BİREBİR uyumlu hesapla.
+                Eski kod: marketValue * 0.02 * weeks → yanlış (store.ts 0.0003*7*0.9 = 0.00189 kullanıyor).
+                Yeni: weeklyFee = marketValue * 0.0021, minLoanFee = weeklyFee * weeks * 0.9. */}
             <div className="mb-2 p-2 bg-muted/30 rounded text-[10px]">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Tahmini min. kira ücreti</span>
-                <span className="font-bold tabular-nums">{formatEuro(Math.round(player.marketValue * 0.02 * loanOfferWeeks), locale)}</span>
+                <span className="text-muted-foreground">Min. kira ücreti (bot kabul eşiği)</span>
+                <span className="font-bold tabular-nums">{formatEuro(Math.round(player.marketValue * 0.0021 * loanOfferWeeks * 0.9), locale)}</span>
+              </div>
+              <div className="flex justify-between mt-0.5">
+                <span className="text-muted-foreground">Haftalık kira (önerilen)</span>
+                <span className="font-semibold tabular-nums">{formatEuro(Math.round(player.marketValue * 0.0021), locale)}</span>
               </div>
             </div>
 
@@ -2704,41 +2793,12 @@ function AchievementsTab({
   t: (key: string, params?: Record<string, string | number>) => string;
   locale: Locale;
 }) {
-  // v2.9.44: AchievementsTab ile AYNI veri kaynağı — player.seasonHistory veya generateFallbackHistory
-  const seasonHistory = player.seasonHistory ?? generateFallbackHistory(player);
-
-  // v2.9.67 FIX: Bu sezonun gol dağılımını da hesapla — kariyer toplamıyla uyumlu olsun
-  const currentBreakdown = computeGoalBreakdown(player);
-
-  // Kariyer toplamları — sezon geçmişi + bu sezon gerçek stats (player.goals vb.)
-  const totals = seasonHistory.reduce(
-    (acc, s) => {
-      acc.apps += s.appearances;
-      acc.goals += s.goals;
-      acc.assists += s.assists;
-      acc.yellow += s.yellowCards;
-      acc.red += s.redCards;
-      acc.minutes += s.minutesPlayed;
-      acc.right += s.goalsRight ?? 0;
-      acc.left += s.goalsLeft ?? 0;
-      acc.head += s.goalsHead ?? 0;
-      acc.penalty += s.goalsPenalty ?? 0;
-      acc.freekick += s.goalsFreekick ?? 0;
-      return acc;
-    },
-    {
-      apps: player.appearances ?? 0,
-      goals: player.goals ?? 0,
-      assists: player.assists ?? 0,
-      yellow: 0, red: 0, minutes: 0,
-      // v2.9.67: Bu sezonun gol dağılımını başlangıç değerine ekle
-      right: currentBreakdown.right,
-      left: currentBreakdown.left,
-      head: currentBreakdown.head,
-      penalty: currentBreakdown.penalty,
-      freekick: currentBreakdown.freekick,
-    }
-  );
+  // v2.9.88: Tek kaynak — StatsTab ile BİREBİR aynı helper'ı kullan.
+  // Eski kod ayrı reduce yazıyordu + yellow/red için 0 başlangıç değeri kullanıyordu,
+  // bu sezonun canlı kartları (seasonStats.yellowCards) eksik kalıyordu.
+  // Yeni: computeCareerTotals her iki sekmede de aynı sonucu verir.
+  const seasonHistory = getSeasonHistory(player);
+  const totals = computeCareerTotals(player);
 
   // v2.9.67 FIX: totals zaten bu sezonu içeriyor (başlangıç değerinde) — çift sayma yok
   const careerGoals = totals.goals;
