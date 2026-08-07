@@ -677,13 +677,30 @@ function FriendlyLiveView({
       {/* İstatistik sekmesi — v2.9.57: Resmi maçlar gibi detaylı (goller, kartlar, MOTM, istatistikler) */}
       {matchTab === "stats" && (
         <div className="space-y-2">
-          {/* Maç istatistikleri */}
+          {/* Maç istatistikleri — v2.9.91: Resmi maç kadar detaylı */}
           <div className="tm-card p-3 space-y-2">
             <div className="text-[10px] text-muted-foreground uppercase font-bold mb-1">İstatistikler</div>
             <SimpleStatBar label="Topla Oynama %" home={s.stats?.possession?.[0] ?? 50} away={s.stats?.possession?.[1] ?? 50} />
             <SimpleStatBar label="İsabetli Şut" home={s.stats?.shotsOnTarget?.[0] ?? 0} away={s.stats?.shotsOnTarget?.[1] ?? 0} />
             <SimpleStatBar label="Korner" home={s.stats?.corners?.[0] ?? 0} away={s.stats?.corners?.[1] ?? 0} />
             <SimpleStatBar label="Faul" home={s.stats?.fouls?.[0] ?? 0} away={s.stats?.fouls?.[1] ?? 0} />
+            {/* v2.9.91: Ek istatistikler — event'lerden hesapla */}
+            {(() => {
+              const events = s.events || [];
+              const homeShots = events.filter((e: any) => (e.type === "shot_saved" || e.type === "shot_wide" || e.type === "shot_post" || e.type === "goal") && (e.team === "home" || e.teamSide === "home")).length;
+              const awayShots = events.filter((e: any) => (e.type === "shot_saved" || e.type === "shot_wide" || e.type === "shot_post" || e.type === "goal") && (e.team === "away" || e.teamSide === "away")).length;
+              const homeSaves = events.filter((e: any) => (e.type === "shot_saved" || e.type === "save") && (e.team === "away" || e.teamSide === "away")).length;
+              const awaySaves = events.filter((e: any) => (e.type === "shot_saved" || e.type === "save") && (e.team === "home" || e.teamSide === "home")).length;
+              const homeOffside = events.filter((e: any) => e.type === "offside" && (e.team === "home" || e.teamSide === "home")).length;
+              const awayOffside = events.filter((e: any) => e.type === "offside" && (e.team === "away" || e.teamSide === "away")).length;
+              return (
+                <>
+                  <SimpleStatBar label="Toplam Şut" home={homeShots} away={awayShots} />
+                  <SimpleStatBar label="Kurtarış" home={homeSaves} away={awaySaves} />
+                  <SimpleStatBar label="Ofsayt" home={homeOffside} away={awayOffside} />
+                </>
+              );
+            })()}
           </div>
 
           {/* Goller — resmi maçlar gibi gol scorers listesi */}

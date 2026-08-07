@@ -3,9 +3,12 @@
 import { useEffect, useState } from "react";
 import { Check, Trophy, TrendingDown, TrendingUp, X, Sparkles, PartyPopper, ArrowRight } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
+import { useAppStore } from "@/lib/store";
 import type { SeasonSummary } from "@/lib/store";
+import type { Player } from "@/lib/mock/data";
 import { cn } from "@/lib/utils";
 import { haptic, useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline";
+import { PlayerProfileModal } from "./player-profile-modal";
 
 type Phase = "champion_celebration" | "summary" | "awards" | "ready";
 
@@ -19,6 +22,7 @@ export function SeasonEndModal({
   const { t } = useI18n();
   const [phase, setPhase] = useState<Phase>(summary.finalPosition === 1 ? "champion_celebration" : "summary");
   const [awardIndex, setAwardIndex] = useState(0);
+  const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
   useEscapeToClose(onClose);
   useBodyScrollLock(true);
 
@@ -206,8 +210,16 @@ export function SeasonEndModal({
               <div className="space-y-1.5 max-h-[200px] overflow-y-auto tm-thin-scrollbar">
                 {summary.statGains.map((player, i) => {
                   const totalGain = player.gains.reduce((s, g) => s + g.delta, 0);
+                  // v2.9.91: Oyuncuya tıklayınca profil aç
+                  const fullPlayer = useAppStore.getState().clubs
+                    .flatMap(c => c.players)
+                    .find(p => `${p.firstName} ${p.lastName}` === player.name);
                   return (
-                    <div key={i} className="text-[11px] tm-card p-2 bg-emerald-500/5">
+                    <button
+                      key={i}
+                      onClick={() => { haptic("light"); if (fullPlayer) setProfilePlayer(fullPlayer); }}
+                      className="tm-tap w-full text-[11px] tm-card p-2 bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors text-left"
+                    >
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-foreground truncate">{player.name}</span>
                         <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold tabular-nums">
@@ -221,7 +233,7 @@ export function SeasonEndModal({
                           </span>
                         ))}
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -356,12 +368,29 @@ export function SeasonEndModal({
             </p>
           )}
 
-          {/* v2.9.77: Futbolcu ismi — açıklamanın ALTINDA */}
+          {/* v2.9.91: Futbolcu ismi — tıklanabilir, profil aç */}
           <div className="mb-5">
             <div className="text-[10px] uppercase tracking-wider text-white/50 mb-1">Kazanan</div>
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm">
-              <span className="text-sm font-bold text-white">{award.playerName}</span>
-            </div>
+            {(() => {
+              const fullPlayer = useAppStore.getState().clubs
+                .flatMap(c => c.players)
+                .find(p => `${p.firstName} ${p.lastName}` === award.playerName);
+              if (fullPlayer) {
+                return (
+                  <button
+                    onClick={() => { haptic("light"); setProfilePlayer(fullPlayer); }}
+                    className="tm-tap inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm hover:bg-white/20 transition-colors"
+                  >
+                    <span className="text-sm font-bold text-white">{award.playerName}</span>
+                  </button>
+                );
+              }
+              return (
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm">
+                  <span className="text-sm font-bold text-white">{award.playerName}</span>
+                </div>
+              );
+            })()}
           </div>
 
           {/* İlerleme göstergesi */}
@@ -443,6 +472,15 @@ export function SeasonEndModal({
           <Sparkles size={14} /> Yeni Sezona Başla
         </button>
       </div>
+
+      {/* v2.9.91: Oyuncu profil modal'ı — statGains ve statue'lerden tıklanınca açılır */}
+      {profilePlayer && (
+        <PlayerProfileModal
+          player={profilePlayer}
+          teamColor="#1a3a2a"
+          onClose={() => setProfilePlayer(null)}
+        />
+      )}
     </div>
   );
 }
