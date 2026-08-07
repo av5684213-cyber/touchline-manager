@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { Trophy, Loader2, Play } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
+import { TeamDetailModal } from "./team-detail-modal";
+import type { Team } from "@/lib/mock/data";
 
 /**
  * v2.9.41: Şampiyonlar Ligi Paneli.
@@ -17,6 +20,33 @@ export function ChampionsLeaguePanel() {
   const cl = useAppStore((s) => s.championsLeague);
   const playChampionsLeagueRound = useAppStore((s) => s.playChampionsLeagueRound);
   const myTeamId = useAppStore((s) => s.myTeamId);
+  const clubs = useAppStore((s) => s.clubs);
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+
+  // v2.9.93: CL katılımcısı takım ID'sinden gerçek Team objesi bul
+  const findTeam = (teamId: string): Team | null => {
+    // Önce kullanıcın clubs'ında ara
+    const fromClubs = clubs.find(c => c.id === teamId);
+    if (fromClubs) return fromClubs;
+    // CL participant'tan takım üret (bot takımlar için minimal info)
+    const p = cl.participants.find(pp => pp.teamId === teamId);
+    if (p) {
+      return {
+        id: p.teamId,
+        name: p.teamName,
+        shortName: p.teamShort,
+        primaryColor: p.teamColor,
+        secondaryColor: "#ffffff",
+        leagueTier: (p.tier ?? 1) as any,
+        department: 1 as any,
+        players: [],
+        budget: 0,
+        stadiumCapacity: 0,
+        stadiumName: "",
+      } as any;
+    }
+    return null;
+  };
 
   if (!cl.active && !cl.champion) {
     return (
@@ -33,16 +63,32 @@ export function ChampionsLeaguePanel() {
   // Şampiyon
   if (cl.champion) {
     const champ = cl.participants.find(p => p.teamId === cl.champion);
+    const champTeam = findTeam(cl.champion);
     return (
+      <>
       <div className="tm-card p-4 text-center bg-amber-500/10 border-amber-500/30">
         <Trophy size={32} className="text-amber-400 mx-auto mb-2" />
         <p className="text-sm font-bold text-amber-300">🏆 Şampiyonlar Ligi Şampiyonu</p>
-        <p className="text-base font-bold mt-1">{champ?.teamName ?? "Bilinmiyor"}</p>
+        <button
+          onClick={() => { haptic("light"); if (champTeam) setSelectedTeam(champTeam); }}
+          className="tm-tap text-base font-bold mt-1 hover:text-primary hover:underline"
+        >
+          {champ?.teamName ?? "Bilinmiyor"}
+        </button>
         <div className="flex items-center justify-center gap-1 mt-1">
           {champ && <div className="w-4 h-4 rounded-sm" style={{ background: champ.teamColor }} />}
           <span className="text-[10px] text-muted-foreground">{champ?.teamShort}</span>
         </div>
       </div>
+      {selectedTeam && (
+        <TeamDetailModal
+          team={selectedTeam}
+          isMyTeam={selectedTeam.id === myTeamId}
+          onClose={() => setSelectedTeam(null)}
+          onMessage={() => setSelectedTeam(null)}
+        />
+      )}
+      </>
     );
   }
 
@@ -124,11 +170,14 @@ export function ChampionsLeaguePanel() {
                   isByeMatch && "opacity-60"
                 )}
               >
-                {/* Home */}
+                {/* Home — tıklanabilir */}
                 <div className="flex-1 flex items-center gap-1.5 justify-end">
-                  <span className={cn("text-[11px] font-semibold truncate", m.winnerId === m.homeId && "text-emerald-400 font-bold")}>
+                  <button
+                    onClick={() => { haptic("light"); const t = findTeam(m.homeId); if (t) setSelectedTeam(t); }}
+                    className={cn("text-[11px] font-semibold truncate tm-tap hover:text-primary hover:underline", m.winnerId === m.homeId && "text-emerald-400 font-bold")}
+                  >
                     {m.homeShort}
-                  </span>
+                  </button>
                   {m.homeColor && <div className="w-4 h-4 rounded-sm shrink-0" style={{ background: m.homeColor }} />}
                 </div>
                 {/* Score */}
@@ -137,12 +186,15 @@ export function ChampionsLeaguePanel() {
                     <span className="text-[9px] text-muted-foreground">BAY</span>
                   ) : m.played ? `${m.homeScore} - ${m.awayScore}` : "- : -"}
                 </div>
-                {/* Away */}
+                {/* Away — tıklanabilir */}
                 <div className="flex-1 flex items-center gap-1.5">
                   {m.awayColor && <div className="w-4 h-4 rounded-sm shrink-0" style={{ background: m.awayColor }} />}
-                  <span className={cn("text-[11px] font-semibold truncate", m.winnerId === m.awayId && "text-emerald-400 font-bold")}>
+                  <button
+                    onClick={() => { haptic("light"); const t = findTeam(m.awayId); if (t) setSelectedTeam(t); }}
+                    className={cn("text-[11px] font-semibold truncate tm-tap hover:text-primary hover:underline", m.winnerId === m.awayId && "text-emerald-400 font-bold")}
+                  >
                     {m.awayShort}
-                  </span>
+                  </button>
                 </div>
                 {isMyMatch && (
                   <span className="text-[8px] px-1 py-0.5 rounded bg-primary text-primary-foreground font-bold shrink-0">
@@ -172,6 +224,16 @@ export function ChampionsLeaguePanel() {
             ))}
           </div>
         </details>
+      )}
+
+      {/* v2.9.93: Takım detay modal'ı — CL takımlarına tıklanınca açılır */}
+      {selectedTeam && (
+        <TeamDetailModal
+          team={selectedTeam}
+          isMyTeam={selectedTeam.id === myTeamId}
+          onClose={() => setSelectedTeam(null)}
+          onMessage={() => setSelectedTeam(null)}
+        />
       )}
     </div>
   );
