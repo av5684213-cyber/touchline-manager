@@ -315,15 +315,17 @@ export function TrainingScreen() {
         </div>
       )}
 
-      {/* Last session results */}
+      {/* Last session results
+          v2.9.89 (Madde C): Maksimum ilk 3 oyuncu göster — ekran görüntüsündeki gibi
+          uzun listeler ekranı kaplıyordu. Geri kalanlar için "+N oyuncu daha" özeti. */}
       {training.lastSessionResults.length > 0 && (
         <div className="tm-card p-3">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp size={14} className="text-emerald-600" />
             <span className="text-xs font-bold">{t("training.results.title")}</span>
           </div>
-          <div className="max-h-40 overflow-y-auto tm-thin-scrollbar space-y-1.5">
-            {training.lastSessionResults.map((r) => {
+          <div className="space-y-1.5">
+            {training.lastSessionResults.slice(0, 3).map((r) => {
               const player = team.players.find((p) => p.id === r.playerId);
               const program = TRAINING_PROGRAMS.find((p) => p.id === r.programId);
               if (!player) return null;
@@ -367,6 +369,12 @@ export function TrainingScreen() {
                 </div>
               );
             })}
+            {/* v2.9.89: 3'ten fazla oyuncu varsa özet göster */}
+            {training.lastSessionResults.length > 3 && (
+              <div className="text-center text-[10px] text-muted-foreground py-1">
+                +{training.lastSessionResults.length - 3} oyuncu daha antrenman yaptı
+              </div>
+            )}
           </div>
         </div>
       )}

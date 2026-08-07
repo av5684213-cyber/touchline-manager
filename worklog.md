@@ -4795,3 +4795,70 @@ Stage Summary:
   * src/components/touchline/screens/forum.tsx (Madde 5: production'da generic mesaj)
   * src/components/touchline/screen-help-button.tsx (Madde 6: production'da gizle)
 - **Önemli not (Supabase bağlantısı):** `.env` dosyasında NEXT_PUBLIC_SUPABASE_URL ve NEXT_PUBLIC_SUPABASE_ANON_KEY YOK. Forum/match-chat/auth-gate/cosmetics gibi Supabase kullanan özellikler APK/production build'lerinde kapalı kalıyor. Bu değişkenleri Supabase dashboard'dan alıp `.env`'e eklemek gerekiyor.
+
+---
+Task ID: v2.9.89-season-end-awards-top3
+Agent: main (GLM)
+Task: Üç görev: (A) Sezon sonu kartında oyuncu gelişimleri kutusundaki futbolcuları tıklanabilir yap, (B) Altın Krampon ödülünün 2. ve 3.'sünün adını bul/düzelt, (C) Ekran görüntüsündeki gibi gelişim kutularında maksimum ilk 3 hâneyi göster.
+
+Work Log:
+
+### Madde A: Sezon sonu kartı — oyuncu gelişimleri tıklanabilir
+- **Dosya:** src/components/touchline/season-end-modal.tsx (satır 204-255) + src/lib/store.ts (statGains tipi)
+- **Kök neden:** Modal'da `fullPlayer` lookup `${p.firstName} ${p.lastName}` === `player.name` ile yapılıyordu — name-match kırılgan. İsim değişirse, oyuncu transfer olursa, veya sezon sonu sonra satılırsa lookup fail olur → tıklama çalışmaz.
+- **Düzeltme:**
+  1. `SeasonSummary.statGains` tipine `playerId?: string` alanı eklendi.
+  2. `endSeason` hesabında `statGains.push({ name, playerId: p.id, gains })` — ID de toplanır.
+  3. Modal'da lookup önce `playerId` ile, fallback olarak name-match ile yapılır.
+- **Test:** Sezon sonu modalında "Oyuncu Gelişimleri" kutusundaki bir oyuncuya tıkla → profil modal açılır.
+
+### Madde B: Altın Krampon ödülünün 2. ve 3.'sünün adı
+- **Bulguları:**
+  - `golden_boot` ödülü `AWARD_CATEGORIES`'de `trName: "Altın Krampon"` olarak tanımlı.
+  - `awardTop3` fonksiyonu ilk 3 oyuncuya sırayla `gold`, `silver`, `bronze` tier verir.
+  - **Eski davranış:** Tüm 3 tier da aynı `trName` ("Altın Krampon") gösteriliyordu — sadece "ALTIN STATUE" / "GÜMÜŞ STATUE" / "BRONZ STATUE" rozeti fark ediyordu. Yani 2.'ye "Altın Krampon GÜMÜŞ" deniyordu → mantıksız.
+- **Cevap (eski sistemde):**
+  - 1. = "Altın Krampon" (ALTIN)
+  - 2. = "Altın Krampon" (GÜMÜŞ) — **aynı isim, sadece tier rozeti farklı**
+  - 3. = "Altın Krampon" (BRONZ) — **aynı isim, sadece tier rozeti farklı**
+- **Düzeltme:** `getAwardDisplayName(key, tier, locale)` helper fonksiyonu eklendi (src/lib/award-system.ts):
+  - "Altın X" formatı → tier'a göre "Gümüş X" / "Bronz X"
+    - golden_boot: Altın/Gümüş/Bronz Krampon
+    - golden_glove: Altın/Gümüş/Bronz Eldiven
+  - "X Kralı" formatı → orijinal ad + parantez içinde tier
+    - cup_top_scorer: "Kupa Gol Kralı" / "Kupa Gol Kralı (Gümüş)" / "Kupa Gol Kralı (Bronz)"
+  - Diğer ödüller → orijinal ad + parantez içinde tier
+  - Gold tier her zaman orijinal ad (değişiklik yok)
+- **Kullanım:** season-end-modal.tsx (statue gösterimi) + player-profile-modal.tsx (ödül vitrini) — her ikisi de `getAwardDisplayName` kullanır.
+- **Yeni davranış:**
+  - 1. = "Altın Krampon" (ALTIN)
+  - 2. = "Gümüş Krampon" (GÜMÜŞ) ✅
+  - 3. = "Bronz Krampon" (BRONZ) ✅
+- **Test:** Sezon sonu statue gösteriminde 2. ve 3. oyuncuların ödül adları doğru tier'a göre görünür. Oyuncu profilinde "Ödül Vitrini"nde de aynı.
+
+### Madde C: Gelişim kutularında maksimum ilk 3 hâneyi göster
+- **Ekran görüntüsü analizi:** VLM ile Screenshot_20260808_014822.jpg incelendi. "Hazırlık" (Training) ekranında oyuncu listesi, her oyuncuda `+1.6999999999999957` gibi floating point form artışları. 11 oyuncu listelenmiş.
+- **Kullanıcı isteği:** "bu tür yerlerde maksimum ilk 3 hâneyi göster" — yani gelişim kutularında (sezon sonu + training results) maksimum 3 oyuncu göster, gerisini özetle.
+- **Düzeltme:**
+  1. **src/components/touchline/season-end-modal.tsx** — "Oyuncu Gelişimleri" kutusu:
+     - Eski: `max-h-[200px] overflow-y-auto` + tüm oyuncuları map
+     - Yeni: `summary.statGains.slice(0, 3)` — sadece ilk 3 oyuncu
+     - 3'ten fazla varsa: `+N oyuncu daha gelişti` özeti
+  2. **src/components/touchline/screens/training.tsx** — "Last session results" kutusu:
+     - Eski: `max-h-40 overflow-y-auto` + tüm oyuncuları map
+     - Yeni: `training.lastSessionResults.slice(0, 3)` — sadece ilk 3 oyuncu
+     - 3'ten fazla varsa: `+N oyuncu daha antrenman yaptı` özeti
+- **Test:** Training ekranında 11 oyuncu antrenman yapmışsa, "Last session results" kutusunda ilk 3 + "+8 oyuncu daha antrenman yaptı" görünür. Sezon sonu modalında 5 oyuncu gelişmişse, ilk 3 + "+2 oyuncu daha gelişti" görünür.
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- Değişen dosyalar:
+  * src/lib/store.ts (SeasonSummary.statGains tipine playerId eklendi, hesaplamada toplanır)
+  * src/lib/award-system.ts (getAwardDisplayName helper fonksiyonu)
+  * src/components/touchline/season-end-modal.tsx (Madde A + B + C — tıklanabilir + tier adı + ilk 3)
+  * src/components/touchline/player-profile-modal.tsx (Madde B — ödül vitrini tier adı)
+  * src/components/touchline/screens/training.tsx (Madde C — last session results ilk 3)
+- Behavior değişiklikleri:
+  1. Sezon sonu "Oyuncu Gelişimleri" kutusunda oyunculara tıklanınca profil açılır (playerId ile sağlam lookup).
+  2. Ödül adları tier'a göre doğru gösterilir: Altın/Gümüş/Bronz Krampon (eskiden hepsi "Altın Krampon" idi).
+  3. Gelişim kutularında maksimum 3 oyuncu + "+N oyuncu daha" özeti.

@@ -211,6 +211,55 @@ export function tierToRank(tier: AwardTier): number {
 }
 
 /**
+ * v2.9.89 (Madde B): Ödül adını tier'a göre döndür.
+ *
+ * Eski sistemde tüm tier'lar aynı trName'i kullanıyordu:
+ *   golden_boot: "Altın Krampon" → 1., 2. VE 3. hep "Altın Krampon" gösteriliyordu.
+ *   Sadece "GÜMÜŞ STATUE" / "BRONZ STATUE" rozeti fark ediyordu → mantıksız.
+ *
+ * Yeni sistem:
+ *   - "Altın X" formatındaki ödüller → tier'a göre "Gümüş X" / "Bronz X"
+ *     (golden_boot → Altın/Gümüş/Bronz Krampon)
+ *     (golden_glove → Altın/Gümüş/Bronz Eldiven)
+ *   - "X Kralı" formatındaki ödüller → tier rozeti parantez içinde
+ *     (cup_top_scorer → "Kupa Gol Kralı", "Kupa Gol Kralı (Gümüş)", "Kupa Gol Kralı (Bronz)")
+ *   - Diğer ödüller → orijinal ad + parantez içinde tier (silver/bronze için)
+ *
+ * Gold tier her zaman orijinal adı döner (değişiklik yok).
+ */
+export function getAwardDisplayName(key: string, tier: AwardTier, locale: "tr" | "en" = "tr"): string {
+  const migratedKey = AWARD_MIGRATION_MAP[key] ?? key;
+  const category = AWARD_CATEGORIES[migratedKey as AwardKey];
+  if (!category) return key;
+
+  const name = locale === "tr" ? category.trName : category.enName;
+
+  // Gold tier → orijinal ad (değişiklik yok)
+  if (tier === "gold") return name;
+
+  // "Altın X" / "Golden X" formatı → tier'a göre değiştir
+  if (locale === "tr") {
+    if (name.startsWith("Altın ")) {
+      const rest = name.slice(6); // "Altın " sonrası
+      if (tier === "silver") return `Gümüş ${rest}`;
+      if (tier === "bronze") return `Bronz ${rest}`;
+    }
+  } else {
+    if (name.startsWith("Golden ")) {
+      const rest = name.slice(7); // "Golden " sonrası
+      if (tier === "silver") return `Silver ${rest}`;
+      if (tier === "bronze") return `Bronze ${rest}`;
+    }
+  }
+
+  // Diğer ödüller → orijinal ad + parantez içinde tier etiketi
+  const tierLabel = locale === "tr"
+    ? (tier === "silver" ? "Gümüş" : "Bronz")
+    : (tier === "silver" ? "Silver" : "Bronze");
+  return `${name} (${tierLabel})`;
+}
+
+/**
  * Market value çarpanı — sadece en yüksek tier uygulanır (kümülatif değil)
  */
 export const AWARD_MARKET_VALUE_MULT: Record<AwardTier, number> = {

@@ -474,7 +474,9 @@ export type SeasonSummary = {
   topScorer: { name: string; goals: number } | null;
   retiredPlayers: string[];
   newRegens: number;
-  statGains?: Array<{ name: string; gains: Array<{ stat: string; delta: number }> }>;
+  // v2.9.89: playerId eklendi — sezon sonu modalında oyuncuya tıklanınca profil açılır.
+  // Eski kod name-match ile lookup yapıyordu (kırılgan: isim değişirse/Transfer olursa çalışmaz).
+  statGains?: Array<{ name: string; playerId?: string; gains: Array<{ stat: string; delta: number }> }>;
   // v2.9.76: Kullanıcının takımının kazandığı ödüller
   // v2.9.77: awardDesc eklendi (statue açıklaması modal'da gösterilir)
   playerAwards?: Array<{ playerName: string; awardKey: string; tier: string; awardName: string; awardDesc?: string }>;
@@ -4617,7 +4619,8 @@ export const useAppStore = create<AppState>()(
         // Eski kod "pace" ve "physical" arıyordu — bu stat'lar top-level değil stats.* altında,
         // bu yüzden delta yanlış hesaplanıyordu. Yeni kod tüm SEASON_START_STAT_KEYS'i kullanır.
         const seasonStart = get().seasonStartStats ?? {};
-        const statGains: Array<{ name: string; gains: Array<{ stat: string; delta: number }> }> = [];
+        // v2.9.89: playerId ekle — sezon sonu modal'da tıklanınca profil açılır
+        const statGains: Array<{ name: string; playerId?: string; gains: Array<{ stat: string; delta: number }> }> = [];
         for (const p of team.players) {
           const start = seasonStart[p.id];
           if (!start) continue;
@@ -4640,7 +4643,7 @@ export const useAppStore = create<AppState>()(
             if (delta > 0) gains.push({ stat: key, delta });
           }
           if (gains.length > 0) {
-            statGains.push({ name: `${p.firstName} ${p.lastName}`, gains });
+            statGains.push({ name: `${p.firstName} ${p.lastName}`, playerId: p.id, gains });
           }
         }
 

@@ -6,6 +6,8 @@ import { X, User, Upload, ArrowLeftRight, Banknote, Wand2, Crown, Check } from "
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { POSITION_GROUP, ARKETIPLER, type Player, type SeasonStat, type SeasonAward } from "@/lib/mock/data";
 import { AWARD_CATEGORIES, getAwardImagePath, AWARD_MIGRATION_MAP, type AwardTier } from "@/lib/award-system";
+// v2.9.89 (Madde B): Ödül adını tier'a göre göster — Altın/Gümüş/Bronz Krampon
+import { getAwardDisplayName } from "@/lib/award-system";
 import { TIER_TEAM_NAMES, TEAM_NAME_BANK } from "@/lib/match/engine/constants";
 import { getArketipEtkiOzet, getOvrFactorPercent } from "@/lib/match/engine/arketipEffects";
 // v2.9.75: Trait level renkleri için (MOR/ALTIN/LACIVERT/BEYAZ)
@@ -3016,7 +3018,10 @@ function AchievementsTab({
               {sorted.map((a, i) => {
                 const cat = AWARD_CATEGORIES[a.awardType as keyof typeof AWARD_CATEGORIES];
                 const imgPath = getAwardImagePath(a.awardType, a.tier as AwardTier);
-                const name = cat ? (locale === "en" ? cat.enName : cat.trName) : (EMOJI_FALLBACK[a.awardType]?.label ?? a.awardType);
+                // v2.9.89: Ödül adını tier'a göre göster (Altın/Gümüş/Bronz Krampon)
+                const name = cat
+                  ? getAwardDisplayName(a.awardType, a.tier as AwardTier, locale)
+                  : (EMOJI_FALLBACK[a.awardType]?.label ?? a.awardType);
                 const desc = cat ? (locale === "en" ? cat.enDesc : cat.trDesc) : "";
                 const tierLabel = TIER_LABEL[a.tier as string] ?? "";
                 const tierEmoji = TIER_EMOJI[a.tier as string] ?? "";

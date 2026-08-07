@@ -9,6 +9,8 @@ import type { Player } from "@/lib/mock/data";
 import { cn } from "@/lib/utils";
 import { haptic, useBodyScrollLock, useEscapeToClose } from "@/hooks/touchline";
 import { PlayerProfileModal } from "./player-profile-modal";
+// v2.9.89 (Madde B): Ödül adını tier'a göre göster — Altın/Gümüş/Bronz Krampon
+import { getAwardDisplayName } from "@/lib/award-system";
 
 type Phase = "champion_celebration" | "summary" | "awards" | "ready";
 
@@ -201,19 +203,27 @@ export function SeasonEndModal({
             </div>
           )}
 
-          {/* v2.9.77: OVR artışları — futbolcuların sezon boyunca gelişimi */}
+          {/* v2.9.77: OVR artışları — futbolcuların sezon boyunca gelişimi
+              v2.9.89 FIX (Madde A): Oyunculara tıklanınca profil açılır (playerId ile lookup).
+                Eski kod name-match ile lookup yapıyordu → isim değişirse/transfer olursa çalışmıyordu.
+              v2.9.89 (Madde C): Maksimum ilk 3 oyuncu göster — ekran görüntüsündeki gibi
+                uzun listeler ekranı kaplıyordu. Geri kalanlar için "+N oyuncu daha" özeti. */}
           {summary.statGains && summary.statGains.length > 0 && (
             <div className="tm-card p-2.5 mb-3">
               <div className="text-[10px] text-muted-foreground uppercase mb-2 flex items-center gap-1">
                 <TrendingUp size={11} className="text-emerald-400" /> Oyuncu Gelişimleri (OVR Artışları)
               </div>
-              <div className="space-y-1.5 max-h-[200px] overflow-y-auto tm-thin-scrollbar">
-                {summary.statGains.map((player, i) => {
+              <div className="space-y-1.5">
+                {summary.statGains.slice(0, 3).map((player, i) => {
                   const totalGain = player.gains.reduce((s, g) => s + g.delta, 0);
-                  // v2.9.91: Oyuncuya tıklayınca profil aç
-                  const fullPlayer = useAppStore.getState().clubs
-                    .flatMap(c => c.players)
-                    .find(p => `${p.firstName} ${p.lastName}` === player.name);
+                  // v2.9.89: playerId ile lookup (name-match yerine) — daha sağlam
+                  const fullPlayer = player.playerId
+                    ? useAppStore.getState().clubs
+                        .flatMap(c => c.players)
+                        .find(p => p.id === player.playerId)
+                    : useAppStore.getState().clubs
+                        .flatMap(c => c.players)
+                        .find(p => `${p.firstName} ${p.lastName}` === player.name);
                   return (
                     <button
                       key={i}
@@ -236,6 +246,12 @@ export function SeasonEndModal({
                     </button>
                   );
                 })}
+                {/* v2.9.89: 3'ten fazla oyuncu varsa özet göster */}
+                {summary.statGains.length > 3 && (
+                  <div className="text-center text-[10px] text-muted-foreground py-1">
+                    +{summary.statGains.length - 3} oyuncu daha gelişti
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -338,7 +354,7 @@ export function SeasonEndModal({
               )} />
               <img
                 src={`./awards/award_${award.awardKey}_${award.tier}.webp`}
-                alt={award.awardName}
+                alt={getAwardDisplayName(award.awardKey, award.tier as any, "tr")}
                 className="relative w-48 h-48 object-contain drop-shadow-2xl z-10"
                 onError={(e) => {
                   // Görsel yüklenemezse büyük emoji göster
@@ -356,9 +372,11 @@ export function SeasonEndModal({
             </div>
           </div>
 
-          {/* Ödül adı — BÜYÜK */}
+          {/* Ödül adı — BÜYÜK
+              v2.9.89 (Madde B): Tier'a göre göster — Altın/Gümüş/Bronz Krampon
+              Eski kod: her tier için aynı "Altın Krampon" gösteriyordu → mantıksız. */}
           <h2 className={cn("text-2xl font-black mb-2 drop-shadow-lg", tierTextColor)}>
-            {award.awardName}
+            {getAwardDisplayName(award.awardKey, award.tier as any, "tr")}
           </h2>
 
           {/* v2.9.77: Açıklama — statue fotoğrafının ALTINDA */}
