@@ -152,8 +152,10 @@ export function calculatePlayerValue(player: Player, seasonPerformanceModifier?:
 
   // v2.9.76: Ödül çarpanı — en yüksek sezon tier + en yüksek milestone tier AYRI AYRI uygulanır
   // Sezon ödülü: gold=%12, silver=%6, bronze=%3 (en yüksek tek bir sezon ödülü)
-  // Milestone ödülü: gold=%6, silver=%3, bronze=%1 (en yüksek tek bir milestone ödülü)
-  // İki grup ayrı çarpanlar — kümülatif DEĞİL, her gruptan en yüksek tier
+  // v2.9.95: Ödül çarpanı — her ödül eforu değer artırır
+  // Sezon ödülü: gold=%12, silver=%6, bronze=%3 (en yüksek tek bir)
+  // Milestone: gold=%6, silver=%3, bronze=%1
+  // v2.9.95: Ek olarak her ödül +%1 (efor bazlı — çok ödül = çok değer)
   let awardMult = 1.0;
   try {
     const awards = (player as any).seasonAwards as any[] | undefined;
@@ -180,9 +182,10 @@ export function calculatePlayerValue(player: Player, seasonPerformanceModifier?:
         }
       }
 
-      // En yüksek sezon ödülü + en yüksek milestone ödülü (ikisi ayrı çarpanlar)
       if (bestSeasonTier) awardMult *= SEASON_MULT[bestSeasonTier] ?? 1.0;
       if (bestMilestoneTier) awardMult *= MILESTONE_MULT[bestMilestoneTier] ?? 1.0;
+      // v2.9.95: Her ek ödül için +%1 (efor bazlı)
+      awardMult *= 1 + (awards.length * 0.01);
     }
   } catch { /* seasonAwards yoksa 1.0 kalır */ }
 

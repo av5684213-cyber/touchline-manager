@@ -3459,9 +3459,9 @@ export const useAppStore = create<AppState>()(
               if (myClub) {
                 const updatedPlayers = myClub.players.map(p => {
                   const ageMult = p.age < 21 ? 1.3 : p.age > 30 ? 0.5 : 1.0;
-                  const gain = Math.random() * 0.3 * ageMult; // v2.9.50: 0-0.3 (eskiden 0-1.0 — çok hızlı gelişim)
+                  const gain = Math.random() * 0.3 * ageMult;
                   const newStats = { ...p.stats };
-                  // P0 FIX: Pozisyona uygun stats seç — rastgele DEĞİL
+                  // Pozisyona uygun stats
                   const posStats: Record<string, [keyof typeof newStats, keyof typeof newStats]> = {
                     GK: ["defending", "physical"],
                     CB: ["defending", "physical"],
@@ -3482,11 +3482,14 @@ export const useAppStore = create<AppState>()(
                   const [stat1, stat2] = posStats[p.specificPosition] ?? ["passing", "dribbling"];
                   newStats[stat1] = Math.min(99, Math.round((newStats[stat1] + gain) * 10) / 10);
                   newStats[stat2] = Math.min(99, Math.round((newStats[stat2] + gain * 0.5) * 10) / 10);
-                  // v2.9.85 FIX: Rating'i stats'ın ortalamasından RECALCULATE ETME!
-                  // Eski kod: (pace+shooting+passing+defending+physical+dribbling)/6 yapıyordu
-                  // Ama generateStats spread/boost ile stats üretiyor → ortalama OVR'dan farklı
-                  // → training sonrası rating DÜŞÜYORDU (45→38 gibi).
-                  // Yeni: rating'i sadece küçük miktar artır (gain * 0.3) — stats'la recalculate etme.
+                  // v2.9.95: Pozisyon DIŞI minik stat artışı — diğer 4 stat'a %10 ihtimalle küçük gain
+                  const allStatKeys = ["pace", "shooting", "passing", "defending", "physical", "dribbling"] as const;
+                  for (const sk of allStatKeys) {
+                    if (sk !== stat1 && sk !== stat2 && Math.random() < 0.10) {
+                      const sideGain = Math.random() * 0.08 * ageMult;
+                      newStats[sk] = Math.min(99, Math.round((newStats[sk] + sideGain) * 10) / 10);
+                    }
+                  }
                   const newRating = Math.min(99, Math.round((p.rating + gain * 0.3) * 10) / 10);
                   return {
                     ...p,

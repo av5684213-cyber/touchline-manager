@@ -42,7 +42,8 @@ export function PlayerProfileModal({
 }) {
   const { t, locale } = useI18n();
   const [tab, setTab] = useState<Tab>("overview");
-  const [photo, setPhoto] = useState<string | null>(null);
+  // v2.9.95: Fotoğrafı playerProp.photoUrl'den yükle (kalıcı) — reactivePlayer henüz tanımlı değil
+  const [photo, setPhoto] = useState<string | null>(playerProp.photoUrl ?? null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [arkModal, setArkModal] = useState<string | null>(null);
   const [photoFeedback, setPhotoFeedback] = useState<string | null>(null);
@@ -96,18 +97,17 @@ export function PlayerProfileModal({
   const isGK = player.specificPosition === "GK";
 
   // v2.9.12: Fotoğraf yükleme 2 kredi ücretli
+  // v2.9.95: Fotoğraf artık kalıcı — player.photoUrl'a kaydedilir
   const onPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Kredi kontrolü
     if (credits < 2) {
       haptic("error");
       setPhotoFeedback("✗ Yetersiz kredi! Fotoğraf yüklemek için 2 kredi gerek.");
       setTimeout(() => setPhotoFeedback(null), 3000);
-      e.target.value = ""; // input'u sıfırla
+      e.target.value = "";
       return;
     }
-    // Kredi harca
     const ok = spendCredits(2);
     if (!ok) {
       haptic("error");
@@ -117,7 +117,15 @@ export function PlayerProfileModal({
     }
     const reader = new FileReader();
     reader.onload = () => {
-      setPhoto(reader.result as string);
+      const photoData = reader.result as string;
+      setPhoto(photoData);
+      // v2.9.95: Kalıcı kaydet — store'daki tüm kulüplerin oyuncularını güncelle
+      const allClubs = useAppStore.getState().clubs;
+      const updatedClubs = allClubs.map(c => ({
+        ...c,
+        players: c.players.map(p => p.id === player.id ? { ...p, photoUrl: photoData } : p),
+      }));
+      useAppStore.setState({ clubs: updatedClubs });
       haptic("success");
       setPhotoFeedback("✓ Fotoğraf yüklendi! 2 kredi harcandı.");
       setTimeout(() => setPhotoFeedback(null), 2500);

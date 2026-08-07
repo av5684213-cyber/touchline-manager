@@ -607,6 +607,19 @@ export function MatchChatPanel({
       )}
 
       {/* Input */}
+      {/* v2.9.95: Hızlı smiley butonları */}
+      <div className="flex gap-1 mb-1 flex-wrap">
+        {["👍", "❤️", "😂", "🔥", "👏", "💪", "⚽", "🎉", "😮", "😢"].map((emoji) => (
+          <button
+            key={emoji}
+            onClick={() => { haptic("light"); sendMessage(emoji); }}
+            disabled={!connected}
+            className="tm-tap text-base px-1.5 py-0.5 rounded-md bg-muted/50 hover:bg-muted transition-colors disabled:opacity-30"
+          >
+            {emoji}
+          </button>
+        ))}
+      </div>
       <div className="flex gap-1.5">
         <input
           type="text"

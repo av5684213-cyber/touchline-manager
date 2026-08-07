@@ -264,6 +264,8 @@ export type Player = {
     remaining_days: number;
     severity: number;
   };
+  // v2.9.95: Oyuncu fotoğrafı — kullanıcı yükleyebilir (kalıcı)
+  photoUrl?: string | null;
 };
 
 // ── Kariyer sezon istatistiği ──────────────────────────
