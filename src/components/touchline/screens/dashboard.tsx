@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bell,
+  Camera,
   ChevronDown,
   ChevronRight,
   Clock,
@@ -367,8 +368,8 @@ export function DashboardScreen() {
       {/* Mesajlar kutusu — TALİMAT: yeni kutu olarak eklendi */}
       <MessagesBox />
 
-      {/* Hoşgeldin kartı */}
-      <WelcomeBanner teamName={team.name} />
+      {/* v2.9.90: Takım başlığı — logo + isim + lig bilgisi */}
+      <TeamHeaderBar team={team} />
 
       {/* v2.9.78: Kulüp Kupa Vitrini — takım kupaları varsa yatay şerit olarak gösterilir.
           trophies boşsa (henüz kupa yok) component hiç render edilmez. */}
@@ -986,6 +987,83 @@ function InfoBadge({ text }: { text: string }) {
 
 // ===== Tanıtıcı hoşgeldin kartı =====
 // v2.9.80 FIX: dismissed state'i localStorage'a yaz — sayfa yenilenince geri gelmesin.
+// v2.9.90: Takım başlığı — logo + takım ismi + lig bilgisi
+function TeamHeaderBar({ team }: { team: any }) {
+  const { t, locale } = useI18n();
+  const clubs = useAppStore((s) => s.clubs);
+  const myTeamId = useAppStore((s) => s.myTeamId);
+  const logoRef = useRef<HTMLInputElement>(null);
+  const LEAGUE_NAMES: Record<number, string> = { 1: "Süper Lig", 2: "1. Lig", 3: "2. Lig", 4: "3. Lig", 5: "Amatör Lig" };
+
+  const onLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const logoData = reader.result as string;
+      const updatedClubs = clubs.map(c =>
+        c.id === myTeamId ? { ...c, logoUrl: logoData } : c
+      );
+      useAppStore.setState({ clubs: updatedClubs });
+      haptic("success");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  if (!team) return null;
+
+  return (
+    <div
+      className="tm-card p-3 flex items-center gap-3"
+      style={{ background: `linear-gradient(135deg, ${team.primaryColor}22 0%, transparent 100%)` }}
+    >
+      {/* Logo yükleme — tıklanabilir */}
+      <div className="relative shrink-0">
+        <button
+          onClick={() => { haptic("light"); logoRef.current?.click(); }}
+          className={cn(
+            "w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center border-2 border-white/20 transition-all",
+            "tm-tap hover:border-white/40"
+          )}
+          style={{ background: team.secondaryColor || "#fff" }}
+        >
+          {team.logoUrl ? (
+            <img src={team.logoUrl} alt="logo" className="w-full h-full object-cover" />
+          ) : (
+            <ClubBadge short={team.shortName} primaryColor={team.primaryColor} size={36} />
+          )}
+        </button>
+        <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary border-2 border-white flex items-center justify-center">
+          <Camera size={10} className="text-white" />
+        </div>
+        <input
+          ref={logoRef}
+          type="file"
+          accept="image/*"
+          onChange={onLogoUpload}
+          className="hidden"
+        />
+      </div>
+
+      {/* Takım ismi + lig */}
+      <div className="flex-1 min-w-0">
+        <div className="text-base font-bold truncate">{team.name}</div>
+        <div className="text-[11px] text-muted-foreground">
+          {LEAGUE_NAMES[team.leagueTier ?? 2] ?? "Lig"} · {team.stadiumName ?? ""}
+        </div>
+      </div>
+
+      {/* Bütçe özeti */}
+      <div className="text-right shrink-0">
+        <div className="text-[10px] text-muted-foreground">Bütçe</div>
+        <div className="text-sm font-bold text-emerald-400 tabular-nums">
+          {formatEuro(team.budget, locale)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function WelcomeBanner({ teamName }: { teamName: string }) {
   const { t } = useI18n();
   const [dismissed, setDismissed] = useState(() => {

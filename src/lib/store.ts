@@ -4364,7 +4364,69 @@ export const useAppStore = create<AppState>()(
         // Bye'lar dahil — en yakın 2'nin kuvvetine tamamlanır
         // Çok sezon sürebilir (her boşluk Çarşambası 1 tur oynanır)
         const clFirstRound = generateFirstRoundMatches(clParticipants);
-        const clMatches: ChampionsLeagueState["matches"] = clFirstRound.matches;
+        let clMatches: ChampionsLeagueState["matches"] = clFirstRound.matches;
+
+        // v2.9.90 FIX: CL turlarını OTOMATİK oyna — kullanıcı manuel oynamak zorunda değil.
+        // Eski kod: CL aktif kalıyor → advanceMatchday bloklanıyordu → 2. sezon oynanamıyordu.
+        // Yeni: endSeason içinde tüm CL turları simüle edilir, şampiyon belirlenir, CL kapanır.
+        let clCurrentRound = clParticipants.length >= 4 ? 1 : 0;
+        let clChampion: string | undefined;
+        const pickXIFast = (players: any[]) =>
+          [...players].filter((p) => isPlayerAvailable(p)).sort((a, b) => b.rating - a.rating).slice(0, 11);
+        const maxCLRounds = 10; // güvenlik limiti
+        let clRoundCount = 0;
+        while (clCurrentRound > 0 && !clChampion && clRoundCount < maxCLRounds) {
+          clRoundCount++;
+          const roundMatches = clMatches.filter(m => m.round === clCurrentRound && !m.played);
+          if (roundMatches.length === 0) {
+            // Sonraki tur veya şampiyon
+            const winners = clMatches
+              .filter(m => m.round === clCurrentRound && m.played)
+              .map(m => m.winnerId!)
+              .filter(Boolean);
+            if (winners.length <= 1) {
+              clChampion = winners[0];
+              break;
+            }
+            const nextRound = clCurrentRound + 1;
+            const newMatches = generateNextRoundMatches(winners, clParticipants, nextRound);
+            clMatches = [...clMatches, ...newMatches];
+            clCurrentRound = nextRound;
+            continue;
+          }
+          // Bu turun maçlarını oyna (bot vs bot — basit sim)
+          clMatches = clMatches.map(m => {
+            if (m.round !== clCurrentRound || m.played) return m;
+            // Basit OVR bazlı sim (kullanıcı maçı yok — sadece botlar)
+            const homeP = clParticipants.find(p => p.teamId === m.homeId);
+            const awayP = clParticipants.find(p => p.teamId === m.awayId);
+            const homeStr = homeP ? (homeP.finalPosition <= 1 ? 75 : 70) : 65;
+            const awayStr = awayP ? (awayP.finalPosition <= 1 ? 75 : 70) : 65;
+            const diff = homeStr - awayStr;
+            const homeAdv = diff > 5 ? 0.3 : diff < -5 ? -0.3 : 0;
+            const hs = Math.max(0, Math.floor(Math.random() * 4 + homeAdv * 2));
+            const as = Math.max(0, Math.floor(Math.random() * 3 - homeAdv * 2));
+            let winnerId: string;
+            if (hs > as) winnerId = m.homeId;
+            else if (as > hs) winnerId = m.awayId;
+            else winnerId = Math.random() < 0.5 ? m.homeId : m.awayId; // penaltı
+            return { ...m, homeScore: hs, awayScore: as, played: true, winnerId };
+          });
+        }
+
+        // CL şampiyonuna ödül ver
+        if (clChampion && clChampion === myTeamId) {
+          const myClub = clubs.find(c => c.id === myTeamId);
+          if (myClub) myClub.budget += 50_000_000;
+          // v2.9.78: CL kupası
+          try {
+            updatedClubs = awardTrophyToClub(updatedClubs, clChampion, "champions_league", oldSeasonNumber, "champions_league");
+          } catch (e) { /* ignore */ }
+        }
+        if (clParticipants.some(p => p.teamId === myTeamId && p.teamId !== clChampion)) {
+          const myClub = updatedClubs.find(c => c.id === myTeamId);
+          if (myClub) myClub.budget += 5_000_000;
+        }
 
         // v2.9.78: Takım Kupaları — sezon sonu lig ödülleri
         // Kullanıcın ligi için kupalar yukarıda (promotion/relegasyon öncesi) verildi.
@@ -4396,15 +4458,15 @@ export const useAppStore = create<AppState>()(
             champion: undefined,
             eliminated: false,
           },
-          // v2.9.41: Şampiyonlar Ligi — sezon sonu başlat
+          // v2.9.90: CL artık endSeason içinde otomatik oynanır — active=false, champion set
           championsLeague: {
-            active: clParticipants.length >= 4,
+            active: false,
             participants: clParticipants,
             matches: clMatches,
-            currentRound: clParticipants.length >= 4 ? 1 : 0,
-            champion: undefined,
+            currentRound: 0,
+            champion: clChampion,
             eliminated: false,
-            startMatchday: 1, // pazartesi = yeni sezon başlangıcı
+            startMatchday: 0,
           },
           // P0 FIX: Yeni sezonda serbest oyuncuları yaşlandır + 40+ oyuncuları kaldır
           // P0 FIX: Yeni sezonda sponsor state'i sıfırla
