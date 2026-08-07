@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Coins, Package, Sparkles, X, Zap, Crown, Award, ShoppingBag, Layers, Wand2, Archive, TrendingUp } from "lucide-react";
+import { Coins, Package, Sparkles, X, Zap, Crown, Award, ShoppingBag, Layers, Wand2, Archive, TrendingUp, ArrowLeft } from "lucide-react";
 import { useAppStore, useMyTeam } from "@/lib/store";
 import { PlayerAvatar, PositionPill, RatingBadge } from "../ui-bits";
 import { POSITION_GROUP } from "@/lib/mock/data";
@@ -474,130 +474,294 @@ function CardsTab({
   onApplyCard: (card: ShopCard) => void;
 }) {
   const { t } = useI18n();
-  const [cardFilter, setCardFilter] = useState<CardType | "all">("all");
   const credits = useAppStore((s) => s.credits);
   const cardInventory = useAppStore((s) => s.cardInventory);
+  const [selectedPack, setSelectedPack] = useState<CardType | null>(null);
 
+  // v2.9.89: 4 kart paketi — her kategori tek paket, olasılık sistemi
+  const CARD_PACKAGES: Record<CardType, {
+    name: string;
+    desc: string;
+    icon: typeof Package;
+    gradient: string;
+    border: string;
+    iconColor: string;
+    price: number;
+    tiers: Array<{ label: string; chance: number; color: string }>;
+  }> = {
+    trait_positive: {
+      name: "Pozitif Trait Paketi",
+      desc: "Oyuncuna yeni pozitif özellik ekler. Maç motorunu doğrudan etkiler.",
+      icon: Wand2,
+      gradient: "from-emerald-600/20 to-emerald-900/10",
+      border: "border-emerald-500/40",
+      iconColor: "text-emerald-400",
+      price: 25,
+      tiers: [
+        { label: "Beyaz (Yaygın)", chance: 50, color: "text-slate-300" },
+        { label: "Lacivert (Nadir)", chance: 30, color: "text-blue-400" },
+        { label: "Mor (Epik)", chance: 15, color: "text-purple-400" },
+        { label: "Altın (Efsanevi)", chance: 5, color: "text-amber-400" },
+      ],
+    },
+    trait_negative_removal: {
+      name: "Negatif Giderme Paketi",
+      desc: "Oyuncundaki negatif özelliği kaldırır. Penaltıyı geri alır.",
+      icon: X,
+      gradient: "from-red-600/20 to-red-900/10",
+      border: "border-red-500/40",
+      iconColor: "text-red-400",
+      price: 20,
+      tiers: [
+        { label: "Hafif Giderme", chance: 60, color: "text-slate-300" },
+        { label: "Orta Giderme", chance: 28, color: "text-amber-400" },
+        { label: "Ağır Giderme", chance: 12, color: "text-red-400" },
+      ],
+    },
+    arketip: {
+      name: "Arketip Paketi",
+      desc: "Oyuncunun arketipini değiştirir. Maç içindeki davranışını belirler.",
+      icon: Crown,
+      gradient: "from-amber-600/20 to-amber-900/10",
+      border: "border-amber-500/40",
+      iconColor: "text-amber-400",
+      price: 30,
+      tiers: [
+        { label: "Standart Arketip", chance: 70, color: "text-slate-300" },
+        { label: "Özel Arketip", chance: 25, color: "text-amber-400" },
+        { label: "Nadir Arketip", chance: 5, color: "text-purple-400" },
+      ],
+    },
+    stat_boost: {
+      name: "Stat Boost Paketi",
+      desc: "Oyuncunun belirli stat'ını kalıcı olarak artırır.",
+      icon: TrendingUp,
+      gradient: "from-sky-600/20 to-sky-900/10",
+      border: "border-sky-500/40",
+      iconColor: "text-sky-400",
+      price: 20,
+      tiers: [
+        { label: "+1 (Yaygın)", chance: 60, color: "text-slate-300" },
+        { label: "+2 (Nadir)", chance: 30, color: "text-blue-400" },
+        { label: "+3 (Epik)", chance: 10, color: "text-purple-400" },
+      ],
+    },
+  };
+
+  // Seçili paketin kartları
   const allCards = useMemo(() => getAllShopCards(), []);
-  const filteredCards = useMemo(() => {
-    if (cardFilter === "all") return allCards;
-    return allCards.filter(c => c.cardType === cardFilter);
-  }, [allCards, cardFilter]);
+  const packCards = useMemo(() => {
+    if (!selectedPack) return [];
+    return allCards.filter(c => c.cardType === selectedPack);
+  }, [allCards, selectedPack]);
 
-  const filterLabels: Record<string, { label: string; icon: typeof Layers }> = {
-    all: { label: t("shop.all"), icon: Layers },
-    trait_positive: { label: t("shop.positive_trait"), icon: Wand2 },
-    trait_negative_removal: { label: t("shop.removal_card"), icon: X },
-    arketip: { label: t("shop.archetype_card"), icon: Crown },
-    stat_boost: { label: "Stat Boost", icon: TrendingUp },
+  // v2.9.89: Paket satın al — rastgele kart verir (olasılık bazlı)
+  const handleBuyPack = (packType: CardType) => {
+    const pack = CARD_PACKAGES[packType];
+    if (credits < pack.price) {
+      haptic("error");
+      return;
+    }
+    // Paketten rastgele kart çek
+    const cards = allCards.filter(c => c.cardType === packType);
+    if (cards.length === 0) return;
+    const randomCard = cards[Math.floor(Math.random() * cards.length)];
+    onBuyCard(randomCard);
   };
 
   return (
     <div className="space-y-3">
-      {/* Filtre */}
-      <div className="flex gap-1.5 overflow-x-auto tm-no-scrollbar">
-        {(Object.keys(filterLabels) as (CardType | "all")[]).map((key) => {
-          const item = filterLabels[key];
-          const Icon = item.icon;
-          return (
-            <button
-              key={key}
-              onClick={() => { haptic("light"); setCardFilter(key); }}
-              className={cn(
-                "tm-tap px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap border flex items-center gap-1",
-                cardFilter === key
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card border-border text-muted-foreground"
-              )}
-            >
-              <Icon size={11} />
-              {item.label}
-            </button>
-          );
-        })}
-      </div>
+      {/* v2.9.89: 4 kart paketi — grid layout, güzel görsel */}
+      {!selectedPack && (
+        <div className="grid grid-cols-2 gap-3">
+          {(Object.keys(CARD_PACKAGES) as CardType[]).map((type) => {
+            const pack = CARD_PACKAGES[type];
+            const Icon = pack.icon;
+            const canAfford = credits >= pack.price;
+            const ownedInCategory = cardInventory.filter(c => {
+              const card = allCards.find(ac => ac.cardId === c.cardId);
+              return card?.cardType === type;
+            }).reduce((s, c) => s + c.quantity, 0);
 
-      {/* Kart listesi */}
-      <div className="grid grid-cols-2 gap-2">
-        {filteredCards.map((card) => {
-          const owned = cardInventory.find(c => c.cardId === card.cardId)?.quantity ?? 0;
-          const canAfford = credits >= card.price;
-          return (
-            <div
-              key={card.cardId}
-              className={cn(
-                "tm-tap relative rounded-xl p-3 flex flex-col gap-1.5 border-2 transition-all",
-                getRarityColor(card.rarity)
-              )}
-            >
-              {/* Owned badge */}
-              {owned > 0 && (
-                <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-emerald-500/30 text-emerald-300 text-[9px] font-bold">
-                  ×{owned}
-                </div>
-              )}
-
-              {/* Card type icon */}
-              <div className="flex items-center gap-1.5">
-                {card.cardType === "trait_positive" && <Wand2 size={12} className="text-emerald-400" />}
-                {card.cardType === "trait_negative_removal" && <X size={12} className="text-red-400" />}
-                {card.cardType === "arketip" && <Crown size={12} className="text-amber-400" />}
-                {card.cardType === "stat_boost" && <TrendingUp size={12} className="text-emerald-400" />}
-                <span className="text-[9px] text-muted-foreground uppercase font-bold">
-                  {getRarityLabel(card.rarity)}
-                </span>
-              </div>
-
-              {/* Card name */}
-              <div className="text-xs font-bold leading-tight">{card.cardName}</div>
-
-              {/* Level (pozitif traitler için) */}
-              {card.level && (
-                <div className={cn("text-[9px] font-bold", getLevelColor(card.level))}>
-                  {getLevelLabel(card.level)}
-                </div>
-              )}
-
-              {/* Group */}
-              <div className="text-[9px] text-muted-foreground">{getGroupLabel(card.groupName)}</div>
-
-              {/* Description */}
-              <div className="text-[9px] text-muted-foreground leading-tight line-clamp-2 flex-1">
-                {card.description}
-              </div>
-
-              {/* Price + Buy */}
+            return (
               <button
-                onClick={() => onBuyCard(card)}
-                disabled={!canAfford}
+                key={type}
+                onClick={() => { haptic("light"); setSelectedPack(type); }}
                 className={cn(
-                  "tm-tap w-full flex items-center justify-center gap-1 py-1.5 rounded-md text-[10px] font-bold transition-colors",
-                  canAfford
-                    ? "bg-amber-500/20 text-amber-300 border border-amber-400/40"
-                    : "bg-muted/30 text-muted-foreground/50"
+                  "tm-tap relative rounded-xl p-4 flex flex-col items-center gap-2 border-2 transition-all active:scale-[0.97] overflow-hidden",
+                  "bg-gradient-to-b", pack.gradient, pack.border
                 )}
               >
-                <Coins size={10} />
-                {card.price}
+                {/* Glow efekti */}
+                <div className={cn("absolute inset-0 rounded-xl opacity-10 blur-xl bg-gradient-to-b", pack.gradient)} />
+
+                {/* İkon */}
+                <div className={cn("relative w-14 h-14 rounded-2xl flex items-center justify-center bg-black/30 border", pack.border)}>
+                  <Icon size={28} className={pack.iconColor} />
+                </div>
+
+                {/* Paket adı */}
+                <div className={cn("relative text-xs font-bold text-center leading-tight", pack.iconColor)}>
+                  {pack.name}
+                </div>
+
+                {/* Açıklama — truncate ile taşma önle */}
+                <div className="relative text-[9px] text-muted-foreground text-center leading-tight line-clamp-2">
+                  {pack.desc}
+                </div>
+
+                {/* Olasılık önizleme — kompakt */}
+                <div className="relative w-full space-y-0.5 mt-1">
+                  {pack.tiers.map((tier) => (
+                    <div key={tier.label} className="flex justify-between text-[8px]">
+                      <span className={cn("truncate", tier.color)}>{tier.label}</span>
+                      <span className="font-bold tabular-nums text-muted-foreground shrink-0 ml-1">%{tier.chance}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Fiyat + sahip olunan */}
+                <div className="relative flex items-center gap-1.5 mt-1">
+                  <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/40">
+                    <Coins size={11} className="text-amber-300" />
+                    <span className="text-[11px] font-bold text-amber-100 tabular-nums">{pack.price}</span>
+                  </div>
+                  {ownedInCategory > 0 && (
+                    <span className="text-[9px] text-emerald-400 font-bold">×{ownedInCategory}</span>
+                  )}
+                </div>
               </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Seçili paketin detayları + kart satın alma */}
+      {selectedPack && (
+        <div className="space-y-3">
+          {/* Geri butonu + paket başlığı */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { haptic("light"); setSelectedPack(null); }}
+              className="tm-tap p-1.5 rounded-lg bg-card border border-border"
+            >
+              <ArrowLeft size={14} />
+            </button>
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              {(() => {
+                const pack = CARD_PACKAGES[selectedPack];
+                const Icon = pack.icon;
+                return (
+                  <>
+                    <Icon size={16} className={pack.iconColor} />
+                    <span className="text-xs font-bold truncate">{pack.name}</span>
+                  </>
+                );
+              })()}
             </div>
-          );
-        })}
-      </div>
+            {/* Hızlı satın al butonu */}
+            <button
+              onClick={() => handleBuyPack(selectedPack)}
+              disabled={credits < CARD_PACKAGES[selectedPack].price}
+              className={cn(
+                "tm-tap flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-colors shrink-0",
+                credits >= CARD_PACKAGES[selectedPack].price
+                  ? "bg-amber-500/20 text-amber-300 border border-amber-400/40"
+                  : "bg-muted/30 text-muted-foreground/50"
+              )}
+            >
+              <Coins size={10} />
+              {CARD_PACKAGES[selectedPack].price} · Rastgele Çek
+            </button>
+          </div>
+
+          {/* Olasılıklar — detaylı */}
+          <div className="tm-card p-3">
+            <div className="text-[10px] text-muted-foreground uppercase font-bold mb-2">📊 Olasılıklar</div>
+            <div className="space-y-1.5">
+              {CARD_PACKAGES[selectedPack].tiers.map((tier) => (
+                <div key={tier.label} className="flex items-center gap-2">
+                  <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={cn("h-full rounded-full",
+                        tier.color.includes("slate") ? "bg-slate-400" :
+                        tier.color.includes("blue") ? "bg-blue-400" :
+                        tier.color.includes("purple") ? "bg-purple-400" :
+                        tier.color.includes("amber") ? "bg-amber-400" :
+                        tier.color.includes("red") ? "bg-red-400" : "bg-slate-400"
+                      )}
+                      style={{ width: `${tier.chance}%` }}
+                    />
+                  </div>
+                  <span className={cn("text-[10px] font-bold tabular-nums w-8 text-right", tier.color)}>%{tier.chance}</span>
+                  <span className={cn("text-[10px] w-24 truncate", tier.color)}>{tier.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Bireysel kartlar — satın al + uygula */}
+          <div className="grid grid-cols-2 gap-2">
+            {packCards.map((card) => {
+              const owned = cardInventory.find(c => c.cardId === card.cardId)?.quantity ?? 0;
+              const canAfford = credits >= card.price;
+              return (
+                <div
+                  key={card.cardId}
+                  className={cn(
+                    "relative rounded-xl p-2.5 flex flex-col gap-1 border-2 transition-all overflow-hidden",
+                    getRarityColor(card.rarity)
+                  )}
+                >
+                  {owned > 0 && (
+                    <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded-full bg-emerald-500/30 text-emerald-300 text-[8px] font-bold">
+                      ×{owned}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1">
+                    {card.cardType === "trait_positive" && <Wand2 size={10} className="text-emerald-400 shrink-0" />}
+                    {card.cardType === "trait_negative_removal" && <X size={10} className="text-red-400 shrink-0" />}
+                    {card.cardType === "arketip" && <Crown size={10} className="text-amber-400 shrink-0" />}
+                    {card.cardType === "stat_boost" && <TrendingUp size={10} className="text-sky-400 shrink-0" />}
+                    <span className="text-[8px] text-muted-foreground uppercase font-bold truncate">{getRarityLabel(card.rarity)}</span>
+                  </div>
+                  <div className="text-[11px] font-bold leading-tight truncate">{card.cardName}</div>
+                  {card.level && (
+                    <div className={cn("text-[8px] font-bold", getLevelColor(card.level))}>{getLevelLabel(card.level)}</div>
+                  )}
+                  <div className="text-[8px] text-muted-foreground truncate">{getGroupLabel(card.groupName)}</div>
+                  <div className="text-[8px] text-muted-foreground leading-tight line-clamp-2 flex-1">{card.description}</div>
+                  <button
+                    onClick={() => onBuyCard(card)}
+                    disabled={!canAfford}
+                    className={cn(
+                      "tm-tap w-full flex items-center justify-center gap-1 py-1 rounded-md text-[9px] font-bold transition-colors",
+                      canAfford ? "bg-amber-500/20 text-amber-300 border border-amber-400/40" : "bg-muted/30 text-muted-foreground/50"
+                    )}
+                  >
+                    <Coins size={9} />
+                    {card.price}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Bilgi notu */}
       <div className="tm-card p-3 border-purple-500/20 bg-purple-500/5">
         <div className="flex items-center gap-2 mb-1.5">
           <Sparkles size={13} className="text-purple-400" />
-          <span className="text-[11px] font-bold text-purple-300 uppercase">{t("shop.card_how")}</span>
+          <span className="text-[11px] font-bold text-purple-300 uppercase">Nasıl Çalışır?</span>
         </div>
         <ul className="text-[10px] text-muted-foreground space-y-1 leading-relaxed">
-          <li>• <strong className="text-foreground">Stat Boost:</strong> Oyuncunun belirli stat'ını (şut, pas, hız vb.) kalıcı olarak artırır</li>
           <li>• <strong className="text-foreground">Pozitif Trait:</strong> Oyuncuya yeni özellik ekler (maç motorunu etkiler)</li>
           <li>• <strong className="text-foreground">Giderme Kartı:</strong> Negatif trait'i kaldırır, penaltıyı geri alır</li>
           <li>• <strong className="text-foreground">Arketip Kartı:</strong> Oyuncunun arketipini değiştirir</li>
+          <li>• <strong className="text-foreground">Stat Boost:</strong> Oyuncunun belirli stat'ını kalıcı olarak artırır</li>
+          <li>• <strong className="text-foreground">Rastgele Çek:</strong> Paket fiyatıyla rastgele kart alırsın (daha ucuz)</li>
           <li>• Satın aldığın kartlar <strong className="text-foreground">Envanterim</strong>'de birikir</li>
-          <li>• Kartı oyuncuya uygulamak için oyuncu profilinde <strong className="text-foreground">"Kart Bas"</strong> butonunu kullan</li>
         </ul>
       </div>
     </div>
