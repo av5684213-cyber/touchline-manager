@@ -2,6 +2,7 @@
 
 import { supabase } from "@/lib/supabase";
 import { useAppStore } from "@/lib/store";
+import { simulateBotMatch } from "@/lib/botAI";
 
 /**
  * Cloud Save — kullanıcı oyun state'ini Supabase'e kaydeder/yükler.
@@ -741,7 +742,6 @@ function hashStringToSeed(s: string): number {
 // kullanıyordu → token tahmin edilebilir.
 // Yeni: simulateBotMatch'e rng parametresi geçirilir, global Math.random'a dokunulmaz.
 function simulateBotMatchSeeded(homeTeam: any, awayTeam: any, matchday: number, seedStr: string): { homeScore: number; awayScore: number } {
-  const { simulateBotMatch } = require("@/lib/botAI");
   const seed = hashStringToSeed(seedStr);
   const rng = mulberry32(seed);
   return simulateBotMatch(homeTeam, awayTeam, matchday, rng);

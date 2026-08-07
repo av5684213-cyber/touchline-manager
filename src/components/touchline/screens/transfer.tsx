@@ -1229,8 +1229,8 @@ function OfferModal({
               <div className="text-[10px] text-muted-foreground">{t("transfer.market_value")}</div>
               <div className="font-bold tabular-nums">{formatEuro(player.marketValue)}</div>
               {(() => {
-                // v2.9.70 FIX: Reaktif seasonNumber — getState() değil
-                const seasonNumber = useAppStore((s) => s.seasonNumber) ?? 1;
+                // v2.9.88 FIX: useAppStore callback içinde çağrılamaz — getState() kullan
+                const seasonNumber = useAppStore.getState().seasonNumber ?? 1;
                 const mult = getInflationMultiplier(seasonNumber);
                 if (mult <= 1.0) return null;
                 const baseValue = removeInflation(player.marketValue, seasonNumber);

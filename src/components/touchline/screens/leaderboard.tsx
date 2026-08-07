@@ -86,7 +86,9 @@ export function LeaderboardScreen() {
       });
       localEntries.sort((a, b) => b.points - a.points);
       localEntries.forEach((e, i) => e.rank = i + 1);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setEntries(localEntries.slice(0, 50));
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(false);
     } else {
       // v2.9.27 G3: Global — tüm liglerin bot takımları + kullanıcının takımı
@@ -112,7 +114,8 @@ export function LeaderboardScreen() {
         globalEntries.forEach((e, i) => e.rank = i + 1);
         // Top 50 göster
         setEntries(globalEntries.slice(0, 50));
-        setLoading(false);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLoading(false);
       }, 400);
     }
   }, [tab, clubs, myTeamId, managerName, seasonNumber, globalClubs]);

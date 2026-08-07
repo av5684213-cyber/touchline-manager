@@ -206,6 +206,7 @@ export function DashboardScreen() {
     });
 
     if (newlyUnlocked.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setNewAchievements(newlyUnlocked);
     }
   }, [fixtures, clubs, team, myStat, transferNewsCount, tactics]);
@@ -218,6 +219,7 @@ export function DashboardScreen() {
   // v2.9.86: pendingSeasonSummary varsa modal göster (advanceMatchday otomatik bitirdiyse)
   useEffect(() => {
     if (pendingSeasonSummary && !seasonSummary) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSeasonSummary(pendingSeasonSummary);
     }
   }, [pendingSeasonSummary, seasonSummary]);

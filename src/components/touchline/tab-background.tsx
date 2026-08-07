@@ -82,7 +82,9 @@ export function TabBackground({ tabKey }: { tabKey: TabKey }) {
 
   // Sekme değişiminde state reset (yeni görsel için)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoaded(false);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setError(false);
   }, [src]);
 

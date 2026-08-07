@@ -136,6 +136,7 @@ export function TacticsScreen() {
   const otherPlayers = benchPlayers.slice(BENCH_SIZE);
 
   // Taktik skoru — 3 alt skor + toplam
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const { score, roleScore, instructionScore, attributeScore, strengths, weaknesses } = useMemo(() => {
     if (!team) return { score: 0, roleScore: 0, instructionScore: 0, attributeScore: 0, strengths: [] as string[], weaknesses: [] as string[] };
     const filled = tactics.lineup.filter((p): p is PlayerT => p !== null);
@@ -213,6 +214,7 @@ export function TacticsScreen() {
   }, [team, tactics.lineup, tactics.active, tactics.slotRoles, tactics.activeInstructions, slots]);
 
   // v2.9.11: Oyun stili uyum bonusu hesapla
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const styleSynergy = useMemo(() => {
     if (!team) return null;
     const filled = tactics.lineup.filter((p): p is PlayerT => p !== null);

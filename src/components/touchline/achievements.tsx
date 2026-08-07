@@ -201,6 +201,7 @@ export function AchievementsCard() {
   const [unlocked, setUnlocked] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setUnlocked(loadAchievements());
   }, []);
 

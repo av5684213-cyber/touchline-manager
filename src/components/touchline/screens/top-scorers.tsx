@@ -27,9 +27,9 @@ export function TopScorersScreen() {
   const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
 
   // v2.9.55: Null guard
-  if (!myTeam) return null;
-
+  // v2.9.88 FIX: Rules of Hooks — useMemo'lar erken return'den ÖNCE çağrılmalı
   const allPlayers = useMemo(() => {
+    if (!myTeam) return [];
     const list: Array<{ player: any; team: any; isMyPlayer: boolean }> = [];
 
     if (tier === "global") {
@@ -51,6 +51,7 @@ export function TopScorersScreen() {
   }, [clubs, myTeam, tier, allLeagues]);
 
   const ranked = useMemo(() => {
+    if (!myTeam) return [];
     let filtered = allPlayers;
     if (tier === "mine") {
       // "Benim Takımım" — kullanıcının kendi takımının oyuncuları

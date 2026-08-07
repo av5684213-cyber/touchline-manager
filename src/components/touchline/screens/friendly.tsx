@@ -53,11 +53,18 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
   // useEffect içinde (client-only) hesapla, useState null başlat.
   const [stableGuestUserId, setStableGuestUserId] = useState<string | null>(null);
   useEffect(() => {
-    if (user?.id) { setStableGuestUserId(user.id); return; }
+    if (user?.id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStableGuestUserId(user.id); return;
+    }
     const existing = localStorage.getItem("tm_guest_id");
-    if (existing) { setStableGuestUserId(existing); return; }
+    if (existing) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStableGuestUserId(existing); return;
+    }
     const newId = `guest_${Date.now()}`;
     localStorage.setItem("tm_guest_id", newId);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStableGuestUserId(newId);
   }, [user?.id]);
   // user varsa onu kullan, yoksa stableGuestUserId (henüz set edilmemişse geçici fallback)

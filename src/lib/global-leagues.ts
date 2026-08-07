@@ -23,7 +23,7 @@
  */
 
 import { generateClubsForLeague, type Team, type LeagueTier, type Department } from "@/lib/mock/data";
-import { generateFixtures, type FixtureRow, playFixturesUpTo } from "@/lib/mock/season";
+import { generateFixtures, type FixtureRow, playFixturesUpTo, computeStandings } from "@/lib/mock/season";
 import { COUNTRIES } from "@/lib/countries/countries";
 
 export type LeagueKey = string; // format: "{country}_{tier}" örnek: "TR_1", "ES_2"
@@ -117,8 +117,6 @@ export function generateAllLeagues(
  * Bir ligin sıralamasını hesapla (kullanıcın liginin standby'ları için).
  */
 export function getLeagueStandings(league: PersistentLeague) {
-  // computeStandings import edilir — circular dependency önlemek için lazy
-  const { computeStandings } = require("@/lib/mock/season");
   return computeStandings(league.clubs, league.fixtures);
 }
 

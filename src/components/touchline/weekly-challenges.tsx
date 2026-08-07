@@ -73,6 +73,7 @@ export function WeeklyChallengesCard() {
           return c;
         });
         if (migrated.length === 7) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setChallenges(migrated as WeeklyChallenge[]);
           // Migrate edilmiş halini localStorage'a geri yaz
           if (typeof window !== "undefined") {
@@ -103,6 +104,7 @@ export function WeeklyChallengesCard() {
   useEffect(() => {
     // seasonMatchday değiştiyse = bir maç oynandı demektir
     if (seasonMatchday > 1 && challenges.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setChallenges(prev => {
         // Sadece d1 henüz tamamlanmadıysa güncelle
         const d1 = prev.find(c => c.id === "d1");

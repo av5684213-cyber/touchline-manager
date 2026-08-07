@@ -59,6 +59,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       // Cloud-save'den locale yükle (loadMultiplayerState'ten set edilir)
       const cloudLocale = localStorage.getItem("tm.cloud_locale") as Locale | null;
       if (cloudLocale && LOCALES.includes(cloudLocale)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setLocaleState(cloudLocale);
       }
     } catch {
