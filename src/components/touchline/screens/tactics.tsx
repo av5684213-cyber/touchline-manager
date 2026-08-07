@@ -80,6 +80,7 @@ export function TacticsScreen() {
   const updateActiveTactic = useAppStore((s) => s.updateActiveTactic);
   const setSlotRole = useAppStore((s) => s.setSlotRole);
   const swapLineupSlot = useAppStore((s) => s.swapLineupSlot);
+  const toggleBenchPin = useAppStore((s) => s.toggleBenchPin); // v2.9.86: Yedek sabitleme
   const setInstruction = useAppStore((s) => s.setInstruction);
   const resetInstruction = useAppStore((s) => s.resetInstruction);
   const [filter, setFilter] = useState<PositionGroup | "ALL">("ALL");
@@ -116,7 +117,12 @@ export function TacticsScreen() {
   // v2.9.22 Y1: Bench = 7 yedek + kalan tüm oyuncular ayrı listede
   // Gerçek futbol: 11 ilk 11 + 7 yedek = 18 maç kadrosu
   // Geri kalan oyuncular "Diğer Oyuncular" bölümünde gösterilir, tıklayınca yine değişebilir
+  // v2.9.86: pinnedBench — kullanıcı pin'lediği oyuncular rating'den bağımsız
+  // ilk 7 yedek (maç kadrosu) içinde kalır. Pin'li olmayanlar rating'e göre sıralanır
+  // ve kalan slotları doldurur. Bu sayede kullanıcı "Diğer Oyuncular" listesinden
+  // bir oyuncuyu yedek kulübesine alabilir.
   const BENCH_SIZE = 7;
+  const pinnedBench = tactics.pinnedBench ?? [];
   const benchPlayers = useMemo(() => {
     if (!team) return [];
     // tactics.lineup'taki tüm dolu slotların ID'lerini topla
@@ -131,9 +137,30 @@ export function TacticsScreen() {
     return allBench;
   }, [team, tactics.lineup]);
 
-  // İlk 7 yedek (maç kadrosu), geri kalan "diğer oyuncular"
-  const matchDayBench = benchPlayers.slice(0, BENCH_SIZE);
-  const otherPlayers = benchPlayers.slice(BENCH_SIZE);
+  // v2.9.86: Pin'li oyuncular + kalan (rating sırasına göre) = maç kadrosu bench
+  // Pin'li oyuncu artık kadroda değilse (satıldı/sakat vb.) otomatik filtrelenir.
+  const validPinnedIds = useMemo(() => {
+    const benchIds = new Set(benchPlayers.map((p) => p.id));
+    return pinnedBench.filter((id) => benchIds.has(id));
+  }, [pinnedBench, benchPlayers]);
+
+  // Maç kadrosu yedekleri: önce pin'liler (pin sırasına göre), sonra rating'e göre kalanlar
+  const matchDayBench = useMemo(() => {
+    const pinnedSet = new Set(validPinnedIds);
+    const pinnedPlayers = validPinnedIds
+      .map((id) => benchPlayers.find((p) => p.id === id))
+      .filter((p): p is PlayerT => p !== undefined);
+    const nonPinned = benchPlayers.filter((p) => !pinnedSet.has(p.id));
+    // Pin'liler önce, kalan slotları rating'e göre doldur
+    const remaining = BENCH_SIZE - pinnedPlayers.length;
+    return [...pinnedPlayers, ...nonPinned.slice(0, Math.max(0, remaining))];
+  }, [benchPlayers, validPinnedIds]);
+
+  // Diğer oyuncular: matchDayBench'te olmayan tüm bench oyuncuları
+  const otherPlayers = useMemo(() => {
+    const matchDayIds = new Set(matchDayBench.map((p) => p.id));
+    return benchPlayers.filter((p) => !matchDayIds.has(p.id));
+  }, [benchPlayers, matchDayBench]);
 
   // Taktik skoru — 3 alt skor + toplam
   // eslint-disable-next-line react-hooks/preserve-manual-memoization
@@ -594,7 +621,7 @@ export function TacticsScreen() {
             <span className="text-xs font-bold">Yedek Kulübesi</span>
           </div>
           <span className="text-[11px] text-muted-foreground">
-            {benchPlayers.length} oyuncu · tıkla → slota yerleştir
+            {benchPlayers.length} oyuncu · tıkla → slota yerleştir · 📌 sabitle
           </span>
         </div>
         {benchModeSlot !== null ? (
@@ -657,37 +684,56 @@ export function TacticsScreen() {
                 )}
                 {matchDayBench.map((p) => {
                 const posGroup = POSITION_GROUP[p.specificPosition] ?? "MID";
+                const isPinned = validPinnedIds.includes(p.id);
                 return (
-                  <button
+                  <div
                     key={p.id}
-                    onClick={() => { haptic("light"); setBenchModeSlot(p.id); }}
                     className={cn(
-                      "tm-tap w-full flex items-center gap-2 py-1.5 px-2 rounded-md border transition-colors",
+                      "flex items-center gap-1 py-1.5 px-2 rounded-md border transition-colors",
                       "hover:border-primary/50 hover:bg-accent/30",
                       POSITION_ROW_BG[posGroup],
                       benchModeSlot === p.id && "border-primary ring-1 ring-primary/30",
+                      isPinned && "border-amber-500/60 bg-amber-500/5",
                     )}
                   >
-                    <span
-                      className="inline-flex items-center justify-center rounded-full text-[10px] font-bold text-white border border-white/30 shrink-0"
-                      style={{ width: 28, height: 28, background: team.primaryColor ?? "#1a3a2a" }}
+                    <button
+                      onClick={() => { haptic("light"); setBenchModeSlot(p.id); }}
+                      className="tm-tap flex items-center gap-2 flex-1 min-w-0 text-left"
                     >
-                      {p.rating}
-                    </span>
-                    <span className="text-xs font-semibold flex-1 text-left truncate">
-                      {p.firstName} {p.lastName}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground shrink-0">{p.specificPosition}</span>
-                    {(p.cond ?? 100) < 50 && (
-                      <span className="text-[10px] text-red-400 font-bold shrink-0">{p.cond}❤</span>
-                    )}
-                    {p.is_injured && (
-                      <span className="text-[10px] shrink-0">🤕</span>
-                    )}
-                    {p.suspended_until && Number(p.suspended_until) > seasonMatchday && (
-                      <span className="text-[10px] shrink-0">🟥</span>
-                    )}
-                  </button>
+                      <span
+                        className="inline-flex items-center justify-center rounded-full text-[10px] font-bold text-white border border-white/30 shrink-0"
+                        style={{ width: 28, height: 28, background: team.primaryColor ?? "#1a3a2a" }}
+                      >
+                        {p.rating}
+                      </span>
+                      <span className="text-xs font-semibold flex-1 truncate">
+                        {p.firstName} {p.lastName}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground shrink-0">{p.specificPosition}</span>
+                      {(p.cond ?? 100) < 50 && (
+                        <span className="text-[10px] text-red-400 font-bold shrink-0">{p.cond}❤</span>
+                      )}
+                      {p.is_injured && (
+                        <span className="text-[10px] shrink-0">🤕</span>
+                      )}
+                      {p.suspended_until && Number(p.suspended_until) > seasonMatchday && (
+                        <span className="text-[10px] shrink-0">🟥</span>
+                      )}
+                    </button>
+                    {/* v2.9.86: Pin toggle — yedek kulübesinde tut */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); haptic("light"); toggleBenchPin(p.id); }}
+                      className={cn(
+                        "tm-tap shrink-0 w-7 h-7 flex items-center justify-center rounded transition-colors",
+                        isPinned
+                          ? "text-amber-300 bg-amber-500/20 hover:bg-amber-500/30"
+                          : "text-muted-foreground/60 hover:text-amber-300 hover:bg-amber-500/10"
+                      )}
+                      title={isPinned ? "Yedek sabitlemeyi kaldır" : "Yedek kulübesine sabitle"}
+                    >
+                      📌
+                    </button>
+                  </div>
                 );
               })}
               </div>
@@ -701,33 +747,45 @@ export function TacticsScreen() {
                   {otherPlayers.map((p) => {
                     const posGroup = POSITION_GROUP[p.specificPosition] ?? "MID";
                     return (
-                      <button
+                      <div
                         key={p.id}
-                        onClick={() => { haptic("light"); setBenchModeSlot(p.id); }}
                         className={cn(
-                          "tm-tap w-full flex items-center gap-2 py-1.5 px-2 rounded-md border transition-colors opacity-80",
+                          "flex items-center gap-1 py-1.5 px-2 rounded-md border transition-colors opacity-80",
                           "hover:border-primary/50 hover:bg-accent/30 hover:opacity-100",
                           POSITION_ROW_BG[posGroup],
                           benchModeSlot === p.id && "border-primary ring-1 ring-primary/30 opacity-100",
                         )}
                       >
-                        <span
-                          className="inline-flex items-center justify-center rounded-full text-[10px] font-bold text-white border border-white/30 shrink-0"
-                          style={{ width: 28, height: 28, background: team.primaryColor ?? "#1a3a2a" }}
+                        <button
+                          onClick={() => { haptic("light"); setBenchModeSlot(p.id); }}
+                          className="tm-tap flex items-center gap-2 flex-1 min-w-0 text-left"
                         >
-                          {p.rating}
-                        </span>
-                        <span className="text-xs font-semibold flex-1 text-left truncate">
-                          {p.firstName} {p.lastName}
-                        </span>
-                        <span className="text-[11px] text-muted-foreground shrink-0">{p.specificPosition}</span>
-                        {p.is_injured && (
-                          <span className="text-[10px] shrink-0">🤕</span>
-                        )}
-                        {p.suspended_until && Number(p.suspended_until) > seasonMatchday && (
-                          <span className="text-[10px] shrink-0">🟥</span>
-                        )}
-                      </button>
+                          <span
+                            className="inline-flex items-center justify-center rounded-full text-[10px] font-bold text-white border border-white/30 shrink-0"
+                            style={{ width: 28, height: 28, background: team.primaryColor ?? "#1a3a2a" }}
+                          >
+                            {p.rating}
+                          </span>
+                          <span className="text-xs font-semibold flex-1 truncate">
+                            {p.firstName} {p.lastName}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground shrink-0">{p.specificPosition}</span>
+                          {p.is_injured && (
+                            <span className="text-[10px] shrink-0">🤕</span>
+                          )}
+                          {p.suspended_until && Number(p.suspended_until) > seasonMatchday && (
+                            <span className="text-[10px] shrink-0">🟥</span>
+                          )}
+                        </button>
+                        {/* v2.9.86: Pin toggle — yedek kulübesine al */}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); haptic("light"); toggleBenchPin(p.id); }}
+                          className="tm-tap shrink-0 w-7 h-7 flex items-center justify-center rounded text-muted-foreground/60 hover:text-amber-300 hover:bg-amber-500/10 transition-colors"
+                          title="Yedek kulübesine sabitle"
+                        >
+                          📌
+                        </button>
+                      </div>
                     );
                   })}
                 </div>

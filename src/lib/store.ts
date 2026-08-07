@@ -137,6 +137,11 @@ type Tactics = {
   slotRoles: Record<number, string>;
   // talimat adı → seçilen opsiyon (örn "Tempo" → "Yüksek")
   activeInstructions: Record<string, string>;
+  // v2.9.86: Yedek kulübesine sabitlenmiş oyuncu ID'leri.
+  // Bu oyuncular rating'den bağımsız olarak ilk 7 yedek (maç kadrosu) içinde kalır.
+  // Maksimum 7 oyuncu pin'lenebilir. Pinlenen oyuncu lineup'tan çıkarılınca
+  // otomatik olarak bench'e, değilse "Diğer Oyuncular"a düşer.
+  pinnedBench: string[];
   // Eski şema (geri uyumluluk için kalsın, Tactics ekranı eski slider'ları kullanmıyor artık)
   formationKey: string;
   sliders: {
@@ -346,6 +351,8 @@ type AppState = {
   setSlider: (key: keyof Tactics["sliders"], value: number) => void;
   swapLineupSlot: (slotIndex: number, playerId: string) => void;
   setRole: (slotIndex: number, role: Tactics["roles"][string]) => void;
+  // v2.9.86: Yedek sabitleme — oyuncuyu yedek kulübesine pin'le/çöz
+  toggleBenchPin: (playerId: string) => void;
   // Yeni taktik action'ları
   updateActiveTactic: (patch: Partial<ActiveTactic>) => void;
   setSlotRole: (slotIndex: number, roleId: string) => void;
@@ -620,6 +627,7 @@ function defaultTacticsFor(team: Team): Tactics {
     lineup,
     slotRoles: {},
     activeInstructions: {},
+    pinnedBench: [], // v2.9.86: Yedek sabitleme sistemi
     formationKey: "4-4-2",
     sliders: {
       attackingPressure: 55,
@@ -629,6 +637,66 @@ function defaultTacticsFor(team: Team): Tactics {
     },
     roles: {},
   };
+}
+
+// v2.9.86: Tutarlı seasonStartStats yakalama — tüm stat'ları kapsar.
+// Eski kod sadece 17 stat yakalıyordu (rating, finishing, dribbling, passing, shooting,
+// tackling, marking, heading, speed, stamina, strength, vision, technique, crossing,
+// longShots, firstTouch, offTheBall). Bu, mental/physical stat artışlarını (aggression,
+// positioning, agility, balance, acceleration, vb.) ve training alias'larını (defending,
+// power) kaçırıyordu → "+1, +2" rozetleri görünmüyordu.
+//
+// Yeni liste: profil modal'ında gösterilen TÜM stat'lar + training alias'ları.
+// PlayerProfileModal'daki statKeys ile birebir eşleşmeli.
+const SEASON_START_STAT_KEYS = [
+  // Rating
+  "rating",
+  // Technical (top-level aliases — profil modal Teknik sütunu)
+  "finishing", "dribbling", "firstTouch", "heading", "marking",
+  "crossing", "passing", "technique", "tackling", "longShots",
+  // Mental (profil modal Zihinsel sütunu)
+  "aggression", "bravery", "workRate", "decisions", "determination",
+  "concentration", "leadership", "anticipation", "flair", "positioning",
+  "composure", "teamwork", "vision",
+  // Physical (profil modal Fiziksel sütunu)
+  "agility", "stamina", "balance", "strength", "speed", "acceleration",
+  "jumping", "leftFoot", "rightFoot",
+  // Training aliases (runTrainingSession bunları günceller — defending, power)
+  // Profil modal'da doğrudan gösterilmez ama StatGrowth "defending" arar (transfer.tsx)
+  "defending", "power",
+  // GK-specific
+  "goalkeeping",
+  // Diğer
+  "offTheBall",
+] as const;
+
+/**
+ * Bir oyuncunun sezon başı stats'larını yakala.
+ * Tüm stat'ları kapsar — gelişim rozeti doğru çalışır.
+ * Player.stats alt nesnesi ile top-level attribute'lar eşitse ikisini de yakalar.
+ */
+function captureSeasonStartStats(p: any): Record<string, number> {
+  const map: Record<string, number> = {};
+  for (const key of SEASON_START_STAT_KEYS) {
+    // Önce top-level attribute'u dene, sonra stats.* alt nesnesini fallback olarak kullan
+    const val = (p as any)[key];
+    if (typeof val === "number" && !Number.isNaN(val)) {
+      map[key] = val;
+    } else if (p?.stats && typeof (p.stats as any)[key] === "number") {
+      map[key] = (p.stats as any)[key];
+    } else if (p?.stats) {
+      // Alias mapping: "speed" → stats.pace, "power" → stats.physical
+      const aliasMap: Record<string, string> = {
+        speed: "pace",
+        power: "physical",
+      };
+      const alias = aliasMap[key];
+      if (alias && typeof (p.stats as any)[alias] === "number") {
+        map[key] = (p.stats as any)[alias];
+      }
+    }
+  }
+  return map;
 }
 
 export const useAppStore = create<AppState>()(
@@ -654,6 +722,7 @@ export const useAppStore = create<AppState>()(
         lineup: Array(11).fill(null),
         slotRoles: {},
         activeInstructions: {},
+        pinnedBench: [], // v2.9.86: Yedek sabitleme sistemi
         formationKey: "4-4-2",
         sliders: {
           attackingPressure: 50,
@@ -828,29 +897,13 @@ export const useAppStore = create<AppState>()(
             eliminated: false,
           },
           // P5: Sezon başı stats'larını kaydet — gelişim rozeti için
+          // v2.9.86: Tüm stat'ları yakala (eski kod sadece 17 stat yakalıyordu — mental/physical
+          // stat artışları ve training alias'ları eksikti → +1 rozetleri görünmüyordu)
           seasonStartStats: (() => {
             const map: Record<string, Record<string, number>> = {};
             for (const club of clubs) {
               for (const p of club.players) {
-                map[p.id] = {
-                  rating: p.rating ?? 50,
-                  finishing: p.finishing ?? 50,
-                  dribbling: p.dribbling ?? 50,
-                  passing: p.passing ?? 50,
-                  shooting: p.shooting ?? 50,
-                  tackling: p.tackling ?? 50,
-                  marking: p.marking ?? 50,
-                  heading: p.heading ?? 50,
-                  speed: p.speed ?? p.stats?.pace ?? 50,
-                  stamina: p.stamina ?? 50,
-                  strength: p.strength ?? 50,
-                  vision: p.vision ?? 50,
-                  technique: p.technique ?? 50,
-                  crossing: p.crossing ?? 50,
-                  longShots: p.longShots ?? 50,
-                  firstTouch: p.firstTouch ?? 50,
-                  offTheBall: p.offTheBall ?? 50,
-                };
+                map[p.id] = captureSeasonStartStats(p);
               }
             }
             return map;
@@ -962,8 +1015,45 @@ export const useAppStore = create<AppState>()(
           if (newLineup[i]?.id === playerId) newLineup[i] = null;
         }
         newLineup[slotIndex] = player;
-        set({ tactics: { ...tactics, lineup: newLineup } });
+        // v2.9.86: İlk 11'e konan oyuncu pin'liyse pin'i kaldır (artık yedek değil)
+        let newPinnedBench = tactics.pinnedBench ?? [];
+        if (newPinnedBench.includes(playerId)) {
+          newPinnedBench = newPinnedBench.filter((id) => id !== playerId);
+        }
+        set({ tactics: { ...tactics, lineup: newLineup, pinnedBench: newPinnedBench } });
         triggerTacticsSave(); // v2.9.27 G1
+      },
+
+      // v2.9.86: Yedek kulübesine oyuncu pin'le / çöz
+      // Pin'li oyuncu rating'den bağımsız maç kadrosu (ilk 7 yedek) içinde kalır.
+      // İlk 11'deki oyuncu pin'lenemez (zaten kadroda).
+      // Maksimum 7 pin (BENCH_SIZE). 8. pin denendiğinde en eski pin kaldırılır.
+      toggleBenchPin: (playerId) => {
+        const { tactics, clubs, myTeamId } = get();
+        const team = clubs.find((c) => c.id === myTeamId);
+        if (!team) return;
+        const player = team.players.find((p) => p.id === playerId);
+        if (!player) return;
+        // İlk 11'de varsa pin'leme
+        const inLineup = tactics.lineup.some((p) => p?.id === playerId);
+        if (inLineup) return;
+        // Sakat / cezalı pin'lenebilir (yine de maç kadrosunda sayılır,
+        // ama maç motoru zaten sakat oyuncuyu oynatmaz — kullanıcı tercih eder)
+        const BENCH_SIZE = 7;
+        const current = tactics.pinnedBench ?? [];
+        let next: string[];
+        if (current.includes(playerId)) {
+          // Pin'i kaldır
+          next = current.filter((id) => id !== playerId);
+        } else {
+          // Pin ekle — 7'den fazlaysa ilk (en eski) pin'i düşür
+          next = [...current, playerId];
+          if (next.length > BENCH_SIZE) {
+            next = next.slice(next.length - BENCH_SIZE);
+          }
+        }
+        set({ tactics: { ...tactics, pinnedBench: next } });
+        triggerTacticsSave();
       },
 
       setRole: (slotIndex, role) => {
@@ -4510,29 +4600,12 @@ export const useAppStore = create<AppState>()(
             offers: [],
           },
           // P5: Yeni sezon başı stats'larını kaydet
+          // v2.9.86: Tüm stat'ları yakala — gelişim rozeti tüm mental/physical stat'lar için çalışır
           seasonStartStats: (() => {
             const map: Record<string, Record<string, number>> = {};
             for (const club of updatedClubs) {
               for (const p of club.players) {
-                map[p.id] = {
-                  rating: p.rating ?? 50,
-                  finishing: p.finishing ?? 50,
-                  dribbling: p.dribbling ?? 50,
-                  passing: p.passing ?? 50,
-                  shooting: p.shooting ?? 50,
-                  tackling: p.tackling ?? 50,
-                  marking: p.marking ?? 50,
-                  heading: p.heading ?? 50,
-                  speed: p.speed ?? p.stats?.pace ?? 50,
-                  stamina: p.stamina ?? 50,
-                  strength: p.strength ?? 50,
-                  vision: p.vision ?? 50,
-                  technique: p.technique ?? 50,
-                  crossing: p.crossing ?? 50,
-                  longShots: p.longShots ?? 50,
-                  firstTouch: p.firstTouch ?? 50,
-                  offTheBall: p.offTheBall ?? 50,
-                };
+                map[p.id] = captureSeasonStartStats(p);
               }
             }
             return map;
@@ -4540,16 +4613,29 @@ export const useAppStore = create<AppState>()(
         });
 
         // v2.9.75: Oyuncu stat kazançlarını hesapla (sezon başına göre fark)
+        // v2.9.86 FIX: captureSeasonStartStats ile yakalanan TÜM stat'lar için hesapla.
+        // Eski kod "pace" ve "physical" arıyordu — bu stat'lar top-level değil stats.* altında,
+        // bu yüzden delta yanlış hesaplanıyordu. Yeni kod tüm SEASON_START_STAT_KEYS'i kullanır.
         const seasonStart = get().seasonStartStats ?? {};
-        const STAT_KEYS_FOR_GAINS = ["finishing", "dribbling", "passing", "tackling", "heading", "technique", "crossing", "longShots", "marking", "firstTouch", "pace", "shooting", "defending", "physical", "dribbling"];
         const statGains: Array<{ name: string; gains: Array<{ stat: string; delta: number }> }> = [];
         for (const p of team.players) {
           const start = seasonStart[p.id];
           if (!start) continue;
           const gains: Array<{ stat: string; delta: number }> = [];
-          for (const key of STAT_KEYS_FOR_GAINS) {
-            const currentVal = (p as any)[key] ?? 0;
-            const startVal = start[key] ?? 0;
+          for (const key of SEASON_START_STAT_KEYS) {
+            // Top-level attribute'u dene, sonra stats.* fallback, sonra alias
+            let currentVal = (p as any)[key];
+            if (typeof currentVal !== "number") {
+              currentVal = (p as any)?.stats?.[key];
+            }
+            if (typeof currentVal !== "number") {
+              const aliasMap: Record<string, string> = { speed: "pace", power: "physical" };
+              const alias = aliasMap[key];
+              if (alias) currentVal = (p as any)?.stats?.[alias];
+            }
+            if (typeof currentVal !== "number") continue;
+            const startVal = start[key];
+            if (typeof startVal !== "number") continue;
             const delta = Math.round(currentVal - startVal);
             if (delta > 0) gains.push({ stat: key, delta });
           }
@@ -5220,7 +5306,7 @@ export const useAppStore = create<AppState>()(
           if (teamErr) return { success: false, reason: teamErr.message };
           if (!myTeam) return { success: true };
 
-          const { data: userTactics } = await supabase().from("active_tactics").select("tactic_data, lineup_data, slot_roles, active_instructions").eq("profile_id", userId).maybeSingle();
+          const { data: userTactics } = await supabase().from("active_tactics").select("tactic_data, lineup_data, slot_roles, active_instructions, pinned_bench").eq("profile_id", userId).maybeSingle();
           const { data: deptTeams, error: deptErr } = await supabase().from("teams").select("*").eq("department_id", myTeam.department_id);
           if (deptErr) return { success: false, reason: deptErr.message };
           const teamIds = deptTeams.map((t: any) => t.id);
@@ -5285,6 +5371,10 @@ export const useAppStore = create<AppState>()(
               active: userTactics.tactic_data ?? { ...DEFAULT_TACTIC },
               lineup: userTactics.lineup_data ?? Array(11).fill(null),
               slotRoles: userTactics.slot_roles ?? {}, activeInstructions: userTactics.active_instructions ?? {},
+              // v2.9.86: Yedek sabitleme — pinned_bench kolonu veya tactic_data içinden oku
+              pinnedBench: userTactics.pinned_bench
+                ?? (userTactics.tactic_data as any)?.pinnedBench
+                ?? [],
               formationKey: userTactics.tactic_data?.formation ?? "4-4-2",
               sliders: { attackingPressure: userTactics.tactic_data?.aggression ?? 50, defensiveLine: userTactics.tactic_data?.lineHeight ?? 50, tempo: userTactics.tactic_data?.passingIntensity ?? 50, wingPlay: userTactics.tactic_data?.width ?? 50 },
               roles: {},
@@ -5551,27 +5641,20 @@ export const useAppStore = create<AppState>()(
         );
 
         // pendingGains'i temizle + seasonStartStats'ı güncelle (yeni sezon başı)
+        // v2.9.86: Tüm stat'ları yakala — captureSeasonStartStats kullan
+        // Not: Sadece myTeam oyuncuları güncellenir, diğer kulüplerin seasonStartStats'ı
+        // endSeason'da zaten güncellenmişti (applyPendingGains endSeason'dan sonra çağrılır).
+        // Ama myTeam oyuncularının stats'ı değiştiği için onları yeniden yakalamalıyız.
         const newSeasonStartStats: Record<string, Record<string, number>> = {};
         for (const p of updatedPlayers) {
-          newSeasonStartStats[p.id] = {
-            rating: p.rating ?? 50,
-            finishing: p.finishing ?? 50,
-            dribbling: p.dribbling ?? 50,
-            passing: p.passing ?? 50,
-            shooting: p.shooting ?? 50,
-            tackling: p.tackling ?? 50,
-            marking: p.marking ?? 50,
-            heading: p.heading ?? 50,
-            speed: p.speed ?? p.stats?.pace ?? 50,
-            stamina: p.stamina ?? 50,
-            strength: p.strength ?? 50,
-            vision: p.vision ?? 50,
-            technique: p.technique ?? 50,
-            crossing: p.crossing ?? 50,
-            longShots: p.longShots ?? 50,
-            firstTouch: p.firstTouch ?? 50,
-            offTheBall: p.offTheBall ?? 50,
-          };
+          newSeasonStartStats[p.id] = captureSeasonStartStats(p);
+        }
+        // Diğer kulüplerin seasonStartStats'ını koru (endSeason'dan gelen değerlerle)
+        const existingSeasonStartStats = get().seasonStartStats ?? {};
+        for (const [pid, stats] of Object.entries(existingSeasonStartStats)) {
+          if (!newSeasonStartStats[pid]) {
+            newSeasonStartStats[pid] = stats;
+          }
         }
 
         set({

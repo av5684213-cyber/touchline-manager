@@ -218,6 +218,8 @@ async function saveToMultiplayerTables(userId: string): Promise<void> {
       lineup_data: s.tactics.lineup,
       slot_roles: s.tactics.slotRoles,
       active_instructions: s.tactics.activeInstructions,
+      // v2.9.86: Yedek sabitleme — pinned_bench kolonu (migration 039 ile eklendi)
+      pinned_bench: s.tactics.pinnedBench ?? [],
     }, { onConflict: "profile_id" });
     if (tacErr) {
       console.warn("[cloud-save] active_tactics save error:", tacErr.message);
@@ -283,6 +285,8 @@ async function saveTacticsToTable(userId: string): Promise<void> {
         lineup_data: s.tactics.lineup,
         slot_roles: s.tactics.slotRoles,
         active_instructions: s.tactics.activeInstructions,
+        // v2.9.86: Yedek sabitleme — pinned_bench kolonu
+        pinned_bench: s.tactics.pinnedBench ?? [],
       }, { onConflict: "profile_id" });
 
       if (tacErr) {

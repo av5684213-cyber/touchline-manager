@@ -4539,3 +4539,100 @@ Stage Summary:
 - Değişen dosya: src/components/touchline/screens/transfer.tsx
 - Mevcut davranış BOZULMADI: filtreleme, teklif yapma, favorileme aynı çalışıyor
 - Kompakt/Detaylı toggle component state ile (ekran değişince sıfırlanır)
+
+---
+Task ID: v2.9.86-bench-pin-stats-growth
+Agent: main (GLM)
+Task: İki kullanıcı sorunu: (1) Yedek kulübesi ↔ Diğer oyuncular arasında değişiklik yapılamıyor, (2) Overaller yükseliyor ama +1/+2 stat growth rozetleri görünmüyor.
+
+Work Log:
+- Issue 1 analizi (tactics.tsx satır 116-136):
+  * benchPlayers = team.players - lineup, rating'e göre sıralı
+  * matchDayBench = ilk 7 (rating sırasına göre), otherPlayers = gerisi
+  * Sorun: Kullanıcı "Diğer Oyuncular"dan bir oyuncuyu yedek kulübesine alamıyor —
+    bench otomatik rating sırasıyla dolduğu için manuel kontrol mümkün değil
+  * Her bench/other satırı sadece "ilk 11'e yerleştir" modunu tetikliyor
+
+- Issue 2 analizi (store.ts seasonStartStats + ui-bits.tsx StatGrowth/GrowthBadge + player-profile-modal.tsx StatValue):
+  * seasonStartStats sadece 17 stat yakalıyordu: rating, finishing, dribbling, passing,
+    shooting, tackling, marking, heading, speed, stamina, strength, vision, technique,
+    crossing, longShots, firstTouch, offTheBall
+  * EKSİK statlar (profil modal'da gösterilen ama yakalanmayan):
+    - Mental: aggression, bravery, workRate, decisions, determination, concentration,
+      leadership, anticipation, flair, positioning, composure, teamwork
+    - Physical: agility, balance, acceleration, jumping, leftFoot, rightFoot
+    - Training aliases: defending, power
+  * StatGrowth "defending" arıyordu (transfer.tsx) ama defending seasonStartStats'te yoktu → rozet hiç görünmüyordu
+  * Training (runTrainingSession) defending/power/stats.pace/stats.shooting/stats.passing/
+    stats.defending/stats.physical/stats.dribbling güncellüyordu ama bunlardan sadece
+    shooting, passing, dribbling, speed seasonStartStats'teydi — defending ve power eksikti
+  * GrowthBadge/StatGrowth: ondalık rating farklarını (0.5) doğru göstermiyordu — Math.round eksikti
+
+- Fix 1: pinnedBench sistemi (Yedek sabitleme)
+  * src/lib/store.ts:
+    - Tactics tipine `pinnedBench: string[]` alanı eklendi
+    - Default state'e `pinnedBench: []` eklendi (iki yerde: initial + getDefaultTactics)
+    - `toggleBenchPin(playerId)` action eklendi:
+      * İlk 11'deki oyuncu pin'lenemez (return)
+      * Maksimum 7 pin (BENCH_SIZE), 8. pinde en eski düşürülür
+      * swapLineupSlot içinde: ilk 11'e konan oyuncu pin'liyse pin'i kaldır
+    - loadMultiplayerState: pinned_bench kolonu veya tactic_data.pinnedBench'ten oku
+    - Supabase select'e "pinned_bench" eklendi
+  * src/lib/cloud-save.ts:
+    - saveToMultiplayerTables + saveTacticsToTable: pinned_bench kolonu yaz
+  * src/components/touchline/screens/tactics.tsx:
+    - toggleBenchPin store'dan oku
+    - pinnedBench + validPinnedIds useMemo'ları (pin'li oyuncu kadroda değilse filtrele)
+    - matchDayBench: önce pin'liler (pin sırasına göre), sonra rating'e göre kalanlar
+    - otherPlayers: matchDayBench'te olmayan tüm bench oyuncuları
+    - UI: her bench/other satırı artık div + iki buton (oyuncu satırı + 📌 pin toggle)
+    - Pin'li satırlar amber border + bg ile vurgulanır
+    - Bench header'a "📌 sabitle" ipucu eklendi
+  * supabase/migrations/039_pinned_bench.sql:
+    - ALTER TABLE active_tactics ADD COLUMN pinned_bench JSONB DEFAULT '[]'::jsonb
+    - Mevcut satırlar için '[]' default değer ver
+
+- Fix 2: seasonStartStats tüm stat'ları kapsar
+  * src/lib/store.ts:
+    - SEASON_START_STAT_KEYS sabiti: 38 stat (rating + 10 teknik + 13 mental + 9 physical +
+      2 training alias + 1 GK + offTheBall)
+    - captureSeasonStartStats(player) helper fonksiyonu:
+      * Her stat için önce top-level attribute'u dener
+      * Yoksa stats.* alt nesnesini dener
+      * Alias mapping: speed→stats.pace, power→stats.physical
+    - 3 capture sites (startNewGame, endSeason, applyPendingGains) helper'ı kullanır
+    - applyPendingGains: myTeam oyuncularını yeniden yakala + diğer kulüplerin
+      seasonStartStats'ını koru (eski kod diğer kulüpleri siliyordu!)
+    - Sezon sonu statGains hesabı: SEASON_START_STAT_KEYS üzerinden git,
+      pace/physical için alias mapping kullan
+  * src/components/touchline/ui-bits.tsx:
+    - GrowthBadge: diff = Math.round(currentRating - startRating) (ondalık fix)
+    - StatGrowth: diff = Math.round(currentValue - startValue) (ondalık fix)
+  * src/components/touchline/player-profile-modal.tsx:
+    - StatValue: growth = Math.round(value - startValue) (zaten round vardı, comment güncellendi)
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- Değişen dosyalar:
+  * src/lib/store.ts (pinnedBench tipi + action + captureSeasonStartStats helper + 3 capture site)
+  * src/lib/cloud-save.ts (2 yerde pinned_bench yazma)
+  * src/components/touchline/screens/tactics.tsx (pin UI + bench hesaplama)
+  * src/components/touchline/ui-bits.tsx (Math.round fix)
+  * src/components/touchline/player-profile-modal.tsx (comment güncelleme)
+  * supabase/migrations/039_pinned_bench.sql (yeni)
+- Behavior değişiklikleri:
+  1. Yedek kulübesinde "Diğer Oyuncular" listesindeki bir oyuncuya 📌 basınca
+     otomatik olarak maç kadrosu yedeklerine (ilk 7) taşınır. Pinlenen oyuncu
+     rating'den bağımsız orada kalır. Pin'i kaldırmak için tekrar 📌 bas.
+     Maksimum 7 pin (8. pinde en eski otomatik düşer).
+  2. İlk 11'e oyuncu koyunca pin'i otomatik kaldırılır (artık yedek değil).
+  3. Tüm stat artışları (mental, physical, defending, power) artık rozet olarak
+     görünüyor — eski kod sadece 17 stat yakalıyordu, şimdi 38 stat.
+  4. Ondalık rating artışları (0.5) doğru yuvarlanıp tam sayı rozet olarak gösteriliyor.
+- Önemli notlar:
+  * Eski saves (bu fix'ten önce başlatılmış): sezon sonuna kadar yeni mental/physical
+    stat rozetleri görünmez (çünkü seasonStartStats'te o statlar yok). Bir sonraki
+    sezon başından itibaren tüm rozetler çalışır.
+  * Yeni saves: ilk günden itibaren tüm rozetler çalışır.
+  * pinned_bench DB kolonu migration 039 ile eklenir — mevcut kullanıcılar için
+    default '[]' değeri verilir.

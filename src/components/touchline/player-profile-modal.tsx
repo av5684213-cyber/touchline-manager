@@ -1378,6 +1378,7 @@ function StatValue({ value, playerId, statKey }: { value: number | undefined; pl
   }
 
   // P2: Gelişim rozeti — sezon başına göre, tam sayı
+  // v2.9.86 FIX: Ondalık farkları tam sayıya yuvarla
   let growth: number | null = null;
   if (playerId && statKey) {
     const startStats = seasonStartStats?.[playerId];

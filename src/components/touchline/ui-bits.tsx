@@ -136,11 +136,12 @@ export function RatingBadge({ value }: { value: number }) {
 
 // P5: Gelişim rozeti — sezon başına göre oyuncunun rating artışını gösterir
 // v2.9.70 FIX: Reaktif seasonStartStats okuma — getState() değil
+// v2.9.86 FIX: Rating ondalık olabilir (training 0.5 artış) — Math.round ile tam sayı göster
 export function GrowthBadge({ currentRating, playerId }: { currentRating: number; playerId: string }) {
   const startStats = useAppStore((s) => s.seasonStartStats?.[playerId]);
   if (!startStats) return null;
   const startRating = startStats.rating ?? currentRating;
-  const diff = currentRating - startRating;
+  const diff = Math.round(currentRating - startRating);
   if (diff <= 0) return null;
     return (
       <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
@@ -151,12 +152,13 @@ export function GrowthBadge({ currentRating, playerId }: { currentRating: number
 
 // P2: Stat gelişim rozeti — belirli bir stat için sezon başına göre artış gösterir
 // v2.9.70 FIX: Reaktif seasonStartStats okuma — getState() değil
+// v2.9.86 FIX: Ondalık farkları tam sayıya yuvarla, 0.5'ten büyükse göster
 export function StatGrowth({ playerId, statKey, currentValue }: { playerId: string; statKey: string; currentValue: number }) {
   const startStats = useAppStore((s) => s.seasonStartStats?.[playerId]);
   if (!startStats) return null;
   const startValue = startStats[statKey];
   if (startValue === undefined) return null;
-  const diff = currentValue - startValue;
+  const diff = Math.round(currentValue - startValue);
   if (diff <= 0) return null;
     return (
       <span className="text-[11px] font-bold text-emerald-400 leading-none ml-0.5">
