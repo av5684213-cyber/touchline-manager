@@ -1549,6 +1549,31 @@ function ActionsTab({
   // P0 FIX BUG #4: Oyuncu şu an kaptan mı? ("kaptan" eski değer, "captain" yeni — ikisini de kontrol et)
   const myPlayer = myTeam?.players.find((p) => p.id === player.id);
   const isCaptain = !!myPlayer && (myPlayer.special_role === "captain" || myPlayer.special_role === "kaptan");
+  // v2.9.91 (Madde 19): Kiralık oyuncu mu? buyOption bilgisi.
+  const isLoaned = !!(myPlayer as any)?._loaned;
+  const buyOptionPrice = (myPlayer as any)?._buyOptionPrice ?? Math.round((player.marketValue ?? 0) * 1.1);
+  const exerciseLoanBuyout = useAppStore((s) => s.exerciseLoanBuyout);
+
+  // v2.9.91 (Madde 19): Opsiyonu kullan — kiralık oyuncuyu kalıcı satın al
+  const handleLoanBuyout = () => {
+    haptic("medium");
+    const res = exerciseLoanBuyout(player.id);
+    if (res.success) {
+      haptic("success");
+      setFeedback(`✓ ${player.firstName} ${player.lastName} ${formatEuro(buyOptionPrice, locale)} karşılığında kalıcı olarak kadroya katıldı!`);
+      setTimeout(() => setFeedback(null), 4000);
+    } else {
+      haptic("error");
+      if (res.reason === "budget") {
+        setFeedback("✗ Yetersiz bütçe! Opsiyon fiyatını karşılamıyorsunuz.");
+      } else if (res.reason === "not-loaned") {
+        setFeedback("✗ Bu oyuncu kiralık değil.");
+      } else {
+        setFeedback("✗ Opsiyon kullanılamadı.");
+      }
+      setTimeout(() => setFeedback(null), 4000);
+    }
+  };
 
   // P0 FIX BUG #4: Kaptan yap/çıkar — store action'ını kullan
   const handleToggleCaptain = () => {
@@ -2051,6 +2076,34 @@ function ActionsTab({
           : "bg-red-500/20 text-red-300 border-red-500/30"
         )}>
           {feedback}
+        </div>
+      )}
+
+      {/* v2.9.91 (Madde 19): Kiralık oyuncu için "Opsiyonu Kullan" butonu */}
+      {isLoaned && isMyPlayer && (
+        <div className="tm-card p-2.5 bg-amber-500/5 border-amber-500/30">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className="text-[11px] font-bold text-amber-300">🔐 Kiralık Oyuncu — Satın Alma Opsiyonu</span>
+          </div>
+          <div className="text-[10px] text-muted-foreground mb-2">
+            Bu oyuncu kiralık olarak kadrodaki. Opsiyon fiyatını ödeyerek kalıcı olarak transfer edebilirsin.
+          </div>
+          <div className="flex justify-between items-center mb-2 text-[11px]">
+            <span className="text-muted-foreground">Opsiyon Fiyatı</span>
+            <span className="font-bold tabular-nums text-amber-300">{formatEuro(buyOptionPrice, locale)}</span>
+          </div>
+          <button
+            onClick={handleLoanBuyout}
+            disabled={(myTeam?.budget ?? 0) < buyOptionPrice}
+            className={cn(
+              "tm-tap w-full py-2 rounded-md text-xs font-bold",
+              (myTeam?.budget ?? 0) < buyOptionPrice
+                ? "bg-muted text-muted-foreground"
+                : "bg-amber-600 text-white hover:bg-amber-700"
+            )}
+          >
+            {(myTeam?.budget ?? 0) < buyOptionPrice ? "Yetersiz Bütçe" : "Opsiyonu Kullan — Kalıcı Transfer"}
+          </button>
         </div>
       )}
 

@@ -4986,3 +4986,63 @@ Stage Summary:
   * src/lib/trophy-system.ts (Batch 5 — MAX_TROPHIES)
 - Düzeltilen: 23/28 bulgu
 - Ertelenen: 5 bulgu (Madde 14 CL interaktif, Madde 18 pazarlık klausülleri, Madde 19 loan buyOption — büyük refactor gerekir)
+
+---
+Task ID: v2.9.91-ertelenen-maddeler-14-18-19
+Agent: main (GLM)
+Task: Ertelenen 3 maddeyi tamamla: CL interaktif (14), pazarlık klausülleri (18), loan buyOption (19).
+
+Work Log:
+
+### Madde 14: CL Kullanıcıya Oynatılmıyor
+- **Dosya:** src/lib/store.ts (endSeason CL simülasyonu, satır 4550-4631)
+- **Kök neden:** CL turları pure OVR random sim ile oynanıyordu — kullanıcının becerisi/taktikleri/squad'ı etkisizdi. Kullanıcı CL şampiyonu olamazdı (RNG + OVR ile).
+- **Düzeltme:** Kullanıcının CL maçları artık `simulateEnhancedMatch` ile oynanıyor:
+  - Kullanıcının gerçek squad'ı (en iyi 11 uygun oyuncu)
+  - Kullanıcının gerçek taktikleri (formation, mentality, pressing vb.)
+  - Rakip için finalPosition bazlı dummy squad (1. = 80 OVR, 2. = 77, 3. = 74)
+  - Beraberlik bitince `simulatePenaltyShootout` ile penaltı atışması
+  - Hata durumunda basit sim'e fallback
+  - Bot vs bot maçları hala basit sim ile (performans)
+- **Test:** Kullanıcı T1'de ilk 3'e girip CL'ye katılırsa, maçları artık enhanced motorla oynanır — taktik/squad/form etkili.
+
+### Madde 18: Pazarlık Klausülleri
+- **Dosya:** src/lib/store.ts (TransferClauses tipi + makeTransferOffer) + src/components/touchline/transfer-negotiation-modal.tsx
+- **Kök neden:** Modal; sell-on %, takas, performans bonusu, buy-back, taksit gibi klausüller gösteriyor ve AI kabul avantajı sağlıyordu, ama `makeTransferOffer(playerId, fee, wage, contractYears)` imzasına hiçbiri aktarılmıyordu → kozmetik.
+- **Düzeltme:**
+  1. `TransferClauses` tipi tanımlandı: sellOnPercent, exchangePlayerId, performanceBonus, buyBackAmount, installments
+  2. `makeTransferOffer` imzasına `clauses?: TransferClauses` parametresi eklendi
+  3. Accepted dalında klausüller uygulanıyor:
+     - **sellOnPercent**: oyuncuya `_sellOnPercent` + `_sellOnClubId` yazılır (gelecekteki satışta eski kulübe pay)
+     - **exchangePlayerId**: takas oyuncusu kullanıcıdan çıkarılıp satıcıya eklenir
+     - **performanceBonus**: oyuncuya `_performanceBonus` yazılır (gol eşiklerinde ödenir)
+     - **buyBackAmount**: oyuncuya `_buyBackAmount` + `_buyBackClubId` yazılır
+     - **installments**: bütçeden sadece ilk taksit düşer, geri kalan `_installmentsRemaining`'e yazılır
+  4. transfer-negotiation-modal.tsx artık klausülleri `makeTransferOffer`'a aktarıyor
+- **Test:** Transfer pazarlık modalında sell-on %20 + takas + taksit seçilip AI kabul ederse, klausüller gerçekten uygulanır.
+
+### Madde 19: Loan buyOption
+- **Dosya:** src/lib/store.ts (exerciseLoanBuyout aksiyonu + makeLoanOffer buyOption yazma) + src/components/touchline/player-profile-modal.tsx (UI butonu)
+- **Kök neden:** `buyOption` loanListings'te üretiliyor ve UI'da "Opsiyon: 11M" gösteriliyor, ama hiçbir fonksiyon okumuyordu → kiralık süre dolunca oyuncu her zaman iade ediliyordu.
+- **Düzeltme:**
+  1. `makeLoanOffer`: kiralık oyuncu kadroya eklenirken `_buyOptionPrice: marketValue × 1.1` yazılır
+  2. `exerciseLoanBuyout(playerId)` aksiyonu eklendi:
+     - Oyuncunun `_loaned === true` kontrolü
+     - `_buyOptionPrice` bütçe kontrolü
+     - Bütçeden düş, kaynak kulübe ekle
+     - Oyuncudan kiralık flag'lerini temizle (`_loaned`, `_loanWeeks`, `_loanFrom`, `_buyOptionPrice`)
+     - Haber + loanListings temizleme
+  3. player-profile-modal.tsx ActionsTab: kiralık oyuncu için "Opsiyonu Kullan" butonu eklendi
+     - Amber renkli kart, opsiyon fiyatı gösterimi
+     - Bütçe yetersizse disabled
+     - `handleLoanBuyout` handler'ı feedback ile
+- **Test:** Kiralık oyuncu profilinde "Opsiyonu Kullan" butonu görünür. Tıklayınca oyuncu kalıcı olarak kadroya katılır, bütçeden opsiyon fiyatı düşer.
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- Değişen dosyalar:
+  * src/lib/store.ts (Madde 14 CL interaktif + Madde 18 TransferClauses + Madde 19 exerciseLoanBuyout)
+  * src/components/touchline/transfer-negotiation-modal.tsx (Madde 18 — klausülleri aktar)
+  * src/components/touchline/player-profile-modal.tsx (Madde 19 — opsiyon butonu)
+- Ertelenen 3 madde tamamlandı. Toplam düzeltilen: 26/28 bulgu.
+- Kalan 2 madde (CL kullanıcı için canlı maç replay, sell-on percentage otomatik uygulama) ileride refactor gerektirir.

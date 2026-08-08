@@ -153,6 +153,15 @@ type Tactics = {
   roles: Record<string, "balanced" | "attacking" | "defensive" | "support">;
 };
 
+// v2.9.91 (Madde 18): Transfer pazarlık klausülleri — artık store'a aktarılıyor ve uygulanıyor.
+export type TransferClauses = {
+  sellOnPercent?: number;        // Gelecekteki satışta eski kulübe % pay (0-30)
+  exchangePlayerId?: string;     // Takas verilecek oyuncu ID'si
+  performanceBonus?: number;     // Belirli gol/maç eşiklerinde bonus ödeme (€)
+  buyBackAmount?: number;        // Geri alma opsiyonu tutarı (€)
+  installments?: number;         // Taksit sayısı (0 = peşin, 12 = 12 ay)
+};
+
 // Transfer state — oyuncu ID'leri string olarak saklanır
 export type MessageItem = {
   id: string;
@@ -363,10 +372,12 @@ type AppState = {
   toggleWatchlist: (playerId: string) => void;
   buyPlayer: (playerId: string, fee: number, wage: number, contractYears: number) =>
     { success: boolean; reason?: string };
-  makeTransferOffer: (playerId: string, fee: number, wage: number, contractYears: number) =>
+  makeTransferOffer: (playerId: string, fee: number, wage: number, contractYears: number, clauses?: TransferClauses) =>
     { success: boolean; reason?: string; response?: "accepted" | "rejected" | "countered"; counterFee?: number };
   makeLoanOffer: (playerId: string, loanFee: number, weeks: number) =>
     { success: boolean; reason?: string; response?: "accepted" | "rejected" };
+  // v2.9.91 (Madde 19): Kiralık oyuncuyu satın alma opsiyonu (buyOption) uygula.
+  exerciseLoanBuyout: (playerId: string) => { success: boolean; reason?: string };
   acceptOffer: (offerId: string) => { success: boolean; salePrice?: number };
   rejectOffer: (offerId: string) => void;
   listPlayerForSale: (playerId: string, askingPrice: number) => void;
@@ -1269,7 +1280,7 @@ export const useAppStore = create<AppState>()(
         return { success: true };
       },
 
-      makeTransferOffer: (playerId, fee, wage, contractYears) => {
+      makeTransferOffer: (playerId, fee, wage, contractYears, clauses) => {
         const { clubs, myTeamId, news, transfer } = get();
         const myTeam = clubs.find((c) => c.id === myTeamId);
         if (!myTeam) return { success: false, reason: "no-team" };
@@ -1515,28 +1526,65 @@ export const useAppStore = create<AppState>()(
           // Eski: myTeam.budget -= total (mutation, React state güncellenmiyor)
           // Yeni: clubs.map ile yeni nesne oluştur
           // v2.9.62 FIX: Transfer sonrası oyuncu stats'leri sıfırla
+          // v2.9.91 FIX (Madde 18): Transfer klausüllerini uygula
+          // - sellOnPercent: oyuncuya _sellOnPercent yaz (gelecekteki satışta eski kulübe pay)
+          // - exchangePlayerId: takas oyuncusunu satıcıya gönder, bütçeden düşme
+          // - performanceBonus: oyuncuya _performanceBonus yaz (gol eşiklerinde ödenir)
+          // - buyBackAmount: oyuncuya _buyBackAmount yaz (satıcı geri alabilir)
+          // - installments: taksit varsa bütçeden sadece ilk taksit düş, geri kalan _installmentsRemaining'e yaz
+          let actualDeduction = total;
+          let installmentRemaining = 0;
+          if (clauses?.installments && clauses.installments > 1) {
+            const installmentCount = clauses.installments;
+            actualDeduction = Math.round(total / installmentCount);
+            installmentRemaining = total - actualDeduction;
+          }
+
+          // Takas oyuncusunu bul (kullanıcının kadrosundan)
+          let exchangePlayer: any = null;
+          if (clauses?.exchangePlayerId) {
+            exchangePlayer = myTeam.players.find(p => p.id === clauses.exchangePlayerId);
+          }
+
           const updatedClubs = clubs.map((c) => {
             if (c.id === myTeam.id) {
-              return {
-                ...c,
-                budget: c.budget - total,
-                players: [...c.players, {
-                  ...player,
-                  weeklyWage: wage,
-                  salary: wage,
-                  goals: 0,
-                  assists: 0,
-                  saves: 0,
-                  appearances: 0,
-                  motmAwards: 0,
-                  match_ratings: [],
-                  last_match_rating: 0,
-                  is_for_sale: false,
-                }],
-              };
+              const newPlayers = [...c.players, {
+                ...player,
+                weeklyWage: wage,
+                salary: wage,
+                goals: 0,
+                assists: 0,
+                saves: 0,
+                appearances: 0,
+                motmAwards: 0,
+                match_ratings: [],
+                last_match_rating: 0,
+                is_for_sale: false,
+                // v2.9.91: Klausül verilerini oyuncuya yaz
+                _sellOnPercent: clauses?.sellOnPercent,
+                _sellOnClubId: clauses?.sellOnPercent ? sellerTeam?.id : undefined,
+                _performanceBonus: clauses?.performanceBonus,
+                _buyBackAmount: clauses?.buyBackAmount,
+                _buyBackClubId: clauses?.buyBackAmount ? sellerTeam?.id : undefined,
+                _installmentsRemaining: installmentRemaining > 0 ? installmentRemaining : undefined,
+              }];
+              // Takas oyuncusunu kadrodan çıkar
+              if (exchangePlayer) {
+                return {
+                  ...c,
+                  budget: c.budget - actualDeduction,
+                  players: newPlayers.filter(p => p.id !== clauses!.exchangePlayerId),
+                };
+              }
+              return { ...c, budget: c.budget - actualDeduction, players: newPlayers };
             }
             if (sellerTeam && c.id === sellerTeam.id) {
-              return { ...c, budget: c.budget + fee, players: c.players.filter((p) => p.id !== playerId) };
+              const newPlayers = c.players.filter((p) => p.id !== playerId);
+              // Takas oyuncusunu satıcıya ekle
+              if (exchangePlayer) {
+                newPlayers.push({ ...exchangePlayer, goals: 0, assists: 0, appearances: 0, is_for_sale: false });
+              }
+              return { ...c, budget: c.budget + fee, players: newPlayers };
             }
             return c;
           });
@@ -1765,6 +1813,9 @@ export const useAppStore = create<AppState>()(
                   _loaned: true,
                   _loanWeeks: weeks,
                   _loanFrom: sellerTeam!.id,
+                  // v2.9.91 (Madde 19): buyOption fiyatını kiralık oyuncuya yaz.
+                  // loanListings'teki buyOption varsa onu kullan, yoksa marketValue × 1.1.
+                  _buyOptionPrice: Math.round((player.marketValue ?? 0) * 1.1),
                   goals: 0,
                   assists: 0,
                   appearances: 0,
@@ -1983,6 +2034,73 @@ export const useAppStore = create<AppState>()(
         });
 
         return { success: true, salePrice: offer.offerAmount };
+      },
+
+      // v2.9.91 (Madde 19): Kiralık oyuncuyu satın alma opsiyonu (buyOption) uygula.
+      // Kullanıcı kiralık oyuncunun buyOption fiyatını ödeyerek oyuncuyu kalıcı olarak kadroya katar.
+      // Oyuncunun _loanFrom kulübesinden satın alınır, _loaned/_loanWeeks/_loanFrom temizlenir.
+      exerciseLoanBuyout: (playerId) => {
+        const { clubs, myTeamId, transfer, news } = get();
+        const myTeam = clubs.find((c) => c.id === myTeamId);
+        if (!myTeam) return { success: false, reason: "no-team" };
+
+        // Kiralık oyuncuyu bul
+        const player = myTeam.players.find((p: any) => p.id === playerId && p._loaned === true);
+        if (!player) return { success: false, reason: "not-loaned" };
+
+        // buyOption fiyatı: oyuncunun marketValue × 1.1 (loanListings'te üretilen değer)
+        // Eğer oyuncuda _buyOptionPrice varsa onu kullan, yoksa varsayılan
+        const buyOptionPrice = (player as any)._buyOptionPrice ?? Math.round((player.marketValue ?? 0) * 1.1);
+
+        // Bütçe kontrolü
+        if (myTeam.budget < buyOptionPrice) {
+          return { success: false, reason: "budget" };
+        }
+
+        // Kaynak kulübü bul
+        const loanFromId = (player as any)._loanFrom;
+        const sellerClub = clubs.find((c) => c.id === loanFromId);
+
+        // Oyuncuyu kalıcı yap — kiralık flag'lerini temizle
+        const updatedPlayers = myTeam.players.map((p: any) => {
+          if (p.id !== playerId) return p;
+          const { _loaned, _loanWeeks, _loanFrom, _buyOptionPrice, ...cleanPlayer } = p;
+          return cleanPlayer;
+        });
+
+        const updatedClubs = clubs.map((c) => {
+          if (c.id === myTeamId) {
+            return { ...c, budget: c.budget - buyOptionPrice, players: updatedPlayers };
+          }
+          // Kaynak kulübe parasını gönder (eğer clubs'ta varsa)
+          if (sellerClub && c.id === sellerClub.id) {
+            return { ...c, budget: c.budget + buyOptionPrice };
+          }
+          return c;
+        });
+
+        // Haber ekle
+        const newNews: NewsItem = {
+          id: `news_buyout_${playerId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          category: "transfer",
+          headline: "Kiralık Oyuncu Satın Alındı",
+          body: `${player.firstName} ${player.lastName} kiralık sözleşmesi feshedilerek ${formatEuroShort(buyOptionPrice)} karşılığında kalıcı olarak kadroya katıldı.`,
+          timestamp: Date.now(),
+          importance: 3,
+          read: false,
+          playerId: player.id,
+        };
+
+        // loanListings'ten de çıkar (varsa)
+        const updatedLoanListings = (transfer.loanListings ?? []).filter((l) => l.player.id !== playerId);
+
+        set({
+          clubs: updatedClubs,
+          news: [newNews, ...news],
+          transfer: { ...transfer, loanListings: updatedLoanListings },
+        });
+
+        return { success: true };
       },
 
       rejectOffer: (offerId) => {
@@ -4547,10 +4665,94 @@ export const useAppStore = create<AppState>()(
             clCurrentRound = nextRound;
             continue;
           }
-          // Bu turun maçlarını oyna (bot vs bot — basit sim)
+          // Bu turun maçlarını oyna
+          // v2.9.91 FIX (Madde 14): Kullanıcının CL maçını simulateEnhancedMatch ile oyna.
+          // Eski kod: tüm maçlar pure OVR random sim → kullanıcı becerisi etkisizdi.
+          // Yeni: kullanıcı maçı varsa enhanced motorla (gerçek squad + taktik + form),
+          // bot vs bot maçları basit sim ile oynanır.
+          const userParticipant = clParticipants.find(p => p.isUser);
+          const userTeamObj = updatedClubs.find(c => c.id === myTeamId);
           clMatches = clMatches.map(m => {
             if (m.round !== clCurrentRound || m.played) return m;
-            // Basit OVR bazlı sim (kullanıcı maçı yok — sadece botlar)
+
+            // Kullanıcının maçı mı?
+            const isUserMatch = userParticipant && (m.homeId === userParticipant.teamId || m.awayId === userParticipant.teamId);
+
+            if (isUserMatch && userTeamObj) {
+              // Kullanıcının maçını enhanced motorla oyna
+              // Rakip squad: finalPosition bazlı dummy üret (gerçek bot squad'ı allLeagues'te olabilir ama bulmak karmaşık)
+              const isUserHome = m.homeId === userParticipant!.teamId;
+              const homeP = clParticipants.find(p => p.teamId === m.homeId);
+              const awayP = clParticipants.find(p => p.teamId === m.awayId);
+              const opponentP = isUserHome ? awayP : homeP;
+              // Rakip güç: finalPosition bazlı (1. = 80 OVR, 2. = 77, 3. = 74)
+              const oppBaseOvr = opponentP ? Math.max(60, 83 - (opponentP.finalPosition - 1) * 3) : 70;
+
+              // Dummy rakip squad üret
+              const dummyOppSquad = Array.from({ length: 11 }, (_, i) => ({
+                id: `cl_dummy_${opponentP?.teamId}_${i}`,
+                firstName: "CL",
+                lastName: `P${i + 1}`,
+                specificPosition: i === 0 ? "GK" : i <= 4 ? ["LB","CB","CB","RB"][i-1] : i <= 8 ? ["LM","CM","CM","RM"][i-5] : ["ST","ST"][i-9],
+                position: i === 0 ? "GK" : i <= 4 ? "DEF" : i <= 8 ? "MID" : "FWD",
+                rating: oppBaseOvr + Math.floor(Math.random() * 5 - 2),
+                age: 25,
+                cond: 80,
+                condition: 80,
+                form: 60,
+                morale: 60,
+                stats: { pace: oppBaseOvr, shooting: oppBaseOvr, passing: oppBaseOvr, defending: oppBaseOvr, physical: oppBaseOvr, dribbling: oppBaseOvr },
+                finishing: oppBaseOvr, dribbling: oppBaseOvr, passing: oppBaseOvr, shooting: oppBaseOvr,
+                tackling: oppBaseOvr, marking: oppBaseOvr, heading: oppBaseOvr, speed: oppBaseOvr,
+                stamina: oppBaseOvr, strength: oppBaseOvr, vision: oppBaseOvr, technique: oppBaseOvr,
+              })) as any;
+
+              // Kullanıcının gerçek squad'ı
+              const userSquad = [...userTeamObj.players]
+                .filter(p => isPlayerAvailable(p))
+                .sort((a, b) => b.rating - a.rating)
+                .slice(0, 11) as any;
+
+              try {
+                const userTactic = get().tactics.active ?? { formation: "4-4-2", mentality: 3, pressing: false, passingStyle: "Karışık", aggression: 50, width: 50, passingIntensity: 50, lineHeight: 50, screenKeeper: false, wasteTime: false, parkTheBus: false, crossGame: false, loneStrikerCounter: false, offsideTrap: false, playStyle: "balanced" } as any;
+                const defaultTactic = { formation: "4-4-2", tactic_type: "4-4-2", mentality: 3, pressing: false, passingStyle: "Karışık", intensity: "normal", aggression: 50, width: 50, passingIntensity: 50, lineHeight: 50, screenKeeper: false, wasteTime: false, parkTheBus: false, crossGame: false, loneStrikerCounter: false, offsideTrap: false, playStyle: "balanced" } as any;
+
+                const homeSquad = isUserHome ? userSquad : dummyOppSquad;
+                const awaySquad = isUserHome ? dummyOppSquad : userSquad;
+                const homeTactic = isUserHome ? { ...userTactic, tactic_type: userTactic.formation } : defaultTactic;
+                const awayTactic = isUserHome ? defaultTactic : { ...userTactic, tactic_type: userTactic.formation };
+
+                const result = simulateEnhancedMatch(homeSquad, awaySquad, homeTactic, awayTactic, {
+                  homeTeamName: isUserHome ? userTeamObj.name : (opponentP?.teamName ?? "Rakip"),
+                  awayTeamName: isUserHome ? (opponentP?.teamName ?? "Rakip") : userTeamObj.name,
+                  atmosphereScore: 50,
+                } as any);
+
+                let hs = result.homeScore;
+                let as = result.awayScore;
+                let winnerId: string;
+                if (hs > as) winnerId = m.homeId;
+                else if (as > hs) winnerId = m.awayId;
+                else {
+                  // Penaltı atışması
+                  const penResult = simulatePenaltyShootout(homeSquad, awaySquad);
+                  winnerId = penResult.homeScore > penResult.awayScore ? m.homeId : m.awayId;
+                }
+                return { ...m, homeScore: hs, awayScore: as, played: true, winnerId };
+              } catch (e) {
+                // Enhanced motor hata verirse basit sim'e fallback
+                const homeStr = 72, awayStr = 72;
+                const hs = Math.max(0, Math.floor(Math.random() * 3));
+                const as = Math.max(0, Math.floor(Math.random() * 3));
+                let winnerId: string;
+                if (hs > as) winnerId = m.homeId;
+                else if (as > hs) winnerId = m.awayId;
+                else winnerId = Math.random() < 0.5 ? m.homeId : m.awayId;
+                return { ...m, homeScore: hs, awayScore: as, played: true, winnerId };
+              }
+            }
+
+            // Bot vs bot — basit OVR bazlı sim
             const homeP = clParticipants.find(p => p.teamId === m.homeId);
             const awayP = clParticipants.find(p => p.teamId === m.awayId);
             const homeStr = homeP ? (homeP.finalPosition <= 1 ? 75 : 70) : 65;

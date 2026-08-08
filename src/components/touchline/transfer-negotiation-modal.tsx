@@ -87,7 +87,20 @@ export function TransferNegotiationModal({
       // v2.9.63 FIX: Önce buyPlayer çağır, SONRA feedback göster
       // Eski kod: önce "KABUL EDİLDİ" gösteriyor, 1.5 sn sonra buyPlayer çağırıyordu
       // buyPlayer "not-found" return etse bile kullanıcı "KABUL EDİLDİ" görüyordu (silent failure)
-      const result = useAppStore.getState().makeTransferOffer(player.id, askingPrice, player.weeklyWage, 3);
+      // v2.9.91 FIX (Madde 18): Klausülleri makeTransferOffer'a aktar — artık kozmetik değil.
+      const result = useAppStore.getState().makeTransferOffer(
+        player.id,
+        askingPrice,
+        player.weeklyWage,
+        3,
+        {
+          sellOnPercent: sellOnPercent > 0 ? sellOnPercent : undefined,
+          exchangePlayerId: exchangePlayerId || undefined,
+          performanceBonus: performanceBonusGoals > 0 ? (performanceBonusAmount || Math.round(askingPrice * 0.1)) : undefined,
+          buyBackAmount: buyBackAmount >= askingPrice * 1.5 ? buyBackAmount : undefined,
+          installments: installmentMonths > 0 ? installmentMonths : undefined,
+        }
+      );
       if (result.success) {
         haptic("success");
         const msg = result.response === "accepted"
