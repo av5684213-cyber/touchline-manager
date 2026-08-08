@@ -6733,9 +6733,10 @@ function resetAllLeaguesForNewSeason(
       ...c,
       players: c.players.map((p) => {
         // v2.9.92 FIX (Bulgu 19): 29+ çarpanı ölüydü (0.2 × 0.5-1.3 = 0.1-0.26 → Math.round her zaman 0).
-        // Yeni: Math.floor kullan + 29+ için bazen 1 versin (0.3 + Math.random() × 1.4).
-        const ageMult = p.age <= 21 ? 1.0 : p.age <= 28 ? 0.6 : 0.3;
-        const ovrGain = Math.floor(ageMult * (0.3 + Math.random() * 1.4));
+        // v2.9.92 FIX-2: Math.floor da 0.3×0.3-1.7=0.09-0.51 → floor her zaman 0.
+        // Yeni: Math.round + 29+ çarpan 0.5 + aralık 0.2-1.8 → 29+ ~%40 ihtimalle +1.
+        const ageMult = p.age <= 21 ? 1.0 : p.age <= 28 ? 0.6 : 0.5;
+        const ovrGain = Math.round(ageMult * (0.2 + Math.random() * 1.6));
         const newRating = Math.min(99, (p.rating ?? 50) + ovrGain);
         // Rating değişince ilgili stat'ları da ufak artır (dengeli)
         const statGain = Math.max(0, ovrGain);
