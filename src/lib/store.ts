@@ -158,6 +158,7 @@ export type TransferClauses = {
   sellOnPercent?: number;        // Gelecekteki satışta eski kulübe % pay (0-30)
   exchangePlayerId?: string;     // Takas verilecek oyuncu ID'si
   performanceBonus?: number;     // Belirli gol/maç eşiklerinde bonus ödeme (€)
+  performanceBonusGoals?: number; // Bonus için gol eşiği (10, 15, 20 vb.)
   buyBackAmount?: number;        // Geri alma opsiyonu tutarı (€)
   installments?: number;         // Taksit sayısı (0 = peşin, 12 = 12 ay)
 };
@@ -279,6 +280,15 @@ type ChampionsLeagueState = {
     played: boolean;
     /** v2.9.46 GÖREV 2: Bye maçı (karşı taraf yok, otomatik tur atlatır) */
     isBye?: boolean;
+    /** v2.9.91 (Madde 29): Kullanıcının CL maçı event'leri — replay için saklanır */
+    events?: any[];
+    motmId?: string;
+    stats?: {
+      possession: [number, number];
+      shotsOnTarget: [number, number];
+      corners: [number, number];
+      fouls: [number, number];
+    };
   }>;
   currentRound: number;
   champion?: string;
@@ -1564,6 +1574,8 @@ export const useAppStore = create<AppState>()(
                 _sellOnPercent: clauses?.sellOnPercent,
                 _sellOnClubId: clauses?.sellOnPercent ? sellerTeam?.id : undefined,
                 _performanceBonus: clauses?.performanceBonus,
+                _performanceBonusGoals: clauses?.performanceBonusGoals,
+                _performanceBonusPaid: false, // henüz ödenmedi
                 _buyBackAmount: clauses?.buyBackAmount,
                 _buyBackClubId: clauses?.buyBackAmount ? sellerTeam?.id : undefined,
                 _installmentsRemaining: installmentRemaining > 0 ? installmentRemaining : undefined,
@@ -1992,7 +2004,17 @@ export const useAppStore = create<AppState>()(
 
         const updatedClubs = clubs.map((c) => {
           if (c.id === team.id) {
-            return { ...c, budget: c.budget + net, players: c.players.filter((p) => p.id !== offer.myPlayerId) };
+            // v2.9.91 (Madde 30): sell-on percentage uygula.
+            // Eğer oyuncuda _sellOnPercent varsa, satış gelirinin o yüzdesi eski kulübe (_sellOnClubId) ödenir.
+            const sellOnPercent = (player as any)._sellOnPercent;
+            const sellOnClubId = (player as any)._sellOnClubId;
+            let sellOnPayment = 0;
+            if (sellOnPercent && sellOnPercent > 0 && sellOnClubId) {
+              sellOnPayment = Math.round(net * (sellOnPercent / 100));
+            }
+            // Kullanıcının alacağı: net - sellOnPayment
+            const userNet = net - sellOnPayment;
+            return { ...c, budget: c.budget + userNet, players: c.players.filter((p) => p.id !== offer.myPlayerId) };
           }
           if (buyerTeam && c.id === buyerTeam.id) {
             return {
@@ -2000,6 +2022,13 @@ export const useAppStore = create<AppState>()(
               budget: Math.max(0, c.budget - offer.offerAmount),
               players: [...c.players, updatedPlayer],
             };
+          }
+          // v2.9.91 (Madde 30): sell-on payı eski kulübe öde (eğer clubs'ta varsa)
+          const sellOnPercent = (player as any)._sellOnPercent;
+          const sellOnClubId = (player as any)._sellOnClubId;
+          if (sellOnPercent && sellOnPercent > 0 && sellOnClubId && c.id === sellOnClubId && c.id !== team.id) {
+            const sellOnPayment = Math.round(net * (sellOnPercent / 100));
+            return { ...c, budget: c.budget + sellOnPayment };
           }
           return c;
         });
@@ -3480,6 +3509,70 @@ export const useAppStore = create<AppState>()(
           // Yeni: tüm toplamı clamp et → borç durumunda bonus yutulur (gerçekçi).
           myTeam.budget = Math.max(0, myTeam.budget + net + matchBonus);
 
+          // v2.9.91 (Madde 31): Performance bonus — oyuncu gol eşiğini geçtiyse bonus öde.
+          // Bu hafta oynanan maçlarda gol atan oyuncuların season goals sayısı arttı.
+          // Eğer oyuncuda _performanceBonus + _performanceBonusGoals varsa ve eşiği geçtiyse
+          // VE henüz ödenmediyse (_performanceBonusPaid !== true), bonusu öde.
+          let performanceBonusPaid = 0;
+          const bonusNewsItems: NewsItem[] = [];
+          for (const p of myTeam.players) {
+            const bonusAmount = (p as any)._performanceBonus;
+            const bonusGoals = (p as any)._performanceBonusGoals;
+            const bonusPaid = (p as any)._performanceBonusPaid;
+            if (bonusAmount && bonusGoals && !bonusPaid && (p.goals ?? 0) >= bonusGoals) {
+              performanceBonusPaid += bonusAmount;
+              // Oyuncuya _performanceBonusPaid = true yaz (tekrar ödenmesin)
+              (p as any)._performanceBonusPaid = true;
+              bonusNewsItems.push({
+                id: `news_perfbonus_${p.id}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                category: "transfer",
+                headline: "Performans Bonusu Ödendi",
+                body: `${p.firstName} ${p.lastName} ${bonusGoals} gol eşiğini geçti — ${formatEuroShort(bonusAmount)} performans bonusu satıcı kulübe ödendi.`,
+                timestamp: Date.now(),
+                importance: 2,
+                read: false,
+                playerId: p.id,
+              });
+            }
+          }
+          if (performanceBonusPaid > 0) {
+            myTeam.budget = Math.max(0, myTeam.budget - performanceBonusPaid);
+            // Bonusu satıcı kulübe gönder (eğer clubs'ta varsa) — basit yaklaşım: sadece bütçeden düş
+            // (satıcı kulüp clubs'ta olmayabilir — allLeagues'te olabilir, o yüzden sadece haber)
+          }
+
+          // v2.9.91 (Madde 32): Installments (taksit) otomatik ödeme.
+          // Oyuncuda _installmentsRemaining > 0 varsa, her matchday'de haftalık taksit düş.
+          // Haftalık taksit = toplam kalan / kalan hafta sayısı (basit yaklaşım: kalanın %8'i).
+          let installmentPaid = 0;
+          for (const p of myTeam.players) {
+            const remaining = (p as any)._installmentsRemaining;
+            if (remaining && remaining > 0) {
+              // Haftalık taksit: kalanın %8'i (12 hafta = ~%96, 6 hafta = ~%48)
+              const weeklyInstallment = Math.round(remaining * 0.08);
+              const actualPayment = Math.min(weeklyInstallment, remaining);
+              installmentPaid += actualPayment;
+              (p as any)._installmentsRemaining = remaining - actualPayment;
+              if (remaining - actualPayment <= 0) {
+                // Taksit bitti — alanı temizle
+                delete (p as any)._installmentsRemaining;
+                bonusNewsItems.push({
+                  id: `news_installment_done_${p.id}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                  category: "transfer",
+                  headline: "Taksit Ödendi",
+                  body: `${p.firstName} ${p.lastName} transfer ücreti taksitleri tamamlandı.`,
+                  timestamp: Date.now(),
+                  importance: 1,
+                  read: false,
+                  playerId: p.id,
+                });
+              }
+            }
+          }
+          if (installmentPaid > 0) {
+            myTeam.budget = Math.max(0, myTeam.budget - installmentPaid);
+          }
+
           // v2.9.73: BANKRUPTCY mekanizması
           // Sorun: Bütçe 0'a düşse bile hiçbir yaptırım yoktu. Kullanıcı maaş
           // bütçesi sezon ortasında negatife düşse bile oyuncular satılmıyor,
@@ -3491,6 +3584,8 @@ export const useAppStore = create<AppState>()(
           const emergencyThreshold = weeklyWages * 2; // 2 haftalık maaş
           const currentNews = get().news ?? [];
           const newNewsItems: NewsItem[] = [];
+          // v2.9.91 (Madde 31): Performance bonus haberlerini ekle
+          newNewsItems.push(...bonusNewsItems);
           if (myTeam.budget < emergencyThreshold && myTeam.players.length > 11) {
             // En yüksek maaşlı oyuncuyu bul (en düşük değerli değil — pahalı kadroyu küçült)
             const sortedByWage = [...myTeam.players]
@@ -4244,6 +4339,50 @@ export const useAppStore = create<AppState>()(
             regens.push(regen);
           }
 
+          // v2.9.91 (Madde 33): buyBack opsiyonu — satıcı kulüp (bot) oyuncuyu geri alabilir.
+          // Kullanıcının kadrosundaki _buyBackAmount + _buyBackClubId olan oyuncular için
+          // %15 ihtimalle bot geri alır. Para kullanıcıya ödenir, oyuncu kadrodan çıkar.
+          const userTeamForBuyback = updatedClubs.find(c => c.id === myTeamId);
+          if (userTeamForBuyback) {
+            const buybackNewsItems: NewsItem[] = [];
+            const buybackPlayers = userTeamForBuyback.players.filter((p: any) =>
+              (p as any)._buyBackAmount && (p as any)._buyBackClubId
+            );
+            for (const p of buybackPlayers) {
+              // %15 ihtimalle bot geri alır
+              if (Math.random() < 0.15) {
+                const buyBackAmount = (p as any)._buyBackAmount;
+                const buyBackClubId = (p as any)._buyBackClubId;
+                // Oyuncuyu kullanıcıdan çıkar, parayı ekle
+                userTeamForBuyback.players = userTeamForBuyback.players.filter((pp: any) => pp.id !== p.id);
+                userTeamForBuyback.budget += buyBackAmount;
+                // Bot kulübün bütçesinden düş (eğer clubs'ta varsa)
+                const botClub = updatedClubs.find(c => c.id === buyBackClubId);
+                if (botClub) {
+                  botClub.budget = Math.max(0, botClub.budget - buyBackAmount);
+                  botClub.players.push({ ...(p as any), _buyBackAmount: undefined, _buyBackClubId: undefined, goals: 0, assists: 0, appearances: 0 });
+                }
+                buybackNewsItems.push({
+                  id: `news_buyback_${p.id}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                  category: "transfer",
+                  headline: "Geri Alma Opsiyonu Kullanıldı",
+                  body: `${(p as any).firstName} ${(p as any).lastName} için geri alma opsiyonu kullanıldı — ${formatEuroShort(buyBackAmount)} karşılığında eski kulübüne iade edildi.`,
+                  timestamp: Date.now(),
+                  importance: 3,
+                  read: false,
+                  playerId: (p as any).id,
+                });
+              }
+            }
+            // Haberleri ekle
+            if (buybackNewsItems.length > 0) {
+              const currentNews = get().news ?? [];
+              setTimeout(() => {
+                useAppStore.setState({ news: [...buybackNewsItems, ...currentNews] });
+              }, 0);
+            }
+          }
+
           // Tüm oyuncuları yaşlandır + stat sıfırla
           // P1 FIX: regen'ler 17 yaşında kalsın (önce 17 üret sonra yaşlandırma skip)
           const agedPlayers = [...remainingPlayers, ...regens].map((p) => {
@@ -4738,7 +4877,22 @@ export const useAppStore = create<AppState>()(
                   const penResult = simulatePenaltyShootout(homeSquad, awaySquad);
                   winnerId = penResult.homeScore > penResult.awayScore ? m.homeId : m.awayId;
                 }
-                return { ...m, homeScore: hs, awayScore: as, played: true, winnerId };
+                // v2.9.91 (Madde 29): Kullanıcının CL maçı event'lerini sakla — replay için.
+                return {
+                  ...m,
+                  homeScore: hs,
+                  awayScore: as,
+                  played: true,
+                  winnerId,
+                  events: result.events,
+                  motmId: result.manOfTheMatch,
+                  stats: {
+                    possession: [result.homePossession ?? 50, result.awayPossession ?? 50],
+                    shotsOnTarget: [result.homeStats?.shotsOnTarget ?? 0, result.awayStats?.shotsOnTarget ?? 0],
+                    corners: [result.homeStats?.corners ?? 0, result.awayStats?.corners ?? 0],
+                    fouls: [result.homeStats?.fouls ?? 0, result.awayStats?.fouls ?? 0],
+                  },
+                };
               } catch (e) {
                 // Enhanced motor hata verirse basit sim'e fallback
                 const homeStr = 72, awayStr = 72;

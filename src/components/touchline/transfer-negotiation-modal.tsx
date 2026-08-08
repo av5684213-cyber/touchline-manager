@@ -97,6 +97,7 @@ export function TransferNegotiationModal({
           sellOnPercent: sellOnPercent > 0 ? sellOnPercent : undefined,
           exchangePlayerId: exchangePlayerId || undefined,
           performanceBonus: performanceBonusGoals > 0 ? (performanceBonusAmount || Math.round(askingPrice * 0.1)) : undefined,
+          performanceBonusGoals: performanceBonusGoals > 0 ? performanceBonusGoals : undefined,
           buyBackAmount: buyBackAmount >= askingPrice * 1.5 ? buyBackAmount : undefined,
           installments: installmentMonths > 0 ? installmentMonths : undefined,
         }

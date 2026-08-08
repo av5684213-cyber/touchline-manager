@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Trophy, Loader2, Play } from "lucide-react";
+import { Trophy, Loader2, Play, Eye } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/hooks/touchline";
 import { TeamDetailModal } from "./team-detail-modal";
+// v2.9.91 (Madde 29): CL maçı replay için MatchReplayModal
+import { MatchReplayModal } from "./match-replay-modal";
 import type { Team } from "@/lib/mock/data";
 
 /**
@@ -22,6 +24,8 @@ export function ChampionsLeaguePanel() {
   const myTeamId = useAppStore((s) => s.myTeamId);
   const clubs = useAppStore((s) => s.clubs);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  // v2.9.91 (Madde 29): CL maçı replay state
+  const [replayMatch, setReplayMatch] = useState<any>(null);
 
   // v2.9.93: CL katılımcısı takım ID'sinden gerçek Team objesi bul
   const findTeam = (teamId: string): Team | null => {
@@ -180,11 +184,37 @@ export function ChampionsLeaguePanel() {
                   </button>
                   {m.homeColor && <div className="w-4 h-4 rounded-sm shrink-0" style={{ background: m.homeColor }} />}
                 </div>
-                {/* Score */}
-                <div className="text-[11px] font-bold tabular-nums px-2">
+                {/* Score — tıklanabilir (kullanıcı maçı + event'ler varsa replay aç) */}
+                <div className="text-[11px] font-bold tabular-nums px-2 flex items-center gap-1">
                   {isByeMatch ? (
                     <span className="text-[9px] text-muted-foreground">BAY</span>
-                  ) : m.played ? `${m.homeScore} - ${m.awayScore}` : "- : -"}
+                  ) : m.played ? (
+                    <>
+                      <span>{m.homeScore} - {m.awayScore}</span>
+                      {/* v2.9.91 (Madde 29): Kullanıcının CL maçı event'leri varsa izleme butonu */}
+                      {isMyMatch && (m as any).events && (
+                        <button
+                          onClick={() => {
+                            haptic("light");
+                            setReplayMatch({
+                              homeId: m.homeId,
+                              awayId: m.awayId,
+                              homeScore: m.homeScore,
+                              awayScore: m.awayScore,
+                              events: (m as any).events,
+                              motmId: (m as any).motmId,
+                              stats: (m as any).stats,
+                            });
+                          }}
+                          className="tm-tap p-0.5 rounded hover:bg-accent/50 transition-colors"
+                          aria-label="Maçı izle"
+                          title="Maçı izle"
+                        >
+                          <Eye size={11} className="text-emerald-400" />
+                        </button>
+                      )}
+                    </>
+                  ) : "- : -"}
                 </div>
                 {/* Away — tıklanabilir */}
                 <div className="flex-1 flex items-center gap-1.5">
@@ -235,6 +265,26 @@ export function ChampionsLeaguePanel() {
           onMessage={() => setSelectedTeam(null)}
         />
       )}
+
+      {/* v2.9.91 (Madde 29): CL maçı replay modal'ı */}
+      {replayMatch && (() => {
+        const home = findTeam(replayMatch.homeId);
+        const away = findTeam(replayMatch.awayId);
+        if (!home || !away) return null;
+        return (
+          <MatchReplayModal
+            homeTeam={home}
+            awayTeam={away}
+            homeScore={replayMatch.homeScore ?? 0}
+            awayScore={replayMatch.awayScore ?? 0}
+            matchday={0}
+            storedEvents={replayMatch.events}
+            storedMotmId={replayMatch.motmId}
+            storedStats={replayMatch.stats}
+            onClose={() => setReplayMatch(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
