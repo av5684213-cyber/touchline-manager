@@ -5196,3 +5196,48 @@ Stage Summary:
   * src/lib/store.ts (bot haftalık ekonomi)
   * src/hooks/use-match-engine.ts (dead code kaldırma)
 - Tüm 22 bulgu düzeltildi. Oyun ekonomisi, maç motoru, sezon akışı, transfer klausülleri, CL ve trophy sistemi tam tutarlı.
+
+---
+Task ID: v2.9.93-3rd-round-audit-33-bulgu
+Agent: main (GLM)
+Task: 3. tur denetim sonrası bulunan 33 bulgudan 17'si düzeltildi (16'sı ertelendi — i18n, gym/analysis, bot kiralama, findWeakestPosition, iflas mekanizması, kupa finalist ödülleri, setSlotRole validation, computeTacticScore, season-end i18n, tactics i18n,VAR tipleri, penaltı sudden death, sub specificPosition, weather sezonluk).
+
+Work Log:
+
+### Acil Fix: A1 — endSeason TDZ Crash
+- **Dosya:** src/lib/store.ts:4409-4500
+- **Sorun:** buyBack bloğu `clubs.map((c) => {...})` callback'inin İÇİNDE `updatedClubs.find()` çağrıyordu → TDZ (Temporal Dead Zone) ihlali → ReferenceError → sezon sonu crash.
+- **Düzeltme:** buyBack bloğu map callback'inin DIŞINA taşındı — ayrı bir block scope olarak.
+
+### Batch 1: Maç Motoru (5 bulgu)
+1. **Bulgu 1 — Stadyum tesis etkileri ölü kod**: SimulationOptions'a pitchPassBonus, heatingProtection, lightingNightBonus eklendi. Motor içinde: pitchPassBonus passSkill'e, heatingProtection condDrain'e, lightingNightBonus homeStrength'e uygulanıyor.
+6. **Bulgu 6 — Faul yanlış takım aggression'ı**: `attackingTeam.tactic.aggression` → `defendingTeam.tactic.aggression` (defender faul yapıyor, agresif defans = çok faul).
+7. **Bulgu 7 — Sarı kart frekansı ~30x düşük**: `CARD_RATES.yellow: 0.15 → 5.0` (faul başına, gerçek futbol ~3.5 sarı/maç).
+8. **Bulgu 8 — Auto-sub 2 dakika**: `autoSubMinutes: [60, 75] → [60, 75, 85]` (3 sub slot için 3 dakika).
+10. **Bulgu 10 — Weather speedMod ölü**: `chance *= weatherMods.speedMod ?? 1.0` eklendi.
+
+### Batch 2: Ekonomi (5 bulgu)
+2. **Bulgu 2 — Bot wage güncellenmiyor**: Bot free-agent alımında `weeklyWage: reasonableWage` (bütçenin %0.01'i max) ekendi.
+3. **Bulgu 3 — Bot bütçe hard reset**: Botlara da yumuşak reset — `%10` korunum (kullanıcı %25).
+4. **Bulgu 4 — Yaş kesiti 38 vs 40**: matchday cleanup `38 → 40` (endSeason ile tutarlı), koşul her hafta çalışır.
+7. **Bulgu 7 — loanFee süre limiti**: `clampedWeeks = Math.min(Math.max(4, weeks), 34)` — max 1 sezon.
+8. **Bulgu 8 — loginDemo sponsor siler**: Guard eklendi — aktif sponsor/bekleyen teklif varsa yeni üretme.
+
+### Batch 3: Sezon/Ödül/UI/Taktik (6 bulgu)
+A3. **Bulgu A3 — Bot liglerinde emeklilik/regen yok**: resetAllLeaguesForNewSeason içine 40+ yaş emeklilik + pozisyon-korunan regen üretimi eklendi.
+A4. **Bulgu A4 — Emeklilik yaşı sabit 40**: Performans bazlı erken emeklilik eklendi (35+ & rating<50: %30, 33+ & injury>5: %20).
+B4. **Bulgu B4 — match-replay-modal safe-area**: `pb-[calc(env(safe-area-inset-bottom)+1rem)]` eklendi.
+B5. **Bulgu B5 — season-end-modal safe-area**: `pb-[calc(env(safe-area-inset-bottom)+1.25rem)]` eklendi.
+C1. **Bulgu C1 — GK antrenmanı goalkeeping geliştirmiyor**: kaleci_antrenmani programında GK oyunculara `goalkeeping` stat gain eklendi + applyResultsToSquad'da goalkeeping güncelleniyor.
+
+### Ertelenen (16 bulgu)
+- **Maç motoru:** Bulgu 2 (sakatlıkta sub yok), 3 (penaltı sudden death GK), 4 (weather sezonluk), 5 (sub specificPosition), 9 (VAR tipleri) — karmaşık refactor
+- **Ekonomi:** Bulgu 1 (bot kiralama), 5 (findWeakestPosition derinlik), 6 (iflas mekanizması) — büyük refactor
+- **Sezon/ödül:** A2 (kupa finalist ödülleri), A5 (takım ödülleri tier) — yeni ödül tipi
+- **UI/i18n:** B1 (season-end i18n), B2 (player-profile i18n), B3 (tactics i18n) — 100+ string çeviri
+- **Taktik:** C2 (gym/analysis tesisleri), C3 (mentor pozisyon kontrolü), C4 (setSlotRole validation), C5 (computeTacticScore OVR-dominant) — tasarım kararı + refactor
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- 33 bulgudan 17'si düzeltildi. 16'sı ertelendi (i18n, büyük refactor, tasarım kararı).
+- En kritik: A1 TDZ crash fix — oyun sezon 1'de takılıyordu, artık devam ediyor.

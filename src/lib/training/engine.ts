@@ -250,6 +250,16 @@ export function runTrainingSession(
       statGains[stat] = Math.round(gain * 10) / 10;
     }
 
+    // v2.9.93 (Bulgu C1): Kaleci antrenmanı goalkeeping stat'ını da geliştir.
+    // Eski kod: kaleci_antrenmani sadece defending/physical hedefliyordu,
+    // ama maç motoru goalkeeping attribute'unu kullanıyor → kaleciler gelişmiyordu.
+    if (program.id === "kaleci_antrenmani" && player.specificPosition === "GK") {
+      const gkCurrent = player.goalkeeping ?? 50;
+      const gkCeiling = Math.max(0.05, (100 - gkCurrent) / 100);
+      const gkGain = Math.random() * 2.0 * cappedMult * gkCeiling; // GK'lar için daha yüksek gain
+      (statGains as any).goalkeeping = Math.round(gkGain * 10) / 10;
+    }
+
     const intensityMult = program.intensity >= 80 ? 1.25 : program.intensity < 60 ? 0.5 : 1.0;
     const condChange = Math.round(program.condCost * intensityMult);
 
@@ -302,6 +312,8 @@ export function applyResultsToSquad(squad: Player[], results: TrainingSessionRes
       speed: Math.min(99, (p.speed ?? 50) + paceGain),
       power: Math.min(99, (p.power ?? 50) + physicalGain),
       dribbling: Math.min(99, (p.dribbling ?? 50) + dribblingGain),
+      // v2.9.93 (Bulgu C1): goalkeeping stat'ını da güncelle
+      goalkeeping: Math.min(99, (p.goalkeeping ?? 50) + ((r.statGains as any).goalkeeping ?? 0)),
       cond: newCond,
       condition: newCond,
       morale: Math.max(0, Math.min(100, p.morale + r.moraleChange)),

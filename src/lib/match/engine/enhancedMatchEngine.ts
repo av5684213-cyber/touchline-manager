@@ -237,6 +237,12 @@ export interface SimulationOptions {
   // Bu roller oyuncuların attribute'larını boost eder — maç sonucunu etkiler
   homePlayerRoles?: Record<string, string>;
   awayPlayerRoles?: Record<string, string>;
+  // v2.9.93 (Bulgu 1): Stadium facility effects — artık motor tarafından tüketiliyor.
+  pitchPassBonus?: number;         // Pitch level → pass accuracy bonus (0.0-0.2)
+  heatingProtection?: number;      // Heating level → winter cond drain reduction (0.0-0.5)
+  lightingNightBonus?: number;     // Lighting level → night match home bonus (0.0-0.15)
+  isNightMatch?: boolean;          // Gece maçı mı? (lighting bonus için)
+  isWinterMatch?: boolean;         // Kış maçı mı? (heating bonus için)
 }
 
 // ─── Internal Mutable Player State ──────────────────────────────────────────
@@ -1343,6 +1349,8 @@ function getEventProbabilities(
   // Weather modifiers
   shot *= weatherMods.shootingMod;
   tackle *= weatherMods.tacklingMod;
+  // v2.9.93 (Bulgu 10): speedMod uygula — karlı/yağmurlu maçta şut oluşturma şansı azalır.
+  chance *= weatherMods.speedMod ?? 1.0;
 
   // Tactic aggression modifier
   foul *= 1.0; // Will be modified by team tactic externally
@@ -1753,8 +1761,16 @@ export function simulateEnhancedMatch(
   // Calculate strengths — BUG-10: pass pressure effect for away team in high-atmosphere matches
   const atmosScore = options?.atmosphereScore ?? 50;
   const applyAwayPressure = atmosScore > AWAY_PRESSURE_EFFECT.atmosphereThreshold;
+  // v2.9.93 (Bulgu 1): Lighting night bonus — gece maçında ev sahibine küçük güç bonusu.
+  const lightingBonus = options?.isNightMatch ? (options?.lightingNightBonus ?? 0) : 0;
 
-  const homeStrength = calculateTeamStrength(effectiveHomePlayers, homeTactic);
+  const homeStrengthRaw = calculateTeamStrength(effectiveHomePlayers, homeTactic);
+  // Lighting bonus: ev sahibinin overallStrength'ünü artır
+  const homeStrength = {
+    ...homeStrengthRaw,
+    overall: homeStrengthRaw.overall * (1 + lightingBonus),
+    attack: homeStrengthRaw.attack * (1 + lightingBonus * 0.5),
+  };
   const awayStrength = calculateTeamStrength(effectiveAwayPlayers, awayTactic, { pressureEffect: applyAwayPressure });
 
   // ── Play Style Modifiers ──────────────────────────────────────────────
@@ -2181,7 +2197,10 @@ export function simulateEnhancedMatch(
     const attackingPS = hasMomentum === 'home' ? homePS : awayPS;
     for (let i = 0; i < passCount; i++) {
       const passer = pick(activeAttackers);
+      // v2.9.93 (Bulgu 1): Pitch pass bonus uygula — facility level'dan gelen pas isabet bonusu.
+      const pitchBonus = options?.pitchPassBonus ?? 0;
       let passSkill = getAttr(passer.player, 'passing', 50) * weatherMods.passingMod / 100;
+      passSkill *= (1 + pitchBonus); // pitch level → +%N pas isabeti
       // Play style: pass accuracy bonus
       if (attackingPS?.passAccuracyBonus) {
         passSkill *= (1 + attackingPS.passAccuracyBonus);
@@ -2845,7 +2864,9 @@ export function simulateEnhancedMatch(
 
           // Fouls — Referee-modified system (uses referee.ts decision functions)
           const isDefenderHome = defender.team === 'home';
-          const baseFoulProb = probs.foul * (attackingTeam.tactic.aggression / 50);
+          // v2.9.93 (Bulgu 6): Faul olasılığı defendingTeam'in aggression'ını kullanmalı,
+          // attackingTeam'in değil. Faulü defender commit ediyor, agresif defans = çok faul.
+          const baseFoulProb = probs.foul * (defendingTeam.tactic.aggression / 50);
 
           if (shouldCallFoul(refCtx, baseFoulProb, isDefenderHome)) {
             defender.fouls++;
@@ -3037,12 +3058,16 @@ export function simulateEnhancedMatch(
     }
 
     // ── Condition drain per minute — Eksponansiyel Drain ────────────
+    // v2.9.93 (Bulgu 1): Heating protection — kış maçında cond drain azalt.
+    const heatingProt = options?.isWinterMatch ? (options?.heatingProtection ?? 0) : 0;
     for (const p of getActivePlayers(homeTeam)) {
       let drain = CONDITION_DRAIN.base + (p.player.stamina ? (100 - getAttr(p.player, 'stamina', 50)) / CONDITION_DRAIN.staminaDivisor : CONDITION_DRAIN.fallbackDrain);
       // Play style: stamina drain modifier for home team
       if (homePS?.staminaDrain) {
         drain *= (1 + homePS.staminaDrain);
       }
+      // v2.9.93: Heating protection (kış maçında kondisyon kaybı azalır)
+      drain *= (1 - heatingProt);
       // Late game fatigue acceleration: minute > 75 → drain × 1.5
       if (minute > CONDITION_DRAIN.lateGameThreshold) {
         drain *= CONDITION_DRAIN.lateGameMultiplier;
@@ -3062,6 +3087,8 @@ export function simulateEnhancedMatch(
       if (awayPS?.staminaDrain) {
         drain *= (1 + awayPS.staminaDrain);
       }
+      // v2.9.93: Heating protection (kış maçında kondisyon kaybı azalır)
+      drain *= (1 - heatingProt);
       // Late game fatigue acceleration: minute > 75 → drain × 1.5
       if (minute > CONDITION_DRAIN.lateGameThreshold) {
         drain *= CONDITION_DRAIN.lateGameMultiplier;

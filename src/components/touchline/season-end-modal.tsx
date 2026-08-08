@@ -116,7 +116,8 @@ export function SeasonEndModal({
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-black/85" />
-        <div className="relative w-full max-w-[360px] bg-background rounded-2xl border border-border p-5 max-h-[90vh] overflow-y-auto tm-thin-scrollbar">
+        {/* v2.9.93 (Bulgu B5): safe-area padding ekle — tm-safe-bottom + alt boşluk */}
+        <div className="relative w-full max-w-[360px] bg-background rounded-2xl border border-border p-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] max-h-[90vh] overflow-y-auto tm-thin-scrollbar">
           <button onClick={onClose} className="tm-tap absolute top-3 right-3 p-1 text-muted-foreground">
             <X size={16} />
           </button>

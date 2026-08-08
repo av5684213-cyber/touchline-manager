@@ -740,9 +740,12 @@ export const RATING_IMPACT = {
 
 // ─── Kart / Hakem Olasılıkları ────────────────────────────────────────
 export const CARD_RATES = {
-  yellow: 0.15,       // Base yellow card probability
-  red: 0.03,          // Base red card probability
-  penalty: 0.1,       // Base penalty probability
+  // v2.9.93 (Bulgu 7): Sarı kart frekansı ~30x düşüktü (0.15 → gerçekte ~0.09/maç).
+  // Gerçek futbol: ~3.5 sarı/maç. Faul/event ~0.04, 14-19 defensive event → ~0.6-0.8 faul.
+  // 3.5 sarı / 0.7 faul = ~5.0 sarı/faul. Yani yellow = 5.0 (eski 0.15).
+  yellow: 5.0,         // Faul başına sarı kart olasılığı (calibrate edildi)
+  red: 0.03,           // Base red card probability
+  penalty: 0.1,        // Base penalty probability
   foulVisibility: 0.4, // Foul visibility threshold
 } as const;
 
@@ -808,7 +811,7 @@ export const MATCH_STRUCTURE = {
   duration: 90,              // Match duration (minutes)
   halftime: 45,              // Halftime minute
   substitutionSlots: 3,      // Substitution slots per team
-  autoSubMinutes: [60, 75],  // Auto-substitution check minutes
+  autoSubMinutes: [60, 75, 85],  // v2.9.93 (Bulgu 8): 3 sub slot için 3 dakika
   tiredPlayerCondThreshold: 50, // Condition threshold for tired player substitution
   // v2.9.91 FIX (Madde 21): Uzatma dakikası (stoppage time) aralığı.
   // Eski kod: uzatma yoktu → maç tam 90. dakikada bitiyordu, 90+3'te gol yoktu.
