@@ -949,13 +949,22 @@ export const useAppStore = create<AppState>()(
         });
 
         // P2: Sezon başında otomatik sponsor teklifleri üret
+        // v2.9.93 (Bulgu 8): Guard ekle — aktif sponsor varsa teklif üretme, silme.
+        // Eski kod: her loginDemo'da aktif sponsorları siliyordu → race condition ile sponsor kaybı.
         try {
-          const myTeam2 = clubs.find((c) => c.id === myTeamId);
-          if (myTeam2) {
-            const genOffers = generateSponsorOffers;
-            const avgOvr2 = myTeam2.players.reduce((s, p) => s + p.rating, 0) / myTeam2.players.length;
-            const offers = genOffers(myTeam2.leagueTier ?? 2, avgOvr2);
-            useAppStore.setState({ sponsors: { active: [], offers } });
+          const currentSponsors = get().sponsors;
+          if (currentSponsors?.active && currentSponsors.active.length > 0) {
+            // Aktif sponsor var — teklif üretme, mevcut durumu koru
+          } else if (currentSponsors?.offers && currentSponsors.offers.length > 0) {
+            // Bekleyen teklif var — yeni üretme
+          } else {
+            const myTeam2 = clubs.find((c) => c.id === myTeamId);
+            if (myTeam2) {
+              const genOffers = generateSponsorOffers;
+              const avgOvr2 = myTeam2.players.reduce((s, p) => s + p.rating, 0) / myTeam2.players.length;
+              const offers = genOffers(myTeam2.leagueTier ?? 2, avgOvr2);
+              useAppStore.setState({ sponsors: { active: [], offers } });
+            }
           }
         } catch (e) { /* sponsorSystem yoksa ignore */ }
 
@@ -1728,8 +1737,11 @@ export const useAppStore = create<AppState>()(
         const myTeam = clubs.find((c) => c.id === myTeamId);
         if (!myTeam) return { success: false, reason: "no-team" };
 
+        // v2.9.93 (Bulgu 7): Kiralama süresi上限 — max 34 hafta (1 sezon).
+        // Eski kod: weeks parametresi doğrulanmıyordu → 100 hafta geçilebiliyordu.
+        const clampedWeeks = Math.min(Math.max(4, weeks), 34);
+
         // v2.9.64 FIX: Transfer penceresi kontrolü (C5)
-        // Eski kod: makeLoanOffer pencere kontrolü yapmıyordu — 30-34. haftada kiralama yapılabilirdi
         if (!isTransferWindowOpen(get().seasonMatchday ?? 1)) {
           return { success: false, reason: "window-closed" };
         }
@@ -1809,9 +1821,9 @@ export const useAppStore = create<AppState>()(
         // v2.9.62 FIX: Bot kiralama kararı — min ücret hesabı düzeltildi
         // Eski kod: marketValue * 0.02 * weeks — ama dailyFee = marketValue * 0.0003 → weeklyFee = 0.0021
         // Yani bot 0.02 isterken kullanıcı 0.0021 ödüyordu → HER ZAMAN reddedilirdi (kiralama çalışmıyordu)
-        // Yeni: min ücret = weeklyFee * weeks * 0.9 (kullanıcının teklifinin %90'ı yeterli)
+        // Yeni: min ücret = weeklyFee * clampedWeeks * 0.9 (kullanıcının teklifinin %90'ı yeterli)
         const weeklyFee = marketValue * 0.0003 * 7; // dailyFee * 7
-        const minLoanFee = Math.round(weeklyFee * weeks * 0.9);
+        const minLoanFee = Math.round(weeklyFee * clampedWeeks * 0.9);
 
         if (loanFee >= minLoanFee) {
           // v2.9.64 FIX: Immutable update — mutation YAPMA
@@ -1824,7 +1836,7 @@ export const useAppStore = create<AppState>()(
                   ...player,
                   is_free_agent: false,
                   _loaned: true,
-                  _loanWeeks: weeks,
+                  _loanWeeks: clampedWeeks,
                   _loanFrom: sellerTeam!.id,
                   // v2.9.91 (Madde 19): buyOption fiyatını kiralık oyuncuya yaz.
                   // loanListings'teki buyOption varsa onu kullan, yoksa marketValue × 1.1.
@@ -1875,7 +1887,7 @@ export const useAppStore = create<AppState>()(
             id: `news_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
             category: "transfer",
             headline: "Kiralama Kabul Edildi",
-            body: `${player.firstName} ${player.lastName} ${sellerTeam.name} takımından ${weeks} haftalığına kiralandı. Ücret: ${formatEuroShort(loanFee)}.`,
+            body: `${player.firstName} ${player.lastName} ${sellerTeam.name} takımından ${clampedWeeks} haftalığına kiralandı. Ücret: ${formatEuroShort(loanFee)}.`,
             timestamp: Date.now(),
             importance: 2,
             read: false,
@@ -1888,7 +1900,7 @@ export const useAppStore = create<AppState>()(
             fromTeamName: sellerTeam!.name,
             fromTeamShort: sellerTeam!.shortName,
             fromTeamColor: sellerTeam!.primaryColor,
-            message: `${player.firstName} ${player.lastName} ${weeks} haftalığına kiralandı. Ücret: ${formatEuroShort(loanFee)}.`,
+            message: `${player.firstName} ${player.lastName} ${clampedWeeks} haftalığına kiralandı. Ücret: ${formatEuroShort(loanFee)}.`,
             at: Date.now(),
             read: false,
             amount: loanFee,
@@ -3415,12 +3427,21 @@ export const useAppStore = create<AppState>()(
                 const botBuyerCost = calculateBuyerCost(listing.askingPrice).total;
                 if (botBuyerCost <= currentBot.budget) {
                   const botIdx = updatedClubs.findIndex((c) => c.id === bot.id);
+                  // v2.9.93 (Bulgu 2): Bot alımında wage güncelle — eski kod wage'ı koruyordu,
+                  // yüksek maaşlı serbest ajan bot bütçesini eritiyordu.
+                  const botTier = currentBot.leagueTier ?? 2;
+                  const reasonableWage = Math.min(
+                    listing.player.weeklyWage ?? listing.player.salary ?? 5000,
+                    Math.round(currentBot.budget * 0.0001) // bütçenin %0.01'i max haftalık maaş
+                  );
                   updatedClubs[botIdx] = {
                     ...currentBot,
                     budget: currentBot.budget - botBuyerCost,
                     // v2.9.62: Stats sıfırla — transfer sonrası eski kulüp golleri yeni kulübe taşınmasın
                     players: [...currentBot.players, {
                       ...listing.player,
+                      weeklyWage: reasonableWage,
+                      salary: reasonableWage,
                       goals: 0,
                       assists: 0,
                       saves: 0,
@@ -3945,9 +3966,10 @@ export const useAppStore = create<AppState>()(
 
         // P2 FIX: Loan listings yenile — 5'ten az ise yeni üret
         // P0 FIX BUG #32: freeAgents listesini temizle — 30'dan fazla ise yaşlıları kaldır
-        if (transfer.freeAgents && transfer.freeAgents.length > 30) {
+        // v2.9.93 (Bulgu 4): Yaş eşiği 38 → 40 (endSeason ile tutarlı). Koşul her hafta çalışsın.
+        if (transfer.freeAgents) {
           updatedTransfer.freeAgents = transfer.freeAgents
-            .filter((l: any) => (l.player?.age ?? 30) < 38) // 38+ yaş serbestleri kaldır
+            .filter((l: any) => (l.player?.age ?? 30) < 40) // 40+ yaş serbestleri kaldır (endSeason ile tutarlı)
             .slice(0, 30); // Maksimum 30 oyuncu tut
         }
         if ((transfer.loanListings ?? []).length < 5) {
@@ -4404,15 +4426,29 @@ export const useAppStore = create<AppState>()(
         }
 
         // 40+ yaş oyuncuları emekli et, regen üret
+        // v2.9.93 (Bulgu A4): Performans bazlı emeklilik — 35+ ve rating < 50 ise emekli.
         const retiredNames: string[] = [];
         // v2.9.74 FIX K5: let yap — promotion/relegation sırasında re-assignment var
+        // v2.9.92 FIX-3 (Bulgu A1): buyBack bloğu map callback'inin DIŞINA taşındı —
+        // içinde updatedClubs referansı var, TDZ crash'e yol açıyordu.
         let updatedClubs: Team[] = clubs.map((c) => {
           const remainingPlayers = c.players.filter((p) => {
+            // 40+ yaş: kesin emeklilik
             if (p.age >= 40) {
               retiredNames.push(`${p.firstName} ${p.lastName}`);
               return false;
             }
-            return true;
+            // v2.9.93: 35+ yaş ve rating < 50: erken emeklilik (%30 ihtimal)
+            if (p.age >= 35 && (p.rating ?? 50) < 50 && Math.random() < 0.30) {
+              retiredNames.push(`${p.firstName} ${p.lastName}`);
+              return false;
+            }
+            // v2.9.93: 33+ yaş ve çok sakatlık geçmişi: erken emeklilik (%20 ihtimal)
+            const injuryHist = (p as any).injury_history ?? [];
+            if (p.age >= 33 && injuryHist.length > 5 && Math.random() < 0.20) {
+              retiredNames.push(`${p.firstName} ${p.lastName}`);
+              return false;
+            }
           });
 
           // Regen üret — emekli edilen oyuncu sayısı kadar yeni genç oyuncu
@@ -4428,75 +4464,6 @@ export const useAppStore = create<AppState>()(
             regen.age = 17; // Yeni regen
             (regen as any)._isRegen = true;
             regens.push(regen);
-          }
-
-          // v2.9.91 (Madde 33): buyBack opsiyonu — satıcı kulüp (bot) oyuncuyu geri alabilir.
-          // Kullanıcının kadrosundaki _buyBackAmount + _buyBackClubId olan oyuncular için
-          // %15 ihtimalle bot geri alır. Para kullanıcıya ödenir, oyuncu kadrodan çıkar.
-          const userTeamForBuyback = updatedClubs.find(c => c.id === myTeamId);
-          if (userTeamForBuyback) {
-            const buybackNewsItems: NewsItem[] = [];
-            const buybackPlayers = userTeamForBuyback.players.filter((p: any) =>
-              (p as any)._buyBackAmount && (p as any)._buyBackClubId
-            );
-            for (const p of buybackPlayers) {
-              // %15 ihtimalle bot geri alır
-              if (Math.random() < 0.15) {
-                const buyBackAmount = (p as any)._buyBackAmount;
-                const buyBackClubId = (p as any)._buyBackClubId;
-                // Bot kulübü bul — önce clubs'ta, sonra allLeagues'te ara
-                let botClub = updatedClubs.find(c => c.id === buyBackClubId);
-                let botInAllLeagues = false;
-                if (!botClub) {
-                  // allLeagues'te ara
-                  const allLeaguesState = get().allLeagues;
-                  if (allLeaguesState) {
-                    for (const key of Object.keys(allLeaguesState)) {
-                      const league = allLeaguesState[key];
-                      const found = league.clubs.find((c: any) => c.id === buyBackClubId);
-                      if (found) { botClub = found; botInAllLeagues = true; break; }
-                    }
-                  }
-                }
-                // v2.9.92 FIX (Bulgu 5): Bot bulunamazsa buyBack'i iptal et — oyuncu buharlaşmasın.
-                // Eski kod: botClub undefined olsa bile oyuncuyu kullanıcıdan çıkarıyordu.
-                if (!botClub) {
-                  // Bot yok — buyBack clause'u temizle, oyuncuyu kullanıcıda tut
-                  (p as any)._buyBackAmount = undefined;
-                  (p as any)._buyBackClubId = undefined;
-                  continue;
-                }
-                // Oyuncuyu kullanıcıdan çıkar, parayı ekle
-                userTeamForBuyback.players = userTeamForBuyback.players.filter((pp: any) => pp.id !== p.id);
-                userTeamForBuyback.budget += buyBackAmount;
-                // Bot kulübün bütçesinden düş ve oyuncuyu ekle
-                if (botInAllLeagues) {
-                  // allLeagues'teki kulüp — bütçesini güncelle
-                  botClub.budget = Math.max(0, botClub.budget - buyBackAmount);
-                  botClub.players.push({ ...(p as any), _buyBackAmount: undefined, _buyBackClubId: undefined, goals: 0, assists: 0, appearances: 0 });
-                } else {
-                  botClub.budget = Math.max(0, botClub.budget - buyBackAmount);
-                  botClub.players.push({ ...(p as any), _buyBackAmount: undefined, _buyBackClubId: undefined, goals: 0, assists: 0, appearances: 0 });
-                }
-                buybackNewsItems.push({
-                  id: `news_buyback_${p.id}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-                  category: "transfer",
-                  headline: "Geri Alma Opsiyonu Kullanıldı",
-                  body: `${(p as any).firstName} ${(p as any).lastName} için geri alma opsiyonu kullanıldı — ${formatEuroShort(buyBackAmount)} karşılığında eski kulübüne iade edildi.`,
-                  timestamp: Date.now(),
-                  importance: 3,
-                  read: false,
-                  playerId: (p as any).id,
-                });
-              }
-            }
-            // Haberleri ekle
-            if (buybackNewsItems.length > 0) {
-              const currentNews = get().news ?? [];
-              setTimeout(() => {
-                useAppStore.setState({ news: [...buybackNewsItems, ...currentNews] });
-              }, 0);
-            }
           }
 
           // Tüm oyuncuları yaşlandır + stat sıfırla
@@ -4596,6 +4563,63 @@ export const useAppStore = create<AppState>()(
 
           return { ...c, players: agedPlayers };
         });
+
+        // v2.9.91 (Madde 33): buyBack opsiyonu — satıcı kulüp (bot) oyuncuyu geri alabilir.
+        // v2.9.92 FIX-3 (Bulgu A1): Bu blok map callback'inin DIŞINDA çalışır (TDZ fix).
+        // Kullanıcının kadrosundaki _buyBackAmount + _buyBackClubId olan oyuncular için
+        // %15 ihtimalle bot geri alır. Para kullanıcıya ödenir, oyuncu kadrodan çıkar.
+        {
+          const userTeamForBuyback = updatedClubs.find(c => c.id === myTeamId);
+          if (userTeamForBuyback) {
+            const buybackNewsItems: NewsItem[] = [];
+            const buybackPlayers = userTeamForBuyback.players.filter((p: any) =>
+              (p as any)._buyBackAmount && (p as any)._buyBackClubId
+            );
+            for (const p of buybackPlayers) {
+              if (Math.random() < 0.15) {
+                const buyBackAmount = (p as any)._buyBackAmount;
+                const buyBackClubId = (p as any)._buyBackClubId;
+                let botClub = updatedClubs.find(c => c.id === buyBackClubId);
+                let botInAllLeagues = false;
+                if (!botClub) {
+                  const allLeaguesState = get().allLeagues;
+                  if (allLeaguesState) {
+                    for (const key of Object.keys(allLeaguesState)) {
+                      const league = allLeaguesState[key];
+                      const found = league.clubs.find((c: any) => c.id === buyBackClubId);
+                      if (found) { botClub = found; botInAllLeagues = true; break; }
+                    }
+                  }
+                }
+                if (!botClub) {
+                  (p as any)._buyBackAmount = undefined;
+                  (p as any)._buyBackClubId = undefined;
+                  continue;
+                }
+                userTeamForBuyback.players = userTeamForBuyback.players.filter((pp: any) => pp.id !== p.id);
+                userTeamForBuyback.budget += buyBackAmount;
+                botClub.budget = Math.max(0, botClub.budget - buyBackAmount);
+                botClub.players.push({ ...(p as any), _buyBackAmount: undefined, _buyBackClubId: undefined, goals: 0, assists: 0, appearances: 0 });
+                buybackNewsItems.push({
+                  id: `news_buyback_${p.id}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                  category: "transfer",
+                  headline: "Geri Alma Opsiyonu Kullanıldı",
+                  body: `${(p as any).firstName} ${(p as any).lastName} için geri alma opsiyonu kullanıldı — ${formatEuroShort(buyBackAmount)} karşılığında eski kulübüne iade edildi.`,
+                  timestamp: Date.now(),
+                  importance: 3,
+                  read: false,
+                  playerId: (p as any).id,
+                });
+              }
+            }
+            if (buybackNewsItems.length > 0) {
+              const currentNews = get().news ?? [];
+              setTimeout(() => {
+                useAppStore.setState({ news: [...buybackNewsItems, ...currentNews] });
+              }, 0);
+            }
+          }
+        }
 
         // Promosyon/relegasyon — kullanıcının takımının ligini değiştir
         const myFinalIdx = standings.findIndex((s) => s.teamId === myTeamId);
@@ -4761,7 +4785,11 @@ export const useAppStore = create<AppState>()(
             c.budget = Math.round(minBudget + excess * 0.25);
           } else {
             // Bot bütçeleri enflasyonla artar (ileri sezonlarda alım yapabilsinler)
-            c.budget = inflationAdjustedBase;
+            // v2.9.93 (Bulgu 3): Botlara da yumuşak reset uygula — %10 koruma.
+            // Eski kod: hard reset → bot birikimi tamamen siliniyordu, kullanıcı %25 koruyordu.
+            // Yeni: bot birikimin %10'u korunur → 3-4 sezon sonra kullanıcı dominansı azalır.
+            const botExcess = Math.max(0, c.budget - inflationAdjustedBase);
+            c.budget = Math.round(inflationAdjustedBase + botExcess * 0.10);
           }
         });
 
@@ -6725,13 +6753,24 @@ function resetAllLeaguesForNewSeason(
     }
 
     // Oyuncu stats'larını sıfırla + yaşlandır
-    // v2.9.91 FIX (Madde 13): Bot oyuncuları gelişsin — kullanıcı her sezon ~68 antrenman
-    // ile stat basarken botlar statik kalıyordu → 5 sezon sonra rekabet çöküyordu.
-    // Yeni: yaş bazlı gelişim uygula (yaş ≤21 → +1.0, 22-28 → +0.6, 29+ → +0.2 OVR).
-    // Sadece OVR 99'dan düşük oyunculara uygula (cap).
-    const resetClubs = newClubs.map((c) => ({
+    // v2.9.93 (Bulgu A3): Bot liglerinde emeklilik + regen ekle.
+    // Eski kod: sadece yaşlandırıyordu, 40+ oyuncular birikiyordu.
+    const resetClubs = newClubs.map((c) => {
+      // 40+ yaş oyuncuları emekli et, pozisyon-korunan regen üret
+      const retiredBotPlayers = c.players.filter(p => p.age >= 40);
+      const remainingBotPlayers = c.players.filter(p => p.age < 40);
+      const botRegens: Player[] = [];
+      for (const retired of retiredBotPlayers) {
+        const regen = generatePlayer(retired.specificPosition, { min: 55, max: 70 });
+        regen.age = 17;
+        (regen as any)._isRegen = true;
+        botRegens.push(regen);
+      }
+
+      return {
       ...c,
-      players: c.players.map((p) => {
+      players: [...remainingBotPlayers, ...botRegens].map((p) => {
+        const isRegen = (p as any)._isRegen === true;
         // v2.9.92 FIX (Bulgu 19): 29+ çarpanı ölüydü (0.2 × 0.5-1.3 = 0.1-0.26 → Math.round her zaman 0).
         // v2.9.92 FIX-2: Math.floor da 0.3×0.3-1.7=0.09-0.51 → floor her zaman 0.
         // Yeni: Math.round + 29+ çarpan 0.5 + aralık 0.2-1.8 → 29+ ~%40 ihtimalle +1.
@@ -6791,7 +6830,8 @@ function resetAllLeaguesForNewSeason(
           })() : {}),
         };
       }),
-    }));
+      };
+    });
 
     // Yeni fixture üret
     const newFixtures = generateFixtures(resetClubs);

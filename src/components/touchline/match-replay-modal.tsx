@@ -312,7 +312,8 @@ export function MatchReplayModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto tm-thin-scrollbar p-3 space-y-3" ref={scrollRef}>
+        {/* v2.9.93 (Bulgu B4): safe-area padding ekle — iOS home indicator son event'i kapatmasın */}
+      <div className="flex-1 overflow-y-auto tm-thin-scrollbar p-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] space-y-3" ref={scrollRef}>
           {/* Skor kartı — izlerken canlı güncellenir */}
           <div className="tm-card p-4 text-center">
             <div className="flex items-center justify-center gap-4">
