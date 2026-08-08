@@ -5112,3 +5112,48 @@ Stage Summary:
   * src/components/touchline/champions-league-panel.tsx (Madde 29 — replay butonu + modal)
   * src/components/touchline/transfer-negotiation-modal.tsx (Madde 31 — performanceBonusGoals aktar)
 - Tüm 33 madde düzeltildi. Oyun ekonomisi, maç motoru, sezon akışı, ödül sistemi, transfer klausülleri tam entegre çalışıyor.
+
+---
+Task ID: v2.9.92-yeniden-denetim-19-bulgu
+Agent: main (GLM)
+Task: Yeniden denetim sonrası bulunan 22 tutarsızlıktan 19'u düzeltildi (3 düşük öncelik ertelendi).
+
+Work Log:
+
+### KRİTİK Batch (Bulgu 1-6)
+1. **Bulgu 1 — Yedekler boş geçiliyor**: `userSquad.slice(11,18)` her zaman `[]` döndürüyordu. Yeni: `home.players`/`away.players`'tan ilk 11 hariç 7 yedek seçilir.
+2. **Bulgu 2 — save event yanlış takıma**: `shot_saved` (atak takımı) ve `save` (savunma takımı) ayrı işlenir. `save` artık shotsHome/Away artırmıyor.
+3. **Bulgu 3 — Stoppage time golü kayboluyor**: Motor artık her durumda stoppage uyguyor (isFullMatch kontrolü kaldırıldı). 2. yarı re-sim'de de 90+3 golü korunur.
+4. **Bulgu 4 — makeSub playerId ters**: `playerId: outPlayer.id` (çıkan), `assistPlayerId: inPlayer.id` (giren) — motor semantiğine uyuldu.
+5. **Bulgu 5 — buyBack oyuncu buharlaşıyor**: Bot bulunamazsa buyBack iptal edilir, oyuncu kullanıcıda kalır, clause temizlenir.
+6. **Bulgu 6 — Installments geometrik decay**: `_installmentsWeeksLeft` sayacı + sabit taksit (`Math.ceil(remaining / weeksLeft)`). Artık tam olarak bitiyor.
+
+### Major Batch (Bulgu 7-13)
+7. **Bulgu 7 — Lineup eşik >=7 → >0**: 1-10 uygun oyuncu varsa hepsini koru, eksikleri doldur. Eski kod <7'de tüm seçimi çöpe atıyordu.
+8. **Bulgu 8 — CL penaltı GK arketip**: `simulatePenaltyShootout(homeSquad, awaySquad, homeGK?.archetype, awayGK?.archetype)` — Penaltı Uzmanı vb. bonusu çalışır.
+9. **Bulgu 9 — Tier 5 idx 1-2 yanlış terfi**: `currentTier < 5` guard eklendi. Tier 5'te sadece idx 0 terfi eder.
+10. **Bulgu 10 — Klausüller satışta bulaşıyor**: acceptOffer'da `_installmentsRemaining`, `_buyBackAmount`, `_performanceBonusPaid` temizlenir. sell-on korunur.
+11. **Bulgu 11 — performanceBonus satıcıya ödenmiyor**: `_sellOnClubId`/`_buyBackClubId` üzerinden satıcı kulübe kredilendir. allLeagues'te de ara.
+12. **Bulgu 12 — sell-on allLeagues'te kayboluyor**: clubs'ta bulunamazsa allLeagues'te ara ve kredilendir.
+13. **Bulgu 13 — CL formation yerine rating sıralı**: Formation slot'larına göre pozisyon-uyumlu 11 seçilir (FORMATION_SLOTS + POSITION_GROUP).
+
+### Orta Batch (Bulgu 14-19)
+14. **Bulgu 14 — _performanceBonusPaid sezon sonunda sıfırlanmıyor**: endSeason yaşlandırmada `_performanceBonusPaid: false` yazılır. Clause her sezon tekrar çalışır.
+15. **Bulgu 15 — _buyOptionPrice kira iade'de temizlenmiyor**: advanceMatchday + endSeason kira iade'de `_buyOptionPrice` destructure edildi.
+16. **Bulgu 16 — Bot gelişimi pozisyon körü**: Pozisyon grubuna göre stat artışı (GK: goalkeeping/positioning, DEF: tackling/marking/heading, MID: passing/vision/stamina, FWD: finishing/dribbling/shooting).
+17. **Bulgu 17 — Friendly maçta motor sakatlık üretiyor**: `homeInjuryModifier: isFriendly ? 0 : 1.0` — motor artık friendly'de injury event üretmez.
+18. **Bulgu 18 — lateGameDesperation clamp tarafından eziliyor**: Desperation artık clamp'ten SONRA uygulanır, yeni üst limit `clampMax × 1.25` (0.15). Güçlü takım da bonus alır.
+19. **Bulgu 19 — Bot 29+ çarpanı ölü**: `Math.round` → `Math.floor`, çarpan 0.2 → 0.3, aralık 0.5-1.3 → 0.3-1.7. 29+ oyuncular bazen gelişir.
+
+### Ertelenen (3 bulgu — düşük öncelik/büyük refactor)
+- **Bulgu 20**: trophyCounts alanı eklenmedi (Team interface değişikliği gerektirir)
+- **Bulgu 21**: Bot ekonomisi asimetrik (botlara haftalık ekonomi yok — tasarım kararı)
+- **Bulgu 22**: unavailableCount dead code (kosmetik)
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- Değişen dosyalar:
+  * src/hooks/use-match-engine.ts (Bulgu 1, 2, 4, 7, 17)
+  * src/lib/match/engine/enhancedMatchEngine.ts (Bulgu 3, 18)
+  * src/lib/store.ts (Bulgu 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 19)
+- 22 bulgudan 19'u düzeltildi. 3'ü ertelendi (trophyCounts interface, bot ekonomisi tasarım kararı, dead code).

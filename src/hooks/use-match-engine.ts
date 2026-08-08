@@ -391,10 +391,18 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
           if (!playerStats[ev.assistPlayerId]) playerStats[ev.assistPlayerId] = { goals: 0, assists: 0, yellow: 0, red: 0 };
           playerStats[ev.assistPlayerId].assists++;
         }
-      } else if (ev.type === "shot_saved" || ev.type === "save") {
-        // Şut kurtarıldı — şut atan takımın shots'ı artar, kurtaran takımın saves'i
+      } else if (ev.type === "shot_saved") {
+        // v2.9.92 FIX (Bulgu 2): shot_saved event'inde ev.team = ATAKTAKIM (şut atan).
+        // Motor createEvent(..., attackingTeam, selectedPlayer, opponentGK, ...) kullanır.
+        // Yani ev.team === "home" → home şut attı, away kalecisi kurtardı.
         if (ev.team === "home") { shotsHome++; savesAway++; }
         else { shotsAway++; savesHome++; }
+      } else if (ev.type === "save") {
+        // v2.9.92 FIX (Bulgu 2): save event'inde ev.team = SAVUNMA TAKIMI (kalecinin takımı).
+        // Motor createEvent(..., defendingTeam, opponentGK, ...) kullanır — reaksiyonel kurtarış.
+        // Bu bir ŞUT DEĞİL — sadece kaleci kurtarışı. shotsHome/Away artırma.
+        if (ev.team === "home") savesHome++;
+        else savesAway++;
       } else if (ev.type === "shot_wide" || ev.type === "shot_post") {
         if (ev.team === "home") shotsHome++;
         else shotsAway++;
@@ -506,15 +514,16 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
       if (availableFilledSlots.length === 11) {
         // Kullanıcının seçtiği ilk 11 — tümü uygun
         userSquad = availableFilledSlots as unknown as MatchEnginePlayer[];
-      } else if (availableFilledSlots.length >= 7) {
-        // Yeterli oyuncu var ama 11 değil (bazıları cezalı/sakat/boş) — eksikleri otomatik doldur
+      } else if (availableFilledSlots.length > 0) {
+        // v2.9.92 FIX (Bulgu 7): Eşik >=7 yerine >0 — 1-10 uygun oyuncu varsa hepsini koru,
+        // eksikleri otomatik doldur. Eski kod: <7 uygun varsa tüm seçimi çöpe atıyordu.
         const userPlayers = isHome ? home.players : away.players;
         const autoFilled = pickStartingXIByFormation(userPlayers, formation) as unknown as MatchEnginePlayer[];
         const usedIds = new Set(availableFilledSlots.map((p) => p.id));
         const missing = autoFilled.filter((p) => !usedIds.has(p.id)).slice(0, 11 - availableFilledSlots.length);
         userSquad = [...availableFilledSlots, ...missing] as unknown as MatchEnginePlayer[];
       } else {
-        // Çok az oyuncu seçilmiş — tamamen otomatik
+        // Hiç uygun oyuncu yok — tamamen otomatik
         const userPlayers = isHome ? home.players : away.players;
         userSquad = pickStartingXIByFormation(userPlayers, formation) as unknown as MatchEnginePlayer[];
       }
@@ -602,6 +611,20 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
 
       // P0 FIX: homeTacticModifiers ve homePlayerRoles yukarıda isHome'a göre set edildi
 
+      // v2.9.92 FIX (Bulgu 1): Yedekleri hazırla — başlangıç 11'i hariç tut, en yüksek rating'li 7 oyuncuyu al.
+      // Eski kod: userSquad.slice(11,18) her zaman [] döndürüyordu (userSquad sadece 11 oyuncu).
+      const userStartingIds = new Set(userSquad.map((p: any) => p.id));
+      const homeStartingIds = isHome ? userStartingIds : new Set((pickStartingXIByFormation(home.players, "4-4-2") as any[]).map((p: any) => p.id));
+      const awayStartingIds = isHome ? new Set((pickStartingXIByFormation(away.players, "4-4-2") as any[]).map((p: any) => p.id)) : userStartingIds;
+      const homeSubs = (home.players as any[])
+        .filter(p => !homeStartingIds.has(p.id) && isPlayerAvailableAt(p, currentMatchday))
+        .sort((a: any, b: any) => (b.rating ?? 50) - (a.rating ?? 50))
+        .slice(0, 7);
+      const awaySubs = (away.players as any[])
+        .filter(p => !awayStartingIds.has(p.id) && isPlayerAvailableAt(p, currentMatchday))
+        .sort((a: any, b: any) => (b.rating ?? 50) - (a.rating ?? 50))
+        .slice(0, 7);
+
       const result = simulateEnhancedMatch(
         homeSquad,
         awaySquad,
@@ -624,17 +647,16 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
           homePlayerRoles,
           awayPlayerRoles,
           // v2.9.91 FIX (Madde 8): Yedek oyuncuları motora geçir — 60. ve 75. dakikalarda
-          // otomatik değişiklik yapabilsin. Eski kod: substitutes option HIÇ geçilmiyordu
-          // → motorun performSubstitution fonksiyonu her zaman early return ediyordu.
-          // Yeni: her takım için ilk 11 sonrası 7 yedek (maç kadrosu) geçir.
+          // otomatik değişiklik yapabilsin.
           substitutes: {
-            home: ((isHome ? userSquad : (home.players as any[]))
-              .slice(11, 18)
-              .filter((p: any) => isPlayerAvailableAt(p, currentMatchday))) as any,
-            away: ((isHome ? (away.players as any[]) : userSquad)
-              .slice(11, 18)
-              .filter((p: any) => isPlayerAvailableAt(p, currentMatchday))) as any,
+            home: homeSubs as any,
+            away: awaySubs as any,
           },
+          // v2.9.92 FIX (Bulgu 17): Friendly maçta motor sakatlık üretmesin.
+          // Eski kod: sadece persistence engelleniyordu, motor hala injury event üretiyordu
+          // → oyuncu sahadan çıkıyordu, UI'da "X sakatlandı" görünüyor, takım 10 adamla oynuyordu.
+          homeInjuryModifier: isFriendly ? 0 : 1.0,
+          awayInjuryModifier: isFriendly ? 0 : 1.0,
         } as any
       );
       fullResultRef.current = result;
@@ -1459,12 +1481,16 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
       const result = fullResultRef.current;
       if (!result) return false;
       if ((snapshot.subsUsed[_side] ?? 0) >= 5) return false;
+      // v2.9.92 FIX (Bulgu 4): Motor semantiğine uy — playerId = ÇIKAN oyuncu, assistPlayerId = GİREN oyuncu.
+      // Eski kod: playerId: inPlayer.id (giren) → devre arası applyTactics yanlış işliyordu,
+      // giren oyuncu "çıkan" sanılıp 2. yarıdan siliniyordu.
       const subEvent: EnhancedMatchEvent = {
         minute: snapshot.minute,
         type: "substitution",
         team: _side,
         playerName: `${outPlayer.firstName} ${outPlayer.lastName} ➜ ${inPlayer.firstName} ${inPlayer.lastName}`,
-        playerId: inPlayer.id,
+        playerId: outPlayer.id,           // ÇIKAN oyuncu (motor semantiği)
+        assistPlayerId: inPlayer.id,      // GİREN oyuncu (motor semantiği)
         description: `Oyuncu değişikliği: ${outPlayer.firstName} ${outPlayer.lastName} ➜ ${inPlayer.firstName} ${inPlayer.lastName}`,
         x: 50,
         y: 50,

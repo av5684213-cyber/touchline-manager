@@ -1579,6 +1579,7 @@ export const useAppStore = create<AppState>()(
                 _buyBackAmount: clauses?.buyBackAmount,
                 _buyBackClubId: clauses?.buyBackAmount ? sellerTeam?.id : undefined,
                 _installmentsRemaining: installmentRemaining > 0 ? installmentRemaining : undefined,
+                _installmentsWeeksLeft: (clauses?.installments && clauses.installments > 1) ? clauses.installments : undefined,
               }];
               // Takas oyuncusunu kadrodan çıkar
               if (exchangePlayer) {
@@ -1986,8 +1987,14 @@ export const useAppStore = create<AppState>()(
           return { success: false, reason: "no-buyer" };
         }
 
+        // v2.9.92 FIX (Bulgu 10): Klausülleri satışta temizle — installments borcu silinmeli
+        // (yeni kulüp ödemez), buyBack clause satışla biter, performanceBonusPaid sıfırlanmalı
+        // (alıcı için clause tekrar çalışabilsin). sell-on korunmalı (clause oyuncuyu takip eder).
+        const { _installmentsRemaining, _installmentsWeeksLeft, _buyBackAmount, _buyBackClubId,
+                _performanceBonusPaid, ...playerWithoutTransferClauses } = player as any;
+
         const updatedPlayer = {
-          ...player,
+          ...playerWithoutTransferClauses,
           weeklyWage: offer.wageOffer ?? player.weeklyWage,
           salary: offer.wageOffer ?? player.salary,
           // v2.9.62 FIX: Transfer sonrası oyuncu stats'leri sıfırla
@@ -2032,6 +2039,37 @@ export const useAppStore = create<AppState>()(
           }
           return c;
         });
+
+        // v2.9.92 FIX (Bulgu 12): sell-on payı allLeagues'teki satıcı kulübe öde.
+        // Eski kod: sadece clubs.map içinde arıyordu → allLeagues'teki kulüp bulunamıyordu,
+        // para yok ediliyordu. Yeni: clubs'ta bulunamazsa allLeagues'te ara.
+        const sellOnPercentVal = (player as any)._sellOnPercent;
+        const sellOnClubIdVal = (player as any)._sellOnClubId;
+        if (sellOnPercentVal && sellOnPercentVal > 0 && sellOnClubIdVal) {
+          const sellOnPaymentVal = Math.round(net * (sellOnPercentVal / 100));
+          // clubs'ta var mı kontrol et
+          const inClubs = updatedClubs.some(c => c.id === sellOnClubIdVal);
+          if (!inClubs) {
+            // allLeagues'te ara ve kredilendir
+            const allLeaguesState = get().allLeagues;
+            if (allLeaguesState) {
+              const updatedAllLeagues = { ...allLeaguesState };
+              for (const key of Object.keys(updatedAllLeagues)) {
+                const league = updatedAllLeagues[key];
+                const clubIdx = league.clubs.findIndex((c: any) => c.id === sellOnClubIdVal);
+                if (clubIdx >= 0) {
+                  const newClubs = [...league.clubs];
+                  newClubs[clubIdx] = { ...newClubs[clubIdx], budget: (newClubs[clubIdx] as any).budget + sellOnPaymentVal };
+                  updatedAllLeagues[key] = { ...league, clubs: newClubs };
+                  break;
+                }
+              }
+              setTimeout(() => {
+                useAppStore.setState({ allLeagues: updatedAllLeagues });
+              }, 0);
+            }
+          }
+        }
 
         // P0 FIX: Haber ekle
         const newNews: NewsItem = {
@@ -3537,25 +3575,57 @@ export const useAppStore = create<AppState>()(
           }
           if (performanceBonusPaid > 0) {
             myTeam.budget = Math.max(0, myTeam.budget - performanceBonusPaid);
-            // Bonusu satıcı kulübe gönder (eğer clubs'ta varsa) — basit yaklaşım: sadece bütçeden düş
-            // (satıcı kulüp clubs'ta olmayabilir — allLeagues'te olabilir, o yüzden sadece haber)
+            // v2.9.92 FIX (Bulgu 11): performanceBonus'u satıcı kulübe öde.
+            // Eski kod: sadece bütçeden düşülüyordu, satıcı almıyordu (para yok edilme).
+            // Yeni: _sellOnClubId (veya _buyBackClubId) üzerinden satıcı kulübe kredilendir.
+            // Bonus ödemesi sırasında hangi oyuncunun bonusu olduğunu takip et.
+            for (const p of myTeam.players) {
+              const bonusAmount = (p as any)._performanceBonus;
+              const bonusGoals = (p as any)._performanceBonusGoals;
+              const bonusPaid = (p as any)._performanceBonusPaid;
+              if (bonusAmount && bonusGoals && bonusPaid && (p.goals ?? 0) >= bonusGoals) {
+                // Bu oyuncunun bonusu ödendi — satıcıya kredilendir
+                const sellerClubId = (p as any)._sellOnClubId ?? (p as any)._buyBackClubId;
+                if (sellerClubId) {
+                  const sellerClub = updatedClubs.find(c => c.id === sellerClubId);
+                  if (sellerClub) {
+                    sellerClub.budget += bonusAmount;
+                  } else {
+                    // allLeagues'te ara
+                    const allLeaguesState = get().allLeagues;
+                    if (allLeaguesState) {
+                      for (const key of Object.keys(allLeaguesState)) {
+                        const league = allLeaguesState[key];
+                        const found = league.clubs.find((c: any) => c.id === sellerClubId);
+                        if (found) { found.budget += bonusAmount; break; }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
 
           // v2.9.91 (Madde 32): Installments (taksit) otomatik ödeme.
-          // Oyuncuda _installmentsRemaining > 0 varsa, her matchday'de haftalık taksit düş.
-          // Haftalık taksit = toplam kalan / kalan hafta sayısı (basit yaklaşım: kalanın %8'i).
+          // v2.9.92 FIX (Bulgu 6): Geometrik decay yerine sabit taksit + weeksLeft sayacı.
+          // Eski kod: weeklyInstallment = remaining × 0.08 → geometrik decay (0.92^n)
+          // → 12 haftada sadece %63 ödenir, sonsuz küçük kuyruk, hiç bitmez.
+          // Yeni: _installmentsWeeksLeft sayacı + sabit haftalık ödeme = total / installmentCount.
           let installmentPaid = 0;
           for (const p of myTeam.players) {
             const remaining = (p as any)._installmentsRemaining;
-            if (remaining && remaining > 0) {
-              // Haftalık taksit: kalanın %8'i (12 hafta = ~%96, 6 hafta = ~%48)
-              const weeklyInstallment = Math.round(remaining * 0.08);
+            const weeksLeft = (p as any)._installmentsWeeksLeft;
+            if (remaining && remaining > 0 && weeksLeft && weeksLeft > 0) {
+              // Sabit haftalık taksit: kalan / kalan hafta
+              const weeklyInstallment = Math.ceil(remaining / weeksLeft);
               const actualPayment = Math.min(weeklyInstallment, remaining);
               installmentPaid += actualPayment;
               (p as any)._installmentsRemaining = remaining - actualPayment;
-              if (remaining - actualPayment <= 0) {
-                // Taksit bitti — alanı temizle
+              (p as any)._installmentsWeeksLeft = weeksLeft - 1;
+              if (remaining - actualPayment <= 0 || weeksLeft - 1 <= 0) {
+                // Taksit bitti — alanları temizle
                 delete (p as any)._installmentsRemaining;
+                delete (p as any)._installmentsWeeksLeft;
                 bonusNewsItems.push({
                   id: `news_installment_done_${p.id}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
                   category: "transfer",
@@ -3649,7 +3719,8 @@ export const useAppStore = create<AppState>()(
                 const loanFromId = (p as any)._loanFrom;
                 const sellerClub = allClubsForLoanReturn.find(c => c.id === loanFromId);
                 if (sellerClub) {
-                  const { _loaned, _loanWeeks, _loanFrom, ...playerWithoutFlags } = p as any;
+                  // v2.9.92 FIX (Bulgu 15): _buyOptionPrice de temizle
+                  const { _loaned, _loanWeeks, _loanFrom, _buyOptionPrice, ...playerWithoutFlags } = p as any;
                   sellerClub.players.push(playerWithoutFlags as Player);
                   console.log(`[advanceMatchday] Kiralık oyuncu iade edildi: ${p.firstName} ${p.lastName} → ${sellerClub.name}`);
                 }
@@ -4353,12 +4424,37 @@ export const useAppStore = create<AppState>()(
               if (Math.random() < 0.15) {
                 const buyBackAmount = (p as any)._buyBackAmount;
                 const buyBackClubId = (p as any)._buyBackClubId;
+                // Bot kulübü bul — önce clubs'ta, sonra allLeagues'te ara
+                let botClub = updatedClubs.find(c => c.id === buyBackClubId);
+                let botInAllLeagues = false;
+                if (!botClub) {
+                  // allLeagues'te ara
+                  const allLeaguesState = get().allLeagues;
+                  if (allLeaguesState) {
+                    for (const key of Object.keys(allLeaguesState)) {
+                      const league = allLeaguesState[key];
+                      const found = league.clubs.find((c: any) => c.id === buyBackClubId);
+                      if (found) { botClub = found; botInAllLeagues = true; break; }
+                    }
+                  }
+                }
+                // v2.9.92 FIX (Bulgu 5): Bot bulunamazsa buyBack'i iptal et — oyuncu buharlaşmasın.
+                // Eski kod: botClub undefined olsa bile oyuncuyu kullanıcıdan çıkarıyordu.
+                if (!botClub) {
+                  // Bot yok — buyBack clause'u temizle, oyuncuyu kullanıcıda tut
+                  (p as any)._buyBackAmount = undefined;
+                  (p as any)._buyBackClubId = undefined;
+                  continue;
+                }
                 // Oyuncuyu kullanıcıdan çıkar, parayı ekle
                 userTeamForBuyback.players = userTeamForBuyback.players.filter((pp: any) => pp.id !== p.id);
                 userTeamForBuyback.budget += buyBackAmount;
-                // Bot kulübün bütçesinden düş (eğer clubs'ta varsa)
-                const botClub = updatedClubs.find(c => c.id === buyBackClubId);
-                if (botClub) {
+                // Bot kulübün bütçesinden düş ve oyuncuyu ekle
+                if (botInAllLeagues) {
+                  // allLeagues'teki kulüp — bütçesini güncelle
+                  botClub.budget = Math.max(0, botClub.budget - buyBackAmount);
+                  botClub.players.push({ ...(p as any), _buyBackAmount: undefined, _buyBackClubId: undefined, goals: 0, assists: 0, appearances: 0 });
+                } else {
                   botClub.budget = Math.max(0, botClub.budget - buyBackAmount);
                   botClub.players.push({ ...(p as any), _buyBackAmount: undefined, _buyBackClubId: undefined, goals: 0, assists: 0, appearances: 0 });
                 }
@@ -4464,6 +4560,10 @@ export const useAppStore = create<AppState>()(
               form_streak: "neutral" as const,
               form_streak_count: 0,
               motmAwards: (p as any).motmAwards ?? 0, // MotM ödülleri korunsun (kariyerlik)
+              // v2.9.92 FIX (Bulgu 14): _performanceBonusPaid sezon sonunda sıfırla.
+              // Eski kod: goals sıfırlanıyor ama _performanceBonusPaid=true kalıyor →
+              // clause bir daha ödenmiyordu. Yeni: her sezon başı tekrar ödenebilsin.
+              _performanceBonusPaid: false,
               // v2.9.46 GÖREV 3: Sezon ödüllerini kalıcı olarak sakla (kariyerlik)
               seasonAwards: mergedAwards,
               // v2.9.46 GÖREV 4: Sezon istatistiklerini kalıcı seasonHistory'e ekle
@@ -4495,7 +4595,9 @@ export const useAppStore = create<AppState>()(
           newDept = (Math.floor(Math.random() * AMATEUR_DEPARTMENTS) + 1) as Department;
         }
         // v2.9.25 K1: league-rules.ts'teki sabitleri kullan (tier 1-4 normal akış)
-        else if (myFinalIdx < PROMOTION_COUNT && currentTier > 1) {
+        // v2.9.92 FIX (Bulgu 9): currentTier < 5 guard ekle — Tier 5 idx 1-2 yanlış terfi etmesin.
+        // Eski kod: currentTier > 1 → Tier 5'i de yakalıyordu → summary false ama gerçekte terfi.
+        else if (myFinalIdx < PROMOTION_COUNT && currentTier > 1 && currentTier < 5) {
           // Promosyon — bir üst lig
           newTier = (currentTier - 1) as LeagueTier;
           newDept = currentDept; // aynı departman
@@ -4658,7 +4760,8 @@ export const useAppStore = create<AppState>()(
           club.players = club.players.filter((p: any) => p._loaned !== true);
           // Her birini kaynak kulübüne iade et
           for (const lp of loanedPlayers) {
-            const { _loaned, _loanWeeks, _loanFrom, ...cleanPlayer } = lp as any;
+            // v2.9.92 FIX (Bulgu 15): _buyOptionPrice de temizle
+            const { _loaned, _loanWeeks, _loanFrom, _buyOptionPrice, ...cleanPlayer } = lp as any;
             const lenderClub = updatedClubs.find(c => c.id === _loanFrom);
             if (lenderClub) {
               lenderClub.players.push(cleanPlayer as any);
@@ -4847,10 +4950,37 @@ export const useAppStore = create<AppState>()(
               })) as any;
 
               // Kullanıcının gerçek squad'ı
-              const userSquad = [...userTeamObj.players]
-                .filter(p => isPlayerAvailable(p))
-                .sort((a, b) => b.rating - a.rating)
-                .slice(0, 11) as any;
+              // v2.9.92 FIX (Bulgu 13): Formation slot'larına göre pozisyon-uyumlu 11 seç.
+              // Eski kod: rating sıralı top 11 → taktik rolleri/mantığı uygulanmıyordu.
+              const userTacticForCL = get().tactics.active ?? { formation: "4-4-2" } as any;
+              const clFormation = userTacticForCL.formation ?? "4-4-2";
+              const clSlots = FORMATION_SLOTS[clFormation] ?? FORMATION_SLOTS["4-4-2"];
+              const clUsedIds = new Set<string>();
+              const clAvailablePlayers = userTeamObj.players.filter((p: any) => isPlayerAvailable(p));
+              const userSquad: any[] = [];
+              for (const slotPos of clSlots) {
+                // Önce tam pozisyon eşleşmesi
+                let candidate = clAvailablePlayers
+                  .filter((p: any) => !clUsedIds.has(p.id) && p.specificPosition === slotPos)
+                  .sort((a: any, b: any) => b.rating - a.rating)[0];
+                // Sonra aynı grup
+                if (!candidate) {
+                  const group = POSITION_GROUP[slotPos] ?? "MID";
+                  candidate = clAvailablePlayers
+                    .filter((p: any) => !clUsedIds.has(p.id) && (POSITION_GROUP[p.specificPosition] ?? "MID") === group)
+                    .sort((a: any, b: any) => b.rating - a.rating)[0];
+                }
+                // Son çare: herhangi bir uygun oyuncu (GK hariç slot GK değilse)
+                if (!candidate) {
+                  candidate = clAvailablePlayers
+                    .filter((p: any) => !clUsedIds.has(p.id) && (slotPos === "GK" || p.specificPosition !== "GK"))
+                    .sort((a: any, b: any) => b.rating - a.rating)[0];
+                }
+                if (candidate) {
+                  userSquad.push(candidate);
+                  clUsedIds.add(candidate.id);
+                }
+              }
 
               try {
                 const userTactic = get().tactics.active ?? { formation: "4-4-2", mentality: 3, pressing: false, passingStyle: "Karışık", aggression: 50, width: 50, passingIntensity: 50, lineHeight: 50, screenKeeper: false, wasteTime: false, parkTheBus: false, crossGame: false, loneStrikerCounter: false, offsideTrap: false, playStyle: "balanced" } as any;
@@ -4874,7 +5004,10 @@ export const useAppStore = create<AppState>()(
                 else if (as > hs) winnerId = m.awayId;
                 else {
                   // Penaltı atışması
-                  const penResult = simulatePenaltyShootout(homeSquad, awaySquad);
+                // v2.9.92 FIX (Bulgu 8): GK arketiplerini geçir — Penaltı Uzmanı vb. bonusu çalışsın.
+                const homeGK = homeSquad.find((p: any) => p.specificPosition === "GK");
+                const awayGK = awaySquad.find((p: any) => p.specificPosition === "GK");
+                const penResult = simulatePenaltyShootout(homeSquad, awaySquad, homeGK?.archetype, awayGK?.archetype);
                   winnerId = penResult.homeScore > penResult.awayScore ? m.homeId : m.awayId;
                 }
                 // v2.9.91 (Madde 29): Kullanıcının CL maçı event'lerini sakla — replay için.
@@ -6579,8 +6712,10 @@ function resetAllLeaguesForNewSeason(
     const resetClubs = newClubs.map((c) => ({
       ...c,
       players: c.players.map((p) => {
-        const ageMult = p.age <= 21 ? 1.0 : p.age <= 28 ? 0.6 : 0.2;
-        const ovrGain = Math.round(ageMult * (0.5 + Math.random() * 0.8));
+        // v2.9.92 FIX (Bulgu 19): 29+ çarpanı ölüydü (0.2 × 0.5-1.3 = 0.1-0.26 → Math.round her zaman 0).
+        // Yeni: Math.floor kullan + 29+ için bazen 1 versin (0.3 + Math.random() × 1.4).
+        const ageMult = p.age <= 21 ? 1.0 : p.age <= 28 ? 0.6 : 0.3;
+        const ovrGain = Math.floor(ageMult * (0.3 + Math.random() * 1.4));
         const newRating = Math.min(99, (p.rating ?? 50) + ovrGain);
         // Rating değişince ilgili stat'ları da ufak artır (dengeli)
         const statGain = Math.max(0, ovrGain);
@@ -6605,12 +6740,34 @@ function resetAllLeaguesForNewSeason(
           injured_until: undefined,
           suspended_until: undefined,
           // v2.9.91: Top-level stat'ları da ufak artır (rating ile uyumlu)
-          ...(statGain > 0 ? {
-            finishing: Math.min(99, (p.finishing ?? 50) + statGain),
-            passing: Math.min(99, (p.passing ?? 50) + statGain),
-            dribbling: Math.min(99, (p.dribbling ?? 50) + statGain),
-            shooting: Math.min(99, (p.shooting ?? 50) + statGain),
-          } : {}),
+          // v2.9.92 FIX (Bulgu 16): Pozisyon bazlı stat artışı — her pozisyon grubu
+          // kendi alanında gelişir. Eski kod sadece 4 atak statı artırıyordu →
+          // bot CB'ler finishing +5 ama tackling +0 (lopsided).
+          ...(statGain > 0 ? (() => {
+            const posGroup = POSITION_GROUP[p.specificPosition] ?? "MID";
+            const gains: Record<string, number> = {};
+            if (posGroup === "GK") {
+              gains.goalkeeping = Math.min(99, (p.goalkeeping ?? 50) + statGain);
+              gains.positioning = Math.min(99, (p.positioning ?? 50) + statGain);
+              gains.concentration = Math.min(99, (p.concentration ?? 50) + statGain);
+            } else if (posGroup === "DEF") {
+              gains.tackling = Math.min(99, (p.tackling ?? 50) + statGain);
+              gains.marking = Math.min(99, (p.marking ?? 50) + statGain);
+              gains.heading = Math.min(99, (p.heading ?? 50) + statGain);
+              gains.positioning = Math.min(99, (p.positioning ?? 50) + statGain);
+            } else if (posGroup === "MID") {
+              gains.passing = Math.min(99, (p.passing ?? 50) + statGain);
+              gains.vision = Math.min(99, (p.vision ?? 50) + statGain);
+              gains.stamina = Math.min(99, (p.stamina ?? 50) + statGain);
+              gains.tackling = Math.min(99, (p.tackling ?? 50) + Math.floor(statGain / 2));
+            } else { // FWD
+              gains.finishing = Math.min(99, (p.finishing ?? 50) + statGain);
+              gains.dribbling = Math.min(99, (p.dribbling ?? 50) + statGain);
+              gains.shooting = Math.min(99, (p.shooting ?? 50) + statGain);
+              gains.speed = Math.min(99, (p.speed ?? 50) + Math.floor(statGain / 2));
+            }
+            return gains;
+          })() : {}),
         };
       }),
     }));

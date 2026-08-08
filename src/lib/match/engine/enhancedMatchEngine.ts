@@ -1893,15 +1893,15 @@ export function simulateEnhancedMatch(
   // Score — for incremental simulation, carry over initial scores
   const effectiveStart = options?.startMinute ?? 1;
   // v2.9.91 FIX (Madde 21): Uzatma dakikası (stoppage time) ekle.
-  // Eski kod: effectiveEnd = 90 → maç tam 90. dakikada bitiyordu.
-  // Yeni: 90 + random(1,5) uzatma → dramatic equalizer mümkün.
-  // Sadece tam maç (startMinute=1) için uygula — 2. yarı re-simülasyonunda (startMinute=46) zaten 90'a kadar.
-  const isFullMatch = effectiveStart <= 1;
+  // v2.9.92 FIX (Bulgu 3): 2. yarı re-simülasyonunda (startMinute=46) de stoppage uygula.
+  // Eski kod sadece isFullMatch (startMinute<=1) için uyguluyordu → devre arası taktik
+  // değişikliği yapınca 90+3 golü kayboluyordu. Yeni: endMinute verilmediyse her durumda
+  // stoppage uygula (tam maç: 90+stoppage, 2. yarı: 90+stoppage).
   const stoppageMin = MATCH_STRUCTURE.stoppageRange?.[0] ?? 1;
   const stoppageMax = MATCH_STRUCTURE.stoppageRange?.[1] ?? 5;
-  const stoppage = isFullMatch
-    ? (options?.endMinute ? 0 : Math.floor(Math.random() * (stoppageMax - stoppageMin + 1)) + stoppageMin)
-    : 0;
+  const stoppage = options?.endMinute
+    ? 0 // explicit endMinute verilmişse stoppage uygulama (caller kontrol ediyor)
+    : Math.floor(Math.random() * (stoppageMax - stoppageMin + 1)) + stoppageMin;
   const effectiveEnd = (options?.endMinute ?? MATCH_STRUCTURE.duration) + stoppage;
   let homeScore = options?.initialHomeScore ?? 0;
   let awayScore = options?.initialAwayScore ?? 0;
@@ -2485,11 +2485,8 @@ export function simulateEnhancedMatch(
         goalChance *= (1 + attackerMods.tempoMod * 0.3);
       }
 
-      // Late game desperation
-      if (minute > 80) {
-        if (hasMomentum === 'home' && homeScore < awayScore) goalChance *= GOAL_CHANCE.lateGameDesperation;
-        if (hasMomentum === 'away' && awayScore < homeScore) goalChance *= GOAL_CHANCE.lateGameDesperation;
-      }
+      // v2.9.92 FIX (Bulgu 18): Late game desperation artık clamp'ten SONRA uygulanıyor (aşağıda).
+      // Eski kod burada clamp'ten önce uyguluyordu → clamp tarafından eziliyordu.
 
       // ── Trait Engine: Saldıran oyuncu trait'leri goalChance'e etki eder ──────
       // Ofansif traitler goalChance'i artırır, negatif traitler azaltır
@@ -2519,7 +2516,18 @@ export function simulateEnhancedMatch(
         }
       }
 
+      // v2.9.92 FIX (Bulgu 18): lateGameDesperation clamp'ten SONRA uygula.
+      // Eski kod: clamp'ten önce uyguluyordu → güçlü takım 0.12'de clamp → ×1.20=0.144 →
+      // clamp geri 0.12'ye çeker → desperation etkisi sıfır. Sadece zayıf takımlar çalışıyordu.
+      // Yeni: önce clamp uygula, sonra lateGameDesperation ile yeni bir üst limit (0.15) uygula.
+      // Bu sayede güçlü takım da son dakika gerideyken küçük bonus alır.
       goalChance = clamp(goalChance, GOAL_CHANCE.clampMin, GOAL_CHANCE.clampMax);
+      if (minute > 80) {
+        if (hasMomentum === 'home' && homeScore < awayScore) goalChance *= GOAL_CHANCE.lateGameDesperation;
+        if (hasMomentum === 'away' && awayScore < homeScore) goalChance *= GOAL_CHANCE.lateGameDesperation;
+        // Late game için ayrı üst limit (clampMax'ten biraz yüksek)
+        goalChance = Math.min(goalChance, GOAL_CHANCE.clampMax * 1.25); // 0.12 × 1.25 = 0.15
+      }
 
       // Find potential assister (midfielder or other forward)
       const midfielders = getByPosition(attackingTeam, 'MID');
