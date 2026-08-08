@@ -1,0 +1,105 @@
+1:"$Sreact.fragment"
+6:I[68027,["./_next/static/chunks/2f236954d6a65e12.js"],"default"]
+:HL["./_next/static/chunks/a2fe234bc9d0df55.css","style"]
+:HL["./_next/static/chunks/7941892cb2876f90.css","style"]
+:HL["./_next/static/media/1bffadaabf893a1e-s.p.7cd81963.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["./_next/static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+2:Tf4a,
+          (function() {
+            // Native'e hazır sinyali gönder
+            function notifyNativeReady() {
+              try {
+                if (window.AndroidNative && window.AndroidNative.onAppReady) {
+                  window.AndroidNative.onAppReady();
+                }
+              } catch(e) {}
+            }
+            // JS app yüklendiğinde native'e haber ver
+            window.addEventListener('load', function() {
+              setTimeout(notifyNativeReady, 200);
+            });
+
+            // Global error handler — JS hatalarını native'e ilet
+            window.addEventListener('error', function(e) {
+              try {
+                if (window.AndroidNative && window.AndroidNative.reportError) {
+                  var msg = e.message + ' @ ' + (e.filename || '') + ':' + (e.lineno || 0);
+                  window.AndroidNative.reportError(msg);
+                }
+              } catch(err) {}
+            });
+
+            // Unhandled promise rejection handler
+            window.addEventListener('unhandledrejection', function(e) {
+              try {
+                if (window.AndroidNative && window.AndroidNative.reportError) {
+                  var reason = e.reason ? (e.reason.message || String(e.reason)) : 'Unknown rejection';
+                  window.AndroidNative.reportError('Promise rejection: ' + reason);
+                }
+              } catch(err) {}
+            });
+
+            // v2.9.14 MADDE 1: Native geri tuşu handler — JS navigation'ı yönetir
+            // Native → JS: evaluateJavascript("window.handleNativeBack()")
+            // JS → Native: AndroidNative.onBackResult(true/false)
+            //   true = JS handled etti (modal kapandı, sekme değişti)
+            //   false = JS ana ekranda, çıkış gerekli
+            window.handleNativeBack = function() {
+              // 1. Modal açıksa kapat (oyuncu profili, takım detayı, vb.)
+              var openModal = document.querySelector('[role="dialog"], [data-modal="true"]');
+              if (openModal) {
+                var closeBtn = openModal.querySelector('[aria-label="Kapat"], [aria-label="close"], button[aria-label]');
+                if (closeBtn) { closeBtn.click(); return true; }
+                // Kapat butonu yoksa Escape simüle et
+                var escEvent = new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27 });
+                document.dispatchEvent(escEvent);
+                return true;
+              }
+              // 2. Drawer açıksa kapat (Diğer sekmesi drawer'ı)
+              var openDrawer = document.querySelector('[data-drawer-open="true"], [data-state="open"]');
+              if (openDrawer) {
+                var backdrop = document.querySelector('[data-drawer-backdrop="true"]');
+                if (backdrop) { backdrop.click(); return true; }
+                // Backdrop yoksa state'i kapat
+                openDrawer.click();
+                return true;
+              }
+              // 3. Alt menü sekmesi — ana ekranda değilse ana ekrana dön
+              // Ana ekran = Dashboard sekmesi
+              var activeTab = document.querySelector('[data-active-tab="true"]');
+              if (activeTab && activeTab.getAttribute('data-tab') !== 'dashboard') {
+                // Dashboard sekmesine geç
+                var dashboardBtn = document.querySelector('[data-tab="dashboard"]');
+                if (dashboardBtn) { dashboardBtn.click(); return true; }
+              }
+              // 4. Maç ekranındaysa — çıkış engellenmeli (ilerleme kaybı)
+              var matchScreen = document.querySelector('[data-screen="match"]');
+              if (matchScreen) {
+                return true; // Maç sırasında geri tuşu ile çıkış yasak
+              }
+              // 5. Ana ekrandayız — native'e "handled=false" gönder
+              return false;
+            };
+          })();
+        0:{"P":null,"b":"u1SHknb4OlpLumqs9th4p","c":["",""],"q":"","i":false,"f":[[["",{"children":["__PAGE__",{}]},"$undefined","$undefined",true],[["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"./_next/static/chunks/a2fe234bc9d0df55.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","link","1",{"rel":"stylesheet","href":"./_next/static/chunks/7941892cb2876f90.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"./_next/static/chunks/7b77f951eaf4e155.js","async":true,"nonce":"$undefined"}],["$","script","script-1",{"src":"./_next/static/chunks/e1a1c1c62b642533.js","async":true,"nonce":"$undefined"}],["$","script","script-2",{"src":"./_next/static/chunks/6eea20fa81de4fcb.js","async":true,"nonce":"$undefined"}],["$","script","script-3",{"src":"./_next/static/chunks/e94f31b6d3d4b492.js","async":true,"nonce":"$undefined"}],["$","script","script-4",{"src":"./_next/static/chunks/5d240fc5b0f9c87d.js","async":true,"nonce":"$undefined"}],["$","script","script-5",{"src":"./_next/static/chunks/0e9143fe23daf8ea.js","async":true,"nonce":"$undefined"}],["$","script","script-6",{"src":"./_next/static/chunks/f0cdf8d00bc3aa2d.js","async":true,"nonce":"$undefined"}]],["$","html",null,{"lang":"tr","suppressHydrationWarning":true,"children":[["$","head",null,{"children":[["$","meta",null,{"name":"apple-mobile-web-app-capable","content":"yes"}],["$","meta",null,{"name":"apple-mobile-web-app-status-bar-style","content":"black-translucent"}],["$","meta",null,{"name":"apple-mobile-web-app-title","content":"Touchline Manager"}],["$","meta",null,{"name":"mobile-web-app-capable","content":"yes"}],["$","link",null,{"rel":"apple-touch-icon","href":"/icons/icon-192.png"}],["$","link",null,{"rel":"apple-touch-startup-image","href":"/icons/icon-512.png"}],["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$2"}}]]}],"$L3"]}]]}],{"children":["$L4",{},null,false,false]},null,false,false],"$L5",false]],"m":"$undefined","G":["$6",[]],"S":true}
+7:I[38306,["./_next/static/chunks/7b77f951eaf4e155.js","./_next/static/chunks/e1a1c1c62b642533.js","./_next/static/chunks/6eea20fa81de4fcb.js","./_next/static/chunks/e94f31b6d3d4b492.js","./_next/static/chunks/5d240fc5b0f9c87d.js","./_next/static/chunks/0e9143fe23daf8ea.js","./_next/static/chunks/f0cdf8d00bc3aa2d.js"],"LocaleProvider"]
+8:I[27643,["./_next/static/chunks/7b77f951eaf4e155.js","./_next/static/chunks/e1a1c1c62b642533.js","./_next/static/chunks/6eea20fa81de4fcb.js","./_next/static/chunks/e94f31b6d3d4b492.js","./_next/static/chunks/5d240fc5b0f9c87d.js","./_next/static/chunks/0e9143fe23daf8ea.js","./_next/static/chunks/f0cdf8d00bc3aa2d.js"],"AuthProvider"]
+9:I[39756,["./_next/static/chunks/2f236954d6a65e12.js"],"default"]
+a:I[37457,["./_next/static/chunks/2f236954d6a65e12.js"],"default"]
+b:I[77855,["./_next/static/chunks/7b77f951eaf4e155.js","./_next/static/chunks/e1a1c1c62b642533.js","./_next/static/chunks/6eea20fa81de4fcb.js","./_next/static/chunks/e94f31b6d3d4b492.js","./_next/static/chunks/5d240fc5b0f9c87d.js","./_next/static/chunks/0e9143fe23daf8ea.js","./_next/static/chunks/f0cdf8d00bc3aa2d.js"],"Toaster"]
+c:I[62551,["./_next/static/chunks/7b77f951eaf4e155.js","./_next/static/chunks/e1a1c1c62b642533.js","./_next/static/chunks/6eea20fa81de4fcb.js","./_next/static/chunks/e94f31b6d3d4b492.js","./_next/static/chunks/5d240fc5b0f9c87d.js","./_next/static/chunks/0e9143fe23daf8ea.js","./_next/static/chunks/f0cdf8d00bc3aa2d.js"],"ServiceWorkerRegistrar"]
+d:I[47257,["./_next/static/chunks/2f236954d6a65e12.js"],"ClientPageRoot"]
+e:I[52683,["./_next/static/chunks/7b77f951eaf4e155.js","./_next/static/chunks/e1a1c1c62b642533.js","./_next/static/chunks/6eea20fa81de4fcb.js","./_next/static/chunks/e94f31b6d3d4b492.js","./_next/static/chunks/5d240fc5b0f9c87d.js","./_next/static/chunks/0e9143fe23daf8ea.js","./_next/static/chunks/f0cdf8d00bc3aa2d.js","./_next/static/chunks/16bcba11206396ca.js","./_next/static/chunks/89785fcaba2247d5.js"],"default"]
+11:I[97367,["./_next/static/chunks/2f236954d6a65e12.js"],"OutletBoundary"]
+12:"$Sreact.suspense"
+14:I[97367,["./_next/static/chunks/2f236954d6a65e12.js"],"ViewportBoundary"]
+16:I[97367,["./_next/static/chunks/2f236954d6a65e12.js"],"MetadataBoundary"]
+3:["$","body",null,{"className":"inter_6f63e4fe-module__BMM7va__variable font-sans antialiased","children":["$","$L7",null,{"children":[["$","$L8",null,{"children":["$","$L9",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$La",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]}],["$","$Lb",null,{}],["$","$Lc",null,{}]]}]}]
+4:["$","$1","c",{"children":[["$","$Ld",null,{"Component":"$e","serverProvidedParams":{"searchParams":{},"params":{},"promises":["$@f","$@10"]}}],[["$","script","script-0",{"src":"./_next/static/chunks/16bcba11206396ca.js","async":true,"nonce":"$undefined"}],["$","script","script-1",{"src":"./_next/static/chunks/89785fcaba2247d5.js","async":true,"nonce":"$undefined"}]],["$","$L11",null,{"children":["$","$12",null,{"name":"Next.MetadataOutlet","children":"$@13"}]}]]}]
+5:["$","$1","h",{"children":[null,["$","$L14",null,{"children":"$L15"}],["$","div",null,{"hidden":true,"children":["$","$L16",null,{"children":["$","$12",null,{"name":"Next.Metadata","children":"$L17"}]}]}],["$","meta",null,{"name":"next-size-adjust","content":""}]]}]
+f:{}
+10:"$4:props:children:0:props:serverProvidedParams:params"
+15:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover, user-scalable=yes"}],["$","meta","2",{"name":"theme-color","content":"#1a3a2a"}]]
+18:I[27201,["./_next/static/chunks/2f236954d6a65e12.js"],"IconMark"]
+13:null
+17:[["$","title","0",{"children":"Touchline Manager"}],["$","meta","1",{"name":"description","content":"Futbol kulübü yönetim oyunu - Online multiplayer"}],["$","meta","2",{"name":"application-name","content":"Touchline Manager"}],["$","meta","3",{"name":"author","content":"Touchline"}],["$","link","4",{"rel":"manifest","href":"/manifest.json","crossOrigin":"$undefined"}],["$","meta","5",{"name":"mobile-web-app-capable","content":"yes"}],["$","meta","6",{"name":"apple-mobile-web-app-title","content":"Touchline Manager"}],["$","meta","7",{"name":"apple-mobile-web-app-status-bar-style","content":"black-translucent"}],["$","link","8",{"rel":"icon","href":"/icons/icon-72.png","sizes":"72x72","type":"image/png"}],["$","link","9",{"rel":"icon","href":"/icons/icon-96.png","sizes":"96x96","type":"image/png"}],["$","link","10",{"rel":"icon","href":"/icons/icon-128.png","sizes":"128x128","type":"image/png"}],["$","link","11",{"rel":"icon","href":"/icons/icon-144.png","sizes":"144x144","type":"image/png"}],["$","link","12",{"rel":"icon","href":"/icons/icon-152.png","sizes":"152x152","type":"image/png"}],["$","link","13",{"rel":"icon","href":"/icons/icon-192.png","sizes":"192x192","type":"image/png"}],["$","link","14",{"rel":"icon","href":"/icons/icon-384.png","sizes":"384x384","type":"image/png"}],["$","link","15",{"rel":"icon","href":"/icons/icon-512.png","sizes":"512x512","type":"image/png"}],["$","link","16",{"rel":"apple-touch-icon","href":"/icons/icon-192.png","sizes":"192x192","type":"image/png"}],["$","$L18","17",{}]]
