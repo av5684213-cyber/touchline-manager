@@ -219,17 +219,22 @@ export function awardTrophyToClub(
     };
 
     // Ters kronolojik sırala — en sol kazanılan en üstte (UI'da)
-    // v2.9.91 FIX (Madde 24): MAX_TROPHIES 100 → 200'e çıkarıldı.
-    // Eski kod: 100 cap → 30 sezon sonra ilk 20 sezonun şampiyonlukları siliniyordu.
-    // Yeni: 200 cap → ~60 sezonluk kariyer geçmişi korunur (gerçek menajerlik oyunlarında yeterli).
-    // Tam çözüm: trophyCounts: Record<TrophyKey, number> ayrı alanı (sınırsız sayı) + trophies[]
-    // (son N detay) — ama bu Team interface değişikliği gerektirir, şimdilik cap artır.
+    // v2.9.92 FIX (Bulgu 20): trophyCounts alanı eklendi — asla truncate edilmez.
+    // trophies[] son 200 detayı tutar, trophyCounts toplam sayıyı tutar (sınırsız).
+    // Bu sayede 100 sezon sonra bile "8× Lig Şampiyonu" doğru görünür.
     const MAX_TROPHIES = 200;
     const updated = [...existing, newTrophy]
       .sort((a, b) => b.awardedAt - a.awardedAt)
       .slice(0, MAX_TROPHIES);
 
-    return { ...club, trophies: updated };
+    // trophyCounts'u güncelle — asla silinmez
+    const existingCounts = club.trophyCounts ?? {};
+    const updatedCounts = {
+      ...existingCounts,
+      [trophyKey]: (existingCounts[trophyKey] ?? 0) + 1,
+    };
+
+    return { ...club, trophies: updated, trophyCounts: updatedCounts };
   });
 }
 
@@ -269,6 +274,19 @@ export function getClubTrophies(club: Team | undefined | null): Trophy[] {
  */
 export function countTrophiesByType(trophies: Trophy[], key: TrophyKey): number {
   return trophies.filter((t) => t.trophyKey === key).length;
+}
+
+/**
+ * v2.9.92 (Bulgu 20): Kulübün belirli türdeki kupa sayısını döndürür.
+ * Önce trophyCounts (asla silinmez) kontrol eder, yoksa trophies[]'den sayar.
+ * Bu sayede 100 sezon sonra bile doğru sayı görünür.
+ */
+export function countClubTrophiesByType(club: Team, key: TrophyKey): number {
+  if (club.trophyCounts && club.trophyCounts[key] !== undefined) {
+    return club.trophyCounts[key];
+  }
+  // Fallback: trophies[]'den say (eski kulüpler için)
+  return (club.trophies ?? []).filter((t) => t.trophyKey === key).length;
 }
 
 // ═══════════════════════════════════════════════════════════════════

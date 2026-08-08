@@ -508,7 +508,6 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
       // 11'den az kalırsa otomatik doldur.
       const currentMatchday = storeState.seasonMatchday ?? 1;
       const availableFilledSlots = filledSlots.filter(p => isPlayerAvailableAt(p, currentMatchday));
-      const unavailableCount = filledSlots.length - availableFilledSlots.length;
 
       let userSquad: MatchEnginePlayer[];
       if (availableFilledSlots.length === 11) {

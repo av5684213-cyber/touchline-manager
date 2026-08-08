@@ -353,6 +353,10 @@ export type Team = {
   // v2.9.78: Kulübün kazandığı kupalar — en son kazanılan önce olacak şekilde
   // ters kronolojik sıralanır (UI'da en üstte gösterilir).
   trophies?: Trophy[];
+  // v2.9.92 (Bulgu 20): Kupa sayıları — asla truncate edilmez, sınırsız kariyer geçmişi.
+  // trophies[] son 200 detayı tutar, trophyCounts toplam sayıyı tutar.
+  // UI sayı gösterimi için trophyCounts, detay listesi için trophies[] kullanılır.
+  trophyCounts?: Record<string, number>;
 };
 
 export const LEAGUE_NAMES: Record<LeagueTier, { tr: string; en: string }> = {

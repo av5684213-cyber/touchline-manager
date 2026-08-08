@@ -3643,6 +3643,26 @@ export const useAppStore = create<AppState>()(
             myTeam.budget = Math.max(0, myTeam.budget - installmentPaid);
           }
 
+          // v2.9.92 (Bulgu 21): Botlara da basit haftalık ekonomi uygula.
+          // Eski kod: sadece kullanıcıya haftalık ekonomi (ticket+sponsor+TV-wages) uygulanıyordu.
+          // Botlar sadece transfer alımında bütçe harcıyor, sezon sonunda hard-reset alıyordu.
+          // Bu asimetri kullanıcıya structural wealth avantajı veriyordu.
+          // Yeni: botlara da basit income-expense uygula (kullanıcı kadar detaylı değil ama
+          // en azından maaş gideri vs ticket geliri dengelensin).
+          for (const c of updatedClubs) {
+            if (c.id === myTeamId || !c.is_bot) continue;
+            const botTier = c.leagueTier ?? 2;
+            // Basit gelir: ticket + TV (tier bazlı)
+            const botTvByTier: Record<number, number> = { 1: 800_000, 2: 500_000, 3: 400_000, 4: 300_000 };
+            const botTv = botTvByTier[botTier] ?? 50_000;
+            const botTicket = Math.round((c.stadiumCapacity ?? 5000) * 0.5 * 40); // 50% doluluk, 40€ bilet
+            const botIncome = botTv + botTicket;
+            // Basit gider: oyuncu maaşları
+            const botWages = c.players.reduce((s, p) => s + (p.weeklyWage ?? p.salary ?? 0), 0);
+            const botNet = botIncome - botWages;
+            c.budget = Math.max(0, c.budget + botNet);
+          }
+
           // v2.9.73: BANKRUPTCY mekanizması
           // Sorun: Bütçe 0'a düşse bile hiçbir yaptırım yoktu. Kullanıcı maaş
           // bütçesi sezon ortasında negatife düşse bile oyuncular satılmıyor,
