@@ -50,9 +50,13 @@ function pickStartingXIByFormation(
     }
 
     // 3. Herhangi bir uygun oyuncu (pozisyon farketmeksizin)
+    // v2.9.91 FIX (Madde 25): slotPos "GK" değilse kaleci hariç tut — GK forvet slotuna konmasın.
+    // Eski kod: GK'yi dahil ediyordu → sadece GK yedek kaldıysa forvet slotuna konuyordu
+    // → takım 10 adamla hücum etmiş gibi oluyordu (motor GK'yi DEF olarak işliyor).
     if (!candidate) {
       candidate = players
-        .filter((p) => !used.has(p.id) && isPlayerAvailableAt(p, currentMatchday))
+        .filter((p) => !used.has(p.id) && isPlayerAvailableAt(p, currentMatchday)
+          && (slotPos === "GK" || p.specificPosition !== "GK"))
         .sort((a, b) => b.rating - a.rating)[0];
     }
 
@@ -490,17 +494,25 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
       // İlk 11'i seç:
       // 1. Öncelik: kullanıcının taktik ekranında seçtiği lineup (11 dolu slot)
       // 2. Fallback: pickStartingXIByFormation ile en iyi 11
+      // v2.9.91 FIX (Madde 10): Manuel lineup'da cezalı/sakat oyuncu kontrolü.
+      // Eski kod: filledSlots.length === 11 ise direkt kullanıyordu → cezalı/sakat oyuncu
+      // manuel lineup'da oynayabiliyordu. Yeni: isPlayerAvailableAt ile filtrele,
+      // 11'den az kalırsa otomatik doldur.
+      const currentMatchday = storeState.seasonMatchday ?? 1;
+      const availableFilledSlots = filledSlots.filter(p => isPlayerAvailableAt(p, currentMatchday));
+      const unavailableCount = filledSlots.length - availableFilledSlots.length;
+
       let userSquad: MatchEnginePlayer[];
-      if (filledSlots.length === 11) {
-        // Kullanıcının seçtiği ilk 11 — taktik ekranından
-        userSquad = filledSlots as unknown as MatchEnginePlayer[];
-      } else if (filledSlots.length >= 7) {
-        // Yeterli oyuncu var ama 11 değil — eksikleri otomatik doldur
+      if (availableFilledSlots.length === 11) {
+        // Kullanıcının seçtiği ilk 11 — tümü uygun
+        userSquad = availableFilledSlots as unknown as MatchEnginePlayer[];
+      } else if (availableFilledSlots.length >= 7) {
+        // Yeterli oyuncu var ama 11 değil (bazıları cezalı/sakat/boş) — eksikleri otomatik doldur
         const userPlayers = isHome ? home.players : away.players;
         const autoFilled = pickStartingXIByFormation(userPlayers, formation) as unknown as MatchEnginePlayer[];
-        const usedIds = new Set(filledSlots.map((p) => p.id));
-        const missing = autoFilled.filter((p) => !usedIds.has(p.id)).slice(0, 11 - filledSlots.length);
-        userSquad = [...filledSlots, ...missing] as unknown as MatchEnginePlayer[];
+        const usedIds = new Set(availableFilledSlots.map((p) => p.id));
+        const missing = autoFilled.filter((p) => !usedIds.has(p.id)).slice(0, 11 - availableFilledSlots.length);
+        userSquad = [...availableFilledSlots, ...missing] as unknown as MatchEnginePlayer[];
       } else {
         // Çok az oyuncu seçilmiş — tamamen otomatik
         const userPlayers = isHome ? home.players : away.players;
@@ -611,6 +623,18 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
           // P0#4 FIX: Taktik rollerini motora geçir — oyuncu attribute'larını boost eder
           homePlayerRoles,
           awayPlayerRoles,
+          // v2.9.91 FIX (Madde 8): Yedek oyuncuları motora geçir — 60. ve 75. dakikalarda
+          // otomatik değişiklik yapabilsin. Eski kod: substitutes option HIÇ geçilmiyordu
+          // → motorun performSubstitution fonksiyonu her zaman early return ediyordu.
+          // Yeni: her takım için ilk 11 sonrası 7 yedek (maç kadrosu) geçir.
+          substitutes: {
+            home: ((isHome ? userSquad : (home.players as any[]))
+              .slice(11, 18)
+              .filter((p: any) => isPlayerAvailableAt(p, currentMatchday))) as any,
+            away: ((isHome ? (away.players as any[]) : userSquad)
+              .slice(11, 18)
+              .filter((p: any) => isPlayerAvailableAt(p, currentMatchday))) as any,
+          },
         } as any
       );
       fullResultRef.current = result;
@@ -774,9 +798,26 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
           }
           break;
         case "shot_saved": case "shot_on_target": case "SAVE":
-          s.shotsOnTarget += 1; s.shots += 1; break;
+          s.shotsOnTarget += 1; s.shots += 1;
+          // v2.9.91 FIX (Madde 9): shot_saved event'inde kalecinin saves'ini de artır.
+          // Eski kod: sadece şutörün shots'ını artırıyordu → kalecinin sezonluk saves'i
+          // gerçeğin ~10-20%'si kalıyordu. assistPlayerId alanında kaleci ID'si var.
+          {
+            const gkPid = (ev as any).assistPlayerId || (ev as any).assist_player_id;
+            if (gkPid && gkPid !== pid) {
+              if (!matchStatsMap.has(gkPid)) {
+                matchStatsMap.set(gkPid, { goals: 0, assists: 0, saves: 0, shots: 0, shotsOnTarget: 0, passes: 0, passesCompleted: 0, tackles: 0, interceptions: 0, dribbles: 0, dribblesCompleted: 0, yellowCards: 0, redCards: 0, fouls: 0, minutesPlayed: 90, goalsRight: 0, goalsLeft: 0, goalsHead: 0, goalsPenalty: 0, goalsFreekick: 0 });
+              }
+              matchStatsMap.get(gkPid)!.saves += 1;
+            }
+          }
+          break;
         case "shot_wide": case "shot_blocked": case "OWN_GOAL":
           s.shots += 1; break;
+        // v2.9.91 FIX (Madde 26): shot_post event'i sezon şut stats'ına eklenmiyordu.
+        // Direkten dönen şutlar canlı ekranda "şut" görünüyor ama seasonStats'ta sayılmıyordu.
+        case "shot_post":
+          s.shots += 1; s.shotsOnTarget += 1; break;
         case "save": s.saves += 1; break;
         case "yellow_card": case "yellow": case "YELLOW": case "SECOND_YELLOW":
           s.yellowCards += 1; s.fouls += 1; break;
@@ -809,10 +850,17 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
         : won ? 3 + streakBonus : lost ? -3 + streakBonus : 0;
 
       const newCond = Math.max(20, Math.min(100, p.cond - condDrain));
-      const newForm = Math.max(30, Math.min(100, p.form + formChange));
+      // v2.9.91 FIX (Madde 28): Form clamp [30,100] → [10,100].
+      // Eski kod: form 30'un altına düşemezdi → en kötü formda bile oyuncu %79 güçle oynardı.
+      // Yeni: form 10'a kadar düşebilir → kötü seri gerçekten oyuncuyu etkiler.
+      const newForm = Math.max(10, Math.min(100, p.form + formChange));
       const newMorale = Math.max(20, Math.min(100, p.morale + moraleChange));
 
-      const isInjured = injuredIds.has(p.id);
+      // v2.9.91 FIX (Madde 11): Hazırlık maçında sakatlık kalıcı olmasın.
+      // Eski kod: isInjured/injury/injury_history/wasInjuredThisSeason isFriendly kontrolü olmadan
+      // güncelleniyordu → hazırlık maçında alınan ağır sakatlık gerçek sezonda da oyuncuyu düşürüyordu.
+      // Yeni: isFriendly ise sakatlık alanlarını güncelleme (orijinal p değerlerini koru).
+      const isInjured = isFriendly ? (p.is_injured ?? false) : injuredIds.has(p.id);
       // v2.9.64 FIX: Motor'un injuryDays + injurySeverity'sini kullan (random değil)
       // Eski kod: Math.random() * 14 + 3 → motor heavy üretse bile 3-17 gün gösterilirdi
       const injuryInfo = injuryDetails.get(p.id);
@@ -896,11 +944,11 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
         formRating: newFormRating,
         form_streak: newFormStreak,
         form_streak_count: newFormStreakCount,
-        is_injured: isInjured,
-        injury,
-        injury_history: updatedInjuryHistory,
-        // v2.9.76: iron_man ödülü için — sakatlandıysa wasInjuredThisSeason = true
-        wasInjuredThisSeason: isInjured ? true : p.wasInjuredThisSeason,
+        // v2.9.91 FIX (Madde 11): isFriendly ise sakatlık alanlarını güncelleme
+        is_injured: isFriendly ? p.is_injured : isInjured,
+        injury: isFriendly ? p.injury : injury,
+        injury_history: isFriendly ? p.injury_history : updatedInjuryHistory,
+        wasInjuredThisSeason: isFriendly ? p.wasInjuredThisSeason : (isInjured ? true : p.wasInjuredThisSeason),
         // v2.9.76: careerHatTricks — bu maçta 3+ gol attıysa +1
         careerHatTricks: (matchStats?.goals ?? 0) >= 3
           ? (p.careerHatTricks ?? 0) + 1
@@ -1274,11 +1322,41 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
     const newTactic = { ...newTactics, tactic_type: newFormation };
 
     // Yeni ilk 11 — kullanıcı taktik ekranında değişiklik yapmış olabilir
+    // v2.9.91 FIX (Madde 12): 1. yarıda makeSub ile değişiklik yapılan oyuncuları hesaba kat.
+    // Eski kod: storeState.tactics.lineup'dan direkt alıyordu → 1. yarı sub'ları kayboluyordu.
+    // Yeni: result.events'teki substitution event'lerinden aktif oyuncu listesini türet.
     const lineupFromTactics = storeState.tactics.lineup;
     const filledSlots = lineupFromTactics.filter((p): p is Player => p !== null);
+
+    // 1. yarı substitution event'lerini işle — subOut olanları çıkar, subIn olanları ekle
+    const firstHalfSubs = firstHalfEvents.filter(e => e.type === "substitution");
+    const subbedOutIds = new Set<string>();
+    const subbedInPlayers: Player[] = [];
+    for (const subEv of firstHalfSubs) {
+      const subOutId = (subEv as any).playerId;
+      const subInPlayer = (subEv as any).assistPlayerId
+        ? (isHome ? home.players : away.players).find(p => p.id === (subEv as any).assistPlayerId)
+        : null;
+      if (subOutId) subbedOutIds.add(subOutId);
+      if (subInPlayer) subbedInPlayers.push(subInPlayer);
+    }
+    // Aktif squad: filledSlots'tan subbedOut'ları çıkar, subbedIn'leri ekle
+    const activeSlots = filledSlots.filter(p => !subbedOutIds.has(p.id));
+    const activeSquad = [...activeSlots, ...subbedInPlayers];
+
+    const currentMatchday = storeState.seasonMatchday ?? 1;
+    const availableActiveSlots = activeSquad.filter(p => isPlayerAvailableAt(p, currentMatchday));
+
     let newUserSquad: MatchEnginePlayer[];
-    if (filledSlots.length === 11) {
-      newUserSquad = filledSlots as unknown as MatchEnginePlayer[];
+    if (availableActiveSlots.length === 11) {
+      newUserSquad = availableActiveSlots as unknown as MatchEnginePlayer[];
+    } else if (availableActiveSlots.length >= 7) {
+      // Eksikleri otomatik doldur
+      const userPlayers = isHome ? home.players : away.players;
+      const autoFilled = pickStartingXIByFormation(userPlayers, newFormation) as unknown as MatchEnginePlayer[];
+      const usedIds = new Set(availableActiveSlots.map((p) => p.id));
+      const missing = autoFilled.filter((p) => !usedIds.has(p.id)).slice(0, 11 - availableActiveSlots.length);
+      newUserSquad = [...availableActiveSlots, ...missing] as unknown as MatchEnginePlayer[];
     } else {
       const userPlayers = isHome ? home.players : away.players;
       newUserSquad = pickStartingXIByFormation(userPlayers, newFormation) as unknown as MatchEnginePlayer[];

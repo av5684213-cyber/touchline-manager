@@ -4926,3 +4926,63 @@ Stage Summary:
   - veteran_of_season typo düzeltildi (Veteramı → Veteranı)
   - getAwardDisplayName: tierVariants öncelikli kontrol eder
 - Behavior: Sezon sonu statue gösterimi + oyuncu profil ödül vitrini artık her tier için farklı ad gösterir. "Altın Krampon (GÜMÜŞ)" gibi mantıksız ifadeler yok.
+
+---
+Task ID: v2.9.91-oyun-mantiksizlik-denetimi-duzeltme
+Agent: main (GLM)
+Task: Oyun genel mantıksızlık denetimi — 28 bulgudan 23'ü düzeltildi (5 batch halinde).
+
+Work Log:
+
+### Batch 1: Para Sızıntıları (Maddeler 1-7) — KRİTİK
+1. **Madde 1 — Çift Matchday Geliri**: matchBonus değerleri ~%10'una düşürüldü (T1: 2M→200K baz). Eski kod haftalık gelirin üstüne bonus ekliyordu → ~150M/sezon sızıntı.
+2. **Madde 2 — CL Şampiyonu 50M Kayıp**: `clubs.find` → `updatedClubs.find` (eski array referansı mutation kayboluyordu).
+3. **Madde 3 — acceptOffer Alıcı Yok**: `if (!buyerTeam) return { success: false, reason: "no-buyer" }` eklendi. Eski kod para üretip oyuncuyu buharlaştırıyordu.
+4. **Madde 4 — Serbest Ajan 0€ Exploit**: `if (fee < askingPrice × 0.85) return { too-low }` eklendi.
+5. **Madde 5 — Bot freeAgents Satışı Para Üretimi**: Bot bütçesine `sellerNet` eklenmesi kaldırıldı (oyuncu serbest bırakılıyor, para üretimi yok).
+6. **Madde 6 — Bütçe Clamp + matchBonus**: `Math.max(0, budget + net + matchBonus)` — bonus artık net ile birlikte clamp ediliyor.
+7. **Madde 7 — Kullanıcı Bütçesi Sonsuz Birikim**: "Yumuşak reset" — enflasyon bazının üstündeki birikimin %25'i korunur (eskiden %100).
+
+### Batch 2: Maç Motoru Kritik (Maddeler 8-12, 25, 26)
+8. **Madde 8 — Yedekler Oynatılamıyor**: `substitutes: { home: [...], away: [...] }` option artık motora geçiriliyor. Motorun `performSubstitution` fonksiyonu 60/75. dakikalarda tetikleniyor.
+9. **Madde 9 — GK Kurtarışları Sayılmıyor**: `case "shot_saved"` bloğuna kaleci saves artırma eklendi (assistPlayerId alanından GK ID'si alınıyor).
+10. **Madde 10 — Cezalı/Sakat Manuel Lineup**: `isPlayerAvailableAt` ile filledSlots filtreleniyor, 11'den az kalırsa otomatik dolduruluyor.
+11. **Madde 11 — Friendly Sakatlık Kalıcı**: `is_injured`, `injury`, `injury_history`, `wasInjuredThisSeason` artık `isFriendly ? p.x : update` pattern'inde.
+12. **Madde 12 — Devre Arası Sub'lar Kayboluyor**: `applyTactics` 1. yarı substitution event'lerinden aktif squad türetiyor (subbedOut'ları çıkar, subbedIn'leri ekle).
+25. **Madde 25 — GK Forvet Slotuna**: Fallback #3'e `&& (slotPos === "GK" || p.specificPosition !== "GK")` eklendi.
+26. **Madde 26 — shot_post Sayılmıyor**: `case "shot_post": s.shots += 1; s.shotsOnTarget += 1; break;` eklendi.
+
+### Batch 3: Sezon/Ödül Dengesi (Maddeler 13, 15, 16, 17)
+13. **Madde 13 — Bot Oyuncuları Gelişmiyor**: `resetAllLeaguesForNewSeason` artık yaş bazlı OVR artışı uyguluyor (≤21: +1.0, 22-28: +0.6, 29+: +0.2). Top-level stat'lar da ufak artar.
+15. **Madde 15 — H2H Tiebreak Matematiği**: Gerçek toplam puan hesaplanıyor (beraberlik 1+1=2, galibiyet 3+0=3). Eski kod matchCount × 3 varsayıyordu.
+16. **Madde 16 — promoted/relegated Tier 4/5**: `isPromotionZone(idx, tier)` / `isRelegationZone(idx, tier)` fonksiyonları kullanılıyor (league-rules.ts'ten import).
+17. **Madde 17 — Ödül Exclusion**: `awardTop3` artık aynı oyuncunun max 3 bireysel ödül almasına izin veriyor (takım ödülleri muaf). `individualAwardCount` Map ile takip.
+
+### Batch 4: UX/Özellik (Maddeler 20, 22, 23, 28)
+20. **Madde 20 — Phantom Sponsor Baz Geliri**: `50_000 + stadium × 10_000 + activeSponsorIncome` → `activeSponsorIncome + stadiumCommercialIncome`. Sabit 50K baz kaldırıldı.
+22. **Madde 22 — Antrenman Kondisyon Tabanı**: `if ((player.cond ?? 100) < 30) continue;` — yorgun oyuncu antrenmana girmez, moral -1.
+23. **Madde 23 — Skor Dağılımı**: `clampMax: 0.22 → 0.12`, `lateGameDesperation: 1.45 → 1.20`. Maksimum beklenen gol 4.84 → 2.6 (gerçekçi).
+28. **Madde 28 — Form Clamp**: `[30, 100] → [10, 100]`. Kötü seri artık oyuncuyu gerçekten etkiliyor.
+
+### Batch 5: Kalan Maddeler (21, 24, 27)
+21. **Madde 21 — Uzatma Dakikası**: `MATCH_STRUCTURE.stoppageRange = [1, 5]` eklendi. Motor tam maçlarda 90 + random(1,5) dk oynuyor.
+24. **Madde 24 — Trophy Truncate**: `MAX_TROPHIES 100 → 200`. ~60 sezonluk kariyer korunur.
+27. **Madde 27 — Kupa Fikstürü Ölü Çağrı**: `shouldPlayCup` artık `!cupState.eliminated && !cupState.champion` kontrolü içeriyor.
+
+### Ertelenen Maddeler (5)
+- **Madde 14 — CL Kullanıcıya Oynatılmıyor**: endSeason'daki CL simülasyonu pure OVR random. Kullanıcının maçını `simulateEnhancedMatch` ile oynamak için büyük refactor gerekir (ayrı çalışma).
+- **Madde 18 — Pazarlık Klausülleri Kozmetik**: sell-on/exchange/bonus gibi özellikler `makeTransferOffer` imzasına aktarılmıyor. Store imza genişletme + UI entegrasyon gerekir.
+- **Madde 19 — Loan buyOption Ölü Özellik**: `exerciseLoanBuyout(playerId)` aksiyonu + UI butonu eklenebilir.
+
+Stage Summary:
+- Build: BAŞARILI (next build + tsc --noEmit temiz)
+- Değişen dosyalar:
+  * src/lib/store.ts (Batch 1, 3, 4, 5 — 10+ düzeltme)
+  * src/hooks/use-match-engine.ts (Batch 2 — 5 düzeltme)
+  * src/lib/match/engine/constants.ts (Batch 4, 5 — GOAL_CHANCE + MATCH_STRUCTURE)
+  * src/lib/match/engine/enhancedMatchEngine.ts (Batch 5 — stoppage time)
+  * src/lib/mock/season.ts (Batch 3 — H2H tiebreak)
+  * src/lib/training/engine.ts (Batch 4 — cond tabanı)
+  * src/lib/trophy-system.ts (Batch 5 — MAX_TROPHIES)
+- Düzeltilen: 23/28 bulgu
+- Ertelenen: 5 bulgu (Madde 14 CL interaktif, Madde 18 pazarlık klausülleri, Madde 19 loan buyOption — büyük refactor gerekir)

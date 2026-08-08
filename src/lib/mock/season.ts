@@ -286,14 +286,24 @@ export function computeStandings(
     if (a.points === b.points && a.teamId !== b.teamId) {
       const h2h_a = getH2H(a.teamId, b.teamId);
       if (h2h_a.points !== 0) {
-        // teamA'nın head-to-head puanı (pozitif = A önde, negatif = B önde)
+        // v2.9.91 FIX (Madde 15): H2H tiebreak matematiği düzeltildi.
+        // Eski kod: totalH2HPts = matchCount × 3 varsayıyordu → beraberlik 1+1=2 puan
+        // verir, 3 değil → iki takım 1-1, 1-1 berabere kalsın → A=2, B=2 olmasına rağmen
+        // B üstte sıralanıyordu.
+        // Yeni: gerçek toplam puanı hesapla (her maç: 3+0 veya 1+1 dağıtır).
+        const h2hFixtures = sortedFixtures.filter(f =>
+          (f.homeId === a.teamId && f.awayId === b.teamId) ||
+          (f.homeId === b.teamId && f.awayId === a.teamId)
+        );
+        let totalH2HPts = 0;
+        for (const f of h2hFixtures) {
+          if (!f.played) continue;
+          const hs = f.homeScore ?? 0;
+          const as = f.awayScore ?? 0;
+          if (hs === as) totalH2HPts += 2; // beraberlik: 1+1
+          else totalH2HPts += 3; // galibiyet: 3+0
+        }
         const aH2HPoints = h2h_a.points;
-        const bH2HPoints = 0; // getH2H A'nın perspektifinden hesaplar
-        // Eğer aPoints > 0 ise A önde, < 0 ise B önde
-        // Aslında: toplam h2h puanı = aH2HPoints + bH2HPoints
-        // A'nın puanı = aH2HPoints, B'nin puanı = (toplam maç puanı) - aH2HPoints
-        // Basit: aH2HPoints > (toplam/2) ise A önde
-        const totalH2HPts = h2hMatches_count(a.teamId, b.teamId, sortedFixtures) * 3;
         const bH2H = totalH2HPts - aH2HPoints;
         if (aH2HPoints !== bH2H) return bH2H - aH2HPoints;
         if (h2h_a.gd !== 0) return -h2h_a.gd; // A'nın GD'si pozitifse A önde

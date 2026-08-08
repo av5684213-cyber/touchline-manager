@@ -630,9 +630,15 @@ export const GOAL_CHANCE = {
   mentalityPenalty: 0.18,
   counterTriggerProb: 0.50,
   pressingGoalBoost: 0.50,
-  lateGameDesperation: 1.45,
+  // v2.9.91 FIX (Madde 23): lateGameDesperation düşürüldü (1.45 → 1.20).
+  // Eski değer son 10 dk %45 bonus → favori son dakika rüzgar gibi gol atardı.
+  // Yeni %20 bonus — hala dramatic ama abartılı değil.
+  lateGameDesperation: 1.20,
   clampMin: 0.020,         // Min %2.0 (sürpriz için: zayıf takım bazen gol atsın)
-  clampMax: 0.22,          // Max %22
+  // v2.9.91 FIX (Madde 23): clampMax düşürüldü (0.22 → 0.12).
+  // Eski %22 → 22 event × 0.22 = 4.84 maks gol → 7-0 tipi sonuçlar oluyordu.
+  // Yeni %12 → ~2.6 maks gol → gerçekçi (gerçek futbol maç başı ~2.5 gol).
+  clampMax: 0.12,
   qualityGapSmallThreshold: 0.10,
   qualityGapSmallMult: 0.55,  // Küçük fark çarpanı (0.40→0.55: yakın takımlar arası çekişmeli)
   qualityGapLargeMult: 1.0,
@@ -804,6 +810,10 @@ export const MATCH_STRUCTURE = {
   substitutionSlots: 3,      // Substitution slots per team
   autoSubMinutes: [60, 75],  // Auto-substitution check minutes
   tiredPlayerCondThreshold: 50, // Condition threshold for tired player substitution
+  // v2.9.91 FIX (Madde 21): Uzatma dakikası (stoppage time) aralığı.
+  // Eski kod: uzatma yoktu → maç tam 90. dakikada bitiyordu, 90+3'te gol yoktu.
+  // Yeni: her yarı sonunda 1-5 dk uzatma → dramatic equalizer mümkün.
+  stoppageRange: [1, 5] as const,
 } as const;
 
 // ─── Momentum Sapmaları ───────────────────────────────────────────────

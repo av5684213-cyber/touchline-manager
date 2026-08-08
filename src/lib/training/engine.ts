@@ -214,6 +214,22 @@ export function runTrainingSession(
     const program = TRAINING_PROGRAMS.find((p) => p.id === assignment.programId);
     if (!program) continue;
 
+    // v2.9.91 FIX (Madde 22): Kondisyon tabanı — yorgun oyuncu antrenmana girmez.
+    // Eski kod: cond kontrolü yoktu → cond=20 oyuncu bile antrenmana girer, cond -12 düşer
+    // → cond=8. Sonraki maçta kondisyon cezası uygulanırdı.
+    // Yeni: cond < 30 ise atla (çok yorgun), antrenman kazancı vermez.
+    if ((player.cond ?? 100) < 30) {
+      results.push({
+        playerId: player.id,
+        programId: assignment.programId,
+        statGains: {},
+        condChange: 0,
+        moraleChange: -1, // yorgunluktan moral düşer
+        ratingChange: 0,
+      });
+      continue;
+    }
+
     const pos = player.specificPosition;
     if (program.allowedPositions !== "ALL" && program.allowedPositions !== "FIELD") {
       if (!program.allowedPositions.includes(pos)) continue;

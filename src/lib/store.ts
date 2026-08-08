@@ -55,7 +55,7 @@ import { DEFAULT_TACTIC, FORMATION_SLOTS, type ActiveTactic } from "@/lib/tactic
 // P1: require() → top-level ES import (circular dependency riski yok, Next.js 16 Turbopack)
 import { TIER_BASE_BUDGETS } from "@/lib/match/engine/constants";
 // v2.9.21 GÖREV 1: Küme düşme/terfi kuralları — TEK KANONİK KAYNAK
-import { TEAMS_PER_LEAGUE, PROMOTION_COUNT, RELEGATION_COUNT, TIER4_RELEGATION_COUNT, AMATEUR_DEPARTMENTS, getLeagueZone } from "@/lib/league-rules";
+import { TEAMS_PER_LEAGUE, PROMOTION_COUNT, RELEGATION_COUNT, TIER4_RELEGATION_COUNT, AMATEUR_DEPARTMENTS, getLeagueZone, isPromotionZone, isRelegationZone } from "@/lib/league-rules";
 // v2.9.46 GÖREV 2: CL bracket üretici
 import { generateFirstRoundMatches, generateNextRoundMatches } from "@/lib/cl-bracket";
 // v2.9.30 T-10: Tesis yükseltme maliyeti tek kaynak
@@ -1350,6 +1350,13 @@ export const useAppStore = create<AppState>()(
           // transfer.freeAgents (TransferListing)
           const faListing = transfer.freeAgents.find((l) => l.player.id === playerId);
           if (faListing) {
+            // v2.9.91 FIX (Madde 4): Serbest ajan minimum fee kontrolü.
+            // Eski kod: sadece budget kontrolü vardı → fee=0 exploit (bedava oyuncu).
+            // Yeni: fee, askingPrice × 0.85'ten az olamaz (buyPlayer ile tutarlı).
+            const minFee = Math.round((faListing.askingPrice ?? 0) * 0.85);
+            if (fee < minFee) {
+              return { success: false, reason: "too-low", minFee };
+            }
             if (myTeam.budget < fee) return { success: false, reason: "budget" };
             // v2.9.67 FIX: Immutable update — mutation YAPMA (makeLoanOffer pattern)
             // Eski kod: myTeam.budget -= fee; myTeam.players = [...] (mutation → re-render sorunu)
@@ -1906,6 +1913,14 @@ export const useAppStore = create<AppState>()(
           if (candidates.length > 0) {
             buyerTeam = candidates[Math.floor(Math.random() * candidates.length)];
           }
+        }
+
+        // v2.9.91 FIX (Madde 3): Alıcı yoksa satışı iptal et — para üretme + oyuncu kaybı önle.
+        // Eski kod: buyerTeam undefined olsa bile satış yapıyordu → para yoktan üretiliyor,
+        // oyuncu kadrodan çıkarılıp hiçbir botın kadrosuna eklenmiyordu (oyuncu buharlaşıyordu).
+        // Yeni: alıcı yoksa { success: false, reason: "no-buyer" } dön, teklifi ve oyuncuyu koru.
+        if (!buyerTeam) {
+          return { success: false, reason: "no-buyer" };
         }
 
         const updatedPlayer = {
@@ -3065,6 +3080,10 @@ export const useAppStore = create<AppState>()(
         };
 
         // P0 FIX: Maç bonusunu topla, net clamp'ten SONRA ekle
+        // v2.9.91 FIX (Denetim Madde 1 + 6): matchBonus HAFTALIK GELİRİN YERİNE geçiyor,
+        // üstüne eklenmiyor. Eski kod: budget = max(0, budget+net) + matchBonus → çift gelir.
+        // Yeni: matchBonus'u düşür (T1: 200K yerine 2M idi) ve net'in bir kısmını değiştir.
+        // matchBonus artık "maç ödülü" = haftalık gelirin ~%10'u (galibiyette %15, beraberlik %8, yenilgi %5).
         let matchBonus = 0;
 
         for (const f of updatedFixtures) {
@@ -3084,14 +3103,15 @@ export const useAppStore = create<AppState>()(
             const isUserHome = f.homeId === myTeamId;
             const myScore = isUserHome ? (f.homeScore ?? 0) : (f.awayScore ?? 0);
             const oppScore = isUserHome ? (f.awayScore ?? 0) : (f.homeScore ?? 0);
-            // v2.9.49: Maç bonusu tier'a göre ölçeklenmiş — yüksek seviyeler
-            // Tier 1: 2M baz, Tier 2: 1.2M, Tier 3: 700K, Tier 4: 400K
+            // v2.9.91 FIX (Madde 1): Maç bonusu değerleri ~%10'una düşürüldü.
+            // Eski: T1: 2M baz + 500K galibiyet → sezon sonunda ~85M sızıntı.
+            // Yeni: T1: 200K baz + 50K galibiyet → ~8.5M/sezon (makul "maç ödülü").
             const userTier = (clubs.find(c => c.id === myTeamId)?.leagueTier ?? 2);
-            const baseBonusByTier: Record<number, number> = { 1: 2_000_000, 2: 1_200_000, 3: 700_000, 4: 400_000 };
-            matchBonus += baseBonusByTier[userTier] ?? 700_000;
-            if (myScore > oppScore) matchBonus += 500_000;      // Galibiyet bonusu
-            else if (myScore === oppScore) matchBonus += 250_000; // Beraberlik bonusu
-            else matchBonus += 100_000;                          // Yenilgi bonusu
+            const baseBonusByTier: Record<number, number> = { 1: 200_000, 2: 120_000, 3: 70_000, 4: 40_000 };
+            matchBonus += baseBonusByTier[userTier] ?? 70_000;
+            if (myScore > oppScore) matchBonus += 50_000;      // Galibiyet bonusu
+            else if (myScore === oppScore) matchBonus += 25_000; // Beraberlik bonusu
+            else matchBonus += 10_000;                          // Yenilgi bonusu
           }
           // P0 FIX: userMatchResult null ise = canlı maçtan gelmiş, applyPostMatchEffects gol dağıttı
           // userMatchResult varsa = Turu İlerlet yolu, gol dağıtımı BURADA yapılmalı
@@ -3241,13 +3261,15 @@ export const useAppStore = create<AppState>()(
             if (toSell && shouldBotSell(currentBot2, toSell)) {
               const botIdx = updatedClubs.findIndex((c) => c.id === bot.id);
               const salePrice = toSell.marketValue;
-              // v2.9.62 FIX: Bot satışında da satıcı vergisi %2.5 düş (kullanıcıyla aynı)
-              // Eski kod: tam salePrice ekleniyordu → bot %2.5 daha çok kazanıyordu (asimetri)
-              const sellerTax = Math.round(salePrice * 0.10); // v2.9.96: %2.5 → %10
-              const sellerNet = salePrice - sellerTax;
+              // v2.9.91 FIX (Madde 5): Bot freeAgents'a satışta para üretme.
+              // Eski kod: sellerNet = salePrice × 0.9 bot bütçesine ekleniyordu → alıcı yok
+              // → para yoktan üretiliyor (~400M+/sezon potansiyel sızıntı).
+              // Yeni: Bot oyuncuyu serbest bırakıyor (kontrat feshi), bütçesine para EKLENMEZ.
+              // Para ancak gerçek bir alıcı freeAgents'tan satın aldığında "havuzdan" ödenir
+              // (freeAgents alımında para yok edilir, satıcıya aktarılmaz — zaten serbest).
               updatedClubs[botIdx] = {
                 ...updatedClubs[botIdx],
-                budget: updatedClubs[botIdx].budget + sellerNet,
+                // bütçe DEĞİŞMESİN — para üretimi yok
                 players: updatedClubs[botIdx].players.filter((p) => p.id !== toSell.id),
               };
               // Serbest oyuncu havuzuna ekle
@@ -3313,9 +3335,12 @@ export const useAppStore = create<AppState>()(
           const ticketRev = Math.round(stadiumCap * fillRate * facilitiesState.ticketPrice * stadiumMult);
           // v2.9.75: Sponsor geliri artık tier bazlı (sponsorSystem.ts).
           // Base amounts: T4=90K, T3=180K, T2=350K, T1=700K/hafta.
-          // Ekstra tierMultiplier KALDIRILDI — base zaten tier'a göre.
-          // Stadyum level bonusu korunuyor (facility investment ödülü).
-          const sponsor = 50_000 + facilitiesState.levels.stadium * 10_000 + activeSponsorIncome;
+          // v2.9.91 FIX (Madde 20): Phantom sponsor baz geliri kaldırıldı.
+          // Eski kod: 50_000 + stadium × 10_000 + activeSponsorIncome → sponsor imzalanmasa
+          // bile 50K + stadyum bonusu ödeniyordu (3.4M/sezon bedava).
+          // Yeni: sadece imzalı sponsor geliri + stadyum ticari geliri (stadium level'ı yatırımdır).
+          const stadiumCommercialIncome = facilitiesState.levels.stadium * 10_000;
+          const sponsor = activeSponsorIncome + stadiumCommercialIncome;
           // v2.9.49: TV geliri tier'a göre — Süper Lig 500K, 3. Lig 25K
           // v2.9.64 FIX: TV gelirleri 5x düşürüldü — ekonomi dengesi
           // Eski kod: T1: 5M, T2: 3M, T3: 2.5M, T4: 2M → sezon sonunda 170M birikiyordu
@@ -3331,7 +3356,11 @@ export const useAppStore = create<AppState>()(
           const facilityCost = Object.values(facilitiesState.levels).reduce((s, l) => s + l * 20000, 0);
           const totalExpense = playerWages + staffWages + facilityCost;
           const net = totalIncome - totalExpense;
-          myTeam.budget = Math.max(0, myTeam.budget + net) + matchBonus;
+          // v2.9.91 FIX (Madde 6): matchBonus net'in üstüne DEĞİL, net ile birlikte clamp edilir.
+          // Eski kod: Math.max(0, budget + net) + matchBonus → negatifse 0'a clamp, SONRA bonus ekle
+          // → "-3M + 2M = -1M" yerine "0 + 2M = +2M" → ~3M hayalet para/hafta.
+          // Yeni: tüm toplamı clamp et → borç durumunda bonus yutulur (gerçekçi).
+          myTeam.budget = Math.max(0, myTeam.budget + net + matchBonus);
 
           // v2.9.73: BANKRUPTCY mekanizması
           // Sorun: Bütçe 0'a düşse bile hiçbir yaptırım yoktu. Kullanıcı maaş
@@ -3636,7 +3665,13 @@ export const useAppStore = create<AppState>()(
         // CL bitince yeni sezon başlar. CL oynama ChampionsLeaguePanel'den manuel tetiklenir.
 
         // v2.9.49: Kupa turları sabit haftalarda — tur 7, 14, 21, 28
-        const shouldPlayCup = [7, 14, 21, 28].includes(currentMd);
+        // v2.9.91 FIX (Madde 27): Elenmiş/şampiyon olmuş takım için kupa çağrısını atla.
+        // Eski kod: shouldPlayCup her zaman true → elenmiş takım için bile playCupRound çağrılıyordu
+        // (sessizce exit ediyordu ama ölü çağrı).
+        const cupState = get().cup;
+        const shouldPlayCup = [7, 14, 21, 28].includes(currentMd)
+          && !cupState.eliminated
+          && !cupState.champion;
 
         // P7 FIX: Stale incoming offers temizle — artık kadroda olmayan oyunculara teklifleri kaldır
         const myCurrentTeam = updatedClubs.find((c) => c.id === myTeamId);
@@ -3736,14 +3771,27 @@ export const useAppStore = create<AppState>()(
           }
 
           // v2.9.76: Yardımcı — ilk 3 oyuncuya ödül yaz (tier + rank ile)
+          // v2.9.91 FIX (Madde 17): Aynı oyuncu max 3 BİREYSEL ödül alabilir.
+          // Eski kod: exclusion yoktu → bir forvet 9 ödül alabiliyordu.
+          // Yeni: alreadyAwardedIds Set'i ile takip et, 3'ten fazla ödül almış oyuncuyu atla.
           const TIERS = ["gold", "silver", "bronze"] as const;
+          const MAX_INDIVIDUAL_AWARDS = 3;
+          const individualAwardCount = new Map<string, number>();
           const awardTop3 = (
             sortedPlayers: Array<{ player: Player; club: Team; country: string; statValue: number }>,
-            awardType: string
+            awardType: string,
+            isTeamAward = false // takım ödülleri (league_champion vb.) exclusion'dan muaf
           ) => {
-            sortedPlayers.slice(0, 3).forEach((entry, idx) => {
-              const rank = idx + 1;
-              const tier = TIERS[idx] ?? "bronze";
+            let awarded = 0;
+            for (const entry of sortedPlayers) {
+              if (awarded >= 3) break; // sadece ilk 3
+              // Exclusion: bireysel ödüllerde aynı oyuncu max 3 tane alabilir
+              if (!isTeamAward) {
+                const count = individualAwardCount.get(entry.player.id) ?? 0;
+                if (count >= MAX_INDIVIDUAL_AWARDS) continue; // atla, sıradakine geç
+              }
+              const rank = awarded + 1;
+              const tier = TIERS[awarded] ?? "bronze";
               const award: SeasonAward = {
                 seasonNumber: oldSeasonNumber,
                 seasonLabel,
@@ -3759,7 +3807,11 @@ export const useAppStore = create<AppState>()(
               const existing = seasonAwardsForPlayers.get(entry.player.id) ?? [];
               existing.push(award);
               seasonAwardsForPlayers.set(entry.player.id, existing);
-            });
+              if (!isTeamAward) {
+                individualAwardCount.set(entry.player.id, (individualAwardCount.get(entry.player.id) ?? 0) + 1);
+              }
+              awarded++;
+            }
           };
 
           // v2.9.76: 11 sezon sonu kategorisi (her lig seviyesi için ayrı hesaplanır)
@@ -4319,9 +4371,15 @@ export const useAppStore = create<AppState>()(
           const baseBudget = TIER_BASE_BUDGETS[tier] ?? TIER_BASE_BUDGETS[2];
           const inflationAdjustedBase = Math.round(baseBudget * budgetInflationFactor);
           if (c.id === myTeamId) {
-            // Kullanıcının bütçesi korunur, minimum garanti enflasyonla artar
+            // v2.9.91 FIX (Madde 7): Kullanıcı bütçesi "yumuşak reset" uygulanır.
+            // Eski kod: Math.max(minBudget, c.budget) → birikim tamamen korunuyordu
+            // → 5 sezon sonra 750M+ bütçe vs bot 20M → transfer piyasası kırılır.
+            // Yeni: enflasyon bazının üstündeki birikimin sadece %25'i korunur.
+            // Örn: baz 20M, mevcut 100M → yeni = 20M + (100M-20M)×0.25 = 40M.
+            // Bu sayede kullanıcı birikim yapabilir ama sınırsız değil.
             const minBudget = inflationAdjustedBase;
-            c.budget = Math.max(minBudget, c.budget);
+            const excess = Math.max(0, c.budget - minBudget);
+            c.budget = Math.round(minBudget + excess * 0.25);
           } else {
             // Bot bütçeleri enflasyonla artar (ileri sezonlarda alım yapabilsinler)
             c.budget = inflationAdjustedBase;
@@ -4510,8 +4568,9 @@ export const useAppStore = create<AppState>()(
         }
 
         // CL şampiyonuna ödül ver
+        // v2.9.91 FIX (Madde 2): updatedClubs kullan (clubs eski referans, mutation kaybolur)
         if (clChampion && clChampion === myTeamId) {
-          const myClub = clubs.find(c => c.id === myTeamId);
+          const myClub = updatedClubs.find(c => c.id === myTeamId);
           if (myClub) myClub.budget += 50_000_000;
           // v2.9.78: CL kupası
           try {
@@ -4689,8 +4748,12 @@ export const useAppStore = create<AppState>()(
           drawn: myStat?.drawn ?? 0,
           lost: myStat?.lost ?? 0,
           points: myStat?.points ?? 0,
-          promoted: myIdx < PROMOTION_COUNT && (team.leagueTier ?? 2) > 1,
-          relegated: myIdx >= (TEAMS_PER_LEAGUE - RELEGATION_COUNT) && (team.leagueTier ?? 2) < 4,
+          // v2.9.91 FIX (Madde 16): promoted/relegated bayrakları league-rules.ts fonksiyonlarıyla.
+          // Eski kod: myIdx < PROMOTION_COUNT (3) ve myIdx >= 15 varsayıyordu → Tier 4/5 için yanlış.
+          // Tier 5 (Amatör): sadece idx 0 terfi eder (idx 1-2 yanlış "promoted" gösteriyordu).
+          // Tier 4 (3. Lig): son 4 düşer (idx 14-17), ama eski kod idx >= 15 diyordu → idx 14 yanlış "relegated=false".
+          promoted: isPromotionZone(myIdx, team.leagueTier ?? 2),
+          relegated: isRelegationZone(myIdx, team.leagueTier ?? 2),
           topScorer,
           retiredPlayers: retiredNames,
           newRegens: retiredNames.length,
@@ -6153,27 +6216,47 @@ function resetAllLeaguesForNewSeason(
     }
 
     // Oyuncu stats'larını sıfırla + yaşlandır
+    // v2.9.91 FIX (Madde 13): Bot oyuncuları gelişsin — kullanıcı her sezon ~68 antrenman
+    // ile stat basarken botlar statik kalıyordu → 5 sezon sonra rekabet çöküyordu.
+    // Yeni: yaş bazlı gelişim uygula (yaş ≤21 → +1.0, 22-28 → +0.6, 29+ → +0.2 OVR).
+    // Sadece OVR 99'dan düşük oyunculara uygula (cap).
     const resetClubs = newClubs.map((c) => ({
       ...c,
-      players: c.players.map((p) => ({
-        ...p,
-        // Sezon sonu stat sıfırlama
-        goals: 0,
-        assists: 0,
-        saves: 0,
-        appearances: 0,
-        // Yaşlandır
-        age: p.age + 1,
-        // Form/morale/kondisyon reset
-        form: 50,
-        morale: 50,
-        cond: 100,
-        condition: 100,
-        // Sakatlık/ceza temizle
-        is_injured: false,
-        injured_until: undefined,
-        suspended_until: undefined,
-      })),
+      players: c.players.map((p) => {
+        const ageMult = p.age <= 21 ? 1.0 : p.age <= 28 ? 0.6 : 0.2;
+        const ovrGain = Math.round(ageMult * (0.5 + Math.random() * 0.8));
+        const newRating = Math.min(99, (p.rating ?? 50) + ovrGain);
+        // Rating değişince ilgili stat'ları da ufak artır (dengeli)
+        const statGain = Math.max(0, ovrGain);
+        return {
+          ...p,
+          // Sezon sonu stat sıfırlama
+          goals: 0,
+          assists: 0,
+          saves: 0,
+          appearances: 0,
+          // Yaşlandır
+          age: p.age + 1,
+          // v2.9.91: Bot gelişimi — yaş bazlı OVR artışı
+          rating: newRating,
+          // Form/morale/kondisyon reset
+          form: 50,
+          morale: 50,
+          cond: 100,
+          condition: 100,
+          // Sakatlık/ceza temizle
+          is_injured: false,
+          injured_until: undefined,
+          suspended_until: undefined,
+          // v2.9.91: Top-level stat'ları da ufak artır (rating ile uyumlu)
+          ...(statGain > 0 ? {
+            finishing: Math.min(99, (p.finishing ?? 50) + statGain),
+            passing: Math.min(99, (p.passing ?? 50) + statGain),
+            dribbling: Math.min(99, (p.dribbling ?? 50) + statGain),
+            shooting: Math.min(99, (p.shooting ?? 50) + statGain),
+          } : {}),
+        };
+      }),
     }));
 
     // Yeni fixture üret

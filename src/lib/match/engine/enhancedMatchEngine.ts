@@ -1892,7 +1892,17 @@ export function simulateEnhancedMatch(
 
   // Score — for incremental simulation, carry over initial scores
   const effectiveStart = options?.startMinute ?? 1;
-  const effectiveEnd = options?.endMinute ?? MATCH_STRUCTURE.duration;
+  // v2.9.91 FIX (Madde 21): Uzatma dakikası (stoppage time) ekle.
+  // Eski kod: effectiveEnd = 90 → maç tam 90. dakikada bitiyordu.
+  // Yeni: 90 + random(1,5) uzatma → dramatic equalizer mümkün.
+  // Sadece tam maç (startMinute=1) için uygula — 2. yarı re-simülasyonunda (startMinute=46) zaten 90'a kadar.
+  const isFullMatch = effectiveStart <= 1;
+  const stoppageMin = MATCH_STRUCTURE.stoppageRange?.[0] ?? 1;
+  const stoppageMax = MATCH_STRUCTURE.stoppageRange?.[1] ?? 5;
+  const stoppage = isFullMatch
+    ? (options?.endMinute ? 0 : Math.floor(Math.random() * (stoppageMax - stoppageMin + 1)) + stoppageMin)
+    : 0;
+  const effectiveEnd = (options?.endMinute ?? MATCH_STRUCTURE.duration) + stoppage;
   let homeScore = options?.initialHomeScore ?? 0;
   let awayScore = options?.initialAwayScore ?? 0;
 

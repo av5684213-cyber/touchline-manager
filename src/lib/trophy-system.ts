@@ -219,10 +219,12 @@ export function awardTrophyToClub(
     };
 
     // Ters kronolojik sırala — en sol kazanılan en üstte (UI'da)
-    // v2.9.80 FIX: Sınırsız büyümeyi önle — son 100 kupayı tut.
-    // Bir kulüp 50 sezon oynarsa 150+ trophy birikebilirdi (her sezon 3 lig + kupa + CL).
-    // 100 yeterli — eski kupalar "kariyer özeti" olarak zaten gösterilir.
-    const MAX_TROPHIES = 100;
+    // v2.9.91 FIX (Madde 24): MAX_TROPHIES 100 → 200'e çıkarıldı.
+    // Eski kod: 100 cap → 30 sezon sonra ilk 20 sezonun şampiyonlukları siliniyordu.
+    // Yeni: 200 cap → ~60 sezonluk kariyer geçmişi korunur (gerçek menajerlik oyunlarında yeterli).
+    // Tam çözüm: trophyCounts: Record<TrophyKey, number> ayrı alanı (sınırsız sayı) + trophies[]
+    // (son N detay) — ama bu Team interface değişikliği gerektirir, şimdilik cap artır.
+    const MAX_TROPHIES = 200;
     const updated = [...existing, newTrophy]
       .sort((a, b) => b.awardedAt - a.awardedAt)
       .slice(0, MAX_TROPHIES);
