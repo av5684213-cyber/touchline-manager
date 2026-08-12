@@ -38,19 +38,27 @@ echo "✅ out/ dizini hazır: $(du -sh out/ | cut -f1)"
 # ─── 2. Android assets'e kopyala ─────────────────────────────────────────────
 echo ""
 echo "📦 2/4: Android assets'e kopyalanıyor..."
-# v2.9.145 KRİTİK FIX: Sadece _next değil TÜM out/ klasörünü kopyala.
-# Önceki sürümlerde sadece _next kopyalanıyordu → awards/trophies/backgrounds/
-# icons/ klasörleri APK'ya girmiyordu → 3MB'lık bozuk APK üretiliyordu.
-# Doğru boyut ~20MB olmalı (önceki release'lerle uyumlu).
-mkdir -p android-app/app/src/main/assets
-rm -rf android-app/app/src/main/assets/*
-cp -r out/* android-app/app/src/main/assets/
+# v2.9.145 KRİTİK FIX: TÜM out/ klasörünü kopyala + web/ alt klasörüne koy.
+#
+# ÖNCEKİ HATA: Sadece out/_next kopyalanıyordu → awards/trophies/backgrounds
+# eksik → 3.1 MB'lık bozuk APK.
+#
+# BU SÜRÜMDE EKLENEN ÖNEMLİ DÜZELTME: MainActivity.java sabit yolu
+# "file:///android_asset/web/index.html" bekliyor. Yani tüm out/ içeriği
+# android-app/app/src/main/assets/web/ altına kopyalanmalı.
+# Önceki "tüm out/ kopyala" fix'i assets/'in köküne kopyaladı → WebView 404.
+#
+# Doğru boyut ~20 MB olmalı (önceki release'lerle uyumlu).
+mkdir -p android-app/app/src/main/assets/web
+rm -rf android-app/app/src/main/assets/web/*
+cp -r out/* android-app/app/src/main/assets/web/
 
-echo "✅ assets hazır: $(du -sh android-app/app/src/main/assets/ | cut -f1)"
-echo "   Awards: $(ls android-app/app/src/main/assets/awards/ 2>/dev/null | wc -l) dosya"
-echo "   Trophies: $(ls android-app/app/src/main/assets/trophies/ 2>/dev/null | wc -l) dosya"
-echo "   Backgrounds: $(ls android-app/app/src/main/assets/backgrounds/ 2>/dev/null | wc -l) dosya"
-echo "   _next chunks: $(ls android-app/app/src/main/assets/_next/static/chunks/ 2>/dev/null | wc -l) dosya"
+echo "✅ assets/web hazır: $(du -sh android-app/app/src/main/assets/web/ | cut -f1)"
+echo "   Awards: $(ls android-app/app/src/main/assets/web/awards/ 2>/dev/null | wc -l) dosya"
+echo "   Trophies: $(ls android-app/app/src/main/assets/web/trophies/ 2>/dev/null | wc -l) dosya"
+echo "   Backgrounds: $(ls android-app/app/src/main/assets/web/backgrounds/ 2>/dev/null | wc -l) dosya"
+echo "   _next chunks: $(ls android-app/app/src/main/assets/web/_next/static/chunks/ 2>/dev/null | wc -l) dosya"
+echo "   index.html: $([ -f android-app/app/src/main/assets/web/index.html ] && echo '✅ var' || echo '❌ YOK - BUILD BOZUK')"
 
 # ─── 3. local.properties kontrol ─────────────────────────────────────────────
 echo ""
