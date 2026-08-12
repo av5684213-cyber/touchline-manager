@@ -126,8 +126,44 @@ public class MainActivity extends Activity {
         // v2.9.13 MADDE 5: loadUrl SABİT — Intent extra ile override edilemez
         webView.loadUrl("file:///android_asset/web/index.html");
 
+        // v2.9.147: Deep link handling — push notification tıklanınca
+        // "touchline://match-result" gibi URL'ler buraya gelir. WebView'e
+        // JS event olarak gönder: window.dispatchEvent(new CustomEvent('touchline-deep-link', {detail: ...}))
+        handleDeepLink(getIntent());
+
         // v2.9.16 MADDE 5: Ağ durumu takibi başlat
         setupNetworkMonitoring();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // v2.9.147: Deep link — push notification'tan gelen URL'yi WebView'e ilet
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Eğer Intent ACTION_VIEW ise ve "touchline://" scheme ise, URL'yi
+    // JS'e dispatch eder. Frontend use-push-notifications.ts veya app/page.tsx
+    // bu event'i dinler ve ilgili ekrana yönlendirir.
+    private void handleDeepLink(Intent intent) {
+        if (intent == null) return;
+        if (!Intent.ACTION_VIEW.equals(intent.getAction())) return;
+        android.net.Uri uri = intent.getData();
+        if (uri == null) return;
+        final String url = uri.toString();
+        Log.i(TAG, "Deep link received: " + url);
+        // WebView ready olduktan sonra JS'e gönder
+        webView.post(() -> {
+            String js = "window.dispatchEvent(new CustomEvent('touchline-deep-link',{detail:'" + url + "'}));";
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
+                webView.evaluateJavascript(js, null);
+            } else {
+                webView.loadUrl("javascript:" + js);
+            }
+        });
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        // Uygulama arka plandayken gelen yeni intent (push tıklama)
+        handleDeepLink(intent);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

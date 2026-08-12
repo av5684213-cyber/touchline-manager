@@ -41,6 +41,8 @@ import { TabBackground } from "@/components/touchline/tab-background";
 // v2.9.75: Her ekranın köşesinde floating "i" yardım butonu
 import { ScreenHelpButton } from "@/components/touchline/screen-help-button";
 import { WelcomeModal } from "@/components/touchline/welcome-modal";
+// v2.9.147: İlk galibiyet kutlama modalı
+import { FirstWinCelebration } from "@/components/touchline/first-win-celebration";
 // v2.9.58: Yardım modal'ı — oyunun amacı + sekmeler + arketip açıklaması
 import { HelpModal } from "@/components/touchline/help-modal";
 // v2.9.47: Kozmetik görünümlerini uygula (tema renkleri, forma)
@@ -155,6 +157,8 @@ export default function Home() {
         />
         {/* v2.9.20 GÖREV 7: Yeni kullanıcı hoş geldin modal'ı */}
         <WelcomeModal />
+        {/* v2.9.147: İlk galibiyet kutlama ekranı — tek seferlik */}
+        <FirstWinCelebration />
         {/* v2.9.58: Yardım modal'ı — oyunun amacı + sekmeler + arketip açıklaması */}
         <HelpModal />
       </div>

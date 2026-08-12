@@ -2,17 +2,29 @@
 
 import { Component, type ReactNode, type ErrorInfo } from "react";
 
+// v2.9.147: Sentry'ye capture etmek için lazy import — Sentry yüklü değilse sessizce atla
+async function captureToSentry(error: Error, errorInfo: ErrorInfo, screenTag?: string) {
+  try {
+    const Sentry = await import("@sentry/nextjs");
+    Sentry.captureException(error, {
+      contexts: { react: { componentStack: errorInfo.componentStack } },
+      tags: {
+        source: "error_boundary",
+        screen: screenTag ?? "unknown",
+        app_version: process.env.NEXT_PUBLIC_APP_VERSION ?? "dev",
+      },
+    });
+  } catch {
+    // Sentry SDK yüklü değil ya da DSN yok — console.log fallback (zaten aşağıda)
+  }
+}
+
 /**
  * Error Boundary — component crash olursa uygulama yerine hata mesajı göster.
  *
- * Next.js static export'ta client-side exception oluştuğunda "Application error:
- * a client-side exception has occurred" gösterilir. Bu boundary, hatayı yakalayıp
- * kullanıcıya dostane bir mesaj + yeniden dene butonu gösterir.
- *
- * Kullanım:
- * <ErrorBoundary fallback={<HataMesaji />}>
- *   <DashboardScreen />
- * </ErrorBoundary>
+ * v2.9.147: componentDidCatch artık Sentry'ye de rapor ediyor.
+ * PII scrubbing sentry.client.config.ts'in beforeSend hook'unda yapılır
+ * (email/JWT/Authorization header otomatik temizlenir).
  */
 type Props = {
   children: ReactNode;
@@ -39,6 +51,8 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Console'a yaz — geliştirici görebilsin
     console.error("[ErrorBoundary] caught:", error, errorInfo);
+    // v2.9.147: Sentry'ye gönder (PII scrubbing otomatik)
+    captureToSentry(error, errorInfo, this.props.resetKey);
   }
 
   componentDidUpdate(prevProps: Props) {

@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
  * Modal kapatılınca onboarding.hasSeenWelcome = true set edilir.
  */
 
-type WelcomeStep = "intro" | "grace" | "next_steps";
+type WelcomeStep = "intro" | "grace" | "tip" | "next_steps";
 
 export function WelcomeModal() {
   const onboarding = useAppStore((s) => s.onboarding);
@@ -48,7 +48,8 @@ export function WelcomeModal() {
 
   const handleNext = () => {
     if (step === "intro") setStep("grace");
-    else if (step === "grace") setStep("next_steps");
+    else if (step === "grace") setStep("tip");
+    else if (step === "tip") setStep("next_steps");
     else handleClose();
   };
 
@@ -158,6 +159,26 @@ export function WelcomeModal() {
             </>
           )}
 
+          {step === "tip" && (
+            <>
+              {/* v2.9.147: 4. onboarding adımı — "hiçbir takım yenilmez değil" vurgusu */}
+              <div className="text-center py-2">
+                <div className="text-5xl mb-2">⚽</div>
+                <h3 className="text-sm font-bold mb-2">Hiçbir Takım Yenilmez Değil</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  İlk hazırlık maçında <span className="text-emerald-300 font-semibold">zayıf bir rakip</span> seçtik — kazanma hissini hemen yaşa.
+                  Doğru taktik + antrenman + transfer ile her ligi şampiyon bitirebilirsin.
+                </p>
+              </div>
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-2.5">
+                <p className="text-[10px] text-emerald-200 leading-relaxed">
+                  <span className="font-bold">İlk galibiyetin</span> kutlama ekranı gelecek — sonrasında zorluk kademeli artar.
+                  Hazır mısın?
+                </p>
+              </div>
+            </>
+          )}
+
           {step === "next_steps" && (
             <>
               <h3 className="text-sm font-bold">İlk Adımların</h3>
@@ -205,6 +226,7 @@ export function WelcomeModal() {
           >
             {step === "intro" && "Devam"}
             {step === "grace" && "Devam"}
+            {step === "tip" && "Anladım"}
             {step === "next_steps" && "Başla"}
             <ChevronRight size={14} />
           </button>

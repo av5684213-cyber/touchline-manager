@@ -996,13 +996,26 @@ function DailyTasks() {
     if (!freshTask || freshTask.done) return;
 
     haptic("success");
-    if (team) {  // v2.9.73: store gereksizdi — her zaman truthy
+    if (team) {
       const state = useAppStore.getState();
       const clubs = [...state.clubs];
       const myClub = clubs.find((c) => c.id === team.id);
       if (myClub) {
         if (id === "train") {
-          myClub.players = myClub.players.map((p) => ({ ...p, morale: Math.min(100, p.morale + 5) }));
+          // v2.9.147 ONBOARDING FIX: Sadece +5 morale DEĞİL — gerçek training session çalıştır.
+          // store.runSession(multiplier) günlük 2 limit'i kontrol eder (15:00/21:00 penceresi),
+          // oyuncu gelişimi, kondisyon düşüşü, sakatlık riskini işler. Eğer limit dolduysa
+          // (zaten 2 antrenman yapıldıysa) fallback olarak +5 morale verir.
+          const trainResult = state.runSession?.(1.0);
+          if (!trainResult?.success) {
+            // Limit dolu ya da runSession yok — minimal morale boost fallback
+            myClub.players = myClub.players.map((p) => ({ ...p, morale: Math.min(100, p.morale + 5) }));
+          } else {
+            // runSession başarıyla çalıştı — club'ı yeniden oku (runSession clubs'u güncelledi)
+            const updatedClubs = useAppStore.getState().clubs;
+            const idx = clubs.findIndex((c) => c.id === team.id);
+            if (idx >= 0) clubs[idx] = updatedClubs.find((c) => c.id === team.id) ?? clubs[idx];
+          }
         } else if (id === "tactics") {
           myClub.players = myClub.players.map((p) => ({ ...p, cond: Math.min(100, p.cond + 3), condition: Math.min(100, (p.condition ?? p.cond) + 3) }));
         } else if (id === "transfer") {

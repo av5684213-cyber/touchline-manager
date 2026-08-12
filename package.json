@@ -1,6 +1,6 @@
 {
   "name": "touchline-manager",
-  "version": "2.9.146",
+  "version": "2.9.147",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
@@ -11,6 +11,7 @@
   "dependencies": {
     "@prisma/client": "^7.8.0",
     "@radix-ui/react-toast": "^1.2.14",
+    "@sentry/nextjs": "^10.70.0",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",
     "class-variance-authority": "^0.7.1",

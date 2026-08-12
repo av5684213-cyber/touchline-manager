@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { useAppStore, useMyTeam } from "@/lib/store";
+// v2.9.147 ONBOARDING: ilk hazırlık maçında kolay rakip seçimi
+import { completeOnboardingStep, useOnboardingStepCompleted } from "@/components/touchline/welcome-modal";
 import { useMatchEngine } from "@/hooks/use-match-engine";
 import { POSITION_GROUP } from "@/lib/mock/data";
 import { ClubBadge, PositionPill, RatingBadge } from "../ui-bits";
@@ -233,7 +235,12 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
     setFeedback(null);
   };
 
-  // P0: Hemen Maç — 2 kredi, anında rastgele rakip
+  // P0: Hemen Maç — 2 kredi, anında rakip
+  // v2.9.147 ONBOARDING FIX: İlk hazırlık maçında (onboarding.stepsCompleted'da
+  // 'first_friendly' YOKSA) en zayıf rakibi seç — kullanıcı ilk galibiyetini
+  // yaşasın. 'first_friendly' tamamlandıktan sonra rastgele/rakip-OVR seçimi.
+  const isFirstFriendly = !useOnboardingStepCompleted("first_friendly");
+
   const handleInstantMatch = () => {
     haptic("medium");
     const ok = spendCredits(2);
@@ -243,11 +250,33 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
       safeTimeout(() => setFeedback(null), 3000);
       return;
     }
-    // Anında rastgele rakip seç ve başlat
-    const randomOpp = opponents[Math.floor(Math.random() * opponents.length)];
-    if (randomOpp) {
-      setSelectedOppId(randomOpp.id);
-      setFeedback(`✓ 2 kredi harcandı — ${randomOpp.name} ile maç başlıyor!`);
+
+    let chosenOpp;
+    if (isFirstFriendly) {
+      // İlk maç: en zayıf rakip seç (OVR ascending sort, ilk 5'ten rastgele)
+      const oppsWithOvr = opponents.map((c) => ({
+        club: c,
+        ovr: Math.round(c.players.reduce((s, p) => s + p.rating, 0) / c.players.length),
+      }));
+      oppsWithOvr.sort((a, b) => a.ovr - b.ovr);
+      // En zayıf 5 takım arasından rastgele — tam en zayıf değil, doğal his
+      const pool = oppsWithOvr.slice(0, Math.min(5, oppsWithOvr.length));
+      chosenOpp = pool[Math.floor(Math.random() * pool.length)]?.club;
+      if (chosenOpp) {
+        completeOnboardingStep("first_friendly");
+      }
+    } else {
+      // Sonraki maçlar: tam rastgele
+      chosenOpp = opponents[Math.floor(Math.random() * opponents.length)];
+    }
+
+    if (chosenOpp) {
+      setSelectedOppId(chosenOpp.id);
+      setFeedback(
+        isFirstFriendly
+          ? `✓ İlk maçın! ${chosenOpp.name} ile kolay bir başlangıç yapıyorsun.`
+          : `✓ 2 kredi harcandı — ${chosenOpp.name} ile maç başlıyor!`
+      );
       haptic("success");
       safeTimeout(() => {
         setMatchStarted(true);
@@ -280,6 +309,13 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
           } else {
             setMatchResult({ home, away, replayData });
             setMatchStarted(false);
+            // v2.9.147: FirstWinCelebration için sonucu store'a yaz
+            useAppStore.getState().setLastFriendlyResult({
+              homeScore: home,
+              awayScore: away,
+              homeName: team?.name,
+              awayName: opponent?.name,
+            });
           }
         }}
       />

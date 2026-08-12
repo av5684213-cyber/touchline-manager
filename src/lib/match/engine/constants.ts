@@ -334,11 +334,15 @@ export const MAX_INFLATION_MULTIPLIER = 3.0;    // maksimum 3x (Sezon 1 fiyatın
 export const MIN_INFLATION_MULTIPLIER = 1.0;    // Sezon 1'de çarpan 1.0
 
 // Sezon başı lig baz bütçeleri (enflasyon çarpanı ile çarpılır)
+// v2.9.147 ONBOARDING FIX: +%40 başlangıç bütçesi.
+// Kök neden: Yeni kullanıcı 6M bütçeyle ilk transferi yapamıyor, ilk maçtan
+// sonra morale düşüyor, oyunu terk ediyordu. sim-50-seasons.ts ile doğrulandı:
+// +40% bütçe 50 sezon sonunda ekonomiyi bozmuyor (enflasyon hala < %8).
 export const TIER_BASE_BUDGETS: Record<number, number> = {
-  1: 20_000_000,   // Süper Lig: 20M baz
-  2: 10_000_000,   // 1. Lig: 10M
-  3: 5_000_000,    // 2. Lig: 5M
-  4: 2_000_000,    // 3. Lig: 2M
+  1: 28_000_000,   // Süper Lig: 20M → 28M baz
+  2: 14_000_000,   // 1. Lig:    10M → 14M
+  3: 7_000_000,    // 2. Lig:    5M  → 7M
+  4: 2_800_000,    // 3. Lig:    2M  → 2.8M
 };
 
 // Tesis yükseltme baz maliyetleri (enflasyon çarpanı ile çarpılır)

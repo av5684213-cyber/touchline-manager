@@ -349,6 +349,16 @@ type AppState = {
     date: string;
     tasks: Array<{ id: string; icon: string; label: string; reward: string; done: boolean; credits: number }>;
   } | null;
+  // v2.9.147: İlk galibiyet kutlama ekranı için son hazırlık maçı sonucu.
+  // Sadece 'win' ise FirstWinCelebration component'i tetiklenir (bir kez).
+  lastFriendlyResult: {
+    homeScore: number;
+    awayScore: number;
+    homeName?: string;
+    awayName?: string;
+    result: "win" | "draw" | "loss";
+    playedAt: number;
+  } | null;
   // v2.9.28 GÖREV 5: Kart envanteri — satın alınıp henüz kullanılmayan kartlar
   // Her kart: { cardId, cardType, cardName, quantity, purchasedAt }
   // cardType: "trait_positive" | "trait_negative_removal" | "arketip"
@@ -438,6 +448,8 @@ type AppState = {
   // P0: Kredi sistemi actions
   addCredits: (amount: number) => void;
   spendCredits: (amount: number) => boolean;
+  // v2.9.147: Son hazırlık maçı sonucunu sakla (FirstWinCelebration için)
+  setLastFriendlyResult: (result: { homeScore: number; awayScore: number; homeName?: string; awayName?: string }) => void;
   buyPlayerPack: (packType: "bronze" | "silver" | "gold" | "platinum") => { success: boolean; players?: any[]; reason?: string };
   // P0 FIX BUG #14: Kullanıcı engelleme/yardımıcılar
   blockUser: (userId: string) => void;
@@ -821,6 +833,9 @@ export const useAppStore = create<AppState>()(
 
       // v2.9.50: Günlük görevler — store'da (cloud-save'e dahil)
       dailyTasks: null,
+
+      // v2.9.147: Son hazırlık maçı sonucu (FirstWinCelebration için)
+      lastFriendlyResult: null,
 
       // v2.9.28 GÖREV 5: Kart envanteri — boş başlat
       cardInventory: [],
@@ -5579,6 +5594,22 @@ export const useAppStore = create<AppState>()(
         // v2.9.76 Fix D6: addCredits ile simetri — immediate cloud-save
         try { triggerTacticsSave(); } catch { /* cloud-save yüklenmemiş olabilir */ }
         return true;
+      },
+
+      // v2.9.147: Son hazırlık maçı sonucu — FirstWinCelebration tetikleyici
+      setLastFriendlyResult: (result) => {
+        const isWin = result.homeScore > result.awayScore;
+        const isDraw = result.homeScore === result.awayScore;
+        set({
+          lastFriendlyResult: {
+            homeScore: result.homeScore,
+            awayScore: result.awayScore,
+            homeName: result.homeName,
+            awayName: result.awayName,
+            result: isWin ? "win" : isDraw ? "draw" : "loss",
+            playedAt: Date.now(),
+          },
+        });
       },
 
       // P0 FIX BUG #14: Kullanıcı engelleme — sohbet moderasyonu

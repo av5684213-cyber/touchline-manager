@@ -5,6 +5,40 @@ import { useAppStore } from "@/lib/store";
 import { useSupabaseAuth } from "@/lib/auth/auth-context";
 
 /**
+ * v2.9.147: Deep link listener — Android MainActivity'den gelen
+ * touchline://match-result veya touchline://transfer-offers URL'lerini
+ * yakalar ve ilgili ekrana yönlendirir.
+ *
+ * activeTab store'da DEĞİL, page.tsx local state'inde. Bu yüzden doğrudan
+ * store'u patch'lemek yerine, sayfaya hash route koy (örn #tab=match) ve
+ * page.tsx bunu dinlesin. Şimdilik console log + custom event dispatch
+ * ediyoruz; page.tsx isterse dinleyip tab değiştirebilir.
+ */
+function useDeepLinkListener() {
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      if (!detail || typeof detail !== "string") return;
+
+      console.log("[deep-link] received:", detail);
+
+      // touchline://match-result → Match sekmesi
+      // touchline://transfer-offers → Transfer sekmesi
+      // page.tsx bu custom event'i dinleyip tab'ı değiştirebilir
+      if (typeof window !== "undefined") {
+        if (detail.startsWith("touchline://match-result")) {
+          window.dispatchEvent(new CustomEvent("touchline-navigate", { detail: "match" }));
+        } else if (detail.startsWith("touchline://transfer-offers")) {
+          window.dispatchEvent(new CustomEvent("touchline-navigate", { detail: "transfer" }));
+        }
+      }
+    };
+    window.addEventListener("touchline-deep-link", handler);
+    return () => window.removeEventListener("touchline-deep-link", handler);
+  }, []);
+}
+
+/**
  * v2.9.20 GÖREV 8 — FCM Push Notification Hook.
  *
  * v2.9.52: PUSH_NOTIFICATIONS_ENABLED = false
@@ -19,8 +53,15 @@ import { useSupabaseAuth } from "@/lib/auth/auth-context";
  *   5. getFCMToken() içinde gerçek FCM token al
  */
 
-// v2.9.52: Feature flag — false iken backend'e hiç token gönderilmez
-const PUSH_NOTIFICATIONS_ENABLED = false;
+// v2.9.147: PUSH_NOTIFICATIONS_ENABLED = true (eski v2.9.52 false'idi)
+// v2.9.52'de push'lar kapatılmıştı çünkü backend RPC'leri çağrılmıyordu.
+// v2.9.147'de push_tokens tablosu gerçekten yazılıyor + yeni
+// send-match-end-push / send-transfer-offer-push Edge Function'ları eklendi.
+//
+// Web tarafında Firebase Messaging bağımlılığı YOK — sadece Android WebView
+// üzerinden AndroidNative.getFCMToken() bridge'ini kullanır.
+// Web tarayıcıda push çalışmaz (FCM token null döner) ama Android APK'da çalışır.
+const PUSH_NOTIFICATIONS_ENABLED = true;
 
 const FCM_TOKEN_STORAGE_KEY = "tm_fcm_token";
 
@@ -73,6 +114,9 @@ function getPlatform(): "android" | "ios" | "web" {
 export function usePushNotifications() {
   const { user } = useSupabaseAuth();
   const registeredRef = useRef<string | null>(null);
+
+  // v2.9.147: Deep link listener — push tıklayınca ilgili ekrana git
+  useDeepLinkListener();
 
   useEffect(() => {
     // v2.9.52: Push notifications devre dışı — sahte token gönderme
