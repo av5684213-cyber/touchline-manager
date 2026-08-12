@@ -1,34 +1,24 @@
 -- ════════════════════════════════════════════════════════════════════════════
--- v2.9.152: SERVICE_ROLE_KEY + cron jobs (vault'SIZ — database setting kullanır)
+-- v2.9.152 FIX: SERVICE_ROLE_KEY + cron jobs (ALTER DATABASE olmadan)
 -- ════════════════════════════════════════════════════════════════════════════
--- vault extension yeni Supabase projelerinde yok. service_role key'i database
--- setting olarak sakla, cron job'lar current_setting() ile okur.
+-- Hata: permission denied to set parameter "app.supabase_service_role_key"
+-- Kök neden: ALTER DATABASE superuser yetkisi gerektirir, Supabase SQL Editor
+--            postgres rolüyle çalışır (superuser DEĞİL).
 --
--- ÇALIŞTIRMADAN ÖNCE:
--- 1. Supabase Dashboard → Settings → API → "service_role" key'i kopyala
--- 2. Aşağıdaki 'PASTE_SERVICE_ROLE_KEY_HERE' yerine yapıştır
--- 3. SQL'i çalıştır
+-- ÇÖZÜM: service_role key'i cron job komutuna GÖM (hardcoded).
+-- Güvenlik notu: Bu daha az güvenli — cron.job tablosunda plaintext key saklanır.
+-- Supabase Dashboard → Database → Roles bölümünden "postgres" user'ın yetkisini
+-- kontrol et; superuser ise ALTER DATABASE'i "psql" ile çalıştırabilirsin.
+--
+-- ALTERNATİF (önerilen): Supabase Dashboard → Settings → Database →
+-- "Database settings" → Add setting:
+--   Name: app.supabase_service_role_key
+--   Value: eyJhbGc... (service_role key)
+-- Bu UI superuser yetkisiyle ALTER DATABASE çalıştırır.
+--
 -- ════════════════════════════════════════════════════════════════════════════
 
--- ─── 1) service_role key'i database setting olarak sakla ═════════════════════
--- v2.9.152: vault.create_secret yerine ALTER DATABASE SET kullan.
--- current_setting('app.supabase_service_role_key', true) ile okunur.
---
--- service_role key'i AŞAĞIDAKİ SATIRDA KENDİ KEY'İNLE DEĞİŞTİR:
-ALTER DATABASE postgres SET app.supabase_service_role_key = 'PASTE_SERVICE_ROLE_KEY_HERE';
-
--- Değişikliğin aktif olması için bağlantı yeniden kurulmalı (SQL Editor otomatik yapar).
--- Doğrula — boş dönerse yeni bir SQL Editor sekmesi aç:
-SELECT
-  CASE
-    WHEN current_setting('app.supabase_service_role_key', true) IS NULL
-      OR current_setting('app.supabase_service_role_key', true) = ''
-      OR current_setting('app.supabase_service_role_key', true) = 'PASTE_SERVICE_ROLE_KEY_HERE'
-    THEN '❌ SET EDİLMEDİ — yukarıdaki ALTER DATABASE satırını kontrol et'
-    ELSE '✅ set (' || length(current_setting('app.supabase_service_role_key', true)) || ' chars)'
-  END AS status;
-
--- ─── 2) Eski cron job'ları unschedule et (migration 014 + 030 çakışması) ════
+-- ─── 1) Eski cron job'ları unschedule et ════════════════════════════════════
 DO $cron_cleanup$
 DECLARE
   job_record RECORD;
@@ -47,21 +37,20 @@ BEGIN
   END LOOP;
 END $cron_cleanup$;
 
--- ─── 3) Yeni cron job'lar — database setting'ten key okuyarak ═══════════════
+-- ─── 2) Yeni cron job'lar — key hardcoded ═══════════════════════════════════
+-- AŞAĞIDAKİ 'PASTE_SERVICE_ROLE_KEY_HERE' YERİNE service_role KEY'İNİ YAPIŞTIR
+-- (Dashboard → Settings → API → service_role satırını kopyala, eyJhbGc... ile başlar)
+
 DO $cron_schedule$
 DECLARE
-  v_key TEXT;
-  v_url TEXT;
+  v_key TEXT := 'PASTE_SERVICE_ROLE_KEY_HERE';
+  v_url TEXT := 'https://jmxbyaamwbpnvgbnjbmo.supabase.co';
 BEGIN
-  -- Connection'da set edilen değeri oku
-  v_key := current_setting('app.supabase_service_role_key', true);
-  v_url := 'https://jmxbyaamwbpnvgbnjbmo.supabase.co';
-
-  IF v_key IS NULL OR v_key = '' OR v_key = 'PASTE_SERVICE_ROLE_KEY_HERE' THEN
-    RAISE EXCEPTION 'service_role key set edilmemiş — önce ALTER DATABASE yap';
+  IF v_key = 'PASTE_SERVICE_ROLE_KEY_HERE' THEN
+    RAISE EXCEPTION 'Lütfen PASTE_SERVICE_ROLE_KEY_HERE yerine service_role key yapıştır';
   END IF;
 
-  -- daily-match-sim: hafta içi 12:00 ve 18:00 TR → UTC 09:00, 15:00
+  -- daily-match-sim: hafta içi 12:00, 18:00 TR → UTC 09:00, 15:00
   PERFORM cron.schedule(
     'daily-match-sim',
     '0 9,15 * * 1-5',
@@ -71,7 +60,7 @@ BEGIN
     )
   );
 
-  -- daily-cup-sim: cumartesi 12:00 ve 18:00 TR → UTC 09:00, 15:00
+  -- daily-cup-sim: cumartesi 12:00, 18:00 TR → UTC 09:00, 15:00
   PERFORM cron.schedule(
     'daily-cup-sim',
     '0 9,15 * * 6',
@@ -81,7 +70,7 @@ BEGIN
     )
   );
 
-  -- daily-training-sim: hafta içi 10:00 ve 16:00 TR → UTC 07:00, 13:00
+  -- daily-training-sim: hafta içi 10:00, 16:00 TR → UTC 07:00, 13:00
   PERFORM cron.schedule(
     'daily-training-sim',
     '0 7,13 * * 1-5',
@@ -91,10 +80,10 @@ BEGIN
     )
   );
 
-  RAISE NOTICE '✅ 3 cron job scheduled: daily-match-sim, daily-cup-sim, daily-training-sim';
+  RAISE NOTICE '✅ 3 cron job scheduled';
 END $cron_schedule$;
 
--- ─── 4) Doğrulama ══════════════════════════════════════════════════════════
+-- ─── 3) Doğrulama ══════════════════════════════════════════════════════════
 SELECT 'CRON: daily-match-sim' AS object,
   CASE WHEN EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'daily-match-sim')
        THEN '✅ scheduled' ELSE '❌ NOT SCHEDULED' END AS status;
