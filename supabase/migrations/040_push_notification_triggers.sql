@@ -11,6 +11,13 @@
 -- sayede kullanıcı A, kullanıcı B'ye push gönderemez.
 -- ════════════════════════════════════════════════════════════════════════════
 
+-- v2.9.149: pg_http extension'ı aktif et — http_post fonksiyonu için gerekli.
+-- Migration 014'te de var ama idempotent — tekrar çalıştırırsan sorun olmaz.
+CREATE EXTENSION IF NOT EXISTS http WITH SCHEMA extensions;
+
+-- uuid_generate_v4() için (eğer 001_initial_schema'da extension yoksa)
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 -- Önce push_tokens tablosu yoksa oluştur (v2.9.20 migration 018'de vardı,
 -- ama tekrar kontrol et — idempotent)
 CREATE TABLE IF NOT EXISTS push_tokens (
