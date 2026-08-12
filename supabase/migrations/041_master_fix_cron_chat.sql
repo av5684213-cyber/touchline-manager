@@ -91,7 +91,12 @@ ALTER TABLE chat_messages ADD CONSTRAINT chat_messages_user_name_length
   CHECK (length(user_name) > 0 AND length(user_name) <= 50);
 
 -- ─── 4) Cron job: saatlik chat temizliği (24 saat önceki mesajları sil) ════
-DO $$
+-- v2.9.152 FIX: $$...$$ dollar-quote çakışması — dış DO bloğu da $$ kullanıyor.
+-- İçteki SQL string için $cleanup_cmd$ tag kullanarak çakışmayı önle.
+-- Alternatif olarak string değişkeni de kullanılabilir.
+DO $cron_block$
+DECLARE
+  v_cmd TEXT;
 BEGIN
   -- Eski job varsa unschedule et (idempotent)
   BEGIN
@@ -100,14 +105,17 @@ BEGIN
     NULL; -- job yoksa hata atar, görmezden gel
   END;
 
-  -- Yeni job schedule et — her saat başı
+  -- Cron job komutunu string değişkene yaz — dollar-quote çakışması yok.
+  v_cmd := 'DELETE FROM chat_messages WHERE created_at < NOW() - INTERVAL ''24 hours''';
+
+  -- Yeni job schedule et — her saat başı (0 * * * *)
   PERFORM cron.schedule(
     'cleanup-chat-messages-hourly',
     '0 * * * *',
-    $$DELETE FROM chat_messages WHERE created_at < NOW() - INTERVAL '24 hours'$$
+    v_cmd
   );
   RAISE NOTICE '✅ cron job scheduled: cleanup-chat-messages-hourly';
-END $$;
+END $cron_block$;
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- DOĞRULAMA — aşağıdaki SELECT'leri çalıştırıp durumu kontrol et
