@@ -216,7 +216,11 @@ export function simulateBotMatch(
   homeTeam: Team,
   awayTeam: Team,
   matchday: number,
-  rng?: () => number
+  rng?: () => number,
+  // v2.9.148 GRACE PERIOD: Eğer bu maç kullanıcı takımını içeriyorsa,
+  // bot için graceMultiplier 0.88 uygulanır (kullanıcının rakibi %12 zayıflar).
+  // Çağıran taraf store.ts: advanceMatchday kullanıcı maçında bunu set eder.
+  graceMultiplier?: { home?: number; away?: number }
 ): { homeScore: number; awayScore: number } {
   const homeProfile = getBotTacticProfile(homeTeam);
   const awayProfile = getBotTacticProfile(awayTeam);
@@ -228,9 +232,9 @@ export function simulateBotMatch(
     return { homeScore: 0, awayScore: 0 };
   }
 
-  // Takım gücü hesapla (formasyon modifier ile)
-  const homeStr = calculateBotStrength(homeXI, homeProfile);
-  const awayStr = calculateBotStrength(awayXI, awayProfile);
+  // Takım gücü hesapla (formasyon modifier ile) — grace multiplier uygula
+  const homeStr = calculateBotStrength(homeXI, homeProfile, graceMultiplier?.home ?? 1.0);
+  const awayStr = calculateBotStrength(awayXI, awayProfile, graceMultiplier?.away ?? 1.0);
 
   // v2.9.64: Takım gücü farkını gol beklentisine yansıt
   // Eski kod: diff sadece homeAdv (0.1-0.4) → güçlü takım zayıf takımı hep 1-0 yener
@@ -277,7 +281,8 @@ export function simulateBotMatch(
  */
 function calculateBotStrength(
   xi: Player[],
-  profile: { formation: string; mentality: number; pressing: boolean }
+  profile: { formation: string; mentality: number; pressing: boolean },
+  graceMultiplier: number = 1.0
 ): number {
   const avgOvr = xi.reduce((s, p) => s + p.rating, 0) / xi.length;
   const fmod = FORMATION_MODS[profile.formation] ?? { attack: 1, midfield: 1, defense: 1 };
@@ -291,5 +296,12 @@ function calculateBotStrength(
   // Pressing: +güç ama kondisyon tüketir (botlarda kondisyon yok, sadece güç)
   const pressingBoost = profile.pressing ? 1.02 : 1.0;
 
-  return avgOvr * formationBoost * mentalityBoost * pressingBoost;
+  // v2.9.148 GRACE PERIOD FIX: İlk 7 günde kullanıcıya karşı oynayan botların
+  // gücü %12 azaltılır. Bu, yeni kullanıcıya "hiçbir takım yenilmez değil" hissini
+  // yaşatmak için welcome-modal.tsx'te vaat edilen ama hiç implemente edilmemiş
+  // "kolay başlangıç" mekanizmasıdır.
+  //
+  // Çarpan, çağıran simulateMatch'ten parametre olarak gelir. Sadece kullanıcının
+  // maçlarına uygulanır (bot-bot maçlarında 1.0 kalır).
+  return avgOvr * formationBoost * mentalityBoost * pressingBoost * graceMultiplier;
 }

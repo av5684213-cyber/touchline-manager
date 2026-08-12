@@ -239,7 +239,12 @@ export function runTrainingSession(
 
     const ageMult = player.age <= 21 ? 1.15 : player.age >= 30 ? 0.75 : 1.0;
     const mentorBonus = todayMentees.get(player.id) ?? 0;
-    const rawMult = multiplier * ageMult * facilityMult * (1 + mentorBonus);
+    // v2.9.148 GRACE PERIOD PERKS: İlk 7 günde antrenman XP'si 2x (welcome modal vaadi).
+    // multiplier parametresi çağıran tarafından zaten 1.0 — grace aktifse 2.0'a yükselt.
+    // Bu sayede yeni kullanıcı oyuncularını daha hızlı geliştirir, "grace period" gerçek
+    // bir avantaj sağlar. Mekanizma: store.runSession → multiplier 1.0 → burada 2.0'a çarpılır.
+    const graceXPBoost = (runTrainingSession as any).__graceXPActive ? 2.0 : 1.0;
+    const rawMult = multiplier * ageMult * facilityMult * (1 + mentorBonus) * graceXPBoost;
     const cappedMult = Math.min(3.0, rawMult);
 
     const statGains: Partial<Player["stats"]> = {};

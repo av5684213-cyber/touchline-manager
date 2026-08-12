@@ -950,10 +950,19 @@ export const useAppStore = create<AppState>()(
           onboarding: (() => {
             const existing = get().onboarding;
             if (existing?.firstLoginAt) {
+              // Returning user — grace period'a girmiyor
               return existing;
             }
+            // v2.9.148 GRACE PERIOD PERKS: İlk kez giriş — bonus kredi hediye et
             const now = Date.now();
             const GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000;
+            // +50 kredi — welcome modal'da vaat edilen "50 bonus kredi"
+            // (önce set çağrılmadan önceki credits değeri buradan al)
+            queueMicrotask(() => {
+              const currentCredits = get().credits;
+              set({ credits: currentCredits + 50 });
+              console.log("[onboarding] +50 grace bonus credits granted (first login)");
+            });
             return {
               hasSeenWelcome: false,
               firstLoginAt: now,
@@ -2229,6 +2238,23 @@ export const useAppStore = create<AppState>()(
             const playerOffers = freshOffers.filter((o) => o.myPlayerId === playerId);
             const otherOffers = transfer.incomingOffers.filter((o) => o.myPlayerId !== playerId);
             updatedOffers = [...playerOffers, ...otherOffers].slice(0, 6);
+
+            // v2.9.148: Transfer teklifi push tetikle — freshOffers içinde
+            // bu oyuncu için en yüksek tutarlı teklifi al ve push gönder.
+            const topOffer = playerOffers[0];
+            if (topOffer) {
+              const listedPlayer = myTeam.players.find((p) => p.id === playerId);
+              const bidder = clubs.find((c) => c.id === topOffer.buyerTeamId);
+              if (listedPlayer && bidder) {
+                import("@/lib/push-triggers").then(({ triggerTransferOfferPush }) => {
+                  triggerTransferOfferPush({
+                    playerName: `${listedPlayer.firstName} ${listedPlayer.lastName}`,
+                    bidderClubName: bidder.name,
+                    bidAmount: topOffer.offerAmount?.toLocaleString("tr-TR") ?? "—",
+                  }).catch(() => {});
+                }).catch(() => {});
+              }
+            }
           } catch (e) {
             console.warn("[listPlayerForSale] teklif üretme hatası:", e);
           }
@@ -2300,12 +2326,26 @@ export const useAppStore = create<AppState>()(
         // ADDED: Coach bonus — antrenman çarpanını artır
         let effectiveMultiplier = multiplier;
         try {
-          
+
           // multiplier'ı coach bonus ile artır (örn: 1.0 → 1.0 * (1 + 0.10) = 1.10)
           const boosted = applyCoachTrainingBoost(multiplier, facilities.staff);
           effectiveMultiplier = boosted;
         } catch (e) { /* staffBonus yüklenemezse default multiplier */ }
+
+        // v2.9.148 GRACE PERIOD PERKS: 2x antrenman XP — welcome modal vaadi.
+        // Eğer kullanıcı grace period'daysa (ilk 7 gün), runTrainingSession'e
+        // "graceXPActive" bayrağı geçir → stat gains 2x uygulanır.
+        const onboardingState = get().onboarding;
+        const isGraceActive = !!(
+          onboardingState?.gracePeriodEndsAt &&
+          Date.now() < onboardingState.gracePeriodEndsAt
+        );
+        (runTrainingSession as any).__graceXPActive = isGraceActive;
+
         const results = runTrainingSession(team.players, training, facilityLevel, effectiveMultiplier);
+
+        // Grace flag'i temizle — bir sonraki çağrı varsayılan 1.0'a dönsün
+        (runTrainingSession as any).__graceXPActive = false;
 
         // Sonuçları kadroya uygula
         const updatedPlayers = applyResultsToSquad(team.players, results);
@@ -3229,7 +3269,25 @@ export const useAppStore = create<AppState>()(
           const homeTeam = clubs.find((c) => c.id === f.homeId);
           const awayTeam = clubs.find((c) => c.id === f.awayId);
           if (!homeTeam || !awayTeam) return f;
-          const botResult = simulateBotMatch(homeTeam, awayTeam, currentMd);
+
+          // v2.9.148 GRACE PERIOD FIX: Eğer bu maç kullanıcı takımını içeriyorsa,
+          // kullanıcının rakibi olan bot için graceMultiplier 0.88 uygula.
+          // Kullanıcı takımı grace'ten etkilenmez (1.0). Bot-bot maçlarında ikisi de 1.0.
+          const onboardingState = get().onboarding;
+          const isGraceActive = !!(
+            onboardingState?.gracePeriodEndsAt &&
+            Date.now() < onboardingState.gracePeriodEndsAt
+          );
+          const graceMultiplier =
+            isGraceActive && myTeamId
+              ? (f.homeId === myTeamId
+                  ? { home: 1.0, away: 0.88 } // kullanıcı ev sahibi → deplasman bot zayıflar
+                  : f.awayId === myTeamId
+                  ? { home: 0.88, away: 1.0 } // kullanıcı deplasman → ev sahibi bot zayıflar
+                  : { home: 1.0, away: 1.0 }) // bot-bot maçı
+              : { home: 1.0, away: 1.0 };
+
+          const botResult = simulateBotMatch(homeTeam, awayTeam, currentMd, undefined, graceMultiplier);
           return { ...f, homeScore: botResult.homeScore, awayScore: botResult.awayScore, played: true };
         });
 
@@ -5504,6 +5562,22 @@ export const useAppStore = create<AppState>()(
         }
 
         set({ fixtures: updatedFixtures, news: [...newNews, ...news] });
+
+        // v2.9.148: Match-end push tetikle — kullanıcının takımı bu maçta oynadıysa
+        if (myTeamId && (homeId === myTeamId || awayId === myTeamId)) {
+          // Async fire-and-forget — UI'yi bloklamayalım
+          import("@/lib/push-triggers").then(({ triggerMatchEndPush }) => {
+            const homeTeam = clubs.find((c) => c.id === homeId);
+            const awayTeam = clubs.find((c) => c.id === awayId);
+            triggerMatchEndPush({
+              homeName: homeTeam?.name ?? "Home",
+              awayName: awayTeam?.name ?? "Away",
+              homeScore,
+              awayScore,
+              matchType: "league", // recordMatchResult lig maçı için
+            }).catch(() => {}); // hata olursa sessiz geç
+          }).catch(() => {});
+        }
       },
 
       // ADDED: ===== Sponsor actions =====
