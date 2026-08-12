@@ -179,7 +179,7 @@ export function PreMatchScreen({
         <div className="text-[10px] text-muted-foreground uppercase font-bold mb-2">{t("fixture.form")}</div>
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col items-center gap-1">
-            <span className="text-[11px] text-muted-foreground truncate max-w-[80px]">{homeTeam.name}</span>
+            <span className="text-[11px] text-muted-foreground tm-name-2line max-w-[120px] text-center">{homeTeam.name}</span>
             <div className="flex gap-0.5">
               {homeForm.length === 0 ? (
                 <span className="text-[11px] text-muted-foreground">—</span>
@@ -194,7 +194,7 @@ export function PreMatchScreen({
             </div>
           </div>
           <div className="flex flex-col items-center gap-1">
-            <span className="text-[11px] text-muted-foreground truncate max-w-[80px]">{awayTeam.name}</span>
+            <span className="text-[11px] text-muted-foreground tm-name-2line max-w-[120px] text-center">{awayTeam.name}</span>
             <div className="flex gap-0.5">
               {awayForm.length === 0 ? (
                 <span className="text-[11px] text-muted-foreground">—</span>

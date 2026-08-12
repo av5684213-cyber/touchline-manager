@@ -658,8 +658,8 @@ export function TacticsScreen() {
                     className="tm-tap py-1 px-1 rounded text-[11px] font-bold border bg-card border-border hover:bg-accent/50 transition-colors flex flex-col items-center gap-0.5"
                   >
                     <span className="text-[10px] text-muted-foreground">{slotPos}</span>
-                    {/* v2.9.74 FIX O10: max-w 50px → 80px, daha az kesilme */}
-                    <span className="text-[11px] truncate max-w-[80px]">
+                    {/* v2.9.145 C2 FIX: max-w 80px → 120px + truncate → tm-name-2line */}
+                    <span className="text-[11px] tm-name-2line max-w-[120px] text-center">
                       {current ? `${current.firstName} ${current.lastName}` : "Boş"}
                     </span>
                     {current && (

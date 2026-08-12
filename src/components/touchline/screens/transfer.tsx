@@ -165,7 +165,8 @@ export function TransferScreen() {
           - "mylisted" → satılık oyuncular + kiralık listesi (aynı sekmede)
           Yeni 2 sekme: "watchlist" ve "loan" — kullanıcı bunlara erişemiyordu
       */}
-      <div className="flex gap-1.5 overflow-x-auto tm-no-scrollbar pr-2 pb-1">
+      {/* v2.9.145 C2 FIX: tm-no-scrollbar → tm-filter-row (görünür scrollbar, snap scroll) */}
+      <div className="tm-filter-row pr-2 pb-1">
         {(
           [
             { key: "market", label: "🛒 Pazar", count: transfer.freeAgents.length + allClubPlayers.length + (transfer.freeAgentListings?.length ?? 0) },
@@ -184,8 +185,7 @@ export function TransferScreen() {
               sub === tab.key
                 ? "bg-primary text-primary-foreground border-primary"
                 : "bg-card border-border hover:bg-accent"
-            )}
-           
+            )} 
           >
             <span className="shrink-0">{tab.label}</span>
             {tab.count > 0 && (
@@ -933,7 +933,8 @@ function PlayerCard({
         >
           {/* Satır 1: İsim + pozisyon + sakat icon */}
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-xs font-semibold truncate">
+            {/* v2.9.145 C2 FIX: truncate → tm-name-2line; flex-1 ile genişlet */}
+            <span className="text-xs font-semibold tm-name-2line flex-1 min-w-0">
               {player.firstName} {player.lastName}
             </span>
             <PositionPill label={player.specificPosition} group={POSITION_GROUP[player.specificPosition]} />
@@ -943,7 +944,8 @@ function PlayerCard({
           </div>
           {/* Satır 2: Arketip + yaş */}
           <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5 min-w-0">
-            {player.archetype && <span className="text-amber-300 truncate max-w-[80px]">{player.archetype}</span>}
+            {/* v2.9.145 C2 FIX: max-w-[80px] → max-w-[120px]; truncate yerine tm-name-2line */}
+            {player.archetype && <span className="text-amber-300 truncate max-w-[120px] shrink-0">{player.archetype}</span>}
             {player.archetype && <span className="shrink-0">·</span>}
             <span className="shrink-0">{player.age}{t("common.year")}</span>
           </div>

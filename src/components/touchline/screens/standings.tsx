@@ -271,7 +271,8 @@ export function StandingsScreen() {
                   setSelectedTeamId(row.teamId);
                 }}
                 className={cn(
-                  "grid grid-cols-[28px_1fr_24px_24px_24px_24px_28px_32px_70px] gap-0.5 px-2 py-1.5 text-[11px] items-center border-l-2 border-b border-border/40 last:border-b-0 w-full text-left transition-colors tm-tap hover:bg-accent/30",
+                  // v2.9.145 C1 FIX: TEAM sütunu 1fr → minmax(110px,1.4fr); diğer sütunları 22px'e düşür
+                  "grid grid-cols-[28px_minmax(110px,1.4fr)_22px_22px_22px_22px_26px_30px_60px] gap-0.5 px-2 py-1.5 text-[11px] items-center border-l-2 border-b border-border/40 last:border-b-0 w-full text-left transition-colors tm-tap hover:bg-accent/30",
                   ZONE_COLORS[zone]
                 )}
               >
@@ -281,7 +282,8 @@ export function StandingsScreen() {
                     </div>
                     <div className="flex items-center gap-1.5 min-w-0 pr-1">
                       <ClubBadge short={row.shortName} primaryColor={row.primaryColor} size={18} />
-                      <span className={cn("truncate text-[11px]", isMe ? "font-bold text-primary" : "font-medium")}>
+                      {/* v2.9.145 C1 FIX: truncate → tm-name-2line — 2 satıra izin verir, hâlâ taşıyorsa … ile kes */}
+                      <span className={cn("tm-name-2line text-[11px]", isMe ? "font-bold text-primary" : "font-medium")}>
                         {row.teamName}
                       </span>
                       {isMe && (

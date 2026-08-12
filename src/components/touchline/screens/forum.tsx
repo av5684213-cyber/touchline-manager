@@ -190,29 +190,30 @@ export function ForumScreen() {
 
       {/* Kategori filtre — sadece Supabase bağlıysa göster */}
       {supabaseReady && (
-      <div className="flex gap-1.5 overflow-x-auto tm-no-scrollbar">
-        <button
-          onClick={() => { haptic("light"); setFilterCategory("all"); }}
-          className={cn(
-            "tm-tap px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap border",
-            filterCategory === "all" ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"
-          )}
-        >
-          {t("forum.all")}
-        </button>
-        {CATEGORIES.map((cat) => (
+        // v2.9.145 C5 FIX: flex overflow-x-auto tm-no-scrollbar → tm-filter-row (görünür scrollbar)
+        <div className="tm-filter-row">
           <button
-            key={cat.id}
-            onClick={() => { haptic("light"); setFilterCategory(cat.id); }}
+            onClick={() => { haptic("light"); setFilterCategory("all"); }}
             className={cn(
               "tm-tap px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap border",
-              filterCategory === cat.id ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"
+              filterCategory === "all" ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"
             )}
           >
-            {cat.icon} {t(cat.labelKey)}
+            {t("forum.all")}
           </button>
-        ))}
-      </div>
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => { haptic("light"); setFilterCategory(cat.id); }}
+              className={cn(
+                "tm-tap px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap border",
+                filterCategory === cat.id ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"
+              )}
+            >
+              {cat.icon} {t(cat.labelKey)}
+            </button>
+          ))}
+        </div>
       )}
 
       {/* Başlık listesi — sadece Supabase bağlıysa göster */}

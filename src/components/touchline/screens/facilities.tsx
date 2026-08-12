@@ -358,14 +358,15 @@ export function FacilitiesScreen() {
                   }}
                   disabled={!canUpgrade}
                   className={cn(
-                    "tm-tap w-full py-2 rounded-md text-xs font-bold flex items-center justify-center gap-2",
+                    // v2.9.145 M7 FIX: flex-wrap eklendi; 2 satıra bölünebilir
+                    "tm-tap w-full py-2 px-3 rounded-md text-xs font-bold flex flex-wrap items-center justify-center gap-1.5",
                     !canUpgrade
                       ? "bg-muted text-muted-foreground cursor-not-allowed"
                       : "bg-primary text-primary-foreground"
                   )}
                 >
                   <Zap size={12} />
-                  {t("facilities.upgrade")} → LV {level + 1}
+                  <span>{t("facilities.upgrade")} → LV {level + 1}</span>
                   <span className="opacity-80">·</span>
                   <span className="tabular-nums">{formatEuro(cost)}</span>
                   <span className="opacity-80">·</span>

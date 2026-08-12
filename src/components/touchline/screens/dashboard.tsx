@@ -496,7 +496,8 @@ export function DashboardScreen() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex flex-col items-center gap-1 flex-1">
                 <ClubBadge short={team.shortName} primaryColor={team.primaryColor} size={44} />
-                <span className="text-[11px] font-semibold truncate max-w-[100px]">
+                {/* v2.9.145 M4 FIX: truncate max-w-[100px] → tm-name-2line max-w-[110px] */}
+                <span className="text-[11px] font-semibold tm-name-2line max-w-[110px] text-center">
                   {team.name}
                 </span>
                 <span className="text-[11px] text-muted-foreground">
@@ -523,7 +524,7 @@ export function DashboardScreen() {
                 </button>
                 <button
                   onClick={() => { haptic("light"); setSelectedTeamId(opponent.id); }}
-                  className="text-[11px] font-semibold truncate max-w-[100px] hover:text-primary"
+                  className="text-[11px] font-semibold tm-name-2line max-w-[110px] text-center hover:text-primary"
                 >
                   {opponent.name}
                 </button>
@@ -1220,8 +1221,9 @@ function TeamHeaderBar({ team }: { team: any }) {
 
       {/* Takım ismi + lig */}
       <div className="flex-1 min-w-0">
-        <div className="text-base font-bold truncate">{team.name}</div>
-        <div className="text-[11px] text-muted-foreground">
+        {/* v2.9.145 M4 FIX: truncate → tm-name-2line */}
+        <div className="text-base font-bold tm-name-2line">{team.name}</div>
+        <div className="text-[11px] text-muted-foreground tm-name-2line">
           {LEAGUE_NAMES[team.leagueTier ?? 2] ?? "Lig"} · {team.stadiumName ?? ""}
         </div>
       </div>

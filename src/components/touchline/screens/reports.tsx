@@ -78,7 +78,8 @@ export function ReportsScreen() {
       </div>
 
       {/* Tab seçici */}
-      <div className="flex gap-1 overflow-x-auto tm-thin-scrollbar">
+      {/* v2.9.145 M3 FIX: flex gap-1 overflow-x-auto tm-thin-scrollbar → tm-filter-row-visible (görünür scrollbar, kullanıcı son tab'ı görsün) */}
+      <div className="tm-filter-row-visible">
         {tabs.map(tab => {
           const Icon = tab.icon;
           return (

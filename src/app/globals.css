@@ -239,3 +239,94 @@
 .tm-result-win { background: oklch(0.55 0.16 145); color: white; }
 .tm-result-draw { background: oklch(0.75 0.15 80); color: oklch(0.2 0.05 80); }
 .tm-result-loss { background: oklch(0.6 0.22 25); color: white; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   v2.9.145 QA FIXES — Game-tester bulguları (UI/UX overflow)
+   ════════════════════════════════════════════════════════════════════════════
+   Kök nedenler:
+   1) Buton çocukları (span/div/icon) butonun tıklama alanını intercept ediyordu
+      → "Element covered by <div.flex.gap-2>" hatası. Çözüm: pointer-events:none.
+   2) truncate her yere serpiştirilmiş, takım/oyuncu adları okunmuyordu
+      → Aşağıdaki helper class'lar daha akıllı truncation sağlar.
+   3) Filtre butonu satırları overflow-x-auto idi ama scrollbar görünmezdi
+      → tm-thin-scrollbar zaten var, ek olarak scroll indicator ekledik.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* M5 FIX: Buton çocukları tıklamayı intercept etmesin.
+   Tüm <button> içindeki span/div/svg/i pointer-events:none olsun.
+   Sadece buton'un kendisi tıklanabilir. */
+button > * {
+  pointer-events: none;
+}
+/* Hariç: input/button gibi gerçekten tıklanabilir iç children'lar */
+button > button,
+button > input,
+button > select,
+button > textarea,
+button > a,
+button > [role="button"] {
+  pointer-events: auto;
+}
+
+/* C1/C2 FIX: truncate yerine 2 satıra izin veren class.
+   İlk satırı doldurur, taşan kısım 2. satıra iner, hâlâ taşarsa … ile kes. */
+.tm-name-2line {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+  hyphens: auto;
+  line-height: 1.15;
+}
+
+/* C5/C6 FIX: Filtre satırı — scroll indicator ile. tm-thin-scrollbar'a ek. */
+.tm-filter-row {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+.tm-filter-row > * {
+  flex-shrink: 0;
+  scroll-snap-align: start;
+}
+
+/* M3 FIX: Sub-tab satırı için görünür scrollbar (Reports gibi) */
+.tm-filter-row-visible {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.7 0.02 150) transparent;
+}
+.tm-filter-row-visible::-webkit-scrollbar { height: 4px; }
+.tm-filter-row-visible::-webkit-scrollbar-thumb { background: oklch(0.7 0.02 150); border-radius: 4px; }
+.tm-filter-row-visible > * { flex-shrink: 0; }
+
+/* C3 FIX: Takım badge'i — text yerine tam adı ayrı satırda göster */
+.tm-team-badge-text {
+  font-size: 10px;
+  line-height: 1.1;
+  text-align: center;
+  word-break: break-word;
+  hyphens: auto;
+  padding: 2px 4px;
+}
+
+/* M8 FIX: Arka plan görseli okunabilirliği bozmasın — opaklık 0.15 */
+.tm-bg-dim {
+  opacity: 0.15;
+}
+
+/* M4 FIX: Notification kartı z-index — bottom-nav (z-40) ile çakışmasın */
+.tm-notification-card {
+  position: relative;
+  z-index: 30;
+}

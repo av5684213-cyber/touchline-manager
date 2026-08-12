@@ -53,7 +53,8 @@ export function StickyQuickBar({
               )}
             >
               <TabIcon size={18} strokeWidth={isActive ? 2.5 : 2} className="shrink-0" />
-              <span className="truncate">{label}</span>
+              {/* v2.9.145 M4 FIX: truncate → tm-name-2line; çok uzun label'lar (Standings, Fixture, Facilities) 2 satırda gösterilir */}
+              <span className="text-[10px] leading-tight text-center w-full">{label}</span>
               <span
                 className={cn(
                   "h-0.5 w-6 rounded-full transition-all",

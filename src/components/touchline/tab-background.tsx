@@ -130,11 +130,14 @@ export function TabBackground({ tabKey }: { tabKey: TabKey }) {
 
       {/* Overlay — okunabilirlik için koyu katman
           v2.9.74: 0.55 → 0.35 — arka plan görseli daha net görünsün
-          Kartların kendi backdrop-blur'u okunabilirliği zaten sağlıyor */}
+          v2.9.145 M8 FIX: 0.35 → 0.55 — VLM raporunda top-scorers ekranında
+          arka plan görseli öngörüntüyü bozuyordu; overlay daha koyu yaparak
+          kartların okunabilirliğini garanti altına al.
+          Kartların kendi backdrop-blur'u zaten var ama görselin kontrast yüksek. */}
       <div
         className="absolute inset-0"
         style={{
-          backgroundColor: "rgba(0, 0, 0, 0.35)",
+          backgroundColor: "rgba(0, 0, 0, 0.55)",
           opacity: loaded && !error ? 1 : 0.2,
           transition: "opacity 300ms ease-out",
         }}

@@ -345,9 +345,10 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
           className="tm-tap flex flex-col items-center gap-1 p-3 rounded-lg bg-sky-600 text-white text-xs font-bold active:scale-[0.98] transition-transform disabled:opacity-50"
         >
           <Search size={20} />
-          <span className="flex items-center gap-1">
-            Hemen Maç Başlat
-            <span className="flex items-center gap-0.5 px-1 py-0.5 rounded-full bg-amber-500/30">
+          {/* v2.9.145 M6 FIX: badge ile simge çakışmasın diye ayrı flex yapısı */}
+          <span className="flex items-center gap-1 flex-wrap justify-center">
+            <span>Hemen Maç Başlat</span>
+            <span className="flex items-center gap-0.5 px-1 py-0.5 rounded-full bg-amber-500/30 shrink-0">
               <Coins size={10} /> 2
             </span>
           </span>

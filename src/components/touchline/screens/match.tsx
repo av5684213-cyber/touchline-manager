@@ -727,13 +727,15 @@ function MatchTopBar({
       </div>
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
         {/* Home */}
-        <div className="flex flex-col items-center gap-1">
+        <div className="flex flex-col items-center gap-1 min-w-0">
+          {/* v2.9.145 C3 FIX: w-12 h-12 yerine w-16 h-12; badge altında tam ad ayrı satırda */}
           <div
-            className="w-12 h-12 rounded-md flex items-center justify-center text-white font-bold text-xs text-center px-1 leading-tight"
+            className="w-16 h-12 rounded-md flex items-center justify-center text-white font-bold text-xs text-center px-1 leading-tight"
             style={{ background: homeTeam.primaryColor }}
           >
-            {homeTeam.name}
+            <span className="tm-team-badge-text">{homeTeam.shortName ?? homeTeam.name.slice(0, 3).toUpperCase()}</span>
           </div>
+          <span className="text-[10px] text-muted-foreground tm-name-2line text-center max-w-[120px]">{homeTeam.name}</span>
         </div>
         {/* Score + minute */}
         <div className="flex flex-col items-center">
@@ -765,13 +767,14 @@ function MatchTopBar({
           </div>
         </div>
         {/* Away */}
-        <div className="flex flex-col items-center gap-1">
+        <div className="flex flex-col items-center gap-1 min-w-0">
           <div
-            className="w-12 h-12 rounded-md flex items-center justify-center text-white font-bold text-xs text-center px-1 leading-tight"
+            className="w-16 h-12 rounded-md flex items-center justify-center text-white font-bold text-xs text-center px-1 leading-tight"
             style={{ background: awayTeam.primaryColor }}
           >
-            {awayTeam.name}
+            <span className="tm-team-badge-text">{awayTeam.shortName ?? awayTeam.name.slice(0, 3).toUpperCase()}</span>
           </div>
+          <span className="text-[10px] text-muted-foreground tm-name-2line text-center max-w-[120px]">{awayTeam.name}</span>
         </div>
       </div>
       {/* Weather row */}

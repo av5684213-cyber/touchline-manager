@@ -85,7 +85,8 @@ export function NewsScreen() {
         </div>
       </div>
 
-      <div className="flex gap-1.5 overflow-x-auto tm-no-scrollbar">
+      {/* v2.9.145 C6 FIX: flex overflow-x-auto tm-no-scrollbar → tm-filter-row (görünür scrollbar) */}
+      <div className="tm-filter-row">
         {(["ALL", "headline", "match", "transfer", "rumor", "injury", "milestone"] as const).map((cat) => (
           <button
             key={cat}
@@ -94,7 +95,6 @@ export function NewsScreen() {
               "tm-tap px-3 py-1 rounded-full text-[10px] font-semibold whitespace-nowrap border",
               filter === cat ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border"
             )}
-           
           >
             {cat === "ALL" ? "Tümü" : (CATEGORY_STYLE[cat]?.label ?? cat)}
           </button>

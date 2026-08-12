@@ -141,7 +141,8 @@ export function LeaderboardScreen() {
           <Trophy size={18} className="text-amber-400" />
           <h1 className="text-base font-bold">Liderlik Tablosu</h1>
         </div>
-        <p className="text-[10px] text-muted-foreground">
+        {/* v2.9.145 m2 FIX: text-[10px] → text-[11px]; tm-name-2line ile taşarsa 2 satıra iner */}
+        <p className="text-[11px] text-muted-foreground tm-name-2line leading-relaxed">
           {tab === "global"
             ? "🌍 Tüm liglerin takım gücü sıralaması — puan = OVR × 10 + bütçe(M)"
             : "Menajerlerin sıralaması — puan = takım OVR × 10 + bütçe(M) + sezon bonusu"}
@@ -228,14 +229,15 @@ export function LeaderboardScreen() {
                 {entry.teamShort.slice(0, 3)}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-semibold truncate flex items-center gap-1">
+                {/* v2.9.145 m2 FIX: truncate → tm-name-2line */}
+                <div className="text-xs font-semibold tm-name-2line flex items-center gap-1">
                   {entry.managerName}
-                  {entry.isMe && <span className="text-primary">(Sen)</span>}
+                  {entry.isMe && <span className="text-primary shrink-0">(Sen)</span>}
                   {entry.isBot && !entry.isMe && (
-                    <span className="text-[9px] text-muted-foreground px-1 rounded bg-muted">T{entry.leagueTier}</span>
+                    <span className="text-[9px] text-muted-foreground px-1 rounded bg-muted shrink-0">T{entry.leagueTier}</span>
                   )}
                 </div>
-                <div className="text-[10px] text-muted-foreground truncate">{entry.teamName}</div>
+                <div className="text-[10px] text-muted-foreground tm-name-2line">{entry.teamName}</div>
               </div>
               <div className="text-right">
                 <div className="text-xs font-bold tabular-nums">{entry.points.toLocaleString("tr-TR")}</div>

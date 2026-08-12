@@ -222,8 +222,9 @@ export function FixtureScreen() {
               </div>
 
               {/* Home/Away badge */}
+              {/* v2.9.145 M1 FIX: w-8 → min-w-[40px] px-2 — Home/Away tek harf yerine tam kelime sığar */}
               <span className={cn(
-                "text-[11px] px-1 py-0.5 rounded font-bold shrink-0 w-8 text-center",
+                "text-[11px] px-2 py-0.5 rounded font-bold shrink-0 min-w-[40px] text-center",
                 isHome ? "bg-emerald-500/20 text-emerald-300" : "bg-sky-500/20 text-sky-300"
               )}>
                 {isHome ? t("fixture.home") : t("fixture.away")}
@@ -239,7 +240,8 @@ export function FixtureScreen() {
               >
                 <ClubBadge short={opp.shortName} primaryColor={opp.primaryColor} size={24} />
                 <div className="flex-1 min-w-0 text-left">
-                  <div className="text-xs font-semibold truncate hover:text-primary transition-colors">{opp.name}</div>
+                  {/* v2.9.145 M1 FIX: truncate → tm-name-2line — uzun takım adları sığar */}
+                  <div className="text-xs font-semibold tm-name-2line hover:text-primary transition-colors">{opp.name}</div>
                   <div className="text-[11px] text-muted-foreground">
                     {new Intl.DateTimeFormat(locale === "tr" ? "tr-TR" : "en-US", {
                       day: "2-digit", month: "short",

@@ -145,14 +145,15 @@ export function YouthAcademyScreen() {
                 onClick={() => { haptic("light"); setProfilePlayer(p); }}
                 className="flex-1 min-w-0 text-left"
               >
+                {/* v2.9.145 M2 FIX: truncate → tm-name-2line; isim + pozisyon alt satıra taşabilir */}
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-semibold truncate">{p.firstName} {p.lastName}</span>
+                  <span className="text-xs font-semibold tm-name-2line flex-1 min-w-0">{p.firstName} {p.lastName}</span>
                   <PositionPill label={p.specificPosition} group={POSITION_GROUP[p.specificPosition]} />
                 </div>
-                <div className="text-[11px] text-muted-foreground flex items-center gap-2">
+                <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
                   <span>{p.age}{t("common.year")}</span>
                   <span>· OVR {p.rating}</span>
-                  <span className="flex items-center gap-0.5 text-amber-300">
+                  <span className="flex items-center gap-0.5 text-amber-300 whitespace-nowrap">
                     <Sparkles size={8} /> {t("youth.potential")}: {p.potential}
                   </span>
                 </div>
@@ -160,7 +161,7 @@ export function YouthAcademyScreen() {
               <RatingBadge value={p.rating} />
               <button
                 onClick={() => handlePromote(p)}
-                className="tm-tap px-2 py-1.5 rounded text-[10px] font-bold bg-emerald-600 text-white flex items-center gap-1"
+                className="tm-tap px-2 py-1.5 rounded text-[10px] font-bold bg-emerald-600 text-white flex items-center gap-1 shrink-0"
               >
                 <ArrowUp size={10} /> {t("youth.promote")}
               </button>

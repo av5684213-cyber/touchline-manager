@@ -30,14 +30,15 @@ export function TopBar({ compact = false }: { compact?: boolean }) {
                 primaryColor={team.primaryColor}
                 size={28}
               />
-              <span className="text-sm font-bold leading-tight truncate flex-1">
+              {/* v2.9.145 C4 FIX: truncate → tm-name-2line; budget önünde min-width ile sıkıştırma yapma */}
+              <span className="text-sm font-bold leading-tight tm-name-2line flex-1 min-w-0">
                 {team.name}
               </span>
-              <span className="text-[11px] opacity-80">
+              <span className="text-[11px] opacity-80 whitespace-nowrap shrink-0">
                 {team.leagueTier ? LEAGUE_NAMES[team.leagueTier][locale] : t("dash.1lig")}
                 {team.department ? ` D${team.department}` : ""}
               </span>
-              <span className="text-xs font-bold tabular-nums opacity-90">
+              <span className="text-xs font-bold tabular-nums opacity-90 whitespace-nowrap shrink-0">
                 {formatEuro(team.budget, locale)}
               </span>
               {/* Kredi göstergesi */}
@@ -79,10 +80,11 @@ export function TopBar({ compact = false }: { compact?: boolean }) {
                 size={44}
               />
               <div className="flex-1 min-w-0">
-                <div className="text-base font-bold leading-tight truncate">
+                {/* v2.9.145 C4 FIX: truncate → tm-name-2line; ligin yanındaki bütçe/tier bilgisi alt satıra taşabilir */}
+                <div className="text-base font-bold leading-tight tm-name-2line">
                   {team.name}
                 </div>
-                <div className="text-[11px] opacity-80 truncate">
+                <div className="text-[11px] opacity-80 tm-name-2line">
                   {t("dash.season")} 2025–26 · {team.leagueTier ? LEAGUE_NAMES[team.leagueTier][locale] : t("dash.1lig")}{team.department ? ` D${team.department}` : ""}
                 </div>
               </div>
