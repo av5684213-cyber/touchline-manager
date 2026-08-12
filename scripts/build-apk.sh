@@ -38,11 +38,19 @@ echo "✅ out/ dizini hazır: $(du -sh out/ | cut -f1)"
 # ─── 2. Android assets'e kopyala ─────────────────────────────────────────────
 echo ""
 echo "📦 2/4: Android assets'e kopyalanıyor..."
-mkdir -p android-app/app/src/main/assets/web
-rm -rf android-app/app/src/main/assets/web/*
-cp -r out/* android-app/app/src/main/assets/web/
+# v2.9.145 KRİTİK FIX: Sadece _next değil TÜM out/ klasörünü kopyala.
+# Önceki sürümlerde sadece _next kopyalanıyordu → awards/trophies/backgrounds/
+# icons/ klasörleri APK'ya girmiyordu → 3MB'lık bozuk APK üretiliyordu.
+# Doğru boyut ~20MB olmalı (önceki release'lerle uyumlu).
+mkdir -p android-app/app/src/main/assets
+rm -rf android-app/app/src/main/assets/*
+cp -r out/* android-app/app/src/main/assets/
 
-echo "✅ assets/web hazır: $(du -sh android-app/app/src/main/assets/web/ | cut -f1)"
+echo "✅ assets hazır: $(du -sh android-app/app/src/main/assets/ | cut -f1)"
+echo "   Awards: $(ls android-app/app/src/main/assets/awards/ 2>/dev/null | wc -l) dosya"
+echo "   Trophies: $(ls android-app/app/src/main/assets/trophies/ 2>/dev/null | wc -l) dosya"
+echo "   Backgrounds: $(ls android-app/app/src/main/assets/backgrounds/ 2>/dev/null | wc -l) dosya"
+echo "   _next chunks: $(ls android-app/app/src/main/assets/_next/static/chunks/ 2>/dev/null | wc -l) dosya"
 
 # ─── 3. local.properties kontrol ─────────────────────────────────────────────
 echo ""
