@@ -11,12 +11,12 @@ import { createBrowserClient } from "@supabase/ssr";
  * Eğer env var yoksa stub client döner ve isSupabaseConfigured=false olur.
  *
  * APP'i çalıştırırken (özellikle Android APK): .env dosyası oluşturun:
- *   NEXT_PUBLIC_SUPABASE_URL=https://bhnhmdlyabuachyjwxwe.supabase.co
+ *   NEXT_PUBLIC_SUPABASE_URL=https://jmxbyaamwbpnvgbnjbmo.supabase.co
  *   NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc... (Supabase Dashboard → Settings → API → anon public)
  */
 
 // Hardcoded fallback — proje URL'i migration'larda da hardcoded (014, 030)
-const HARDCODED_SUPABASE_URL = "https://bhnhmdlyabuachyjwxwe.supabase.co";
+const HARDCODED_SUPABASE_URL = "https://jmxbyaamwbpnvgbnjbmo.supabase.co";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL || HARDCODED_SUPABASE_URL;
 const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -29,7 +29,7 @@ if (typeof window !== "undefined" && !isConfigured) {
   console.warn(
     "[supabase] NEXT_PUBLIC_SUPABASE_ANON_KEY tanımlı değil.\n" +
     "Çözüm: .env dosyası oluşturun:\n" +
-    "  NEXT_PUBLIC_SUPABASE_URL=https://bhnhmdlyabuachyjwxwe.supabase.co\n" +
+    "  NEXT_PUBLIC_SUPABASE_URL=https://jmxbyaamwbpnvgbnjbmo.supabase.co\n" +
     "  NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc... (Supabase Dashboard → Settings → API → anon public)\n" +
     "Sonra: npm run build && bash scripts/build-apk.sh"
   );

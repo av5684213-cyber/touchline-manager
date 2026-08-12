@@ -41,7 +41,7 @@ SELECT cron.schedule(
   $$
     SELECT content
     FROM http_post(
-      url := 'https://bhnhmdlyabuachyjwxwe.supabase.co/functions/v1/daily-match-sim'::text,
+      url := 'https://jmxbyaamwbpnvgbnjbmo.supabase.co/functions/v1/daily-match-sim'::text,
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
         'Authorization', 'Bearer YOUR_SERVICE_ROLE_KEY',
@@ -68,7 +68,7 @@ SELECT cron.schedule(
   $$
     SELECT content
     FROM http_post(
-      url := 'https://bhnhmdlyabuachyjwxwe.supabase.co/functions/v1/daily-cup-sim'::text,
+      url := 'https://jmxbyaamwbpnvgbnjbmo.supabase.co/functions/v1/daily-cup-sim'::text,
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
         'Authorization', 'Bearer YOUR_SERVICE_ROLE_KEY',
@@ -95,7 +95,7 @@ SELECT cron.schedule(
   $$
     SELECT content
     FROM http_post(
-      url := 'https://bhnhmdlyabuachyjwxwe.supabase.co/functions/v1/daily-training-sim'::text,
+      url := 'https://jmxbyaamwbpnvgbnjbmo.supabase.co/functions/v1/daily-training-sim'::text,
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
         'Authorization', 'Bearer YOUR_SERVICE_ROLE_KEY',

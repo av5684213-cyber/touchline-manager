@@ -29,7 +29,7 @@ SELECT cron.schedule(
   '0 9,15 * * 1-5',  -- UTC 09:00, 15:00 = TR 12:00, 18:00
   $$
     SELECT net.http_post(
-      url := 'https://bhnhmdlyabuachyjwxwe.supabase.co/functions/v1/daily-match-sim',
+      url := 'https://jmxbyaamwbpnvgbnjbmo.supabase.co/functions/v1/daily-match-sim',
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
         'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'supabase_service_role_key'),
@@ -46,7 +46,7 @@ SELECT cron.schedule(
   '0 9,15 * * 6',  -- UTC 09:00, 15:00 = TR 12:00, 18:00 cumartesi
   $$
     SELECT net.http_post(
-      url := 'https://bhnhmdlyabuachyjwxwe.supabase.co/functions/v1/daily-cup-sim',
+      url := 'https://jmxbyaamwbpnvgbnjbmo.supabase.co/functions/v1/daily-cup-sim',
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
         'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'supabase_service_role_key'),
@@ -63,7 +63,7 @@ SELECT cron.schedule(
   '0 7,13 * * 1-5',  -- UTC 07:00, 13:00 = TR 10:00, 16:00
   $$
     SELECT net.http_post(
-      url := 'https://bhnhmdlyabuachyjwxwe.supabase.co/functions/v1/daily-training-sim',
+      url := 'https://jmxbyaamwbpnvgbnjbmo.supabase.co/functions/v1/daily-training-sim',
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
         'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'supabase_service_role_key'),

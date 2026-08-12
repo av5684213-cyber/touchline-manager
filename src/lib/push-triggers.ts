@@ -22,7 +22,7 @@ import { useAppStore } from "@/lib/store";
 // Supabase URL'i .env'den veya hardcoded fallback'ten
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  "https://bhnhmdlyabuachyjwxwe.supabase.co";
+  "https://jmxbyaamwbpnvgbnjbmo.supabase.co";
 
 /**
  * v2.9.148: Maç bitiminde push gönder.

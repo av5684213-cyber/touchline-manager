@@ -10,7 +10,7 @@
 #
 # Adımlar:
 #   1. Supabase Dashboard'a git: https://supabase.com/dashboard
-#   2. Projeni seç (bhnhmdlyabuachyjwxwe)
+#   2. Projeni seç (jmxbyaamwbpnvgbnjbmo)
 #   3. Settings → API → "anon public" key'i kopyala
 #   4. Bu script'i çalıştır, key'i yapıştır
 #   5. npm run build && bash scripts/build-apk.sh
@@ -18,7 +18,7 @@
 set -e
 
 ENV_FILE="/home/z/my-project/.env"
-URL="https://bhnhmdlyabuachyjwxwe.supabase.co"
+URL="https://jmxbyaamwbpnvgbnjbmo.supabase.co"
 
 echo "═══════════════════════════════════════════════════════════════"
 echo "  Touchline Manager — Supabase .env Setup"
