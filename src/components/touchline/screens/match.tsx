@@ -35,6 +35,8 @@ import {
 import type {
   MatchEvent as EnhancedMatchEvent,
 } from "@/lib/match/engine/enhancedMatchEngine";
+// v2.9.145 V-06 FIX: Tek kaynak — MAX_SUBSTITUTIONS constants'tan gelir.
+import { MAX_SUBSTITUTIONS } from "@/lib/match/engine/constants";
 type MatchEvent = EnhancedMatchEvent;
 import type { LiveMatchState } from "@/hooks/use-match-engine";
 import {
@@ -958,7 +960,9 @@ function HalftimeSubs({ team, homeTeam, engine, mySide }: {
 }) {
   const [selectOut, setSelectOut] = useState<string | null>(null);
   const [subsDone, setSubsDone] = useState(0);
-  const maxSubs = 3;
+  // v2.9.145 V-06 FIX (TEKRAR): hardcoded 3 → MAX_SUBSTITUTIONS (5).
+  // Aşağıda render'da dynamic olarak yazdırılır.
+  const maxSubs = MAX_SUBSTITUTIONS;
 
   // v2.9.70 FIX: Reaktif tactics okuma — getState() değil
   const tactics = useAppStore((s) => s.tactics);
@@ -1078,7 +1082,7 @@ function HalftimeSubs({ team, homeTeam, engine, mySide }: {
 
       {subsDone >= maxSubs && (
         <div className="text-center text-[10px] text-muted-foreground py-1">
-          ✓ 3 değişiklik hakkın bitti
+          ✓ {maxSubs} değişiklik hakkın bitti
         </div>
       )}
     </div>
@@ -1298,7 +1302,8 @@ function TacticsDrawer({
     }
   };
 
-  const subsLeft = 5 - engine.state.subsUsed[mySide];
+  // v2.9.145 V-06 FIX: hardcoded 5 → MAX_SUBSTITUTIONS
+  const subsLeft = MAX_SUBSTITUTIONS - engine.state.subsUsed[mySide];
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">

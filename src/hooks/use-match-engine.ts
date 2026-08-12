@@ -13,6 +13,8 @@ import { useAppStore } from "@/lib/store";
 import { FORMATION_SLOTS, DEFAULT_TACTIC, TACTICAL_INSTRUCTIONS } from "@/lib/tactics/types";
 import { computeStandings } from "@/lib/mock/season";
 import { applyDoctorHealingBonus } from "@/lib/staffBonus";
+// v2.9.145 V-06 FIX: substitution limit — TEK kaynak (constants.ts)
+import { MAX_SUBSTITUTIONS } from "@/lib/match/engine/constants";
 import { checkAchievements } from "@/components/touchline/achievements";
 // v2.9.17: Bot takımlar için pozisyon uygunluğu
 import { isPlayerAvailableAt } from "@/lib/player-availability";
@@ -1479,7 +1481,7 @@ export function useMatchEngine(home: Team, away: Team, locale: Locale, isFriendl
     (_side: "home" | "away", outPlayer: Player, inPlayer: Player): boolean => {
       const result = fullResultRef.current;
       if (!result) return false;
-      if ((snapshot.subsUsed[_side] ?? 0) >= 5) return false;
+      if ((snapshot.subsUsed[_side] ?? 0) >= MAX_SUBSTITUTIONS) return false;
       // v2.9.92 FIX (Bulgu 4): Motor semantiğine uy — playerId = ÇIKAN oyuncu, assistPlayerId = GİREN oyuncu.
       // Eski kod: playerId: inPlayer.id (giren) → devre arası applyTactics yanlış işliyordu,
       // giren oyuncu "çıkan" sanılıp 2. yarıdan siliniyordu.

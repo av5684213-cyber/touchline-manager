@@ -888,3 +888,12 @@ export const PLAYER_RATING_WEIGHTS = {
   mentalModifierStrength: 0.5,
   ratingClamp: { min: 3.0, max: 10.0 } as const,
 } as const;
+
+// ════════════════════════════════════════════════════════════════════════════
+// v2.9.145 V-06 FIX (TEKRAR — rebase sırasında kayboldu): Substitution limit
+// ════════════════════════════════════════════════════════════════════════════
+// Sorun: match.tsx içinde maxSubs=3 hardcoded idi, derlenmiş APK'da "3 değişiklik
+// hakkın bitti" mesajı basılıyordu. Kural 5 olmalı (IFAB Law 3).
+//
+// Çözüm: TEK kaynak. Tüm component'ler buradan import eder.
+export const MAX_SUBSTITUTIONS = 5 as const;

@@ -30,6 +30,8 @@ import {
   DEFAULT_TACTIC,
   TACTICAL_INSTRUCTIONS,
 } from "@/lib/tactics/types";
+// v2.9.145 V-06 FIX: substitution limit — TEK kaynak (constants.ts)
+import { MAX_SUBSTITUTIONS } from "@/lib/match/engine/constants";
 
 const TICK_MS = 800; // 1 oyun dakikası = 800ms
 const HALF_TIME_MINUTE = 45;
@@ -663,7 +665,7 @@ export const useLiveMatchStore = create<LiveMatchStore>((set, get) => ({
   makeSub: (side, outPlayer, inPlayer) => {
     const session = get().session;
     if (!session) return false;
-    if ((session.snapshot.subsUsed[side] ?? 0) >= 5) return false;
+    if ((session.snapshot.subsUsed[side] ?? 0) >= MAX_SUBSTITUTIONS) return false;
 
     const subEvent: EnhancedMatchEvent = {
       minute: session.snapshot.minute,
