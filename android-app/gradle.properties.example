@@ -1,0 +1,36 @@
+# ════════════════════════════════════════════════════════════════════════════
+# Touchline Manager — Release Signing Credentials Şablonu
+# ════════════════════════════════════════════════════════════════════════════
+# Bu dosyayı `cp gradle.properties.example local.properties` olarak kopyala,
+# değerleri doldur. `local.properties` .gitignore'da olduğu için asla
+# GitHub'a gitmez.
+#
+# Alternatif: env var olarak da çalışır. CI/CD için env var tercih edilir.
+# ════════════════════════════════════════════════════════════════════════════
+
+# Release keystore dosya yolu (android-app/ köküne göre veya absolute path)
+touchline.keystore.path=keystore.jks
+
+# Keystore şifresi (production release signing)
+touchline.keystore.password=CHANGE_ME_keystore_password
+
+# Key alias
+touchline.key.alias=touchline
+
+# Key şifresi
+touchline.key.password=CHANGE_ME_key_password
+
+# ════════════════════════════════════════════════════════════════════════════
+# Alternatif: env var olarak (CI/CD için)
+# ════════════════════════════════════════════════════════════════════════════
+# Aynı değerler şu env var'lardan da okunur (local.properties'ten öncelikli):
+#   export TOUCHLINE_KEYSTORE_PATH=/path/to/keystore.jks
+#   export TOUCHLINE_KEYSTORE_PASSWORD=...
+#   export TOUCHLINE_KEY_ALIAS=touchline
+#   export TOUCHLINE_KEY_PASSWORD=...
+# ════════════════════════════════════════════════════════════════════════════
+
+# Keystore oluşturma (referans):
+# keytool -genkey -v -keystore keystore.jks -keyalg RSA -keysize 2048 \
+#   -validity 10000 -alias touchline
+# ════════════════════════════════════════════════════════════════════════════

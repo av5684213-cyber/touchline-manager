@@ -1,6 +1,7 @@
 plugins {
     id "com.android.application"
 }
+
 android {
     namespace "com.touchline.manager"
     compileSdk 35
@@ -8,8 +9,8 @@ android {
         applicationId "com.touchline.manager"
         minSdk 24
         targetSdk 35
-        versionCode 1450
-        versionName "2.9.145"
+        versionCode 1460
+        versionName "2.9.146"
     }
     sourceSets {
         main {
@@ -23,15 +24,73 @@ android {
         // .svn, .git, .ds_store vb. gizli dosyaları atla ama _next/ ve tüm JS'i tut
         ignoreAssetsPattern ".svn:.git:.ds_store:*.scc:CVS:thumbs.db:picasa.ini:*.bak"
     }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // v2.9.146: Release signing config — hardcoded DEĞİL, env var/local.properties
+    // ════════════════════════════════════════════════════════════════════════════
+    // Kök neden (kullanıcı şikayeti): v2.9.13'ten beri release build signingConfig
+    // signingConfigs.debug kullanıyordu → APK debug keystore ile imzalanıyordu →
+    // her makina aynı APK'yı farklı imza ile üretiyordu → GitHub release APK'sını
+    // telefona kurarken "imza uyuşmazlığı" hatası.
+    //
+    // Çözüm: signingConfigs.release bloğu eklendi. Credentials env var'dan okunur,
+    // yoksa local.properties'ten (o dosya .gitignore'da). İkisi de yoksa uyarı verir
+    // ve debug fallback'e döner (geliştirme için).
+    signingConfigs {
+        release {
+            // Öncelik sırası: env var → local.properties → yok (debug fallback)
+            // v2.9.146 NOT: keyAlias/keyPassword hem property hem method olduğu için
+            // Groovy bunları method call olarak yorumluyor. String değişkeni her zaman
+            // parantezle çağırmalı: keyAlias(value), keyPassword(value).
+            def keystorePath = System.getenv("TOUCHLINE_KEYSTORE_PATH")
+            def keystorePassword = System.getenv("TOUCHLINE_KEYSTORE_PASSWORD")
+            def keyAliasValue = System.getenv("TOUCHLINE_KEY_ALIAS")
+            def keyPasswordValue = System.getenv("TOUCHLINE_KEY_PASSWORD")
+
+            // local.properties fallback (CI dışı lokal build'ler için)
+            if (keystorePath == null) {
+                def localProps = new Properties()
+                def localPropsFile = rootProject.file("local.properties")
+                if (localPropsFile.exists()) {
+                    localProps.load(new FileInputStream(localPropsFile))
+                    keystorePath = localProps.getProperty("touchline.keystore.path")
+                    keystorePassword = localProps.getProperty("touchline.keystore.password")
+                    keyAliasValue = localProps.getProperty("touchline.key.alias")
+                    keyPasswordValue = localProps.getProperty("touchline.key.password")
+                }
+            }
+
+            // Sadece tüm credential'lar varsa release config'i etkinleştir
+            if (keystorePath != null && keystorePassword != null && keyAliasValue != null && keyPasswordValue != null) {
+                // rootProject.file() ile root dizine (android-app/) göre resolve eder.
+                // app/ dizinine göre DEĞİL — yoksa "/home/.../android-app/app/keystore.jks" arar.
+                def keystoreFile = rootProject.file(keystorePath)
+                println "🔐 Release signing: keystore=${keystoreFile.absolutePath}, alias=${keyAliasValue}"
+                storeFile keystoreFile
+                storePassword(keystorePassword)
+                keyAlias(keyAliasValue)
+                keyPassword(keyPasswordValue)
+            } else {
+                println "⚠️  Release signing credentials bulunamadı (env var veya local.properties)."
+                println "    Şablon için: android-app/gradle.properties.example"
+                println "    Debug keystore ile imzalanacak — production release için KULLANMAYIN."
+                println "    Lokal test için sorun değil."
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             shrinkResources false
-            signingConfig signingConfigs.debug
+            // v2.9.146: signingConfigs.debug → signingConfigs.release
+            // Eğer credentials yoksa (yukarıda println uyarısı verir), signingConfigs.release
+            // boş kalır → gradle otomatik debug keystore'a fallback yapar. Eğer credentials
+            // varsa production release keystore ile imzalanır.
+            signingConfig signingConfigs.release
             // Assets sıkıştırma kapalı — web dosyaları bozulmasın
             crunchPngs false
             // v2.9.13 MADDE 5: debuggable KESİNLİKLE false
-            // Varsayılan zaten false ama açıkça belirtelim
             debuggable false
         }
     }
@@ -101,7 +160,7 @@ task verifyProductionApk {
 
 // Release build sonrası otomatik doğrulama
 afterEvaluate {
-    // // assembleRelease.finalizedBy verifyProductionApk // v2.9.88 // v2.9.84
+    // assembleRelease.finalizedBy verifyProductionApk
 }
 
 // =============================================================================

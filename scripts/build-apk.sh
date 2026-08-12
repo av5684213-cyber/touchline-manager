@@ -20,7 +20,13 @@
 
 set -e  # hata olursa dur
 
-echo "🚀 Touchline Manager APK Build — v2.9.74"
+# v2.9.146: Pre-build guard — supabase-test route kaynakta varsa build durdur
+bash "$(dirname "$0")/pre-build-guard.sh"
+
+# v2.9.145: Version tutarlılık kontrolü
+bash "$(dirname "$0")/verify-version-consistency.sh"
+
+echo "🚀 Touchline Manager APK Build"
 echo "=========================================="
 
 # ─── 1. Next.js static export ─────────────────────────────────────────────────

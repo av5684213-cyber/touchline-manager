@@ -78,3 +78,12 @@ android-app/app/src/main/assets/*.json
 android-app/app/src/main/assets/*.svg
 android-app/app/src/main/assets/*.png
 android-app/app/src/main/assets/*.js
+
+# v2.9.146: Release signing credentials — ASLA GitHub'a gitmemeli
+# local.properties signing credentials içerir (keystore path/password/alias)
+android-app/local.properties
+# Production release keystore (twa-build/ altında bir tane var ama yeni üretilebilir)
+android-app/*.jks
+android-app/*.keystore
+*.jks
+*.keystore
