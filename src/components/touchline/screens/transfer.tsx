@@ -27,6 +27,8 @@ import {
   type IncomingOffer,
   type TransferListing,
 } from "@/lib/mock/transfer";
+// v2.9.149 GRACE PERIOD: transfer ücreti waiver için
+import { useIsInGracePeriod } from "@/components/touchline/welcome-modal";
 import {
   POSITION_GROUP,
   type Player,
@@ -1178,7 +1180,10 @@ function OfferModal({
 
   if (!team || !listing) return null;
 
-  const cost = calculateBuyerCost(fee);
+  // v2.9.149 GRACE PERIOD: ilk 7 günde transfer ücreti yok (welcome modal vaadi).
+  // useIsInGracePeriod() hook'u onboarding.gracePeriodEndsAt'ı kontrol eder.
+  const isGraceActive = useIsInGracePeriod();
+  const cost = calculateBuyerCost(fee, { waiveGrace: isGraceActive });
   const overBudget = cost.total > team.budget;
   const tooLow = fee < listing.askingPrice * 0.85;
 
@@ -1289,12 +1294,26 @@ function OfferModal({
             </div>
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">{t("transfer.offer_modal.agent_fee")}</span>
-              <span className="tabular-nums">{formatEuro(cost.agentFee)}</span>
+              <span className="tabular-nums">
+                {cost.agentFee === 0
+                  ? <span className="text-emerald-600">{formatEuro(0)} <span className="text-[10px]">🎁 grace</span></span>
+                  : formatEuro(cost.agentFee)}
+              </span>
             </div>
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">{t("transfer.offer_modal.signing_bonus")}</span>
-              <span className="tabular-nums">{formatEuro(cost.signingBonus)}</span>
+              <span className="tabular-nums">
+                {cost.signingBonus === 0
+                  ? <span className="text-emerald-600">{formatEuro(0)} <span className="text-[10px]">🎁 grace</span></span>
+                  : formatEuro(cost.signingBonus)}
+              </span>
             </div>
+            {isGraceActive && cost.graceSaved > 0 && (
+              <div className="flex justify-between text-xs text-emerald-600 bg-emerald-500/10 -mx-2 px-3 py-1 rounded">
+                <span className="font-semibold">🎉 Grace hediyen</span>
+                <span className="tabular-nums">−{formatEuro(cost.graceSaved)}</span>
+              </div>
+            )}
             <div className="border-t border-border pt-1.5 flex justify-between">
               <span className="text-xs font-bold">{t("transfer.offer_modal.total_cost")}</span>
               <span className={cn(

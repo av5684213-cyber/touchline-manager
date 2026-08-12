@@ -324,15 +324,23 @@ export const TRANSFER_TAX_RATE = 0.10; // v2.9.96: %2.5 → %10 (para arzını a
 export const AGENT_FEE_RATE = 0.05; // alıcıya %5
 export const SIGNING_BONUS_RATE = 0.03; // alıcıya %3
 
-export function calculateBuyerCost(askingPrice: number) {
-  const agentFee = Math.round(askingPrice * AGENT_FEE_RATE);
-  const signingBonus = Math.round(askingPrice * SIGNING_BONUS_RATE);
+// v2.9.149 GRACE PERIOD: İlk 7 günde transfer ücreti yok (welcome modal vaadi).
+// calculateBuyerCost'a waivGrace=true geçirilirse agentFee + signingBonus = 0.
+// Sadece transferFee (oyuncu bedeli) ödenir.
+export function calculateBuyerCost(askingPrice: number, opts?: { waiveGrace?: boolean }) {
+  const graceActive = opts?.waiveGrace === true;
+  const agentFee = graceActive ? 0 : Math.round(askingPrice * AGENT_FEE_RATE);
+  const signingBonus = graceActive ? 0 : Math.round(askingPrice * SIGNING_BONUS_RATE);
   const total = askingPrice + agentFee + signingBonus;
   return {
     transferFee: askingPrice,
     agentFee,
     signingBonus,
     total,
+    // v2.9.149: Grace aktifken saklanan tutar (UI'da "Hediyen: -X €" gösterebilmek için)
+    graceSaved: graceActive
+      ? Math.round(askingPrice * (AGENT_FEE_RATE + SIGNING_BONUS_RATE))
+      : 0,
   };
 }
 

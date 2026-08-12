@@ -555,6 +555,56 @@ Deno.serve(async (req: Request) => {
       away_team: awayTeam?.name ?? "?",
       score: `${matchResult.home}-${matchResult.away}`,
     });
+
+    // v2.9.149 PUSH TRIGGER: Eğer bu maçtaki takımlardan biri gerçek kullanıcı
+    // takımı ise (owner_id != null), o kullanıcıya "Maçın bitti" push gönder.
+    // push_tokens tablosunda token varsa, rpc_send_push_notification çağrılır.
+    const homeOwnerId = homeTeam?.owner_id;
+    const awayOwnerId = awayTeam?.owner_id;
+    const userOwnerIds = [homeOwnerId, awayOwnerId].filter((id): id is string => !!id);
+
+    for (const ownerId of userOwnerIds) {
+      // Kullanıcının push token'ı var mı?
+      const { data: tokens } = await supabase
+        .from("push_tokens")
+        .select("token")
+        .eq("user_id", ownerId);
+
+      if (tokens && tokens.length > 0) {
+        const isUserHome = ownerId === homeOwnerId;
+        const userScore = isUserHome ? matchResult.home : matchResult.away;
+        const oppScore = isUserHome ? matchResult.away : matchResult.home;
+        const oppName = isUserHome ? (awayTeam?.name ?? "?") : (homeTeam?.name ?? "?");
+        const isWin = userScore > oppScore;
+        const isDraw = userScore === oppScore;
+        const title = isWin ? "Maçın bitti — Kazandın! 🎉"
+                    : isDraw ? "Maçın bitti — Berabere"
+                    : "Maçın bitti";
+        const body = `${userScore}-${oppScore} ${oppName} — sonucu gör`;
+
+        // send-match-end-push Edge Function'ı çağır (service role ile)
+        try {
+          await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-match-end-push`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              user_id: ownerId,
+              home_name: homeTeam?.name,
+              away_name: awayTeam?.name,
+              home_score: matchResult.home,
+              away_score: matchResult.away,
+              match_type: fx.cup_round ? "cup" : "league",
+            }),
+          });
+          console.log(`[push] match-end push sent to user ${ownerId}: ${title} ${body}`);
+        } catch (pushErr) {
+          console.warn(`[push] failed for user ${ownerId}:`, pushErr);
+        }
+      }
+    }
   }
 
   // 12. Standings'i toplu güncelle

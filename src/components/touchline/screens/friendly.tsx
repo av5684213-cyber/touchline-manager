@@ -240,33 +240,38 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
   // 'first_friendly' YOKSA) en zayıf rakibi seç — kullanıcı ilk galibiyetini
   // yaşasın. 'first_friendly' tamamlandıktan sonra rastgele/rakip-OVR seçimi.
   const isFirstFriendly = !useOnboardingStepCompleted("first_friendly");
+  // v2.9.149: Grace period boyunca (ilk 7 gün) de kolay rakip seç.
+  const isGraceActive = useAppStore((s) => {
+    if (!s.onboarding?.gracePeriodEndsAt) return false;
+    return Date.now() < s.onboarding.gracePeriodEndsAt;
+  });
+  const easyOpponentPool = isFirstFriendly || isGraceActive;
 
   const handleInstantMatch = () => {
     haptic("medium");
     const ok = spendCredits(2);
     if (!ok) {
       haptic("error");
-      setFeedback("✗ Yetersiz kredi! Sıraya girerek ücretsiz maç yapabilirsin.");
+      setFeedback("✗ Yetersiz kredi! Sıraya girerek ücretsüz maç yapabilirsin.");
       safeTimeout(() => setFeedback(null), 3000);
       return;
     }
 
     let chosenOpp;
-    if (isFirstFriendly) {
-      // İlk maç: en zayıf rakip seç (OVR ascending sort, ilk 5'ten rastgele)
+    if (easyOpponentPool) {
+      // İlk maç VEYA grace period boyunca: en zayıf rakip seç
       const oppsWithOvr = opponents.map((c) => ({
         club: c,
         ovr: Math.round(c.players.reduce((s, p) => s + p.rating, 0) / c.players.length),
       }));
       oppsWithOvr.sort((a, b) => a.ovr - b.ovr);
-      // En zayıf 5 takım arasından rastgele — tam en zayıf değil, doğal his
       const pool = oppsWithOvr.slice(0, Math.min(5, oppsWithOvr.length));
       chosenOpp = pool[Math.floor(Math.random() * pool.length)]?.club;
-      if (chosenOpp) {
+      if (chosenOpp && isFirstFriendly) {
         completeOnboardingStep("first_friendly");
       }
     } else {
-      // Sonraki maçlar: tam rastgele
+      // Grace bittikten sonra: tam rastgele
       chosenOpp = opponents[Math.floor(Math.random() * opponents.length)];
     }
 
@@ -275,6 +280,8 @@ export function FriendlyScreen({ onGoToMatch }: { onGoToMatch?: () => void }) {
       setFeedback(
         isFirstFriendly
           ? `✓ İlk maçın! ${chosenOpp.name} ile kolay bir başlangıç yapıyorsun.`
+          : isGraceActive
+          ? `✓ 2 kredi harcandı — ${chosenOpp.name} ile maç başlıyor. (Kolay rakip — grace period)`
           : `✓ 2 kredi harcandı — ${chosenOpp.name} ile maç başlıyor!`
       );
       haptic("success");

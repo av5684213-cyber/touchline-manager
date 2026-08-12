@@ -371,6 +371,9 @@ type AppState = {
     firstLoginAt: number | null;      // ilk giriş timestamp (ms)
     gracePeriodEndsAt: number | null; // grace period bitiş timestamp (ms)
     stepsCompleted: string[];         // tamamlanan onboarding adımları
+    // v2.9.149: +50 grace bonus kredi idempotency flag'i — ilk loginden
+    // sonra true set edilir, ikinci loginDemo'da tekrar verilmez.
+    creditsBonusGranted?: boolean;
   };
 
   // actions
@@ -949,18 +952,27 @@ export const useAppStore = create<AppState>()(
           // v2.9.20 GÖREV 7: İlk kez giriş yapan kullanıcı için onboarding state set et
           onboarding: (() => {
             const existing = get().onboarding;
-            if (existing?.firstLoginAt) {
-              // Returning user — grace period'a girmiyor
+            // v2.9.149: ilk login kontrolü — firstLoginAt null ise ilk kez giriyor
+            const isFirstLogin = !existing?.firstLoginAt;
+            if (!isFirstLogin) {
+              // Returning user — grace period zaten başlamış, dokunma
               return existing;
             }
             // v2.9.148 GRACE PERIOD PERKS: İlk kez giriş — bonus kredi hediye et
+            // Welcome modal vaadi: "50 bonus kredi"
             const now = Date.now();
             const GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000;
-            // +50 kredi — welcome modal'da vaat edilen "50 bonus kredi"
-            // (önce set çağrılmadan önceki credits değeri buradan al)
+            // queueMicrotask — set'in tamamlanmasını bekle, sonra +50 ekle.
+            // Bu sayede returning user'a +50 verilmez (firstLoginAt set edildi).
             queueMicrotask(() => {
+              // Tekrar kontrol et — belki başka bir loginDemo çağrısı oldu
+              const current = get().onboarding;
+              if (!current || current.creditsBonusGranted === true) return;
               const currentCredits = get().credits;
-              set({ credits: currentCredits + 50 });
+              set({
+                credits: currentCredits + 50,
+                onboarding: { ...current, creditsBonusGranted: true },
+              });
               console.log("[onboarding] +50 grace bonus credits granted (first login)");
             });
             return {
@@ -968,6 +980,7 @@ export const useAppStore = create<AppState>()(
               firstLoginAt: now,
               gracePeriodEndsAt: now + GRACE_PERIOD_MS,
               stepsCompleted: [],
+              creditsBonusGranted: false, // v2.9.149: idempotency flag
             };
           })(),
         });
@@ -1263,7 +1276,7 @@ export const useAppStore = create<AppState>()(
       },
 
       buyPlayer: (playerId, fee, wage, contractYears) => {
-        const { clubs, myTeamId, transfer } = get();
+        const { clubs, myTeamId, transfer, onboarding } = get();
         const team = clubs.find((c) => c.id === myTeamId);
         if (!team) return { success: false, reason: "no-team" };
 
@@ -1272,8 +1285,15 @@ export const useAppStore = create<AppState>()(
           return { success: false, reason: "window-closed" };
         }
 
-        // Toplam maliyet (transfer + %5 agent + %3 imza)
-        const total = calculateBuyerCost(fee).total; // v2.9.30 T-07: tek kaynak
+        // v2.9.149 GRACE PERIOD: İlk 7 günde agentFee + signingBonus = 0
+        // (welcome modal vaadi). calculateBuyerCost'a waiveGrace=true geçir.
+        const isGraceActive = !!(
+          onboarding?.gracePeriodEndsAt &&
+          Date.now() < onboarding.gracePeriodEndsAt
+        );
+
+        // Toplam maliyet (transfer + %5 agent + %3 imza — grace varsa sadece transfer)
+        const total = calculateBuyerCost(fee, { waiveGrace: isGraceActive }).total;
         if (team.budget < total) {
           return { success: false, reason: "budget" };
         }
