@@ -6,8 +6,10 @@ import { LocaleSwitcher } from "@/lib/i18n/locale-switcher";
 import { useAppStore } from "@/lib/store";
 import { useSupabaseAuth } from "@/lib/auth/auth-context";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import { Trophy, Mail, Lock, User, Loader2, Shield, ChevronRight, Wifi, WifiOff, Globe } from "lucide-react";
+import { Trophy, Mail, Lock, User, Loader2, Shield, ChevronRight, Wifi, WifiOff, Globe, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+// v2.9.153: haptic feedback — dev mode şifre hatası için
+import { haptic } from "@/hooks/touchline";
 import { getCountryList } from "@/lib/countries/countries";
 import { validateTeamName, validateManagerName, validateCountryCode } from "@/lib/name-validator";
 
@@ -32,6 +34,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [teamName, setTeamName] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // v2.9.153: Dev mode şifre modalı — "Geliştirici Modu" butonuna basınca açılır
+  const [showDevPasswordModal, setShowDevPasswordModal] = useState(false);
+  const [devPasswordInput, setDevPasswordInput] = useState("");
+  const [devPasswordError, setDevPasswordError] = useState("");
 
   // Supabase yapılandırma durumu
   const supabaseReady = isSupabaseConfigured();
@@ -54,6 +60,33 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       }
     }
   }, [isSupabaseAuthed, user, loginDemo]);
+
+  // v2.9.153 B TEST FIX: Dev/demo mode'da sayfa yenilenince otomatik geri yükle.
+  // localStorage'da backup varsa ve isAuthed=true ise, loginDemo() çağır →
+  // loginDemo içinden localStorage restore yapılır, kullanıcı kaldığı yerden devam.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (isSupabaseAuthed) return; // Supabase auth varsa yukarıdaki useEffect halleder
+    if (useAppStore.getState().isAuthed) return; // zaten giriş yapmış
+
+    try {
+      const backup = localStorage.getItem("tm_game_state_backup");
+      if (backup) {
+        const saved = JSON.parse(backup);
+        if (saved && saved.isAuthed === true) {
+          // Backup'taki isDevMode'a göre doğru login tipini çağır
+          if (saved.isDevMode === true) {
+            loginDemo("Geliştirici");
+          } else {
+            loginDemo(saved.managerName || "Menajer");
+          }
+          setMode("demo");
+        }
+      }
+    } catch {
+      // backup bozuksa sessizce geç
+    }
+  }, [loginDemo, isSupabaseAuthed]);
 
   // Supabase auth varsa veya demo mode'da ise çocukları göster
   if (isSupabaseAuthed || (isAuthed && mode !== "landing")) {
@@ -124,9 +157,26 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   };
 
   // Geliştirici/Yönetici modu — kayıtsız giriş, tüm özellikler local
+  // v2.9.153: Önce şifre modalı göster — şifre 131313
   const handleDevMode = () => {
-    loginDemo("Geliştirici");
-    setMode("demo"); // v2.9.74 FIX: mode "landing" kalırsa children render edilmez
+    setDevPasswordInput("");
+    setDevPasswordError("");
+    setShowDevPasswordModal(true);
+  };
+
+  // v2.9.153: Dev mode şifre doğrulama — 131313
+  const DEV_PASSWORD = "131313";
+  const handleDevModeSubmit = () => {
+    if (devPasswordInput === DEV_PASSWORD) {
+      setShowDevPasswordModal(false);
+      setDevPasswordInput("");
+      setDevPasswordError("");
+      loginDemo("Geliştirici");
+      setMode("demo");
+    } else {
+      setDevPasswordError("Yanlış şifre. Dev mode erişimi reddedildi.");
+      haptic("error");
+    }
   };
 
   // Loading ekranı
@@ -229,6 +279,61 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               </button>
             </div>
           </>
+        )}
+
+        {/* v2.9.153: DEV MODE ŞİFRE MODALI — 131313 */}
+        {showDevPasswordModal && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="tm-card w-full max-w-[300px] overflow-hidden">
+              <div className="relative px-5 pt-5 pb-4 bg-gradient-to-br from-amber-900/40 to-purple-900/30 border-b border-border">
+                <button
+                  onClick={() => setShowDevPasswordModal(false)}
+                  className="absolute top-3 right-3 p-1.5 rounded-full bg-black/30 hover:bg-black/50"
+                  aria-label="Kapat"
+                >
+                  <X size={14} className="text-white/80" />
+                </button>
+                <div className="flex items-center gap-2 mb-1">
+                  <Shield size={20} className="text-amber-400" />
+                  <h3 className="text-sm font-bold">Geliştirici Erişimi</h3>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Dev mode'a girmek için şifre gerekli
+                </p>
+              </div>
+              <div className="p-5 space-y-3">
+                <input
+                  type="password"
+                  placeholder="Şifre"
+                  value={devPasswordInput}
+                  onChange={(e) => {
+                    setDevPasswordInput(e.target.value);
+                    setDevPasswordError("");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleDevModeSubmit();
+                  }}
+                  className="w-full px-3 py-2.5 rounded-lg bg-card border border-border text-sm text-center font-bold tracking-widest"
+                  autoFocus
+                  maxLength={20}
+                  inputMode="numeric"
+                />
+                {devPasswordError && (
+                  <p className="text-[11px] text-red-400 text-center">{devPasswordError}</p>
+                )}
+                <button
+                  onClick={handleDevModeSubmit}
+                  className="tm-tap w-full py-2.5 rounded-lg text-xs font-bold text-white shadow-md active:scale-[0.98] transition-transform"
+                  style={{ background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)" }}
+                >
+                  Giriş Yap
+                </button>
+                <p className="text-[9px] text-muted-foreground/60 text-center leading-relaxed">
+                  ⚠️ Bu basit bir kapı — gerçek güvenlik değil. Sadece rastgele test kullanıcısının yanlışlıkla dev paneline girmesini engeller.
+                </p>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* LOGIN — email/şifre */}

@@ -104,7 +104,32 @@ function triggerTacticsSave(): void {
             // Debounce'lu kayıt — 1.5sn sonra active_tactics tablosuna
             saveTacticsState(userId);
           }
-          // Giriş yapmamışsa: demo mode, cloud-save yok
+          // v2.9.153 B TEST FIX: Dev/demo mode'da da localStorage'a kaydet.
+          // Önceki kod: userId yoksa hiçbir şey yapmıyordu → state reload'da kayboluyordu.
+          // Düzeltme: userId yoksa da localStorage backup yap — kullanıcının ilerlemesi
+          // korunsun. Bu özellikle APK'da (force-stop sonrası) kritik.
+          if (!userId) {
+            try {
+              const state = useAppStore.getState();
+              const persistentKeys = [
+                "isAuthed", "managerName", "isDevMode", "myTeamId",
+                "clubs", "fixtures", "credits", "seasonMatchday", "seasonNumber",
+                "dailyTasks", "training", "tactics", "facilities",
+                "sponsors", "transfer", "onboarding", "cardInventory",
+                "youthAcademy", "lastFriendlyResult", "seasonAwards",
+                "userCountryCode",
+              ];
+              const toSave: Record<string, unknown> = {};
+              for (const key of persistentKeys) {
+                if ((state as any)[key] !== undefined) {
+                  toSave[key] = (state as any)[key];
+                }
+              }
+              localStorage.setItem("tm_game_state_backup", JSON.stringify(toSave));
+            } catch (e) {
+              // localStorage dolu olabilir — sessizce geç
+            }
+          }
         }).catch(() => { /* session alınamazsa sessizce geç */ });
       }).catch(() => { /* supabase import hatası */ });
     }).catch(() => { /* cloud-save import hatası */ });
@@ -299,6 +324,10 @@ type ChampionsLeagueState = {
 type AppState = {
   isAuthed: boolean;
   managerName: string;
+  // v2.9.153: Dev mode flag — "Geliştirici Modu (Kayıtsız)" butonu ile giriş yapınca true.
+  // Normal kayıt/giriş yapan kullanıcılar için false. Bu flag bottom-nav'da
+  // "Maç" sekmesini gösterir (dev) veya gizler (normal user → "Mesajlar" gösterir).
+  isDevMode: boolean;
   myTeamId: string | null;
   seasonMatchday: number;
   seasonNumber: number;
@@ -741,6 +770,7 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       isAuthed: false,
       managerName: "",
+      isDevMode: false, // v2.9.153: default false — dev button sets true
       myTeamId: null,
       seasonMatchday: 1,
       // v2.9.58: Yardım modal'ı default kapalı
@@ -854,6 +884,34 @@ export const useAppStore = create<AppState>()(
       },
 
       loginDemo: (name, countryCode) => {
+        // v2.9.153 B TEST FIX: Önce localStorage backup varsa yükle.
+        // Eğer kullanıcı daha önce oynamışsa (isAuthed=true backup), yeni başlangıç
+        // yapma — eski state'i geri yükle. Bu özellikle APK force-stop sonrası kritik.
+        if (typeof window !== "undefined") {
+          try {
+            const backup = localStorage.getItem("tm_game_state_backup");
+            if (backup) {
+              const saved = JSON.parse(backup);
+              if (saved && saved.isAuthed === true && saved.clubs && saved.clubs.length > 0) {
+                // Eski state'i geri yükle — kullanıcı kaldığı yerden devam etsin
+                useAppStore.setState({
+                  ...saved,
+                  // managerName/isDevMode parametreden gelen ile override et
+                  // (kullanıcı tekrar giriş yapıyor)
+                  managerName: name || saved.managerName || "Menajer",
+                  isDevMode: name === "Geliştirici" ? true : (saved.isDevMode ?? false),
+                });
+                console.log("[loginDemo] State restored from localStorage backup");
+                // triggerTacticsSave çağır ki güncel state de backup'lansın
+                triggerTacticsSave();
+                return;
+              }
+            }
+          } catch (e) {
+            console.warn("[loginDemo] localStorage restore error:", e);
+          }
+        }
+
         // Already-initialized clubs varsa yeniden üretme
         let clubs = get().clubs;
         if (clubs.length === 0) {
@@ -924,6 +982,9 @@ export const useAppStore = create<AppState>()(
         set({
           isAuthed: true,
           managerName: name || "Menajer",
+          // v2.9.153: "Geliştirici" adıyla giriş → dev mode active
+          // Bu flag bottom-nav'da "Maç" sekmesini gösterir/devre dışı bırakir
+          isDevMode: (name === "Geliştirici"),
           myTeamId,
           clubs,
           fixtures,
@@ -6979,4 +7040,42 @@ export function useMyTeam(): Team | null {
 
 export function getFormation(key: string): Formation {
   return FORMATIONS.find((f) => f.key === key) ?? FORMATIONS[0];
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// v2.9.153 B TEST FIX: Dev/demo mode localStorage persistence
+// ════════════════════════════════════════════════════════════════════════════
+// triggerTacticsSave() async chain'i Supabase import beklediği için bazen
+// dev mode'da localStorage kaydetmiyor. Bu subscribe listener her state
+// değişikliğinde (debounce'lu) direkt localStorage'a yazar — Supabase'siz.
+if (typeof window !== "undefined") {
+  let devSaveTimeout: ReturnType<typeof setTimeout> | null = null;
+  useAppStore.subscribe((state) => {
+    // Sadece auth olmuş kullanıcılar için
+    if (!state.isAuthed) return;
+
+    // Debounce — 500ms içinde birden fazla değişiklik gelirse tek seferde yaz
+    if (devSaveTimeout) clearTimeout(devSaveTimeout);
+    devSaveTimeout = setTimeout(() => {
+      try {
+        const persistentKeys = [
+          "isAuthed", "managerName", "isDevMode", "myTeamId",
+          "clubs", "fixtures", "credits", "seasonMatchday", "seasonNumber",
+          "dailyTasks", "training", "tactics", "facilities",
+          "sponsors", "transfer", "onboarding", "cardInventory",
+          "youthAcademy", "lastFriendlyResult", "seasonAwards",
+          "userCountryCode",
+        ];
+        const toSave: Record<string, unknown> = {};
+        for (const key of persistentKeys) {
+          if ((state as any)[key] !== undefined) {
+            toSave[key] = (state as any)[key];
+          }
+        }
+        localStorage.setItem("tm_game_state_backup", JSON.stringify(toSave));
+      } catch (e) {
+        // localStorage dolu olabilir — sessizce geç
+      }
+    }, 500);
+  });
 }

@@ -24,6 +24,13 @@ import {
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { haptic } from "@/hooks/touchline";
 import { cn } from "@/lib/utils";
+// v2.9.153: Dev mode flag — "Maç" sekmesini göster/gizle için
+import { useAppStore } from "@/lib/store";
+
+// Hook: mevcut kullanıcı dev mode'da mı?
+function useAppStoreDevMode(): boolean {
+  return useAppStore((s) => s.isDevMode);
+}
 
 export type TabKey =
   | "dashboard"
@@ -61,6 +68,18 @@ export const MAIN_TABS: { key: TabKey; icon: typeof LayoutDashboard; labelKey: s
   { key: "finance", icon: Wallet, labelKey: "nav.finance" },
 ];
 
+// v2.9.153: Normal kullanıcılar için "Maç" sekmesi YOK — onun yerine "Mesajlar" var.
+// Dev mode (Geliştirici Modu) için "Maç" sekmesi korunur.
+// route/component SİLİNMEDİ — sadece normal user'ın nav'ında gösterilmiyor.
+export const MAIN_TABS_NORMAL: { key: TabKey; icon: typeof LayoutDashboard; labelKey: string }[] = [
+  { key: "dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard" },
+  { key: "tactics", icon: ClipboardList, labelKey: "nav.tactics" },
+  // "match" yerine "messages" — normal kullanıcı maç fikstürünü Fixture ekranından erişir
+  { key: "messages", icon: Inbox, labelKey: "nav.messages" },
+  { key: "transfer", icon: ArrowLeftRight, labelKey: "nav.transfer" },
+  { key: "finance", icon: Wallet, labelKey: "nav.finance" },
+];
+
 export const OTHER_TABS: { key: TabKey; icon: LucideIcon; labelKey: string }[] = [
   { key: "leaderboard", icon: Trophy, labelKey: "nav.leaderboard" },
   { key: "forum", icon: MessageSquare, labelKey: "nav.forum" },
@@ -87,13 +106,17 @@ export function BottomNav({
   const { t } = useI18n();
   const otherActive = OTHER_TABS.some((tab) => tab.key === active);
 
+  // v2.9.153: Dev mode ise "Maç" sekmesi göster, normal user ise "Mesajlar" göster
+  const isDevMode = useAppStoreDevMode();
+  const tabs = isDevMode ? MAIN_TABS : MAIN_TABS_NORMAL;
+
   return (
     <nav
       className="tm-bottom-nav grid grid-cols-6 gap-0"
       role="tablist"
       aria-label="tabs"
     >
-      {MAIN_TABS.map((tab) => {
+      {tabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = tab.key === active;
         return (
