@@ -1070,7 +1070,22 @@ function IncomingOfferCard({
           onClick={() => {
             haptic("success");
             setProcessing(true);
-            useAppStore.getState().acceptOffer(offer.id);
+            const result: any = useAppStore.getState().acceptOffer(offer.id);
+            if (result?.success) {
+              haptic("success");
+              // Card doğal olarak kaybolur — offer store'dan silinir
+              setTimeout(() => setProcessing(false), 500);
+            } else {
+              haptic("error");
+              setProcessing(false);
+              const reason = result?.reason || "unknown";
+              const msgMap: Record<string, string> = {
+                "no-buyer": "Alıcı takım bulunamadı — teklifi reddetmeyi deneyin.",
+                "not-in-team": "Oyuncu artık kadronuzda değil.",
+                "loaned-player": "Kiralık oyuncu satılamaz.",
+              };
+              alert(msgMap[reason] || `Transfer başarısız: ${reason}`);
+            }
           }}
           disabled={processing}
           className="tm-tap flex-1 inline-flex items-center justify-center gap-1 py-2 rounded-md bg-emerald-600 text-white text-xs font-bold disabled:opacity-50"

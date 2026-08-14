@@ -62,11 +62,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }, [isSupabaseAuthed, user, loginDemo]);
 
   // v2.9.153 B TEST FIX: Dev/demo mode'da sayfa yenilenince otomatik geri yükle.
-  // localStorage'da backup varsa ve isAuthed=true ise, loginDemo() çağır →
-  // loginDemo içinden localStorage restore yapılır, kullanıcı kaldığı yerden devam.
+  // v2.9.155 FIX: Sadece Supabase YAPILANDIRILMAMIŞSA (dev/demo mode) restore et.
+  // Supabase hazır ise (kayıtlı kullanıcılar) login ekranını göster — otomatik
+  // geri yükleme YAPMA, yoksa login/register ekranı kaybolur.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (isSupabaseAuthed) return; // Supabase auth varsa yukarıdaki useEffect halleder
+    if (supabaseReady) return; // Supabase hazır → login ekranı göster, restore yapma
     if (useAppStore.getState().isAuthed) return; // zaten giriş yapmış
 
     try {
@@ -74,7 +75,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       if (backup) {
         const saved = JSON.parse(backup);
         if (saved && saved.isAuthed === true) {
-          // Backup'taki isDevMode'a göre doğru login tipini çağır
           if (saved.isDevMode === true) {
             loginDemo("Geliştirici");
           } else {
@@ -86,7 +86,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     } catch {
       // backup bozuksa sessizce geç
     }
-  }, [loginDemo, isSupabaseAuthed]);
+  }, [loginDemo, supabaseReady]);
 
   // Supabase auth varsa veya demo mode'da ise çocukları göster
   if (isSupabaseAuthed || (isAuthed && mode !== "landing")) {
@@ -212,8 +212,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center px-6 text-center pb-8">
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5" style={{ background: "var(--primary)" }}>
-          <Trophy size={32} className="text-white" />
+        {/* v2.9.155: Kullanıcı ikonu — açılış ekranında göster */}
+        <div className="w-24 h-24 rounded-2xl overflow-hidden flex items-center justify-center mb-5 shadow-lg border-2 border-white/20">
+          <img src="./splash-icon.png" alt="Touchline Manager" className="w-full h-full object-cover" />
         </div>
         <h1 className="text-2xl font-bold mb-1">{t("auth.title")}</h1>
 

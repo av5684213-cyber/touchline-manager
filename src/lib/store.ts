@@ -924,7 +924,12 @@ export const useAppStore = create<AppState>()(
 
         let myTeamId = get().myTeamId;
         if (!myTeamId || !clubs.find((c) => c.id === myTeamId)) {
-          const candidate = pickRandom(clubs);
+          // v2.9.155: Yeni kullanıcılar 4. ligden (3. Lig) başlamalı.
+          // Eski kod: pickRandom(clubs) → rastgele tier, bazen Süper Lig'den başlıyordu.
+          // Yeni: sadece tier=4 (3. Lig) takımları arasından rastgele seç.
+          const tier4Clubs = clubs.filter((c) => c.leagueTier === 4);
+          const candidatePool = tier4Clubs.length > 0 ? tier4Clubs : clubs;
+          const candidate = pickRandom(candidatePool);
           myTeamId = candidate.id;
         }
 
