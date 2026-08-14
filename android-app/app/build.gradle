@@ -1,5 +1,7 @@
 plugins {
     id "com.android.application"
+    // v2.9.156: Firebase — push notification için
+    id "com.google.gms.google-services" version "4.4.2" apply false
 }
 
 android {
@@ -9,8 +11,8 @@ android {
         applicationId "com.touchline.manager"
         minSdk 24
         targetSdk 35
-        versionCode 1550
-        versionName "2.9.155"
+        versionCode 1560
+        versionName "2.9.156"
     }
     sourceSets {
         main {
@@ -170,4 +172,7 @@ afterEvaluate {
 // https://developer.android.com/google/play/billing/integrate
 dependencies {
     implementation 'com.android.billingclient:billing-ktx:6.1.0'
+    // v2.9.156: Firebase — push notification için
+    implementation platform('com.google.firebase:firebase-bom:33.1.0')
+    implementation 'com.google.firebase:firebase-messaging:24.0.0'
 }

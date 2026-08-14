@@ -384,16 +384,43 @@ public class MainActivity extends Activity {
             }
 
             // v2.9.20 GÖREV 8: FCM Push Notification Token
-            // v2.9.65 FIX: getFCMToken artık Android ID döndürmüyor — boş string döner
-            // Eski kod: Settings.Secure.ANDROID_ID'yi alıp "tm_<androidId>" döndürüyordu
-            // → Play Store Data Safety'de cihaz tanımlayıcı toplandığı belirtilmeliydi
-            // → Gerçek FCM token değil, push gönderilemezdi
-            // Yeni: Firebase SDK eklenene kadar boş döndür, push notifications disabled kalsın
+            // v2.9.156: Artık gerçek FCM token döndürür!
+            // Firebase SDK eklendi (build.gradle), google-services.json gerekli.
+            // Token SharedPreferences'tan okunur (TouchlineFirebaseMessagingService kaydeder).
+            // Eğer token yoksa (ilk açılışta henüz üretilmediyse) boş döner —
+            // JS tarafı 30 saniyede bir tekrar dener (use-push-notifications.ts pollInterval).
             @android.webkit.JavascriptInterface
             public String getFCMToken() {
-                // v2.9.65: Push notifications disabled — gerçek FCM token döndürmek için
-                // Firebase Messaging SDK entegrasyonu gerekir
-                return "";
+                try {
+                    String token = getSharedPreferences("touchline_prefs", MODE_PRIVATE)
+                            .getString("fcm_token", "");
+                    if (token != null && !token.isEmpty()) {
+                        Log.d(TAG, "FCM token returned: " + token.substring(0, Math.min(20, token.length())) + "...");
+                        return token;
+                    }
+                    // Token yoksa — Firebase'ten talep et (async, bir sonraki poll'da hazır olur)
+                    try {
+                        com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
+                                .addOnCompleteListener(task -> {
+                                    if (task.isSuccessful() && task.getResult() != null) {
+                                        String newToken = task.getResult();
+                                        getSharedPreferences("touchline_prefs", MODE_PRIVATE)
+                                                .edit()
+                                                .putString("fcm_token", newToken)
+                                                .apply();
+                                        Log.d(TAG, "FCM token fetched: " + newToken.substring(0, Math.min(20, newToken.length())) + "...");
+                                    } else {
+                                        Log.w(TAG, "FCM token fetch failed", task.getException());
+                                    }
+                                });
+                    } catch (Exception e) {
+                        Log.w(TAG, "Firebase not initialized (google-services.json missing?)", e);
+                    }
+                    return "";
+                } catch (Exception e) {
+                    Log.e(TAG, "getFCMToken error", e);
+                    return "";
+                }
             }
 
             // v2.9.20 GÖREV 8: Platform bilir

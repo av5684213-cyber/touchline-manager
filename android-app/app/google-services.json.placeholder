@@ -1,0 +1,31 @@
+{
+  "_comment": "BU DOSYA PLACEHOLDER'DIR. Firebase Console'dan gerçek google-services.json indirip bu dosyayla değiştirin.",
+  "_instructions": [
+    "1. https://console.firebase.google.com → Proje aç/t oluştur",
+    "2. Android uygulaması ekle → package name: com.touchline.manager",
+    "3. google-services.json indir",
+    "4. Bu dosyayla değiştir (android-app/app/google-services.json)",
+    "5. APK'yı yeniden build al"
+  ],
+  "project_info": {
+    "project_number": "PLACEHOLDER",
+    "project_id": "touchline-manager",
+    "storage_bucket": "touchline-manager.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "PLACEHOLDER",
+        "android_client_info": {
+          "package_name": "com.touchline.manager"
+        }
+      },
+      "api_key": [
+        {
+          "current_key": "PLACEHOLDER"
+        }
+      ]
+    }
+  ],
+  "configuration_version": "1"
+}
