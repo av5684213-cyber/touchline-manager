@@ -63,32 +63,45 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [isSupabaseAuthed, user, loginDemo]);
 
-  // v2.9.153 B TEST FIX: Dev/demo mode'da sayfa yenilenince otomatik geri yükle.
-  // v2.9.155 FIX: Sadece Supabase YAPILANDIRILMAMIŞSA (dev/demo mode) restore et.
-  // Supabase hazır ise (kayıtlı kullanıcılar) login ekranını göster — otomatik
-  // geri yükleme YAPMA, yoksa login/register ekranı kaybolur.
+  // v2.9.157 FIX: Supabase getSession() asla tamamlanmazsa (network/CORS),
+  // loading=true kalır ve auto-restore hiç çalışmaz. 3 saniye timeout ekle:
+  // loading true olsa bile 3sn sonra localStorage backup kontrol et.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (supabaseReady) return; // Supabase hazır → login ekranı göster, restore yapma
+    if (isSupabaseAuthed) return; // Supabase session var → onu kullan
     if (useAppStore.getState().isAuthed) return; // zaten giriş yapmış
 
-    try {
-      const backup = localStorage.getItem("tm_game_state_backup");
-      if (backup) {
-        const saved = JSON.parse(backup);
-        if (saved && saved.isAuthed === true) {
-          if (saved.isDevMode === true) {
-            loginDemo("Geliştirici");
-          } else {
-            loginDemo(saved.managerName || "Menajer");
+    // Loading false ise hemen kontrol et
+    const tryRestore = () => {
+      if (useAppStore.getState().isAuthed) return; // race condition guard
+      try {
+        const backup = localStorage.getItem("tm_game_state_backup");
+        if (backup) {
+          const saved = JSON.parse(backup);
+          if (saved && saved.isAuthed === true && saved.clubs && saved.clubs.length > 0) {
+            if (saved.isDevMode === true) {
+              loginDemo("Geliştirici");
+            } else {
+              loginDemo(saved.managerName || "Menajer");
+            }
+            setMode("demo");
           }
-          setMode("demo");
         }
+      } catch {
+        // backup bozuksa sessizce geç
       }
-    } catch {
-      // backup bozuksa sessizce geç
+    };
+
+    if (!loading) {
+      tryRestore();
+    } else {
+      // Loading true → 3sn bekle, sonra yine de dene (Supabase takılı olabilir)
+      const timer = setTimeout(() => {
+        if (!isSupabaseAuthed) tryRestore();
+      }, 3000);
+      return () => clearTimeout(timer);
     }
-  }, [loginDemo, supabaseReady]);
+  }, [loginDemo, loading, isSupabaseAuthed]);
 
   // Supabase auth varsa veya demo mode'da ise çocukları göster
   if (isSupabaseAuthed || (isAuthed && mode !== "landing")) {
