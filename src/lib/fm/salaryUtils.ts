@@ -48,7 +48,10 @@ export function calculateSalaryRange(
     else if (age > 32) ageBonus = 0.85;
   }
 
-  const baseSalary = overall * 950 * tierMultiplier * ageBonus;
+  // v2.9.161 FIX: 950 → 350 — alt lig takımları çok fazla maaş ödüyordu
+  // Eski: overall 50 × 950 = 47.500/hafta → 23 oyuncu = ~1M/hafta → bütçe 3M eriyor
+  // Yeni: overall 50 × 350 = 17.500/hafta → 23 oyuncu = ~400K/hafta → dengeli
+  const baseSalary = overall * 350 * tierMultiplier * ageBonus;
   const inflated = applyInflation(baseSalary, seasonNumber);
   const clamped = Math.max(5000, Math.min(500_000, inflated));
   return {
