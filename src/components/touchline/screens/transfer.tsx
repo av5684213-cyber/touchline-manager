@@ -927,6 +927,7 @@ function PlayerCard({
           <PlayerAvatar
             initials={player.specificPosition ?? "—"}
             size={32}
+            photoUrl={player.photoUrl}
           />
         </button>
         <button

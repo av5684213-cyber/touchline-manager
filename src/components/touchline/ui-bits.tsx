@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef } from "react";
+import { Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 
@@ -38,23 +40,55 @@ export function PlayerAvatar({
   initials,
   color,
   size = 40,
+  photoUrl,
+  onPhotoUpload,
 }: {
   initials: string;
   color?: string;
   size?: number;
+  photoUrl?: string | null;
+  onPhotoUpload?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+
   return (
     <span
-      className="inline-flex items-center justify-center rounded-full font-semibold text-white"
+      className="relative inline-flex items-center justify-center rounded-full font-semibold text-white overflow-hidden shrink-0"
       style={{
         width: size,
         height: size,
         background: color ?? "#1a3a2a",
         fontSize: size * 0.36,
       }}
-      aria-hidden
+      aria-hidden={!onPhotoUpload}
     >
-      {initials}
+      {photoUrl ? (
+        <img src={photoUrl} alt="" className="w-full h-full object-cover rounded-full" />
+      ) : (
+        initials
+      )}
+      {onPhotoUpload && (
+        <>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              fileRef.current?.click();
+            }}
+            className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity rounded-full"
+            aria-label="Fotoğraf yükle"
+            style={{ width: size, height: size }}
+          >
+            <Camera size={size * 0.35} className="text-white" />
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            onChange={onPhotoUpload}
+            className="hidden"
+          />
+        </>
+      )}
     </span>
   );
 }

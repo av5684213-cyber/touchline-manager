@@ -19,6 +19,7 @@ import {
   Wind,
   X,
   Zap,
+  ChevronRight,
 } from "lucide-react";
 import { SEASON_INFO } from "@/lib/mock/season";
 import { useI18n } from "@/lib/i18n/locale-provider";
@@ -58,7 +59,7 @@ type MatchTactics = {
 };
 type Side = "home" | "away" | "neutral";
 type HomeAway = "home" | "away";
-import { ClubBadge, PositionPill, RatingBadge } from "../ui-bits";
+import { ClubBadge, PlayerAvatar, PositionPill, RatingBadge } from "../ui-bits";
 import { PlayerProfileModal } from "../player-profile-modal";
 import { MatchCelebration } from "../match-celebration";
 // ADDED: 2D Live Match Pitch
@@ -150,6 +151,8 @@ export function MatchScreen({ friendlyHomeTeam, friendlyAwayTeam, isFriendly = f
   }));
   // ADDED: Saha oyuncusu profil modal'ı
   const [pitchProfilePlayer, setPitchProfilePlayer] = useState<PlayerT | null>(null);
+  // v2.9.162: Maç sırasında oyuncu değiştirme paneli — sahadaki oyuncuya tıklayınca açılır
+  const [subOutPlayer, setSubOutPlayer] = useState<PlayerT | null>(null);
   // v2.9.25 K4: Resmi maçta rakip ile sohbet (fixed bottom bar)
   const [showChat, setShowChat] = useState(false);
   const [stableUserId] = useState(() => `user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
@@ -236,6 +239,17 @@ export function MatchScreen({ friendlyHomeTeam, friendlyAwayTeam, isFriendly = f
               : awayTeam.primaryColor
           }
           onClose={() => setPitchProfilePlayer(null)}
+        />
+      )}
+
+      {/* v2.9.162: Maç sırasında oyuncu değiştirme paneli — sahadaki oyuncuya tıklayınca açılır */}
+      {subOutPlayer && team && (
+        <LiveSubPanel
+          outPlayer={subOutPlayer}
+          team={team}
+          engine={engine}
+          mySide={mySide}
+          onClose={() => setSubOutPlayer(null)}
         />
       )}
     </>
@@ -346,7 +360,20 @@ export function MatchScreen({ friendlyHomeTeam, friendlyAwayTeam, isFriendly = f
                   awayShort={awayTeam.name}
                   onPlayerClick={(playerId) => {
                     const p = [...homeTeam.players, ...awayTeam.players].find((pp) => pp.id === playerId);
-                    if (p) { haptic("light"); setPitchProfilePlayer(p); }
+                    if (p) {
+                      haptic("light");
+                      // v2.9.162: Maç sırasında oyuncuya tıklayınca oyuncu değiştirme paneli aç
+                      const isMyPlayer = userIsHome
+                        ? homeTeam.players.some((pp) => pp.id === playerId)
+                        : awayTeam.players.some((pp) => pp.id === playerId);
+                      if (isMyPlayer) {
+                        // Kendi oyuncum — değiştirme panelini aç
+                        setSubOutPlayer(p);
+                      } else {
+                        // Rakip oyuncu — profil göster
+                        setPitchProfilePlayer(p);
+                      }
+                    }
                   }}
                 />
               );
@@ -1974,6 +2001,118 @@ function MatchEndSummary({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// v2.9.162: LiveSubPanel — Maç sırasında oyuncu değiştirme paneli (basitleştirilmiş)
+// ════════════════════════════════════════════════════════════════════════════
+// Sahadaki oyuncuya tıklayınca açılır. Çıkacak oyuncu zaten seçili (outPlayer).
+// Kullanıcı yedekten girecek oyuncuyu seçer — tek tıkla değişim yapılır.
+function LiveSubPanel({
+  outPlayer,
+  team,
+  engine,
+  mySide,
+  onClose,
+}: {
+  outPlayer: any;
+  team: any;
+  engine: any;
+  mySide: "home" | "away" | "neutral";
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const [search, setSearch] = useState("");
+  const subsUsed = engine.state.subsUsed?.[mySide] ?? 0;
+  const subsLeft = MAX_SUBSTITUTIONS - subsUsed;
+
+  // Yedekler = kadroda olup lineup'ta olmayan oyuncular
+  const tactics = useAppStore((s) => s.tactics);
+  const lineupIds = new Set(tactics.lineup.filter((p): p is PlayerT => p !== null).map(p => p.id));
+  const subs = team.players.filter((p: any) => !lineupIds.has(p.id))
+    .filter((p: any) => search === "" || `${p.firstName} ${p.lastName}`.toLowerCase().includes(search.toLowerCase()))
+    .slice(0, 12);
+
+  const handleSub = (inPlayer: any) => {
+    if (subsLeft <= 0) {
+      haptic("error");
+      return;
+    }
+    haptic("success");
+    engine.makeSub(mySide as HomeAway, outPlayer, inPlayer);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative w-full max-w-[390px] bg-background rounded-t-2xl border-t border-border max-h-[75vh] flex flex-col">
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold">🔄 Oyuncu Değiştir</h3>
+            <p className="text-[10px] text-muted-foreground">
+              Çıkacak: <span className="font-semibold">{outPlayer.firstName} {outPlayer.lastName}</span>
+              {" · "}{outPlayer.specificPosition} · {outPlayer.rating} OVR
+            </p>
+          </div>
+          <button onClick={onClose} className="tm-tap p-1" aria-label="Kapat">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Subs remaining */}
+        <div className="px-4 py-2 bg-muted/30 flex items-center justify-between">
+          <span className="text-[10px] text-muted-foreground">
+            Değişiklik hakkın: <span className={cn("font-bold", subsLeft > 0 ? "text-emerald-400" : "text-red-400")}>{subsLeft}</span> / {MAX_SUBSTITUTIONS}
+          </span>
+          {subsLeft <= 0 && (
+            <span className="text-[10px] text-red-400 font-bold">Değişiklik hakkın bitti</span>
+          )}
+        </div>
+
+        {/* Search */}
+        <div className="px-3 py-2">
+          <input
+            type="text"
+            placeholder="Yedek ara..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg bg-card border border-border text-sm"
+          />
+        </div>
+
+        {/* Bench players */}
+        <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-1">
+          {subs.length === 0 ? (
+            <div className="text-center py-8 text-xs text-muted-foreground">
+              Yedek oyuncu bulunamadı.
+            </div>
+          ) : (
+            subs.map((p: any) => (
+              <button
+                key={p.id}
+                onClick={() => handleSub(p)}
+                disabled={subsLeft <= 0}
+                className="tm-tap w-full flex items-center gap-2 p-2 rounded text-left bg-card border border-border hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-colors disabled:opacity-50"
+              >
+                <span className="text-[11px] font-bold w-6 shrink-0">{p.specificPosition}</span>
+                <PlayerAvatar
+                  initials={p.specificPosition ?? "—"}
+                  size={28}
+                  photoUrl={p.photoUrl}
+                />
+                <span className="text-xs font-semibold flex-1 truncate">{p.firstName} {p.lastName}</span>
+                <span className="text-[10px] text-amber-400 font-bold tabular-nums">{p.rating}</span>
+                <span className="text-[10px] text-muted-foreground tabular-nums">{p.cond ?? 100}❤</span>
+                <ChevronRight size={14} className="text-muted-foreground shrink-0" />
+              </button>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }
