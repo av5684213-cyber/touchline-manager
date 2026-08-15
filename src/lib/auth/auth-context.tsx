@@ -217,7 +217,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: "Supabase yapılandırılmamış. Geliştirici Modu ile devam edin." };
     }
     try {
-      const redirectTo = `${window.location.origin}/`;
+      // v2.9.159 FIX: Android WebView'de window.location.origin = "file://"
+      // Supabase OAuth redirect HTTPS URL bekler, file:// çalışmaz.
+      // Çözüm: touchline:// deep link scheme kullan (AndroidManifest'te tanımlı).
+      // Supabase Dashboard → Auth → URL Configuration → Redirect URLs'e
+      // "touchline://auth-callback" eklenmeli.
+      const isAndroid = typeof window !== "undefined" &&
+        (window as any).AndroidNative?.getPlatform?.() === "android";
+      const redirectTo = isAndroid
+        ? "touchline://auth-callback"
+        : `${window.location.origin}/`;
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
