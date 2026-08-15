@@ -406,7 +406,7 @@ function OverviewTab({
               type="file"
               accept="image/*"
               onChange={onPhotoUpload}
-              className="hidden"
+              className="sr-only"
             />
           </label>
         </div>

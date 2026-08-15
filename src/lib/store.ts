@@ -2084,15 +2084,16 @@ export const useAppStore = create<AppState>()(
         const net = offer.offerAmount - tax;
 
         // P0 FIX: Alıcı bot takımını bul
-        // 1. buyerTeamId varsa ve gerçek kulüp ID'siyle eşleşiyorsa onu kullan
-        // 2. Eşleşmiyorsa (sahte ID) bütçesi yeterli rastgele bir bot seç
+        // v2.9.163 FIX: Bot bütçe kontrolü çok sıkı — botlar para kazanamıyor.
+        // Yeni: bütçesi yetmese bile alıcı olarak kabul et (bütçe negatife gidebilir,
+        // ama satış gerçekleşir — kullanıcı deneyimi bozulmaz).
         let buyerTeam = offer.buyerTeamId
           ? clubs.find((c) => c.id === offer.buyerTeamId)
           : null;
         if (!buyerTeam) {
-          // v2.9.29 P0-2: Bot alıcıda 25-oyuncu + GK limiti kontrolü ekle
+          // v2.9.163: Bütçe kontrolünü kaldır — sadece kadro limiti + GK limiti
           const candidates = clubs.filter((c) =>
-            c.id !== myTeamId && c.is_bot && c.budget >= offer.offerAmount
+            c.id !== myTeamId && c.is_bot
             && c.players.length < 25 // kadro limiti
             && (player.specificPosition !== "GK" || c.players.filter(p => p.specificPosition === "GK").length < 3) // GK limiti
           );

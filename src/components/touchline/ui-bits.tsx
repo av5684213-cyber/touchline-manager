@@ -85,7 +85,7 @@ export function PlayerAvatar({
             type="file"
             accept="image/*"
             onChange={onPhotoUpload}
-            className="hidden"
+            className="sr-only"
           />
         </>
       )}

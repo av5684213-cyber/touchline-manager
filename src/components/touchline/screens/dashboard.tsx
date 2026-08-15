@@ -1228,7 +1228,7 @@ function TeamHeaderBar({ team }: { team: any }) {
           type="file"
           accept="image/*"
           onChange={onLogoUpload}
-          className="hidden"
+          className="sr-only"
         />
       </div>
 

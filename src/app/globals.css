@@ -264,7 +264,16 @@ button > input,
 button > select,
 button > textarea,
 button > a,
-button > [role="button"] {
+button > [role="button"],
+button > label {
+  pointer-events: auto;
+}
+/* v2.9.163 FIX: input[type=file] içinde button > input olabilir */
+button > input[type="file"] {
+  pointer-events: auto;
+}
+/* v2.9.163 FIX: label > input da çalışabilsin */
+label > input {
   pointer-events: auto;
 }
 
