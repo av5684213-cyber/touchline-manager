@@ -514,6 +514,38 @@ public class MainActivity extends Activity {
                 String scheme = uri.getScheme();
                 if (scheme == null) return false;
 
+                // v2.9.160: OAuth redirect'i yakala — Supabase callback'den gelen
+                // auth token'ları URL hash'te (#access_token=...&refresh_token=...) taşınır.
+                // WebView bunu file:// olarak yükleyemez — biz yakalayıp index.html'e
+                // hash'i geçirerek geri yükleyeceğiz.
+                String fullUrl = uri.toString();
+                if (fullUrl.contains("#access_token=") || fullUrl.contains("?access_token=") ||
+                    fullUrl.contains("#error=") || fullUrl.contains("#type=")) {
+                    Log.i(TAG, "OAuth redirect intercepted: " + fullUrl.substring(0, Math.min(100, fullUrl.length())));
+                    // Hash'i index.html'e taşı
+                    String hash = uri.getFragment();
+                    if (hash == null) hash = "";
+                    String query = uri.getQuery();
+                    if (query != null && !query.isEmpty()) {
+                        hash = query; // query param olarak da gelebilir
+                    }
+                    // WebView'i index.html + hash ile yükle
+                    String newUrl = "file:///android_asset/web/index.html";
+                    if (!hash.isEmpty()) {
+                        newUrl += "#" + hash;
+                    }
+                    Log.i(TAG, "Redirecting WebView to index.html with auth hash");
+                    webView.loadUrl(newUrl);
+                    return true; // URL'yi biz handle ettik
+                }
+
+                // touchline:// scheme — push notification deep link
+                if (scheme.equals("touchline")) {
+                    Intent deepIntent = new Intent(Intent.ACTION_VIEW, uri);
+                    handleDeepLink(deepIntent);
+                    return true;
+                }
+
                 // Internal URLs — WebView'de yükle
                 if (scheme.equals("file") || scheme.equals("about") || scheme.equals("data")) {
                     return false;

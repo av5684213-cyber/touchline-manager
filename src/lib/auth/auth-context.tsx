@@ -217,15 +217,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: "Supabase yapılandırılmamış. Geliştirici Modu ile devam edin." };
     }
     try {
-      // v2.9.159 FIX: Android WebView'de window.location.origin = "file://"
-      // Supabase OAuth redirect HTTPS URL bekler, file:// çalışmaz.
-      // Çözüm: touchline:// deep link scheme kullan (AndroidManifest'te tanımlı).
-      // Supabase Dashboard → Auth → URL Configuration → Redirect URLs'e
-      // "touchline://auth-callback" eklenmeli.
+      // v2.9.160 FIX: OAuth redirect artık Supabase callback URL kullanıyor.
+      // Eski kod: touchline://auth-callback → sistem tarayıcısı açıyordu → çalışmıyordu.
+      // Yeni: Supabase callback URL → WebView shouldOverrideUrlLoading intercept eder
+      // → auth hash'i index.html'e geçirir → Supabase JS session'ı algılar.
       const isAndroid = typeof window !== "undefined" &&
         (window as any).AndroidNative?.getPlatform?.() === "android";
+      // Android WebView'de: redirect URL Supabase URL olabilir, çünkü shouldOverrideUrlLoading
+      // auth hash içeren URL'leri yakalayıp index.html'e yönlendiriyor.
+      // Web tarayıcıda: window.location.origin kullan (normal redirect).
       const redirectTo = isAndroid
-        ? "touchline://auth-callback"
+        ? "https://jmxbyaamwbpnvgbnjbmo.supabase.co/auth/v1/callback"
         : `${window.location.origin}/`;
 
       const { data, error } = await supabase.auth.signInWithOAuth({
