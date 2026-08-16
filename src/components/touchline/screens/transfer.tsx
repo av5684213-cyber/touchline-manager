@@ -28,7 +28,8 @@ import {
   type TransferListing,
 } from "@/lib/mock/transfer";
 // v2.9.149 GRACE PERIOD: transfer ücreti waiver için
-import { useIsInGracePeriod } from "@/components/touchline/welcome-modal";
+// v2.9.149 GRACE PERIOD: useIsInGracePeriod hook'u kaldırıldı — direkt store'dan okuyoruz
+// (React error #300 fix — hook conditional return'tan sonra çağrılıyordu)
 import {
   POSITION_GROUP,
   type Player,
@@ -1185,7 +1186,15 @@ function OfferModal({
   const { t } = useI18n();
   const team = useMyTeam();
   const transfer = useAppStore((s) => s.transfer);
+  const onboarding = useAppStore((s) => s.onboarding);
   const listing = transfer.freeAgents.find((l) => l.player.id === player.id);
+
+  // v2.9.167 FIX: useIsInGracePeriod hook'u conditional return'tan sonra çağrılırsa
+  // React error #300 verir. Hook yerine direkt store'dan oku.
+  const isGraceActive = !!(
+    onboarding?.gracePeriodEndsAt &&
+    Date.now() < onboarding.gracePeriodEndsAt
+  );
 
   const initialFee = listing?.askingPrice ?? player.marketValue;
   const [fee, setFee] = useState(initialFee);
@@ -1196,9 +1205,6 @@ function OfferModal({
 
   if (!team || !listing) return null;
 
-  // v2.9.149 GRACE PERIOD: ilk 7 günde transfer ücreti yok (welcome modal vaadi).
-  // useIsInGracePeriod() hook'u onboarding.gracePeriodEndsAt'ı kontrol eder.
-  const isGraceActive = useIsInGracePeriod();
   const cost = calculateBuyerCost(fee, { waiveGrace: isGraceActive });
   const overBudget = cost.total > team.budget;
   const tooLow = fee < listing.askingPrice * 0.85;
@@ -1208,8 +1214,10 @@ function OfferModal({
     const result = useAppStore.getState().buyPlayer(player.id, fee, wage, years);
     if (result.success) {
       haptic("success");
-      setFeedback({ type: "success", msg: t("transfer.offer_modal.accepted") });
-      setTimeout(() => onClose(), 1500);
+      // v2.9.167 FIX: Modalı HEMEN kapat — setTimeout 1500ms beklerken
+      // store güncellenir, freeAgents değişir, listing null olur,
+      // modal re-render olur → React error #300 (hook ordering).
+      onClose();
     } else {
       haptic("error");
       const reason =
