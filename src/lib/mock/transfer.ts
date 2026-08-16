@@ -210,14 +210,17 @@ export function generateFreeAgents(count = 30): TransferListing[] {
     const n = groupCounts[group];
     for (let i = 0; i < n; i++) {
       const pos = pick(positions);
+      // v2.9.165 FIX: OVR aralığını genişlet — düşük OVR'lı ucuz oyuncular da gelsin
+      // Eski: 60-81 → tüm oyuncular 10M+ değerinde, alt lig takımları alamıyordu
+      // Yeni: 40-81 arası → 200K-70M arası fiyatlar, her bütçeye uygun oyuncu var
       const ovrRange =
         group === "GK"
-          ? { min: 60, max: 75 }
+          ? { min: 40, max: 75 }
           : group === "DEF"
-          ? { min: 62, max: 78 }
+          ? { min: 42, max: 78 }
           : group === "MID"
-          ? { min: 63, max: 80 }
-          : { min: 64, max: 81 };
+          ? { min: 43, max: 80 }
+          : { min: 44, max: 81 };
 
       // generatePlayer() çağır — tüm attribute'lar, traits, archetype, seasonHistory dahil
       const player = generatePlayer(pos, ovrRange);
