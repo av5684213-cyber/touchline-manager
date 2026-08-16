@@ -33,8 +33,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const pendingTimeouts: ReturnType<typeof setTimeout>[] = [];
 
     // Mevcut session'ı al — hata durumunda da loading'i kapat
+    // v2.9.164: 5 saniye timeout — WebView'de getSession() takılırsa loading=true kalmasın
+    const sessionTimeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+    pendingTimeouts.push(sessionTimeout);
+
     supabase.auth.getSession()
       .then(({ data }) => {
+        clearTimeout(sessionTimeout);
         setSession(data.session);
         setUser(data.session?.user ?? null);
         setLoading(false);
@@ -53,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch((err) => {
+        clearTimeout(sessionTimeout);
         // v2.9.65 FIX: Sessiz demo mode yerine bağlantı hatası göster
         console.warn("[auth] getSession error:", err?.message);
         setConnectionError(true);

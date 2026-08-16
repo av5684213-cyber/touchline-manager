@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useI18n } from "@/lib/i18n/locale-provider";
 import { LocaleSwitcher } from "@/lib/i18n/locale-switcher";
 import { useAppStore } from "@/lib/store";
@@ -28,6 +28,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, session, loading, signUp, signIn, signInWithGoogle, signOut } = useSupabaseAuth();
 
   const [mode, setMode] = useState<"landing" | "login" | "register" | "demo">("landing");
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [managerName, setManagerName] = useState("");
@@ -63,45 +65,37 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [isSupabaseAuthed, user, loginDemo]);
 
-  // v2.9.157 FIX: Supabase getSession() asla tamamlanmazsa (network/CORS),
-  // loading=true kalır ve auto-restore hiç çalışmaz. 3 saniye timeout ekle:
-  // loading true olsa bile 3sn sonra localStorage backup kontrol et.
+  // v2.9.164: Auto-restore sadece Supabase YAPILANDIRILMAMIŞSA çalışsın.
+  // Supabase yapılandırılmışsa, kullanıcı ya giriş yapacak ya da kayıt olacak —
+  // eski localStorage backup'ı yüklemek kayıt akışını bozuyor.
+  // Sadece "Supabase bağlı değil" durumunda (offline/dev mode) restore et.
+
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (isSupabaseAuthed) return; // Supabase session var → onu kullan
-    if (useAppStore.getState().isAuthed) return; // zaten giriş yapmış
+    if (isSupabaseAuthed) return;
+    if (useAppStore.getState().isAuthed) return;
+    if (mode !== "landing") return;
+    // v2.9.164: Supabase yapılandırılmışsa restore yapma — kayıt/giriş akışını bozuyor
+    if (supabaseReady) return;
 
-    // Loading false ise hemen kontrol et
-    const tryRestore = () => {
-      if (useAppStore.getState().isAuthed) return; // race condition guard
-      try {
-        const backup = localStorage.getItem("tm_game_state_backup");
-        if (backup) {
-          const saved = JSON.parse(backup);
-          if (saved && saved.isAuthed === true && saved.clubs && saved.clubs.length > 0) {
-            if (saved.isDevMode === true) {
-              loginDemo("Geliştirici");
-            } else {
-              loginDemo(saved.managerName || "Menajer");
-            }
-            setMode("demo");
+    // Sadece Supabase yoksa (dev/demo mode) localStorage'dan restore
+    try {
+      const backup = localStorage.getItem("tm_game_state_backup");
+      if (backup) {
+        const saved = JSON.parse(backup);
+        if (saved && saved.isAuthed === true && saved.clubs && saved.clubs.length > 0) {
+          if (saved.isDevMode === true) {
+            loginDemo("Geliştirici");
+          } else {
+            loginDemo(saved.managerName || "Menajer");
           }
+          setMode("demo");
         }
-      } catch {
-        // backup bozuksa sessizce geç
       }
-    };
-
-    if (!loading) {
-      tryRestore();
-    } else {
-      // Loading true → 3sn bekle, sonra yine de dene (Supabase takılı olabilir)
-      const timer = setTimeout(() => {
-        if (!isSupabaseAuthed) tryRestore();
-      }, 3000);
-      return () => clearTimeout(timer);
+    } catch {
+      // backup bozuksa sessizce geç
     }
-  }, [loginDemo, loading, isSupabaseAuthed]);
+  }, [loginDemo, mode, isSupabaseAuthed, supabaseReady]);
 
   // Supabase auth varsa veya demo mode'da ise çocukları göster
   if (isSupabaseAuthed || (isAuthed && mode !== "landing")) {
